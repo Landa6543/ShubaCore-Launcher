@@ -474,12 +474,13 @@ function registerIpcHandlers(mainWindow) {
     }
   });
 
-  ipcMain.handle('mods:install-modpack-file', async (event, options) => {
+  ipcMain.handle('mods:install-modpack-file', async (event, options = {}) => {
     try {
-      const targetInstance = options.instancePath || profileManager.getActiveInstancePath();
+      const targetInstance = options.createProfile ? null : (options.instancePath || null);
       return await modManager.installModpackFile({
         ...options,
         instancePath: targetInstance,
+        createProfile: options.createProfile || !targetInstance,
         onProgress: (progress) => {
           if (mainWindow && !mainWindow.isDestroyed()) {
             mainWindow.webContents.send('mods:modpack-progress', progress);
@@ -494,12 +495,13 @@ function registerIpcHandlers(mainWindow) {
 
   ipcMain.handle('mods:select-modpack-file', async () => {
     const result = await dialog.showOpenDialog(mainWindow, {
-      title: 'Seleccionar archivo de modpack (.mrpack o .zip)',
+      title: 'Seleccionar archivo de modpack (CurseForge .zip / Modrinth .mrpack)',
       properties: ['openFile'],
       filters: [
-        { name: 'Modpacks soportados', extensions: ['mrpack', 'zip'] },
+        { name: 'Modpacks (CurseForge .zip / Modrinth .mrpack)', extensions: ['zip', 'mrpack'] },
+        { name: 'CurseForge Modpack (.zip)', extensions: ['zip'] },
         { name: 'Modrinth Modpack (.mrpack)', extensions: ['mrpack'] },
-        { name: 'CurseForge Modpack (.zip)', extensions: ['zip'] }
+        { name: 'Todos los archivos (*.*)', extensions: ['*'] }
       ]
     });
 
@@ -539,10 +541,13 @@ function registerIpcHandlers(mainWindow) {
         onProgress: (progress) => {
           if (mainWindow && !mainWindow.isDestroyed()) {
             mainWindow.webContents.send('content:download-progress', progress);
+            if (progress && (progress.type === 'modpack_file' || progress.type === 'cf_modpack_file' || progress.type === 'modpack_download')) {
+              mainWindow.webContents.send('mods:modpack-progress', progress);
+            }
           }
         }
       });
-      return { success: true, item: result };
+      return { success: true, ...result, item: result };
     } catch (err) {
       logger.error('Error en content:download IPC:', err);
       return { success: false, error: err.message };

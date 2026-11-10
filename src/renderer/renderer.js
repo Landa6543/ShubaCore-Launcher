@@ -1127,6 +1127,43 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  // Importar Modpack de CurseForge (.zip) o Modrinth (.mrpack) desde Instancias
+  const btnImportModpackInstances = document.getElementById('btn-import-modpack-instances');
+  if (btnImportModpackInstances) {
+    btnImportModpackInstances.addEventListener('click', async () => {
+      try {
+        const selectRes = await api.mods.selectModpackFile();
+        if (!selectRes.canceled && selectRes.path) {
+          appendLog(`[Modpacks] Importando paquete "${selectRes.path}" como nueva instancia...`, 'info');
+          btnImportModpackInstances.disabled = true;
+
+          const installRes = await api.mods.installModpackFile({
+            packPath: selectRes.path,
+            createProfile: true,
+            instancePath: null
+          });
+
+          if (installRes.success) {
+            appendLog(`[Modpacks] ¡Modpack "${installRes.name}" importado con éxito! Se instalaron ${installRes.filesCount || 0} archivos.`, 'success');
+            await loadProfiles();
+            const newProfileId = installRes.profile?.id;
+            if (newProfileId) {
+              await switchActiveProfile(newProfileId);
+            }
+            switchMainView('profiles');
+          } else {
+            throw new Error(installRes.error || 'Error al procesar el modpack.');
+          }
+        }
+      } catch (err) {
+        appendLog(`[Modpack Error] ${err.message}`, 'error');
+        alert(`Error al importar modpack: ${err.message}`);
+      } finally {
+        if (btnImportModpackInstances) btnImportModpackInstances.disabled = false;
+      }
+    });
+  }
+
   // =======================================================
   // CREACIÓN DE INSTANCIAS
   // =======================================================
@@ -2279,30 +2316,34 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  btnInstallModpack.addEventListener('click', async () => {
-    try {
-      const selectRes = await api.mods.selectModpackFile();
-      if (!selectRes.canceled && selectRes.path) {
-        appendLog(`[Modpacks] Instalando paquete ${selectRes.path}...`, 'info');
-        btnInstallModpack.disabled = true;
+  if (btnInstallModpack) {
+    btnInstallModpack.addEventListener('click', async () => {
+      try {
+        const selectRes = await api.mods.selectModpackFile();
+        if (!selectRes.canceled && selectRes.path) {
+          appendLog(`[Modpacks] Instalando modpack "${selectRes.path}" en instancia activa...`, 'info');
+          btnInstallModpack.disabled = true;
 
-        const installRes = await api.mods.installModpackFile({
-          packPath: selectRes.path,
-          instancePath: currentActiveProfile?.instancePath || null
-        });
-        if (installRes.success) {
-          appendLog(`[Modpacks] ¡Modpack "${installRes.name}" instalado con éxito! (${installRes.filesCount} archivos)`, 'success');
-          await loadInstalledMods();
-        } else {
-          throw new Error(installRes.error || 'Error al procesar el archivo del modpack.');
+          const installRes = await api.mods.installModpackFile({
+            packPath: selectRes.path,
+            instancePath: currentActiveProfile?.instancePath || null,
+            createProfile: false
+          });
+          if (installRes.success) {
+            appendLog(`[Modpacks] ¡Modpack "${installRes.name}" instalado con éxito! (${installRes.filesCount || 0} archivos)`, 'success');
+            await loadInstalledMods();
+          } else {
+            throw new Error(installRes.error || 'Error al procesar el archivo del modpack.');
+          }
         }
+      } catch (err) {
+        appendLog(`[Modpack Error] ${err.message}`, 'error');
+        alert(`Error al instalar modpack: ${err.message}`);
+      } finally {
+        btnInstallModpack.disabled = false;
       }
-    } catch (err) {
-      appendLog(`[Modpack Error] ${err.message}`, 'error');
-    } finally {
-      btnInstallModpack.disabled = false;
-    }
-  });
+    });
+  }
 
   // =======================================================
   // EXPLORADOR TOTAL DE CATÁLOGO (MODS, MODPACKS, TEXTURAS, SHADERS)
@@ -2450,8 +2491,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
 
             if (res.success) {
-              appendLog(`[Descarga] ¡"${itemTitle}" instalado con éxito! Archivo: ${res.fileName}`, 'success');
-              target.textContent = 'Instalado';
+              if (currentContentType === 'modpacks') {
+                const packName = res.profile?.name || res.item?.profile?.name || itemTitle;
+                appendLog(`[Modpack] ¡Modpack "${packName}" instalado con éxito como nueva instancia!`, 'success');
+                target.textContent = 'Instalado';
+                await loadProfiles();
+                const newProfileId = res.profile?.id || res.item?.profile?.id;
+                if (newProfileId) {
+                  await switchActiveProfile(newProfileId);
+                }
+                switchMainView('profiles');
+              } else {
+                appendLog(`[Descarga] ¡"${itemTitle}" instalado con éxito! Archivo: ${res.fileName}`, 'success');
+                target.textContent = 'Instalado';
+              }
             } else {
               throw new Error(res.error || 'Error desconocido al descargar.');
             }
@@ -2814,7 +2867,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   api.events.on('mods:modpack-progress', (progress) => {
-    if (progress.name) appendLog(`[Modpack] Instalando archivo ${progress.current}/${progress.total}: ${progress.name}`, 'info');
+    if (progress.message) {
+      appendLog(`[Modpack] ${progress.message}`, 'info');
+    } else if (progress.name) {
+      appendLog(`[Modpack] Instalando archivo ${progress.current}/${progress.total}: ${progress.name} (${progress.percent || 0}%)`, 'info');
+    }
   });
 
   api.events.on('content:download-progress', (progress) => {

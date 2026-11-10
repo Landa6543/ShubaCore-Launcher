@@ -523,33 +523,24 @@ class ModManager {
       if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
       const tempPackFile = path.join(tempDir, fileInfo.fileName);
 
+      if (onProgress) onProgress({ type: 'modpack_download', percent: 0, fileName: fileInfo.fileName, message: `Descargando paquete ${fileInfo.fileName}...` });
       await this._downloadStream(fileInfo.downloadUrl, tempPackFile, (pct) => {
-        if (onProgress) onProgress({ type: 'modpack_download', percent: pct, fileName: fileInfo.fileName });
+        if (onProgress) onProgress({ type: 'modpack_download', percent: pct, fileName: fileInfo.fileName, message: `Descargando paquete ${fileInfo.fileName}... (${pct}%)` });
       });
 
-      // Crear nuevo perfil para el modpack
-      const { getProfileManager } = require('../profiles/ProfileManager');
-      const profileManager = getProfileManager();
-      const profileName = fileInfo.displayName || `Modpack ${projectId}`;
-      const newProfile = profileManager.createProfile({
-        name: profileName,
-        mcVersion,
-        loader,
-        ramMin: '2G',
-        ramMax: '8G'
-      });
-
-      // Instalar en la nueva instancia
+      // Instalar en la nueva instancia deduciendo loader y MC version del modpack
       const installRes = await this.installModpackFile({
         packPath: tempPackFile,
-        instancePath: newProfile.instancePath,
+        instancePath: null,
+        createProfile: true,
         onProgress
       });
 
       return {
         success: true,
         contentType: 'modpacks',
-        profile: newProfile,
+        fileName: fileInfo.fileName,
+        profile: installRes.profile,
         details: installRes
       };
     }
@@ -746,10 +737,7 @@ class ModManager {
 
     let downloadUrl = file.downloadUrl;
     if (!downloadUrl && file.id && file.fileName) {
-      const fileIdStr = String(file.id);
-      const part1 = fileIdStr.substring(0, 4);
-      const part2 = fileIdStr.substring(4);
-      downloadUrl = `https://edge.forgecdn.net/files/${part1}/${part2}/${encodeURIComponent(file.fileName)}`;
+      downloadUrl = this._buildCurseForgeEdgeUrl(file.id, file.fileName);
     }
 
     return {
@@ -827,6 +815,79 @@ class ModManager {
     base = base.replace(/_/g, ' ').trim();
     if (!base) return fileName.replace(/\.disabled$/i, '').replace(/\.jar$/i, '');
     return base.charAt(0).toUpperCase() + base.slice(1);
+  }
+
+  /**
+   * Construye la URL oficial de descarga directa de CurseForge Edge CDN
+   * Si id = 5020034 -> edge.forgecdn.net/files/5020/34/filename.jar
+   */
+  _buildCurseForgeEdgeUrl(fileId, fileName) {
+    if (!fileId || !fileName) return '';
+    const idStr = String(fileId);
+    const part1 = idStr.slice(0, 4);
+    const part2 = idStr.slice(4).replace(/^0+/, '') || '0';
+    return `https://edge.forgecdn.net/files/${part1}/${part2}/${encodeURIComponent(fileName)}`;
+  }
+
+  /**
+   * Extrae loader y versión de loader desde manifest.minecraft.modLoaders de CurseForge
+   * ej: "neoforge-21.1.265" -> loader: "NeoForge", loaderVersion: "21.1.265"
+   */
+  _parseCurseForgeModLoader(modLoaders = []) {
+    if (!Array.isArray(modLoaders) || modLoaders.length === 0) {
+      return { loader: 'NeoForge', loaderVersion: '', rawLoader: 'neoforge' };
+    }
+    const primaryEntry = modLoaders.find((ml) => ml && ml.primary) || modLoaders[0] || {};
+    const idStr = primaryEntry.id ? String(primaryEntry.id).trim() : '';
+    if (!idStr) {
+      return { loader: 'NeoForge', loaderVersion: '', rawLoader: 'neoforge' };
+    }
+
+    const hyphenIdx = idStr.indexOf('-');
+    if (hyphenIdx > 0) {
+      const rawLoader = idStr.substring(0, hyphenIdx).toLowerCase();
+      const loaderVersion = idStr.substring(hyphenIdx + 1);
+      let loader = 'NeoForge';
+      if (rawLoader === 'neoforge') loader = 'NeoForge';
+      else if (rawLoader === 'forge') loader = 'Forge';
+      else if (rawLoader === 'fabric') loader = 'Fabric';
+      else if (rawLoader === 'quilt') loader = 'Quilt';
+      return { loader, loaderVersion, rawLoader };
+    }
+
+    const rawLoader = idStr.toLowerCase();
+    let loader = idStr;
+    if (rawLoader === 'neoforge') loader = 'NeoForge';
+    else if (rawLoader === 'forge') loader = 'Forge';
+    else if (rawLoader === 'fabric') loader = 'Fabric';
+    else if (rawLoader === 'quilt') loader = 'Quilt';
+    return { loader, loaderVersion: '', rawLoader };
+  }
+
+  /**
+   * Ejecuta tareas asíncronas con un pool de concurrencia limitado
+   */
+  async _runWithConcurrency(items, concurrency, fn) {
+    if (!items || items.length === 0) return [];
+    let index = 0;
+    const results = new Array(items.length);
+    const workerCount = Math.min(concurrency, items.length);
+
+    const workers = Array.from({ length: workerCount }, async () => {
+      while (true) {
+        const currentIndex = index++;
+        if (currentIndex >= items.length) break;
+        try {
+          results[currentIndex] = await fn(items[currentIndex], currentIndex);
+        } catch (err) {
+          logger.warn(`[ConcurrencyWorker] Error procesando elemento ${currentIndex}: ${err.message}`);
+          results[currentIndex] = null;
+        }
+      }
+    });
+
+    await Promise.all(workers);
+    return results;
   }
 
   /**
@@ -1263,8 +1324,7 @@ class ModManager {
         const releaseType = f.releaseType === 1 ? 'Release' : (f.releaseType === 2 ? 'Beta' : 'Alpha');
         let dlUrl = f.downloadUrl;
         if (!dlUrl && f.id && f.fileName) {
-          const idStr = String(f.id);
-          dlUrl = `https://edge.forgecdn.net/files/${idStr.substring(0, 4)}/${idStr.substring(4)}/${encodeURIComponent(f.fileName)}`;
+          dlUrl = this._buildCurseForgeEdgeUrl(f.id, f.fileName);
         }
         let sizeFormatted = '';
         if (f.fileLength) {
@@ -1453,8 +1513,7 @@ class ModManager {
     // 3. Descargar la versión seleccionada
     let targetDownloadUrl = downloadUrl;
     if (!targetDownloadUrl && source === 'curseforge' && fileId && fileName) {
-      const idStr = String(fileId);
-      targetDownloadUrl = `https://edge.forgecdn.net/files/${idStr.substring(0, 4)}/${idStr.substring(4)}/${encodeURIComponent(fileName)}`;
+      targetDownloadUrl = this._buildCurseForgeEdgeUrl(fileId, fileName);
     }
 
     if (!targetDownloadUrl) {
@@ -2156,7 +2215,7 @@ class ModManager {
 
                 if (isNewerId || (installedFileId === 0 && isDifferentName)) {
                   const idStr = String(candidate.fileId);
-                  const downloadUrl = `https://edge.forgecdn.net/files/${idStr.substring(0, 4)}/${idStr.substring(4)}/${encodeURIComponent(candidate.filename)}`;
+                  const downloadUrl = this._buildCurseForgeEdgeUrl(candidate.fileId, candidate.filename);
                   const curVer = installedMod.version || this._extractVersionFromFileName(installedFileName);
                   const newVer = this._extractVersionFromFileName(candidate.filename);
 
@@ -2424,13 +2483,13 @@ class ModManager {
     };
   }
 
-  async installModpackFile({ packPath, instancePath = null, onProgress = null }) {
+  async installModpackFile({ packPath, instancePath = null, createProfile = false, onProgress = null }) {
     if (!fs.existsSync(packPath)) {
       throw new Error(`El archivo de modpack no existe: ${packPath}`);
     }
 
-    const activeInstance = instancePath || this.configManager.getInstanceDirectory();
-    logger.info(`Instalando modpack desde "${packPath}" en "${activeInstance}"...`);
+    const targetInstance = createProfile ? null : instancePath;
+    logger.info(`Instalando modpack desde "${packPath}" (targetInstance: ${targetInstance || 'AUTO-CREATE'})...`);
 
     const zip = new AdmZip(packPath);
     const zipEntries = zip.getEntries();
@@ -2438,131 +2497,345 @@ class ModManager {
     // 1. Modrinth (.mrpack)
     const modrinthIndexEntry = zipEntries.find((e) => e.entryName === 'modrinth.index.json');
     if (modrinthIndexEntry) {
-      return await this._installModrinthMrpack(zip, modrinthIndexEntry, activeInstance, onProgress);
+      return await this._installModrinthMrpack(zip, modrinthIndexEntry, targetInstance, onProgress, packPath);
     }
 
     // 2. CurseForge (.zip)
     const cfManifestEntry = zipEntries.find((e) => e.entryName === 'manifest.json');
     if (cfManifestEntry) {
-      return await this._installCurseForgeZip(zip, cfManifestEntry, activeInstance, onProgress);
+      return await this._installCurseForgeZip(zip, cfManifestEntry, targetInstance, onProgress, packPath);
     }
 
     throw new Error('El archivo comprimido no contiene un modrinth.index.json ni un manifest.json válido.');
   }
 
-  async _installModrinthMrpack(zip, indexEntry, instancePath, onProgress) {
+  async _installModrinthMrpack(zip, indexEntry, targetInstance, onProgress, packPath = null) {
     logger.info('[Modpack:Modrinth] Procesando modrinth.index.json...');
     const indexJson = JSON.parse(indexEntry.getData().toString('utf8'));
     const files = indexJson.files || [];
 
-    let current = 0;
-    for (const f of files) {
-      current++;
-      const downloadUrl = (f.downloads && f.downloads[0]) || null;
-      if (!downloadUrl) continue;
+    const packName = indexJson.name || (packPath ? path.basename(packPath, path.extname(packPath)) : 'Modrinth Modpack');
+    const packVersion = indexJson.versionId || '1.0.0';
+    const mcVersion = indexJson.dependencies?.minecraft || '1.21.1';
+    let loader = 'NeoForge';
+    let loaderVersion = '';
 
+    if (indexJson.dependencies) {
+      if (indexJson.dependencies['neoforge']) {
+        loader = 'NeoForge';
+        loaderVersion = indexJson.dependencies['neoforge'];
+      } else if (indexJson.dependencies['forge']) {
+        loader = 'Forge';
+        loaderVersion = indexJson.dependencies['forge'];
+      } else if (indexJson.dependencies['fabric-loader']) {
+        loader = 'Fabric';
+        loaderVersion = indexJson.dependencies['fabric-loader'];
+      } else if (indexJson.dependencies['quilt-loader']) {
+        loader = 'Quilt';
+        loaderVersion = indexJson.dependencies['quilt-loader'];
+      }
+    }
+
+    let instancePath = targetInstance;
+    let createdProfile = null;
+
+    if (!instancePath) {
+      const { getProfileManager } = require('../profiles/ProfileManager');
+      const profileManager = getProfileManager();
+      createdProfile = profileManager.createProfile({
+        name: packName,
+        mcVersion,
+        loader,
+        loaderVersion,
+        ramMin: '2G',
+        ramMax: '8G'
+      });
+      instancePath = createdProfile.instancePath;
+      profileManager.setActive(createdProfile.id);
+      logger.info(`[Modpack:Modrinth] Creada nueva instancia para modpack: "${packName}" (${loader} ${mcVersion})`);
+    }
+
+    // Overrides (overrides/ y client-overrides/)
+    const overridesPrefixes = ['overrides/', 'client-overrides/', 'client_overrides/'];
+    zip.getEntries().forEach((entry) => {
+      if (entry.isDirectory) return;
+      const entryName = entry.entryName.replace(/\\/g, '/');
+      for (const prefix of overridesPrefixes) {
+        if (entryName.startsWith(prefix)) {
+          const relativePath = entryName.substring(prefix.length);
+          if (!relativePath) continue;
+          const destPath = path.join(instancePath, relativePath);
+          const destDir = path.dirname(destPath);
+          if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
+          fs.writeFileSync(destPath, entry.getData());
+          break;
+        }
+      }
+    });
+
+    const validFiles = files.filter((f) => f && f.downloads && f.downloads[0]);
+    let completed = 0;
+    const lockData = this._readLockFile(instancePath);
+    let lockModified = false;
+
+    await this._runWithConcurrency(validFiles, 6, async (f) => {
+      const downloadUrl = f.downloads[0];
       const targetPath = path.join(instancePath, f.path);
       const targetDir = path.dirname(targetPath);
       if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
 
+      await this._downloadStream(downloadUrl, targetPath);
+
+      completed++;
+      const fileName = path.basename(f.path);
       if (onProgress) {
         onProgress({
           type: 'modpack_file',
-          current,
-          total: files.length,
-          name: path.basename(f.path),
-          percent: Math.round((current / files.length) * 100)
+          current: completed,
+          total: validFiles.length,
+          name: fileName,
+          message: `Instalando Modpack: Descargando archivo ${completed} de ${validFiles.length}... (${fileName})`,
+          percent: Math.round((completed / validFiles.length) * 100)
         });
       }
 
-      await this._downloadStream(downloadUrl, targetPath);
-    }
-
-    const overridesPrefix = 'overrides/';
-    zip.getEntries().forEach((entry) => {
-      if (entry.entryName.startsWith(overridesPrefix) && !entry.isDirectory) {
-        const relativePath = entry.entryName.substring(overridesPrefix.length);
-        const destPath = path.join(instancePath, relativePath);
-        const destDir = path.dirname(destPath);
-        if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
-        fs.writeFileSync(destPath, entry.getData());
+      if (f.path.startsWith('mods/')) {
+        const cleanName = this._cleanJarName(fileName);
+        lockData.mods[fileName] = {
+          fileName,
+          name: cleanName,
+          displayName: cleanName,
+          source: 'modrinth',
+          projectId: '',
+          fileId: '',
+          downloadUrl,
+          version: fileName,
+          dateInstalled: new Date().toISOString(),
+          enabled: true
+        };
+        lockModified = true;
       }
     });
+
+    if (lockModified) {
+      lockData.lastUpdated = new Date().toISOString();
+      fs.writeFileSync(this._getLockFilePath(instancePath), JSON.stringify(lockData, null, 2), 'utf8');
+    }
 
     const allMods = this.scanAndSyncMods(instancePath);
     return {
       success: true,
-      name: indexJson.name,
-      version: indexJson.versionId,
-      filesCount: files.length,
+      name: packName,
+      version: packVersion,
+      mcVersion,
+      loader,
+      loaderVersion,
+      filesCount: completed,
+      totalFiles: files.length,
+      instancePath,
+      profile: createdProfile,
       allMods
     };
   }
 
-  async _installCurseForgeZip(zip, manifestEntry, instancePath, onProgress) {
+  async _installCurseForgeZip(zip, manifestEntry, targetInstance, onProgress, packPath = null) {
     logger.info('[Modpack:CurseForge] Procesando manifest.json...');
     const manifest = JSON.parse(manifestEntry.getData().toString('utf8'));
     const apiKey = this._getCurseForgeKey();
 
-    const files = manifest.files || [];
-    const modsDir = path.join(instancePath, 'mods');
-    if (!fs.existsSync(modsDir)) fs.mkdirSync(modsDir, { recursive: true });
+    const packName = manifest.name || (packPath ? path.basename(packPath, path.extname(packPath)) : 'CurseForge Modpack');
+    const packVersion = manifest.version || '1.0.0';
+    const mcVersion = (manifest.minecraft && manifest.minecraft.version) ? String(manifest.minecraft.version).trim() : '1.21.1';
+    const loaderInfo = this._parseCurseForgeModLoader(manifest.minecraft?.modLoaders);
 
-    let current = 0;
-    for (const f of files) {
-      current++;
-      const { projectID, fileID } = f;
+    let instancePath = targetInstance;
+    let createdProfile = null;
 
-      if (onProgress) {
-        onProgress({
-          type: 'cf_modpack_file',
-          current,
-          total: files.length,
-          name: `Mod ID ${projectID}`,
-          percent: Math.round((current / files.length) * 100)
-        });
-      }
-
-      try {
-        const fileInfoUrl = `${CURSEFORGE_API_URL}/mods/${projectID}/files/${fileID}`;
-        const res = await fetch(fileInfoUrl, {
-          headers: { 'x-api-key': apiKey, Accept: 'application/json', 'User-Agent': USER_AGENT }
-        });
-
-        if (res.ok) {
-          const fileData = (await res.json()).data;
-          let downloadUrl = fileData.downloadUrl;
-          if (!downloadUrl) {
-            const p1 = String(fileID).substring(0, 4);
-            const p2 = String(fileID).substring(4);
-            downloadUrl = `https://edge.forgecdn.net/files/${p1}/${p2}/${encodeURIComponent(fileData.fileName)}`;
-          }
-
-          const targetFile = path.join(modsDir, fileData.fileName);
-          await this._downloadStream(downloadUrl, targetFile);
-        }
-      } catch (err) {
-        logger.warn(`Error al descargar mod ${projectID}/${fileID}: ${err.message}`);
-      }
+    if (!instancePath) {
+      const { getProfileManager } = require('../profiles/ProfileManager');
+      const profileManager = getProfileManager();
+      createdProfile = profileManager.createProfile({
+        name: packName,
+        mcVersion,
+        loader: loaderInfo.loader,
+        loaderVersion: loaderInfo.loaderVersion,
+        ramMin: '2G',
+        ramMax: '8G'
+      });
+      instancePath = createdProfile.instancePath;
+      profileManager.setActive(createdProfile.id);
+      logger.info(`[Modpack:CurseForge] Creada nueva instancia para modpack: "${packName}" (${loaderInfo.loader} ${mcVersion})`);
     }
 
-    const overridesPrefix = `${manifest.overrides || 'overrides'}/`;
+    // Paso B: Extraer overrides/ (o el directorio indicado en manifest.overrides) y client-overrides/
+    const overridesDirName = (manifest.overrides || 'overrides').replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+    const prefixes = [`${overridesDirName}/`, 'client-overrides/', 'client_overrides/'];
+
     zip.getEntries().forEach((entry) => {
-      if (entry.entryName.startsWith(overridesPrefix) && !entry.isDirectory) {
-        const rel = entry.entryName.substring(overridesPrefix.length);
-        const dest = path.join(instancePath, rel);
-        const dir = path.dirname(dest);
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        fs.writeFileSync(dest, entry.getData());
+      if (entry.isDirectory) return;
+      const entryName = entry.entryName.replace(/\\/g, '/');
+
+      for (const prefix of prefixes) {
+        if (entryName.startsWith(prefix)) {
+          const rel = entryName.substring(prefix.length);
+          if (!rel) continue;
+          const dest = path.join(instancePath, rel);
+          const dir = path.dirname(dest);
+          if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+          fs.writeFileSync(dest, entry.getData());
+          break;
+        }
       }
     });
 
+    // Paso C: Filtrar y descargar mods de manifest.files
+    const files = (manifest.files || []).filter((f) => f && f.fileID && f.required !== false);
+    const modsDir = path.join(instancePath, 'mods');
+    if (!fs.existsSync(modsDir)) fs.mkdirSync(modsDir, { recursive: true });
+
+    logger.info(`[Modpack:CurseForge] Consultando metadatos para ${files.length} mods mediante /v1/mods/files batch...`);
+
+    const fileIds = files.map((f) => parseInt(f.fileID, 10)).filter((n) => !isNaN(n));
+    const fetchedFilesMap = new Map();
+
+    for (let i = 0; i < fileIds.length; i += 100) {
+      const chunk = fileIds.slice(i, i + 100);
+      try {
+        const cfRes = await fetch(`${CURSEFORGE_API_URL}/mods/files`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            Accept: 'application/json',
+            'User-Agent': USER_AGENT
+          },
+          body: JSON.stringify({ fileIds: chunk })
+        });
+
+        if (cfRes.ok) {
+          const cfJson = await cfRes.json();
+          const items = cfJson.data || [];
+          for (const item of items) {
+            if (item && item.id) {
+              fetchedFilesMap.set(item.id, item);
+            }
+          }
+        } else {
+          logger.warn(`[Modpack:CurseForge] Error en batch /mods/files (chunk ${i}): status ${cfRes.status}`);
+        }
+      } catch (err) {
+        logger.warn(`[Modpack:CurseForge] Error en consulta batch /mods/files: ${err.message}`);
+      }
+    }
+
+    const downloadTasks = [];
+    for (const f of files) {
+      let fileData = fetchedFilesMap.get(parseInt(f.fileID, 10));
+
+      if (!fileData) {
+        try {
+          const singleRes = await fetch(`${CURSEFORGE_API_URL}/mods/${f.projectID}/files/${f.fileID}`, {
+            headers: { 'x-api-key': apiKey, Accept: 'application/json', 'User-Agent': USER_AGENT }
+          });
+          if (singleRes.ok) {
+            const singleJson = await singleRes.json();
+            if (singleJson.data) {
+              fileData = singleJson.data;
+              fetchedFilesMap.set(fileData.id, fileData);
+            }
+          }
+        } catch (_) {}
+      }
+
+      if (fileData) {
+        let downloadUrl = fileData.downloadUrl;
+        if (!downloadUrl && fileData.id && fileData.fileName) {
+          downloadUrl = this._buildCurseForgeEdgeUrl(fileData.id, fileData.fileName);
+        }
+
+        if (downloadUrl) {
+          downloadTasks.push({
+            projectID: f.projectID,
+            fileID: f.fileID,
+            fileData,
+            downloadUrl
+          });
+        } else {
+          logger.warn(`[Modpack:CurseForge] Mod ${f.projectID}/${f.fileID} (${fileData.fileName}) sin URL de descarga disponible.`);
+        }
+      } else {
+        logger.warn(`[Modpack:CurseForge] No se pudieron obtener metadatos para Mod ${f.projectID}/${f.fileID}.`);
+      }
+    }
+
+    let completedCount = 0;
+    const totalFiles = downloadTasks.length;
+    const lockData = this._readLockFile(instancePath);
+    let lockModified = false;
+
+    await this._runWithConcurrency(downloadTasks, 6, async (task) => {
+      const { fileData, downloadUrl, projectID, fileID } = task;
+      let targetDir = modsDir;
+      const lowerName = fileData.fileName.toLowerCase();
+      if (lowerName.endsWith('.zip')) {
+        if (lowerName.includes('shader')) {
+          targetDir = path.join(instancePath, 'shaderpacks');
+        } else {
+          targetDir = path.join(instancePath, 'resourcepacks');
+        }
+        if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
+      }
+
+      const targetPath = path.join(targetDir, fileData.fileName);
+      await this._downloadStream(downloadUrl, targetPath);
+
+      completedCount++;
+      if (onProgress) {
+        onProgress({
+          type: 'cf_modpack_file',
+          current: completedCount,
+          total: totalFiles,
+          name: fileData.fileName,
+          message: `Instalando Modpack: Descargando mod ${completedCount} de ${totalFiles}... (${fileData.fileName})`,
+          percent: Math.round((completedCount / totalFiles) * 100)
+        });
+      }
+
+      const cleanName = this._cleanJarName(fileData.fileName);
+      lockData.mods[fileData.fileName] = {
+        fileName: fileData.fileName,
+        name: cleanName,
+        displayName: fileData.displayName || cleanName,
+        source: 'curseforge',
+        projectId: String(fileData.modId || projectID),
+        fileId: String(fileData.id || fileID),
+        downloadUrl,
+        version: fileData.fileName,
+        dateInstalled: new Date().toISOString(),
+        enabled: true
+      };
+      lockModified = true;
+    });
+
+    if (lockModified) {
+      lockData.lastUpdated = new Date().toISOString();
+      fs.writeFileSync(this._getLockFilePath(instancePath), JSON.stringify(lockData, null, 2), 'utf8');
+    }
+
     const allMods = this.scanAndSyncMods(instancePath);
+    logger.info(`[Modpack:CurseForge] Instalación completa de "${packName}". ${completedCount} archivos instalados.`);
+
     return {
       success: true,
-      name: manifest.name,
-      version: manifest.version,
-      filesCount: files.length,
+      name: packName,
+      version: packVersion,
+      mcVersion,
+      loader: loaderInfo.loader,
+      loaderVersion: loaderInfo.loaderVersion,
+      filesCount: completedCount,
+      totalFiles: files.length,
+      instancePath,
+      profile: createdProfile,
       allMods
     };
   }
