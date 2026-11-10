@@ -18,6 +18,7 @@ const { getPackPorter } = require('../packs/PackPorter');
 const { JVMOptimizer } = require('../jvm/JVMOptimizer');
 const { JavaManager } = require('../jvm/JavaManager');
 const { LoaderVersionResolver } = require('../launcher/LoaderVersionResolver');
+const { getDiscordManager } = require('../discord/DiscordManager');
 const { defaultLogger: logger } = require('../utils/logger');
 
 function registerIpcHandlers(mainWindow) {
@@ -28,6 +29,7 @@ function registerIpcHandlers(mainWindow) {
   const modManager = getModManager();
   const skinManager = getSkinManager();
   const packPorter = getPackPorter();
+  const discordManager = getDiscordManager();
 
   // Suscribir eventos del LaunchManager para retransmitirlos a la ventana del renderer
   launchManager.onEvent((eventName, data) => {
@@ -89,6 +91,7 @@ function registerIpcHandlers(mainWindow) {
   ipcMain.handle('profiles:set-active', async (event, id) => {
     try {
       const active = profileManager.setActive(id);
+      discordManager.refreshActivity();
       return { success: true, profile: active };
     } catch (err) {
       return { success: false, error: err.message };
@@ -867,6 +870,23 @@ function registerIpcHandlers(mainWindow) {
       cpuCount: os.cpus().length,
       cpuModel: os.cpus()[0] ? os.cpus()[0].model : 'Desconocido'
     };
+  });
+
+  // ==========================================
+  // DISCORD RICH PRESENCE (RPC)
+  // ==========================================
+  ipcMain.handle('discord:get-status', async () => {
+    return discordManager.getStatus();
+  });
+
+  ipcMain.handle('discord:set-enabled', async (event, enabled) => {
+    discordManager.setEnabled(enabled);
+    return discordManager.getStatus();
+  });
+
+  ipcMain.handle('discord:update-view', async (event, viewName) => {
+    discordManager.setMenuActivity(viewName);
+    return { success: true };
   });
 
   ipcMain.on('window:minimize', () => {

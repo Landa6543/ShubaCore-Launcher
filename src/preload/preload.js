@@ -159,6 +159,15 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
   },
 
   // ==========================================
+  // DISCORD RICH PRESENCE (RPC)
+  // ==========================================
+  discord: {
+    getStatus: () => ipcRenderer.invoke('discord:get-status'),
+    setEnabled: (enabled) => ipcRenderer.invoke('discord:set-enabled', enabled),
+    updateView: (viewName) => ipcRenderer.invoke('discord:update-view', viewName)
+  },
+
+  // ==========================================
   // SISTEMA Y VENTANA
   // ==========================================
   system: {

@@ -75,6 +75,18 @@ function createMainWindow() {
   // Inicializar y conectar motor de Auto-Actualización (electron-updater)
   setupAutoUpdater(mainWindow);
 
+  // Inicializar y conectar Discord Rich Presence (Discord RPC)
+  try {
+    const { getDiscordManager } = require('./src/main/discord/DiscordManager');
+    const discordManager = getDiscordManager();
+    discordManager.init();
+    app.on('will-quit', () => {
+      discordManager.destroy();
+    });
+  } catch (rpcErr) {
+    logger.warn('Aviso al inicializar Discord RPC:', rpcErr.message);
+  }
+
   // Cargar archivo HTML principal del renderer
   const rendererPath = path.join(__dirname, 'src/renderer/index.html');
   mainWindow.loadFile(rendererPath);

@@ -226,6 +226,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const inputMinRam = document.getElementById('input-min-ram');
   const inputMaxRam = document.getElementById('input-max-ram');
   const checkCloseOnLaunch = document.getElementById('check-close-on-launch');
+  const checkDiscordRpc = document.getElementById('check-discord-rpc');
   const inputInstancePath = document.getElementById('input-instance-path');
   const btnBrowseInstance = document.getElementById('btn-browse-instance');
   const inputCustomJava = document.getElementById('input-custom-java');
@@ -441,6 +442,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       renderJavaRuntimes();
     } else if (viewName === 'console') {
       refreshJvmFlags();
+    }
+
+    if (api.discord && api.discord.updateView) {
+      api.discord.updateView(viewName).catch(() => {});
     }
   }
 
@@ -1491,6 +1496,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       const config = await api.config.get();
 
       checkCloseOnLaunch.checked = config.performance?.closeOnLaunch !== false;
+      if (checkDiscordRpc && api.discord) {
+        const dStatus = await api.discord.getStatus();
+        checkDiscordRpc.checked = dStatus ? dStatus.enabled : true;
+      }
       inputInstancePath.value = config.instance?.path || '';
       if (inputCustomJava) inputCustomJava.value = config.performance?.javaPath || '';
       if (selectGlobalJava) selectGlobalJava.value = config.performance?.javaSelection || 'auto';
@@ -1530,6 +1539,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     api.config.set('performance.closeOnLaunch', checkCloseOnLaunch.checked);
     appendLog(`[Config] 'Cerrar ShubaCore al jugar': ${checkCloseOnLaunch.checked ? 'ACTIVADO' : 'DESACTIVADO'}`, 'info');
   });
+
+  if (checkDiscordRpc && api.discord) {
+    checkDiscordRpc.addEventListener('change', async () => {
+      await api.discord.setEnabled(checkDiscordRpc.checked);
+      appendLog(`[Discord RPC] Actividad en Discord: ${checkDiscordRpc.checked ? 'ACTIVADA' : 'DESACTIVADA'}`, 'info');
+    });
+  }
 
   btnBrowseInstance.addEventListener('click', async () => {
     const res = await api.config.selectDirectory(inputInstancePath.value);

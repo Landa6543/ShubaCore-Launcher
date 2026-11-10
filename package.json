@@ -37,6 +37,7 @@
     ]
   },
   "dependencies": {
+    "@xhayper/discord-rpc": "^1.5.1",
     "adm-zip": "^0.6.1",
     "electron-updater": "^6.8.11",
     "minecraft-launcher-core": "^3.18.2",
