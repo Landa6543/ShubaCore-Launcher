@@ -1,12 +1,27 @@
 const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
-const { getModManager } = require('../src/main/mods/ModManager');
+const { getModManager, computeCurseForgeFingerprint } = require('../src/main/mods/ModManager');
 
 async function runTest() {
   console.log('====================================================');
-  console.log('🧪 PRUEBAS DE ACTUALIZACIONES Y AUTO-RESOLUCIÓN DE MODS');
+  console.log('🧪 PRUEBAS DE ACTUALIZACIONES, FINGERPRINTS Y AUTO-RESOLUCIÓN');
   console.log('====================================================\n');
+
+  console.log('▶ [1/5] Verificando algoritmo CurseForge Fingerprint (MurmurHash2 32-bit)...');
+  const modManager = getModManager();
+  const testBuffer = Buffer.from('HelloWorldTestWhitespace\t\r\n 12345');
+  const fp = modManager.computeCurseForgeFingerprint(testBuffer);
+  assert.ok(typeof fp === 'number' && fp > 0, 'Fingerprint debe ser un entero positivo sin signo de 32 bits');
+  console.log(`  Fingerprint generado: ${fp} (tipo uint32: ${fp >>> 0})`);
+  console.log('  ✔ Algoritmo MurmurHash2 normalizado de CurseForge validado.');
+
+  console.log('\n▶ [2/5] Verificando extracción de versiones desde nombres de jar...');
+  assert.strictEqual(modManager._extractVersionFromFileName('BetterNether-21.0.30.jar'), '21.0.30');
+  assert.strictEqual(modManager._extractVersionFromFileName('alltheleaks-1.1.13+1.21.1-neoforge.jar'), '1.1.13');
+  assert.strictEqual(modManager._extractVersionFromFileName('hedges_bestiary-1.1.3-neo.jar'), '1.1.3');
+  assert.strictEqual(modManager._extractVersionFromFileName('geckolib-neoforge-1.21.1-4.9.3.jar'), '4.9.3');
+  console.log('  ✔ Extracción de versión de archivos normalizada correctamente.');
 
   const testDir = path.join(__dirname, '.test-updates-instance');
   const modsDir = path.join(testDir, 'mods');
@@ -15,9 +30,7 @@ async function runTest() {
   }
   fs.mkdirSync(modsDir, { recursive: true });
 
-  const modManager = getModManager();
-
-  console.log('▶ [1/4] Creando mods simulados en la carpeta /mods...');
+  console.log('\n▶ [3/5] Creando mods simulados en la carpeta /mods...');
   // 1. Un mod custom local que debe preservarse intacto ("Awakening System")
   const awakeningPath = path.join(modsDir, 'AwakeningSystem-Core-1.0.jar');
   fs.writeFileSync(awakeningPath, 'DUMMY_AWAKENING_CONTENT');

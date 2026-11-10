@@ -830,6 +830,86 @@ class ModManager {
   }
 
   /**
+   * Calcula el CurseForge Fingerprint oficial (MurmurHash2 de 32 bits normalizado)
+   * Filtra bytes de espacio en blanco: 9 (\t), 10 (\n), 13 (\r), 32 (' ')
+   */
+  computeCurseForgeFingerprint(buffer) {
+    if (!buffer || buffer.length === 0) return 0;
+
+    let filteredLength = 0;
+    for (let i = 0; i < buffer.length; i++) {
+      const b = buffer[i];
+      if (b !== 9 && b !== 10 && b !== 13 && b !== 32) {
+        filteredLength++;
+      }
+    }
+
+    const clean = Buffer.allocUnsafe(filteredLength);
+    let pos = 0;
+    for (let i = 0; i < buffer.length; i++) {
+      const b = buffer[i];
+      if (b !== 9 && b !== 10 && b !== 13 && b !== 32) {
+        clean[pos++] = b;
+      }
+    }
+
+    const m = 0x5bd1e995;
+    const r = 24;
+    const len = clean.length;
+    let h = (1 ^ len) >>> 0;
+
+    let i = 0;
+    while (len - i >= 4) {
+      let k = clean.readUInt32LE(i);
+      k = Math.imul(k, m) >>> 0;
+      k = (k ^ (k >>> r)) >>> 0;
+      k = Math.imul(k, m) >>> 0;
+
+      h = Math.imul(h, m) >>> 0;
+      h = (h ^ k) >>> 0;
+      i += 4;
+    }
+
+    const remaining = len - i;
+    if (remaining === 3) {
+      h = (h ^ (clean[i + 2] << 16)) >>> 0;
+      h = (h ^ (clean[i + 1] << 8)) >>> 0;
+      h = (h ^ clean[i]) >>> 0;
+      h = Math.imul(h, m) >>> 0;
+    } else if (remaining === 2) {
+      h = (h ^ (clean[i + 1] << 8)) >>> 0;
+      h = (h ^ clean[i]) >>> 0;
+      h = Math.imul(h, m) >>> 0;
+    } else if (remaining === 1) {
+      h = (h ^ clean[i]) >>> 0;
+      h = Math.imul(h, m) >>> 0;
+    }
+
+    h = (h ^ (h >>> 13)) >>> 0;
+    h = Math.imul(h, m) >>> 0;
+    h = (h ^ (h >>> 15)) >>> 0;
+
+    return h >>> 0;
+  }
+
+  _extractVersionFromFileName(fileName) {
+    if (!fileName || typeof fileName !== 'string') return '';
+    let clean = fileName.replace(/\.jar$/i, '').replace(/\.disabled$/i, '');
+    const parts = clean.split(/[-_+]/);
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const p = parts[i];
+      if (/^\d+\.\d+/.test(p) && !/^1\.(?:16|17|18|19|20|21)(?:\.\d+)?$/.test(p)) {
+        return p;
+      }
+    }
+    const anyVer = clean.match(/(\d+\.\d+(?:\.\d+)*)/g);
+    if (anyVer && anyVer.length > 0) {
+      return anyVer[anyVer.length - 1];
+    }
+    return clean;
+  }
+
+  /**
    * Extrae metadatos e icono nativo PNG directamente desde el interior del archivo .jar
    * Soporta NeoForge, Forge, Fabric, Quilt y mods clásicos (mcmod.info)
    */
@@ -1776,9 +1856,19 @@ class ModManager {
 
     logger.info(`[CheckUpdates] Buscando actualizaciones para ${modsList.length} mods en MC ${mcVersion} (${loader})...`);
 
-    // 2. Calcular SHA1 de cada archivo .jar físico en disco
+    // 2. Calcular SHA1 y CurseForge Fingerprint (MurmurHash2 32-bit normalizado) de cada archivo .jar físico en disco
     const sha1ToMod = new Map();
+    const fpToMod = new Map();
+    const cfFingerprints = [];
+    const modrinthSha1s = [];
+
     for (const mod of modsList) {
+      const isAwakening = /awakening\s*system/i.test(mod.name || '') ||
+                          /awakening\s*system/i.test(mod.displayName || '') ||
+                          /awakening\s*system/i.test(mod.fileName || '') ||
+                          /awakening\s*system/i.test(mod.author || '');
+      if (isAwakening) continue;
+
       const candidates = [
         path.join(modsDir, mod.fileName),
         path.join(modsDir, `${mod.fileName}.disabled`),
@@ -1796,157 +1886,337 @@ class ModManager {
         try {
           const buf = fs.readFileSync(foundPath);
           const sha1 = crypto.createHash('sha1').update(buf).digest('hex');
+          const fp = this.computeCurseForgeFingerprint(buf);
           mod._sha1 = sha1;
-          sha1ToMod.set(sha1, mod);
+          mod._cfFingerprint = fp;
+          if (sha1) {
+            sha1ToMod.set(sha1, mod);
+            modrinthSha1s.push(sha1);
+          }
+          if (fp) {
+            fpToMod.set(fp, mod);
+            cfFingerprints.push(fp);
+          }
         } catch (e) {
-          logger.debug(`[CheckUpdates] No se pudo hashear ${mod.fileName}: ${e.message}`);
+          logger.debug(`[CheckUpdates] No se pudo procesar archivo ${mod.fileName}: ${e.message}`);
         }
       }
     }
 
-    // 3. Auto-resolución de mods con source === 'custom' o sin projectId online (excepto Awakening System)
     let lockModified = false;
-    const customModsToResolve = modsList.filter((m) => {
+    const apiKey = this._getCurseForgeKey();
+
+    // 3. PASO 1: Identificación masiva en CurseForge mediante Fingerprints (MurmurHash2)
+    if (cfFingerprints.length > 0 && apiKey) {
+      logger.info(`[CheckUpdates:CF] Enviando ${cfFingerprints.length} fingerprints de CurseForge a POST /v1/fingerprints/${CF_GAME_ID}...`);
+      for (let i = 0; i < cfFingerprints.length; i += 200) {
+        const chunk = cfFingerprints.slice(i, i + 200);
+        try {
+          const fpRes = await fetch(`${CURSEFORGE_API_URL}/fingerprints/${CF_GAME_ID}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': apiKey,
+              Accept: 'application/json',
+              'User-Agent': USER_AGENT
+            },
+            body: JSON.stringify({ fingerprints: chunk })
+          });
+
+          if (fpRes.ok) {
+            const fpData = await fpRes.json();
+            const matches = fpData.data?.exactMatches || [];
+            logger.info(`[CheckUpdates:CF] ${matches.length} coincidencias exactas recibidas de CurseForge.`);
+
+            for (const match of matches) {
+              if (!match || !match.file) continue;
+              const matchedMod = fpToMod.get(match.file.fileFingerprint);
+              if (matchedMod && lockData.mods[matchedMod.fileName]) {
+                const entry = lockData.mods[matchedMod.fileName];
+                entry.source = 'curseforge';
+                entry.projectId = String(match.id);
+                entry.fileId = String(match.file.id);
+                entry.installedFileDate = match.file.fileDate;
+                entry.cfFingerprint = match.file.fileFingerprint;
+                if (match.file.displayName && (!entry.displayName || entry.displayName === 'undefined' || entry.displayName === this._cleanJarName(matchedMod.fileName))) {
+                  entry.displayName = match.file.displayName;
+                }
+                matchedMod.source = 'curseforge';
+                matchedMod.projectId = String(match.id);
+                matchedMod.fileId = String(match.file.id);
+                matchedMod.installedFileDate = match.file.fileDate;
+                matchedMod.cfFingerprint = match.file.fileFingerprint;
+                lockModified = true;
+              }
+            }
+          }
+        } catch (err) {
+          logger.warn(`[CheckUpdates:CF] Error en consulta batch de fingerprints CF: ${err.message}`);
+        }
+      }
+    }
+
+    // 4. PASO 2: Identificación masiva en Modrinth para mods no resueltos por CurseForge
+    const stillUnidentified = modsList.filter((m) => {
       const isAwakening = /awakening\s*system/i.test(m.name || '') ||
                           /awakening\s*system/i.test(m.displayName || '') ||
                           /awakening\s*system/i.test(m.fileName || '') ||
                           /awakening\s*system/i.test(m.author || '');
       if (isAwakening) return false;
-      return !m.projectId || m.source === 'custom' || !m.source || m.source === 'undefined';
+      return (!m.projectId || m.source === 'custom' || !m.source || m.source === 'undefined') && m._sha1;
     });
 
-    if (customModsToResolve.length > 0) {
-      logger.info(`[CheckUpdates] Resolviendo metadatos y repositorios para ${customModsToResolve.length} mods locales/custom...`);
+    if (stillUnidentified.length > 0) {
+      const hashesToQuery = stillUnidentified.map((m) => m._sha1).filter(Boolean);
+      try {
+        const verFilesRes = await fetch(`${MODRINTH_API_URL}/version_files`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': USER_AGENT
+          },
+          body: JSON.stringify({
+            hashes: hashesToQuery,
+            algorithm: 'sha1'
+          })
+        });
 
-      // 3A. Intentar identificar por SHA1 en Modrinth en lote
-      const customSha1s = customModsToResolve.map((m) => m._sha1).filter(Boolean);
-      if (customSha1s.length > 0) {
+        if (verFilesRes.ok) {
+          const verFilesData = await verFilesRes.json();
+          for (const [sha1, verObj] of Object.entries(verFilesData)) {
+            if (!verObj) continue;
+            const targetMod = stillUnidentified.find((m) => m._sha1 === sha1);
+            if (targetMod && lockData.mods[targetMod.fileName]) {
+              const entry = lockData.mods[targetMod.fileName];
+              entry.source = 'modrinth';
+              entry.projectId = verObj.project_id;
+              entry.fileId = verObj.id;
+              if (verObj.version_number && (!entry.version || entry.version === 'custom')) {
+                entry.version = verObj.version_number;
+                entry.versionNumber = verObj.version_number;
+              }
+              targetMod.source = 'modrinth';
+              targetMod.projectId = verObj.project_id;
+              targetMod.fileId = verObj.id;
+              lockModified = true;
+            }
+          }
+        }
+      } catch (e) {
+        logger.debug(`[CheckUpdates] Error en Modrinth /version_files: ${e.message}`);
+      }
+    }
+
+    // 4B. Para cualquier mod que siga como 'custom', buscar por nombre/modId
+    const stillCustom = modsList.filter((m) => {
+      const isAwakening = /awakening\s*system/i.test(m.name || '') ||
+                          /awakening\s*system/i.test(m.displayName || '') ||
+                          /awakening\s*system/i.test(m.fileName || '');
+      if (isAwakening) return false;
+      return !m.projectId || m.source === 'custom' || !m.source;
+    });
+
+    for (const m of stillCustom.slice(0, 30)) {
+      const cleanQuery = (m.displayName && m.displayName !== 'undefined') ? m.displayName : this._cleanJarName(m.fileName);
+      const searchTerms = [m.projectId, cleanQuery].filter((t) => t && typeof t === 'string' && t.length >= 2);
+
+      let resolved = false;
+      for (const term of searchTerms) {
+        if (resolved) break;
         try {
-          const verFilesRes = await fetch(`${MODRINTH_API_URL}/version_files`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'User-Agent': USER_AGENT
-            },
-            body: JSON.stringify({
-              hashes: customSha1s,
-              algorithm: 'sha1'
-            })
-          });
+          const searchUrl = `${MODRINTH_API_URL}/search?query=${encodeURIComponent(term)}&facets=[["project_type:mod"]]&limit=3`;
+          const sRes = await fetch(searchUrl, { headers: { 'User-Agent': USER_AGENT } });
+          if (sRes.ok) {
+            const sData = await sRes.json();
+            const hit = (sData.hits || []).find((h) => {
+              const tLow = term.toLowerCase();
+              return h.slug.toLowerCase() === tLow ||
+                     h.title.toLowerCase() === tLow ||
+                     h.project_id === term;
+            }) || (sData.hits || [])[0];
 
-          if (verFilesRes.ok) {
-            const verFilesData = await verFilesRes.json();
-            for (const [sha1, verObj] of Object.entries(verFilesData)) {
-              if (!verObj) continue;
-              const targetMod = customModsToResolve.find((m) => m._sha1 === sha1);
-              if (targetMod && lockData.mods[targetMod.fileName]) {
-                const entry = lockData.mods[targetMod.fileName];
+            if (hit) {
+              const entry = lockData.mods[m.fileName];
+              if (entry) {
                 entry.source = 'modrinth';
-                entry.projectId = verObj.project_id;
-                entry.fileId = verObj.id;
-                if (verObj.version_number && (!entry.version || entry.version === 'custom')) {
-                  entry.version = verObj.version_number;
-                  entry.versionNumber = verObj.version_number;
+                entry.projectId = hit.project_id || hit.slug;
+                if (!entry.displayName || entry.displayName === 'undefined' || entry.displayName === this._cleanJarName(m.fileName)) {
+                  entry.displayName = hit.title;
                 }
-                targetMod.source = 'modrinth';
-                targetMod.projectId = verObj.project_id;
-                targetMod.fileId = verObj.id;
+                m.source = 'modrinth';
+                m.projectId = hit.project_id || hit.slug;
                 lockModified = true;
-                logger.info(`[CheckUpdates] Mod "${entry.fileName}" identificado en Modrinth: ${verObj.project_id} (v${verObj.version_number})`);
+                resolved = true;
               }
             }
           }
-        } catch (e) {
-          logger.debug(`[CheckUpdates] Error consultando /version_files: ${e.message}`);
-        }
+        } catch (_) {}
       }
 
-      // 3B. Para los mods que aún queden en 'custom', buscar por nombre/modId en Modrinth y CurseForge
-      const stillCustom = customModsToResolve.filter((m) => m.source === 'custom' || !m.projectId);
-      for (const m of stillCustom.slice(0, 30)) {
-        const cleanQuery = (m.displayName && m.displayName !== 'undefined') ? m.displayName : this._cleanJarName(m.fileName);
-        const searchTerms = [m.projectId, cleanQuery].filter((t) => t && typeof t === 'string' && t.length >= 2);
-
-        let resolved = false;
-        // Búsqueda en Modrinth
+      if (!resolved && apiKey) {
         for (const term of searchTerms) {
           if (resolved) break;
           try {
-            const searchUrl = `${MODRINTH_API_URL}/search?query=${encodeURIComponent(term)}&facets=[["project_type:mod"]]&limit=3`;
-            const sRes = await fetch(searchUrl, { headers: { 'User-Agent': USER_AGENT } });
-            if (sRes.ok) {
-              const sData = await sRes.json();
-              const hit = (sData.hits || []).find((h) => {
-                const tLow = term.toLowerCase();
-                return h.slug.toLowerCase() === tLow ||
-                       h.title.toLowerCase() === tLow ||
-                       h.project_id === term;
-              }) || (sData.hits || [])[0];
-
-              if (hit) {
+            const cfSearchUrl = `${CURSEFORGE_API_URL}/mods/search?gameId=${CF_GAME_ID}&classId=${CF_CLASS_ID_MODS}&searchFilter=${encodeURIComponent(term)}&sortField=2&sortOrder=desc&pageSize=3`;
+            const cfRes = await fetch(cfSearchUrl, {
+              headers: { 'x-api-key': apiKey, Accept: 'application/json', 'User-Agent': USER_AGENT }
+            });
+            if (cfRes.ok) {
+              const cfData = await cfRes.json();
+              const cfHit = (cfData.data || [])[0];
+              if (cfHit) {
                 const entry = lockData.mods[m.fileName];
                 if (entry) {
-                  entry.source = 'modrinth';
-                  entry.projectId = hit.project_id || hit.slug;
+                  entry.source = 'curseforge';
+                  entry.projectId = String(cfHit.id);
                   if (!entry.displayName || entry.displayName === 'undefined' || entry.displayName === this._cleanJarName(m.fileName)) {
-                    entry.displayName = hit.title;
+                    entry.displayName = cfHit.name;
                   }
-                  m.source = 'modrinth';
-                  m.projectId = hit.project_id || hit.slug;
+                  m.source = 'curseforge';
+                  m.projectId = String(cfHit.id);
                   lockModified = true;
                   resolved = true;
-                  logger.info(`[CheckUpdates] Mod "${m.fileName}" auto-resuelto en Modrinth como "${hit.title}" (${hit.project_id})`);
                 }
               }
             }
           } catch (_) {}
         }
-
-        // Si no se encontró en Modrinth, buscar en CurseForge
-        if (!resolved) {
-          const apiKey = this._getCurseForgeKey();
-          for (const term of searchTerms) {
-            if (resolved) break;
-            try {
-              const cfSearchUrl = `${CURSEFORGE_API_URL}/mods/search?gameId=${CF_GAME_ID}&classId=${CF_CLASS_ID_MODS}&searchFilter=${encodeURIComponent(term)}&pageSize=3`;
-              const cfRes = await fetch(cfSearchUrl, {
-                headers: { 'x-api-key': apiKey, Accept: 'application/json', 'User-Agent': USER_AGENT }
-              });
-              if (cfRes.ok) {
-                const cfData = await cfRes.json();
-                const cfHit = (cfData.data || [])[0];
-                if (cfHit) {
-                  const entry = lockData.mods[m.fileName];
-                  if (entry) {
-                    entry.source = 'curseforge';
-                    entry.projectId = String(cfHit.id);
-                    if (!entry.displayName || entry.displayName === 'undefined' || entry.displayName === this._cleanJarName(m.fileName)) {
-                      entry.displayName = cfHit.name;
-                    }
-                    m.source = 'curseforge';
-                    m.projectId = String(cfHit.id);
-                    lockModified = true;
-                    resolved = true;
-                    logger.info(`[CheckUpdates] Mod "${m.fileName}" auto-resuelto en CurseForge como "${cfHit.name}" (ID ${cfHit.id})`);
-                  }
-                }
-              }
-            } catch (_) {}
-          }
-        }
-      }
-
-      if (lockModified) {
-        lockData.lastUpdated = new Date().toISOString();
-        fs.writeFileSync(this._getLockFilePath(activeInstance), JSON.stringify(lockData, null, 2), 'utf8');
       }
     }
 
-    const updatesMap = new Map();
+    if (lockModified) {
+      lockData.lastUpdated = new Date().toISOString();
+      fs.writeFileSync(this._getLockFilePath(activeInstance), JSON.stringify(lockData, null, 2), 'utf8');
+    }
 
-    // 4. PASO A: Comprobación masiva en Modrinth mediante hash SHA1
-    const allSha1s = Array.from(sha1ToMod.keys());
-    if (allSha1s.length > 0) {
+    const updatesMap = new Map();
+    const normalizedLoader = (loader || 'neoforge').toLowerCase();
+    const cfLoaderId = CF_LOADER_TYPES[normalizedLoader] !== undefined
+      ? CF_LOADER_TYPES[normalizedLoader]
+      : CF_LOADER_TYPES.any;
+
+    // 5. PASO 3: Detección de actualizaciones en CurseForge (usando batch POST /v1/mods y latestFilesIndexes)
+    const cfModsToCheck = modsList.filter((m) => m.source === 'curseforge' && m.projectId && /^\d+$/.test(String(m.projectId)));
+    const cfModIds = Array.from(new Set(cfModsToCheck.map((m) => parseInt(m.projectId, 10))));
+
+    if (cfModIds.length > 0 && apiKey) {
+      logger.info(`[CheckUpdates:CF] Comprobando actualizaciones para ${cfModIds.length} mods de CurseForge (MC ${mcVersion}, Loader ${cfLoaderId})...`);
+
+      for (let i = 0; i < cfModIds.length; i += 100) {
+        const chunkIds = cfModIds.slice(i, i + 100);
+        try {
+          const cfModsRes = await fetch(`${CURSEFORGE_API_URL}/mods`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': apiKey,
+              Accept: 'application/json',
+              'User-Agent': USER_AGENT
+            },
+            body: JSON.stringify({ modIds: chunkIds })
+          });
+
+          if (cfModsRes.ok) {
+            const cfModsData = await cfModsRes.json();
+            const modsInfoList = cfModsData.data || [];
+
+            for (const cfMod of modsInfoList) {
+              const installedMod = cfModsToCheck.find((m) => String(m.projectId) === String(cfMod.id));
+              if (!installedMod) continue;
+
+              const installedFileId = parseInt(installedMod.fileId || '0', 10);
+              const installedFileName = installedMod.fileName.replace(/\.disabled$/i, '');
+              const indexes = cfMod.latestFilesIndexes || [];
+
+              // Filtrar por versión de Minecraft compatible
+              const mcMatches = indexes.filter((f) => {
+                if (!f.gameVersion) return false;
+                return f.gameVersion === mcVersion || f.gameVersion.startsWith(mcVersion);
+              });
+
+              // Buscar candidato adecuado según loader con orden de prioridad
+              let candidates = mcMatches.filter((f) => f.modLoader === cfLoaderId);
+              if (candidates.length === 0) {
+                candidates = mcMatches.filter((f) => f.modLoader === 0);
+              }
+              if (candidates.length === 0 && cfLoaderId === 6) {
+                candidates = mcMatches.filter((f) => f.modLoader === 1);
+              }
+              if (candidates.length === 0 && (cfLoaderId === 5 || cfLoaderId === 4)) {
+                candidates = mcMatches.filter((f) => f.modLoader === 4 || f.modLoader === 5);
+              }
+
+              // Ordenar candidatos por fileId descendente (el más reciente primero)
+              candidates.sort((a, b) => (b.fileId || 0) - (a.fileId || 0));
+              const candidate = candidates[0];
+
+              if (candidate) {
+                const isNewerId = candidate.fileId > installedFileId;
+                const isDifferentName = candidate.filename && candidate.filename !== installedFileName;
+
+                if (isNewerId || (installedFileId === 0 && isDifferentName)) {
+                  const idStr = String(candidate.fileId);
+                  const downloadUrl = `https://edge.forgecdn.net/files/${idStr.substring(0, 4)}/${idStr.substring(4)}/${encodeURIComponent(candidate.filename)}`;
+                  const curVer = installedMod.version || this._extractVersionFromFileName(installedFileName);
+                  const newVer = this._extractVersionFromFileName(candidate.filename);
+
+                  updatesMap.set(installedMod.fileName, {
+                    currentFileName: installedMod.fileName,
+                    currentFileId: String(installedFileId),
+                    currentVersion: curVer,
+                    name: installedMod.displayName || cfMod.name || this._cleanJarName(installedMod.fileName),
+                    projectId: String(cfMod.id),
+                    source: 'curseforge',
+                    latestFile: {
+                      fileId: idStr,
+                      fileName: candidate.filename,
+                      displayName: candidate.filename,
+                      versionNumber: newVer,
+                      downloadUrl
+                    }
+                  });
+                  logger.info(`[Update Available CF] "${installedMod.name}": v${curVer} (${installedFileName}) -> v${newVer} (${candidate.filename})`);
+                }
+              } else {
+                // Fallback a consulta individual de archivos si latestFilesIndexes no tenía entradas
+                try {
+                  const filesRes = await this._resolveCurseForgeFile(cfMod.id, mcVersion, normalizedLoader);
+                  if (filesRes && filesRes.downloadUrl) {
+                    const latestId = parseInt(filesRes.fileId || '0', 10);
+                    if (latestId > installedFileId || (installedFileId === 0 && filesRes.fileName !== installedFileName)) {
+                      const curVer = installedMod.version || this._extractVersionFromFileName(installedFileName);
+                      const newVer = this._extractVersionFromFileName(filesRes.fileName);
+
+                      updatesMap.set(installedMod.fileName, {
+                        currentFileName: installedMod.fileName,
+                        currentFileId: String(installedFileId),
+                        currentVersion: curVer,
+                        name: installedMod.displayName || cfMod.name || this._cleanJarName(installedMod.fileName),
+                        projectId: String(cfMod.id),
+                        source: 'curseforge',
+                        latestFile: {
+                          fileId: String(filesRes.fileId),
+                          fileName: filesRes.fileName,
+                          displayName: filesRes.displayName || filesRes.fileName,
+                          versionNumber: newVer,
+                          downloadUrl: filesRes.downloadUrl
+                        }
+                      });
+                      logger.info(`[Update Available CF Fallback] "${installedMod.name}": v${curVer} -> v${newVer} (${filesRes.fileName})`);
+                    }
+                  }
+                } catch (_) {}
+              }
+            }
+          }
+        } catch (err) {
+          logger.warn(`[CheckUpdates:CF] Error consultando /mods batch: ${err.message}`);
+        }
+      }
+    }
+
+    // 6. PASO 4: Detección de actualizaciones en Modrinth (en paralelo por SHA-1)
+    if (modrinthSha1s.length > 0) {
       try {
         const updateBatchRes = await fetch(`${MODRINTH_API_URL}/version_files/update`, {
           method: 'POST',
@@ -1955,9 +2225,9 @@ class ModManager {
             'User-Agent': USER_AGENT
           },
           body: JSON.stringify({
-            hashes: allSha1s,
+            hashes: modrinthSha1s,
             algorithm: 'sha1',
-            loaders: [loader.toLowerCase()],
+            loaders: [normalizedLoader],
             game_versions: [mcVersion]
           })
         });
@@ -1976,95 +2246,67 @@ class ModManager {
             const isNameDiff = primaryFile.filename && primaryFile.filename !== targetMod.fileName;
 
             if (isShaDiff || isNameDiff) {
-              updatesMap.set(targetMod.fileName, {
-                currentFileName: targetMod.fileName,
-                currentFileId: targetMod.fileId || '',
-                currentVersion: targetMod.version || targetMod.versionNumber || '',
-                name: targetMod.displayName || targetMod.name || this._cleanJarName(targetMod.fileName),
-                projectId: newVer.project_id || targetMod.projectId,
-                source: 'modrinth',
-                latestFile: {
-                  fileId: String(newVer.id),
-                  fileName: primaryFile.filename,
-                  displayName: newVer.name || primaryFile.filename,
-                  versionNumber: newVer.version_number || '',
-                  downloadUrl: primaryFile.url
-                }
-              });
-              logger.info(`[CheckUpdates] Modrinth SHA1 update: ${targetMod.fileName} -> ${primaryFile.filename} (${newVer.version_number})`);
+              if (!updatesMap.has(targetMod.fileName)) {
+                const curVer = targetMod.version || this._extractVersionFromFileName(targetMod.fileName);
+                const newVerNum = newVer.version_number || this._extractVersionFromFileName(primaryFile.filename);
+
+                updatesMap.set(targetMod.fileName, {
+                  currentFileName: targetMod.fileName,
+                  currentFileId: targetMod.fileId || '',
+                  currentVersion: curVer,
+                  name: targetMod.displayName || targetMod.name || this._cleanJarName(targetMod.fileName),
+                  projectId: newVer.project_id || targetMod.projectId,
+                  source: 'modrinth',
+                  latestFile: {
+                    fileId: String(newVer.id),
+                    fileName: primaryFile.filename,
+                    displayName: newVer.name || primaryFile.filename,
+                    versionNumber: newVerNum,
+                    downloadUrl: primaryFile.url
+                  }
+                });
+                logger.info(`[Update Available Modrinth] "${targetMod.name}": v${curVer} -> v${newVerNum} (${primaryFile.filename})`);
+              }
             }
           }
         }
       } catch (err) {
-        logger.warn(`[CheckUpdates] Error en consulta batch de actualizaciones Modrinth: ${err.message}`);
+        logger.warn(`[CheckUpdates:Modrinth] Error en /version_files/update: ${err.message}`);
       }
     }
 
-    // 5. PASO B: Comprobación individual para mods Modrinth y CurseForge no detectados por SHA1
-    const remainingMods = modsList.filter((m) => !updatesMap.has(m.fileName) && m.projectId && m.source !== 'custom');
-
-    const checkIndividualTasks = remainingMods.map(async (mod) => {
+    // 7. PASO 5: Comprobación individual de mods Modrinth con projectId no capturados por SHA-1
+    const modrinthModsToCheck = modsList.filter((m) => m.source === 'modrinth' && m.projectId && !updatesMap.has(m.fileName));
+    for (const m of modrinthModsToCheck.slice(0, 30)) {
       try {
-        let latest = null;
-        if (mod.source === 'modrinth') {
-          latest = await this._resolveModrinthFile(mod.projectId, mcVersion, loader);
-          if (latest && latest.downloadUrl) {
-            const isDifferentFile = (latest.fileId && mod.fileId && String(latest.fileId) !== String(mod.fileId)) ||
-                                    (latest.fileName && latest.fileName !== mod.fileName);
-            const isDifferentVer = latest.versionNumber && mod.version && mod.version !== 'custom' && latest.versionNumber !== mod.version;
+        const latest = await this._resolveModrinthFile(m.projectId, mcVersion, normalizedLoader);
+        if (latest && latest.downloadUrl) {
+          const isDifferentFile = (latest.fileId && m.fileId && String(latest.fileId) !== String(m.fileId)) ||
+                                  (latest.fileName && latest.fileName !== m.fileName);
+          const isDifferentVer = latest.versionNumber && m.version && m.version !== 'custom' && latest.versionNumber !== m.version;
 
-            if (isDifferentFile || isDifferentVer) {
-              updatesMap.set(mod.fileName, {
-                currentFileName: mod.fileName,
-                currentFileId: mod.fileId || '',
-                currentVersion: mod.version || mod.versionNumber || '',
-                name: mod.displayName || mod.name || this._cleanJarName(mod.fileName),
-                projectId: mod.projectId,
-                source: 'modrinth',
-                latestFile: {
-                  fileId: String(latest.fileId),
-                  fileName: latest.fileName,
-                  displayName: latest.displayName,
-                  versionNumber: latest.versionNumber || '',
-                  downloadUrl: latest.downloadUrl
-                }
-              });
-              logger.info(`[CheckUpdates] Modrinth version update: ${mod.fileName} -> ${latest.fileName} (${latest.versionNumber})`);
-            }
-          }
-        } else if (mod.source === 'curseforge') {
-          latest = await this._resolveCurseForgeFile(mod.projectId, mcVersion, loader);
-          if (latest && latest.downloadUrl) {
-            const isDifferentId = latest.fileId && mod.fileId && String(latest.fileId) !== String(mod.fileId);
-            const isDifferentName = latest.fileName && latest.fileName !== mod.fileName;
-            const isDifferentVer = latest.versionNumber && mod.version && mod.version !== 'custom' && !latest.versionNumber.includes(mod.version);
-
-            if (isDifferentId || isDifferentName || isDifferentVer) {
-              updatesMap.set(mod.fileName, {
-                currentFileName: mod.fileName,
-                currentFileId: mod.fileId || '',
-                currentVersion: mod.version || mod.versionNumber || '',
-                name: mod.displayName || mod.name || this._cleanJarName(mod.fileName),
-                projectId: mod.projectId,
-                source: 'curseforge',
-                latestFile: {
-                  fileId: String(latest.fileId),
-                  fileName: latest.fileName,
-                  displayName: latest.displayName,
-                  versionNumber: latest.versionNumber || '',
-                  downloadUrl: latest.downloadUrl
-                }
-              });
-              logger.info(`[CheckUpdates] CurseForge file update: ${mod.fileName} -> ${latest.fileName} (ID ${latest.fileId})`);
-            }
+          if (isDifferentFile || isDifferentVer) {
+            const curVer = m.version || this._extractVersionFromFileName(m.fileName);
+            updatesMap.set(m.fileName, {
+              currentFileName: m.fileName,
+              currentFileId: m.fileId || '',
+              currentVersion: curVer,
+              name: m.displayName || m.name || this._cleanJarName(m.fileName),
+              projectId: m.projectId,
+              source: 'modrinth',
+              latestFile: {
+                fileId: String(latest.fileId),
+                fileName: latest.fileName,
+                displayName: latest.displayName,
+                versionNumber: latest.versionNumber || this._extractVersionFromFileName(latest.fileName),
+                downloadUrl: latest.downloadUrl
+              }
+            });
+            logger.info(`[Update Available Modrinth Version] "${m.name}": v${curVer} -> v${latest.versionNumber}`);
           }
         }
-      } catch (err) {
-        logger.debug(`[CheckUpdates] Error al verificar mod ${mod.fileName}: ${err.message}`);
-      }
-    });
-
-    await Promise.allSettled(checkIndividualTasks);
+      } catch (_) {}
+    }
 
     const updates = Array.from(updatesMap.values());
     logger.info(`[CheckUpdates] Finalizado. ${updates.length} actualizaciones disponibles.`);
@@ -2337,5 +2579,6 @@ function getModManager() {
 module.exports = {
   ModManager,
   getModManager,
-  DEFAULT_CF_API_KEY
+  DEFAULT_CF_API_KEY,
+  computeCurseForgeFingerprint: (buffer) => getModManager().computeCurseForgeFingerprint(buffer)
 };

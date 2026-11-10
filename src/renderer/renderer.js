@@ -1802,6 +1802,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
+    // Si hay actualizaciones disponibles, ordenar los mods afectados arriba del todo
+    if (activeAvailableUpdates.length > 0) {
+      filtered.sort((a, b) => {
+        const aHasUp = activeAvailableUpdates.some((u) => u.currentFileName === a.fileName || (u.projectId && String(u.projectId) === String(a.projectId)));
+        const bHasUp = activeAvailableUpdates.some((u) => u.currentFileName === b.fileName || (u.projectId && String(u.projectId) === String(b.projectId)));
+        if (aHasUp && !bHasUp) return -1;
+        if (!aHasUp && bHasUp) return 1;
+        return 0;
+      });
+    }
+
     modsInstalledList.innerHTML = '';
     const targetInstance = currentActiveProfile?.instancePath || null;
 
@@ -1819,11 +1830,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Comprobar actualización disponible
       const modUpdate = activeAvailableUpdates.find((u) => u.currentFileName === rawFileName || (u.projectId && String(u.projectId) === String(mod.projectId)));
       const updateBadge = modUpdate ? '<span class="badge badge-update">¡Actualización!</span>' : '';
-      const newVerLabel = modUpdate ? (modUpdate.latestFile.versionNumber ? `v${modUpdate.latestFile.versionNumber}` : (modUpdate.latestFile.displayName || 'Nueva')) : '';
+      const curV = modUpdate ? (modUpdate.currentVersion || mod.versionNumber || 'Actual') : '';
+      const newV = modUpdate ? (modUpdate.latestFile.versionNumber || modUpdate.latestFile.displayName || 'Nueva') : '';
+      const versionDiffHtml = modUpdate
+        ? `<span class="mod-version-diff" title="Versión instalada vs versión más reciente">v${escapeHtml(curV)} ➔ v${escapeHtml(newV)}</span>`
+        : '';
       const updateBtn = modUpdate
-        ? `<button class="btn btn-small btn-update-mod" data-filename="${escapeHtml(rawFileName)}" title="Actualizar a la versión ${escapeHtml(modUpdate.latestFile.versionNumber || modUpdate.latestFile.displayName)}">
+        ? `<button class="btn btn-small btn-update-mod" data-filename="${escapeHtml(rawFileName)}" title="Actualizar a la versión ${escapeHtml(newV)}">
              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
-             <span>Actualizar a ${escapeHtml(newVerLabel)}</span>
+             <span>Actualizar</span>
            </button>`
         : '';
 
@@ -1868,6 +1883,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             </div>
             <div class="grid-card-actions">
               ${updateBadge}
+              ${versionDiffHtml}
               ${updateBtn}
               ${inspectBtn}
               ${deleteBtn}
@@ -1898,6 +1914,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           </div>
           <div class="installed-mod-right">
             ${updateBadge}
+            ${versionDiffHtml}
             ${updateBtn}
             <span class="badge ${sourceClass}">${sourceLabel}</span>
             ${inspectBtn}
@@ -2100,10 +2117,22 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (activeAvailableUpdates.length > 0) {
           appendLog(`[Mods] ¡Se encontraron ${activeAvailableUpdates.length} actualizaciones disponibles!`, 'success');
-          if (btnUpdateAllMods) btnUpdateAllMods.classList.add('has-updates');
+          if (btnUpdateAllMods) {
+            btnUpdateAllMods.classList.add('has-updates');
+            btnUpdateAllMods.innerHTML = `
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              <span>⚡ Actualizar Todos (<span id="updates-available-count">${activeAvailableUpdates.length}</span>)</span>
+            `;
+          }
         } else {
           appendLog('[Mods] Todos los mods instalados están al día con la última versión compatible.', 'info');
-          if (btnUpdateAllMods) btnUpdateAllMods.classList.remove('has-updates');
+          if (btnUpdateAllMods) {
+            btnUpdateAllMods.classList.remove('has-updates');
+            btnUpdateAllMods.innerHTML = `
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              <span>Actualizar Todos (<span id="updates-available-count">0</span>)</span>
+            `;
+          }
         }
 
         await loadInstalledMods();
@@ -2151,6 +2180,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
           appendLog(`[Mods] ¡Se encontraron ${activeAvailableUpdates.length} actualizaciones disponibles! Iniciando actualización...`, 'success');
           btnUpdateAllMods.classList.add('has-updates');
+          btnUpdateAllMods.innerHTML = `
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            <span>⚡ Actualizar Todos (<span id="updates-available-count">${activeAvailableUpdates.length}</span>)</span>
+          `;
           await loadInstalledMods();
         } catch (err) {
           appendLog(`[Mods Error] Error al comprobar actualizaciones: ${err.message}`, 'error');
