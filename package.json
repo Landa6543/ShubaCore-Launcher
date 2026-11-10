@@ -1,0 +1,49 @@
+{
+  "name": "shubacore-launcher",
+  "version": "1.0.0",
+  "description": "Launcher privado de Minecraft de alto rendimiento desarrollado por SHUBATECH",
+  "main": "main.js",
+  "author": "SHUBATECH",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win --x64",
+    "release": "electron-builder --win --x64 --publish always",
+    "publish-update": "node scripts/publish-update.js",
+    "test": "node test/backend-test.js && node test/mod-manager-test.js && node test/profile-test.js && node test/skin-pack-test.js"
+  },
+  "build": {
+    "appId": "com.shubatech.shubacore",
+    "productName": "ShubaCore",
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "logo.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Landa6543",
+        "repo": "ShubaCore-Launcher",
+        "releaseType": "release"
+      }
+    ]
+  },
+  "dependencies": {
+    "adm-zip": "^0.6.1",
+    "electron-updater": "^6.8.11",
+    "minecraft-launcher-core": "^3.18.2",
+    "msmc": "^5.0.5"
+  },
+  "devDependencies": {
+    "electron": "^45.2.3",
+    "electron-builder": "^26.18.0"
+  }
+}

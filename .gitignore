@@ -1,0 +1,27 @@
+# Dependencias y compilación
+node_modules/
+dist/
+out/
+build/
+release/
+
+# Archivos de datos locales y pruebas
+.shubacore-data/
+test/.test-data/
+test/.test-mod-instance/
+test/.test-profiles/
+*.log
+logs/
+
+# Entorno y credenciales sensibles
+.env
+.env.local
+*.pem
+*.key
+
+# Archivos temporales y binarios externos no rastreados
+.DS_Store
+Thumbs.db
+*.tmp
+*.bak
+rtx-remix-renderer-*.zip
