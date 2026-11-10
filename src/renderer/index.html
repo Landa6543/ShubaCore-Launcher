@@ -303,8 +303,8 @@
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               <span>Buscar Actualizaciones</span>
             </button>
-            <button id="btn-update-all-mods" class="btn btn-primary btn-small" style="display: none;" title="Actualizar todos los mods con nuevas versiones disponibles">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 11 12 6 7 11"/><polyline points="17 18 12 13 7 18"/></svg>
+            <button id="btn-update-all-mods" class="btn btn-primary btn-small btn-update-all" title="Actualizar todos los mods a la versión más reciente compatible">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
               <span>Actualizar Todos (<span id="updates-available-count">0</span>)</span>
             </button>
             <button id="btn-refresh-installed-mods" class="btn btn-secondary btn-small">
@@ -319,6 +319,17 @@
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
               <span>Instalar Modpack (.mrpack)</span>
             </button>
+          </div>
+        </div>
+
+        <!-- Barra de Progreso de Actualizaciones en Lote -->
+        <div id="mods-update-progress-container" class="mods-update-progress-bar hidden">
+          <div class="update-progress-header">
+            <span id="update-progress-title">Actualizando mods...</span>
+            <span id="update-progress-percent">0%</span>
+          </div>
+          <div class="progress-track">
+            <div id="update-progress-fill" class="progress-fill" style="width: 0%;"></div>
           </div>
         </div>
 

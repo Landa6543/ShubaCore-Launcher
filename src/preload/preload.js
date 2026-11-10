@@ -123,6 +123,11 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
     installVersion: (options) => ipcRenderer.invoke('mods:install-version', options),
     checkUpdates: (options) => ipcRenderer.invoke('mods:check-updates', options),
     updateAll: (options) => ipcRenderer.invoke('mods:update-all', options),
+    onUpdateProgress: (callback) => {
+      const handler = (event, data) => callback(data);
+      ipcRenderer.on('mods:update-progress', handler);
+      return () => ipcRenderer.removeListener('mods:update-progress', handler);
+    },
     resolveIcons: (instancePath) => ipcRenderer.invoke('mods:resolve-icons', instancePath),
     openFolder: (instancePath) => ipcRenderer.invoke('mods:open-folder', instancePath)
   },

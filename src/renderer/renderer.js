@@ -1819,7 +1819,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Comprobar actualización disponible
       const modUpdate = activeAvailableUpdates.find((u) => u.currentFileName === rawFileName || (u.projectId && String(u.projectId) === String(mod.projectId)));
       const updateBadge = modUpdate ? '<span class="badge badge-update">¡Actualización!</span>' : '';
-      const updateBtn = modUpdate ? `<button class="btn btn-small btn-update-mod" data-filename="${escapeHtml(rawFileName)}" title="Actualizar a la versión ${escapeHtml(modUpdate.latestFile.versionNumber || modUpdate.latestFile.displayName)}">Actualizar</button>` : '';
+      const newVerLabel = modUpdate ? (modUpdate.latestFile.versionNumber ? `v${modUpdate.latestFile.versionNumber}` : (modUpdate.latestFile.displayName || 'Nueva')) : '';
+      const updateBtn = modUpdate
+        ? `<button class="btn btn-small btn-update-mod" data-filename="${escapeHtml(rawFileName)}" title="Actualizar a la versión ${escapeHtml(modUpdate.latestFile.versionNumber || modUpdate.latestFile.displayName)}">
+             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+             <span>Actualizar a ${escapeHtml(newVerLabel)}</span>
+           </button>`
+        : '';
 
       // Icono o fallback SVG estilizado
       const iconHtml = mod.iconUrl
@@ -1910,7 +1916,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!modUp) return;
 
         e.currentTarget.disabled = true;
-        e.currentTarget.textContent = 'Actualizando...';
+        e.currentTarget.innerHTML = '<span>Actualizando...</span>';
         appendLog(`[Mods] Actualizando "${modUp.name}" a ${modUp.latestFile.versionNumber || modUp.latestFile.displayName}...`, 'info');
 
         try {
@@ -1924,18 +1930,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             versionNumber: modUp.latestFile.versionNumber,
             instancePath: targetInstance,
             mcVersion: currentActiveProfile?.mcVersion,
-            loader: currentActiveProfile?.loader
+            loader: currentActiveProfile?.loader,
+            oldFileName: modUp.currentFileName || fn
           });
 
           appendLog(`[Mods] ¡"${modUp.name}" actualizado con éxito!`, 'success');
-          activeAvailableUpdates = activeAvailableUpdates.filter((u) => u.currentFileName !== fn);
-          if (activeAvailableUpdates.length > 0) {
-            if (btnUpdateAllMods) {
-              btnUpdateAllMods.style.display = 'inline-flex';
-              if (updatesAvailableCount) updatesAvailableCount.textContent = activeAvailableUpdates.length;
+          activeAvailableUpdates = activeAvailableUpdates.filter((u) => u.currentFileName !== fn && u.currentFileName !== modUp.currentFileName);
+          if (updatesAvailableCount) updatesAvailableCount.textContent = activeAvailableUpdates.length;
+          if (btnUpdateAllMods) {
+            if (activeAvailableUpdates.length > 0) {
+              btnUpdateAllMods.classList.add('has-updates');
+            } else {
+              btnUpdateAllMods.classList.remove('has-updates');
             }
-          } else {
-            if (btnUpdateAllMods) btnUpdateAllMods.style.display = 'none';
           }
           await loadInstalledMods();
         } catch (err) {
@@ -2088,15 +2095,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         activeAvailableUpdates = res.updates || [];
+        const countSpan = document.getElementById('updates-available-count');
+        if (countSpan) countSpan.textContent = activeAvailableUpdates.length;
+
         if (activeAvailableUpdates.length > 0) {
           appendLog(`[Mods] ¡Se encontraron ${activeAvailableUpdates.length} actualizaciones disponibles!`, 'success');
-          if (btnUpdateAllMods) {
-            btnUpdateAllMods.style.display = 'inline-flex';
-            if (updatesAvailableCount) updatesAvailableCount.textContent = activeAvailableUpdates.length;
-          }
+          if (btnUpdateAllMods) btnUpdateAllMods.classList.add('has-updates');
         } else {
           appendLog('[Mods] Todos los mods instalados están al día con la última versión compatible.', 'info');
-          if (btnUpdateAllMods) btnUpdateAllMods.style.display = 'none';
+          if (btnUpdateAllMods) btnUpdateAllMods.classList.remove('has-updates');
         }
 
         await loadInstalledMods();
@@ -2111,30 +2118,106 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (btnUpdateAllMods) {
     btnUpdateAllMods.addEventListener('click', async () => {
-      if (!activeAvailableUpdates || activeAvailableUpdates.length === 0) return;
+      const targetInstance = currentActiveProfile?.instancePath || null;
+      const mcVer = currentActiveProfile?.mcVersion || '1.21.1';
+      const loader = currentActiveProfile?.loader || 'neoforge';
 
+      // 1. Si el usuario hace clic sin haber escaneado previamente, ejecutar escaneo primero
+      if (!activeAvailableUpdates || activeAvailableUpdates.length === 0) {
+        btnUpdateAllMods.disabled = true;
+        const originalBtnHtml = btnUpdateAllMods.innerHTML;
+        btnUpdateAllMods.innerHTML = '<span>Buscando...</span>';
+        appendLog('[Mods] Comprobando versiones compatibles más recientes en CurseForge y Modrinth...', 'info');
+
+        try {
+          const res = await api.mods.checkUpdates({
+            instancePath: targetInstance,
+            mcVersion: mcVer,
+            loader: loader
+          });
+
+          activeAvailableUpdates = res.updates || [];
+          const countSpan = document.getElementById('updates-available-count');
+          if (countSpan) countSpan.textContent = activeAvailableUpdates.length;
+
+          if (activeAvailableUpdates.length === 0) {
+            appendLog('[Mods] Todos los mods instalados están al día con la última versión compatible.', 'info');
+            btnUpdateAllMods.classList.remove('has-updates');
+            btnUpdateAllMods.innerHTML = originalBtnHtml;
+            btnUpdateAllMods.disabled = false;
+            await loadInstalledMods();
+            return;
+          }
+
+          appendLog(`[Mods] ¡Se encontraron ${activeAvailableUpdates.length} actualizaciones disponibles! Iniciando actualización...`, 'success');
+          btnUpdateAllMods.classList.add('has-updates');
+          await loadInstalledMods();
+        } catch (err) {
+          appendLog(`[Mods Error] Error al comprobar actualizaciones: ${err.message}`, 'error');
+          btnUpdateAllMods.innerHTML = originalBtnHtml;
+          btnUpdateAllMods.disabled = false;
+          return;
+        }
+      }
+
+      // 2. Proceder a actualizar todos los mods encontrados
       btnUpdateAllMods.disabled = true;
-      btnUpdateAllMods.textContent = 'Actualizando todos...';
+      btnUpdateAllMods.innerHTML = '<span>Actualizando todos...</span>';
       appendLog(`[Mods] Iniciando actualización en lote de ${activeAvailableUpdates.length} mods...`, 'info');
 
+      // Barra de progreso visual
+      const progressContainer = document.getElementById('mods-update-progress-container');
+      const progressTitle = document.getElementById('update-progress-title');
+      const progressPercent = document.getElementById('update-progress-percent');
+      const progressFill = document.getElementById('update-progress-fill');
+
+      if (progressContainer) {
+        progressContainer.classList.remove('hidden');
+        if (progressFill) progressFill.style.width = '0%';
+        if (progressPercent) progressPercent.textContent = '0%';
+        if (progressTitle) progressTitle.textContent = `Actualizando 0/${activeAvailableUpdates.length}...`;
+      }
+
+      const removeListener = (api.mods && typeof api.mods.onUpdateProgress === 'function')
+        ? api.mods.onUpdateProgress((prog) => {
+            if (progressFill) progressFill.style.width = `${prog.percent || 0}%`;
+            if (progressPercent) progressPercent.textContent = `${prog.percent || 0}%`;
+            if (progressTitle) progressTitle.textContent = `Actualizando (${prog.current}/${prog.total}): ${prog.name}...`;
+            appendLog(`[Mods Update] (${prog.current}/${prog.total}) ${prog.name} (${prog.percent}%)`, 'info');
+          })
+        : null;
+
       try {
-        const targetInstance = currentActiveProfile?.instancePath || null;
         const res = await api.mods.updateAll({
           updates: activeAvailableUpdates,
           instancePath: targetInstance,
-          mcVersion: currentActiveProfile?.mcVersion,
-          loader: currentActiveProfile?.loader
+          mcVersion: mcVer,
+          loader: loader
         });
 
         appendLog(`[Mods] ¡Actualización en lote completada! ${res.updatedCount} mods actualizados con éxito.`, 'success');
         activeAvailableUpdates = [];
-        btnUpdateAllMods.style.display = 'none';
+        const countSpan = document.getElementById('updates-available-count');
+        if (countSpan) countSpan.textContent = '0';
+        btnUpdateAllMods.classList.remove('has-updates');
         await loadInstalledMods();
       } catch (err) {
         appendLog(`[Mods Error] Error al actualizar todos los mods: ${err.message}`, 'error');
         alert(`Error al actualizar mods: ${err.message}`);
       } finally {
+        if (typeof removeListener === 'function') {
+          removeListener();
+        }
+
+        setTimeout(() => {
+          if (progressContainer) progressContainer.classList.add('hidden');
+        }, 1500);
+
         btnUpdateAllMods.disabled = false;
+        btnUpdateAllMods.innerHTML = `
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          <span>Actualizar Todos (<span id="updates-available-count">0</span>)</span>
+        `;
       }
     });
   }
