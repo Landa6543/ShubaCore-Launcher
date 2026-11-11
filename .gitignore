@@ -10,6 +10,7 @@ release/
 test/.test-data/
 test/.test-mod-instance/
 test/.test-profiles/
+test/.test-skin-pack-data/
 *.log
 logs/
 

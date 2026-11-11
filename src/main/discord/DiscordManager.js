@@ -178,7 +178,9 @@ class DiscordManager {
     } catch (_) {}
 
     this.isPlaying = true;
-    this.gameStartTime = Math.floor(Date.now() / 1000);
+    if (!this.gameStartTime) {
+      this.gameStartTime = Math.floor(Date.now() / 1000);
+    }
     this.activeGameInfo = {
       profileName: activeProfile?.name || data?.profile || 'Mi Instancia',
       mcVersion: mcVer,
@@ -186,16 +188,21 @@ class DiscordManager {
       activeModsCount
     };
 
-    logger.info(`⚡ [Discord RPC] Actualizando estado a "Jugando Minecraft" (${this.activeGameInfo.profileName})...`);
+    const count = this.launchManager.getRunningCount();
+    logger.info(`⚡ [Discord RPC] Actualizando estado a "Jugando Minecraft" (${this.activeGameInfo.profileName}, ${count} sesión(es) activa(s))...`);
     this.refreshActivity();
   }
 
   _handleGameClosed() {
-    this.isPlaying = false;
-    this.gameStartTime = null;
-    this.activeGameInfo = null;
-
-    logger.info('⚡ [Discord RPC] Minecraft cerrado. Restaurando estado a "Menú Principal"...');
+    const runningCount = this.launchManager.getRunningCount();
+    if (runningCount === 0) {
+      this.isPlaying = false;
+      this.gameStartTime = null;
+      this.activeGameInfo = null;
+      logger.info('⚡ [Discord RPC] Todas las sesiones de Minecraft cerradas. Restaurando estado a "Menú Principal"...');
+    } else {
+      logger.info(`⚡ [Discord RPC] Una sesión de Minecraft cerrada. Quedan ${runningCount} sesión(es) activa(s)...`);
+    }
     this.refreshActivity();
   }
 
@@ -209,12 +216,17 @@ class DiscordManager {
 
       if (this.isPlaying && this.activeGameInfo) {
         // Estado: Jugando Minecraft
+        const runningCount = this.launchManager.getRunningCount();
         const modsPart = this.activeGameInfo.activeModsCount > 0
           ? ` · ${this.activeGameInfo.activeModsCount} mods activos`
           : '';
 
+        const detailsText = runningCount > 1
+          ? `Jugando: ${this.activeGameInfo.profileName} (${runningCount} sesiones activas)`
+          : `Jugando: ${this.activeGameInfo.profileName}`;
+
         activity = {
-          details: `Jugando: ${this.activeGameInfo.profileName}`,
+          details: detailsText,
           state: `Minecraft ${this.activeGameInfo.mcVersion} (${this.activeGameInfo.loader})${modsPart}`,
           startTimestamp: this.gameStartTime || Math.floor(Date.now() / 1000),
           largeImageKey: 'shubacore_logo',

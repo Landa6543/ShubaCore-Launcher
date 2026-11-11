@@ -65,22 +65,27 @@ function registerIpcHandlers(mainWindow) {
         logger.info('[SHUBATECH] launchBehavior="keep": Manteniendo la ventana del launcher abierta durante la partida.');
       }
     } else if (eventName === 'launch:close') {
-      if (launchBehavior === 'hide' || launchBehavior === 'keep') {
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          logger.info('[SHUBATECH] Proceso de Minecraft cerrado. Descongelando y restaurando ventana de ShubaCore de inmediato.');
+      const remainingSessions = launchManager.getRunningCount();
+      if (remainingSessions === 0) {
+        if (launchBehavior === 'hide' || launchBehavior === 'keep') {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            logger.info('[SHUBATECH] Todas las sesiones de Minecraft han finalizado. Descongelando y restaurando ventana de ShubaCore.');
+            try {
+              mainWindow.webContents.send('app:freeze-ui', false);
+            } catch (_) {}
+            mainWindow.show();
+            mainWindow.focus();
+          }
+        } else if (launchBehavior === 'close') {
+          logger.info('[SHUBATECH] Proceso de Minecraft cerrado. Cerrando launcher completamente ("close").');
           try {
-            mainWindow.webContents.send('app:freeze-ui', false);
-          } catch (_) {}
-          mainWindow.show();
-          mainWindow.focus();
+            app.quit();
+          } catch (_) {
+            process.exit(0);
+          }
         }
-      } else if (launchBehavior === 'close') {
-        logger.info('[SHUBATECH] Proceso de Minecraft cerrado. Cerrando launcher completamente ("close").');
-        try {
-          app.quit();
-        } catch (_) {
-          process.exit(0);
-        }
+      } else {
+        logger.info(`[SHUBATECH] Una sesión de Minecraft ha finalizado. Quedan ${remainingSessions} sesión(es) activa(s).`);
       }
     }
 
@@ -412,6 +417,18 @@ function registerIpcHandlers(mainWindow) {
 
   ipcMain.handle('launcher:get-status', async () => {
     return launchManager.getStatus();
+  });
+
+  ipcMain.handle('launcher:get-running', async () => {
+    return launchManager.getRunningProcesses();
+  });
+
+  ipcMain.handle('launcher:kill-all', async () => {
+    return { success: launchManager.killAll() };
+  });
+
+  ipcMain.handle('launcher:kill-session', async (event, sessionId) => {
+    return { success: launchManager.killSession(sessionId) };
   });
 
   ipcMain.handle('launcher:open-latest-log', async (event, instancePath) => {
@@ -913,7 +930,7 @@ function registerIpcHandlers(mainWindow) {
 
     try {
       const response = await fetch('https://piston-meta.mojang.com/mc/game/version_manifest_v2.json', {
-        headers: { 'User-Agent': 'SHUBATECH/ShubaCore/1.0.0' }
+        headers: { 'User-Agent': 'SHUBATECH/ShubaCore/1.1.0' }
       });
       if (response.ok) {
         const data = await response.json();
@@ -946,7 +963,7 @@ function registerIpcHandlers(mainWindow) {
     return {
       brand: 'SHUBATECH',
       product: 'ShubaCore',
-      version: '1.2.0',
+      version: '1.1.0',
       electron: process.versions.electron,
       node: process.versions.node,
       platform: process.platform,

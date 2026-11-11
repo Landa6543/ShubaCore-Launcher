@@ -21,8 +21,7 @@ class LaunchManager {
     this.configManager = getConfigManager();
     this.authManager = getAuthManager();
     this.profileManager = getProfileManager();
-    this.launcher = new Client();
-    this.activeProcess = null;
+    this.runningProcesses = new Map(); // key: sessionId -> { sessionId, pid, child, instanceId, instanceName, username, accountMode, startTime }
     this.isLaunching = false;
     this.hasGameStarted = false;
     this.eventListeners = new Set();
@@ -32,6 +31,27 @@ class LaunchManager {
     this.recentLogsBuffer = [];
     this.pendingLogBatch = [];
     this.logFlushTimer = null;
+  }
+
+  get activeProcess() {
+    if (this.runningProcesses.size === 0) return null;
+    return Array.from(this.runningProcesses.values())[0]?.child || null;
+  }
+
+  getRunningProcesses() {
+    return Array.from(this.runningProcesses.values()).map((s) => ({
+      sessionId: s.sessionId,
+      pid: s.pid,
+      instanceId: s.instanceId,
+      instanceName: s.instanceName,
+      username: s.username,
+      accountMode: s.accountMode,
+      startTime: s.startTime
+    }));
+  }
+
+  getRunningCount() {
+    return this.runningProcesses.size;
   }
 
   getRecentLogs() {
@@ -311,12 +331,26 @@ class LaunchManager {
         logger.warn(`[LaunchManager] Aviso al inyectar Resource Pack ShubaSkinOverride: ${skinErr.message}`);
       }
 
-      // 7. Enlazar eventos de logs y lanzamiento
-      this._bindMclcEvents();
+      // 7. Enlazar eventos de logs y lanzamiento para este proceso
+      const sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
+      const clientLauncher = new Client();
+
+      this._bindSessionMclcEvents(clientLauncher, sessionId, activeProfile.name);
       this._emit('launch:status', { state: 'launching_game', message: 'Iniciando proceso de Minecraft...' });
 
-      const gameProcess = await this.launcher.launch(mclcOptions);
-      this.activeProcess = gameProcess;
+      const gameProcess = await clientLauncher.launch(mclcOptions);
+
+      const sessionInfo = {
+        sessionId,
+        pid: gameProcess.pid,
+        child: gameProcess,
+        instanceId: activeProfile.id,
+        instanceName: activeProfile.name,
+        username: auth.name,
+        accountMode: currentAccount?.type || (this.authManager?.isPremium?.() ? 'microsoft' : 'offline'),
+        startTime: Date.now()
+      };
+      this.runningProcesses.set(sessionId, sessionInfo);
       this.isLaunching = false;
 
       // Garantizar Prioridad Normal para evitar que Java ahogue al driver de GPU (DWM/NVIDIA)
@@ -330,19 +364,31 @@ class LaunchManager {
       // Registrar timestamp de último juego en el perfil
       this.profileManager.updateProfile(activeProfile.id, { lastPlayed: new Date().toISOString() });
 
-      logger.info(`Proceso de Minecraft iniciado exitosamente con PID: ${gameProcess.pid}`);
-      this._emit('launch:started', { pid: gameProcess.pid, profile: activeProfile.name });
+      logger.info(`[LaunchManager] Proceso de Minecraft (${activeProfile.name} - ${auth.name}) iniciado exitosamente con PID: ${gameProcess.pid} [Sesión: ${sessionId}]. Sesiones activas: ${this.runningProcesses.size}`);
+      this._emit('launch:started', {
+        sessionId,
+        pid: gameProcess.pid,
+        profile: activeProfile.name,
+        username: auth.name,
+        accountMode: sessionInfo.accountMode,
+        runningCount: this.runningProcesses.size
+      });
+      this._emit('game:sessions-changed', {
+        runningCount: this.runningProcesses.size,
+        sessions: this.getRunningProcesses()
+      });
 
-      this._monitorGameProcess(gameProcess);
+      this._monitorGameProcess(gameProcess, clientLauncher, sessionId, activeProfile.name);
 
       return {
         success: true,
+        sessionId,
         pid: gameProcess.pid,
-        profile: activeProfile.name
+        profile: activeProfile.name,
+        username: auth.name
       };
     } catch (err) {
       this.isLaunching = false;
-      this.activeProcess = null;
       const errorMsg = err?.stack || err?.message || String(err);
       logger.error('Error crítico durante el lanzamiento:\n' + errorMsg);
       this._emit('launch:error', { error: err?.message || errorMsg });
@@ -350,27 +396,21 @@ class LaunchManager {
     }
   }
 
-  _bindMclcEvents() {
-    this.launcher.removeAllListeners();
-
-    if (this.logFlushTimer) {
-      clearInterval(this.logFlushTimer);
-      this.logFlushTimer = null;
+  _bindSessionMclcEvents(clientLauncher, sessionId, profileName) {
+    if (!this.logFlushTimer) {
+      this.logFlushTimer = setInterval(() => {
+        if (this.pendingLogBatch.length > 0) {
+          const batch = this.pendingLogBatch.splice(0, this.pendingLogBatch.length);
+          this._emit('launch:log-batch', batch);
+        }
+      }, 500);
     }
 
-    // Intervalo de emisión de logs por lotes (máximo 1 vez cada 500ms) para evitar saturación de IPC y backpressure
-    this.logFlushTimer = setInterval(() => {
-      if (this.pendingLogBatch.length > 0) {
-        const batch = this.pendingLogBatch.splice(0, this.pendingLogBatch.length);
-        this._emit('launch:log-batch', batch);
-      }
-    }, 500);
-
-    this.launcher.on('debug', (e) => {
+    clientLauncher.on('debug', (e) => {
       this._emit('launch:debug', e);
     });
 
-    this.launcher.on('data', (e) => {
+    clientLauncher.on('data', (e) => {
       const rawText = typeof e === 'string' ? e : e.toString();
       const lines = rawText.split(/\r?\n/);
       for (let i = 0; i < lines.length; i++) {
@@ -378,7 +418,7 @@ class LaunchManager {
         if (!line.trim()) continue;
 
         // Comprobar si la ventana del juego ya está lista
-        this._checkGameStartedLog(line);
+        this._checkGameStartedLog(line, sessionId, profileName);
 
         // Almacenar en buffer circular en memoria (máximo 2000 líneas)
         this.recentLogsBuffer.push(line);
@@ -391,36 +431,19 @@ class LaunchManager {
       }
     });
 
-    this.launcher.on('progress', (e) => {
+    clientLauncher.on('progress', (e) => {
       this._emit('launch:progress', e);
     });
 
-    this.launcher.on('download-status', (e) => {
+    clientLauncher.on('download-status', (e) => {
       this._emit('launch:download-status', e);
-    });
-
-    this.launcher.on('close', (code) => {
-      logger.info(`El proceso de Minecraft finalizó con código: ${code}`);
-      if (this.logFlushTimer) {
-        clearInterval(this.logFlushTimer);
-        this.logFlushTimer = null;
-      }
-      if (this.pendingLogBatch.length > 0) {
-        const batch = this.pendingLogBatch.splice(0, this.pendingLogBatch.length);
-        this._emit('launch:log-batch', batch);
-      }
-      this.activeProcess = null;
-      this.isLaunching = false;
-      this.hasGameStarted = false;
-      this._emit('launch:close', { code });
     });
   }
 
-  _checkGameStartedLog(line) {
+  _checkGameStartedLog(line, sessionId, profileName) {
     if (this.hasGameStarted) return;
 
-    // REQUISITO 2: Retrasar detección de ventana lista hasta que los recursos y audio estén inicializados
-    // (NO disparar prematuramente con 'Setting user:' o 'LWJGL' mientras NeoForge recién carga mods)
+    // Retrasar detección de ventana lista hasta que los recursos y audio estén inicializados
     const gameReadySignatures = [
       'Sound engine started',
       'Sound engine started.',
@@ -433,56 +456,134 @@ class LaunchManager {
     ];
 
     if (gameReadySignatures.some((sig) => line.includes(sig))) {
-      this._handleGameWindowReady();
+      this._handleGameWindowReady(sessionId, profileName);
     }
   }
 
-  _handleGameWindowReady() {
+  _handleGameWindowReady(sessionId, profileName) {
     if (this.hasGameStarted) return;
     this.hasGameStarted = true;
 
     logger.info('===========================================================');
-    logger.info('¡La ventana de Minecraft se ha creado y el juego está listo!');
+    logger.info(`¡La ventana de Minecraft (${profileName || 'Sesión'}) se ha creado y el juego está listo!`);
     logger.info('===========================================================');
 
     // Emitir evento para que ipcHandlers / main.js oculte la ventana y congele interfaz
-    this._emit('launch:game-ready', { timestamp: Date.now() });
-  }
-
-  _monitorGameProcess(gameProcess) {
-    const fallbackTimer = setTimeout(() => {
-      if (this.activeProcess && !this.hasGameStarted) {
-        logger.info('Tiempo de espera cumplido: el proceso de Minecraft está activo y estable.');
-        this._handleGameWindowReady();
-      }
-    }, 14000);
-
-    gameProcess.on('exit', () => {
-      clearTimeout(fallbackTimer);
-      if (this.logFlushTimer) {
-        clearInterval(this.logFlushTimer);
-        this.logFlushTimer = null;
-      }
-      this.activeProcess = null;
-      this.isLaunching = false;
+    this._emit('launch:game-ready', {
+      sessionId,
+      profile: profileName,
+      timestamp: Date.now(),
+      runningCount: this.runningProcesses.size
     });
   }
 
-  abort() {
+  _monitorGameProcess(gameProcess, clientLauncher, sessionId, profileName) {
+    const fallbackTimer = setTimeout(() => {
+      if (this.runningProcesses.has(sessionId)) {
+        logger.info(`Tiempo de espera cumplido: la sesión ${sessionId} está activa y estable.`);
+        this._handleGameWindowReady(sessionId, profileName);
+      }
+    }, 14000);
+
+    const handleSessionClose = (code) => {
+      clearTimeout(fallbackTimer);
+      if (!this.runningProcesses.has(sessionId)) return;
+
+      this.runningProcesses.delete(sessionId);
+      logger.info(`[LaunchManager] Sesión ${sessionId} (PID ${gameProcess.pid}) finalizada con código: ${code}. Sesiones activas restantes: ${this.runningProcesses.size}`);
+
+      if (this.runningProcesses.size === 0) {
+        this.hasGameStarted = false;
+        if (this.logFlushTimer) {
+          clearInterval(this.logFlushTimer);
+          this.logFlushTimer = null;
+        }
+        if (this.pendingLogBatch.length > 0) {
+          const batch = this.pendingLogBatch.splice(0, this.pendingLogBatch.length);
+          this._emit('launch:log-batch', batch);
+        }
+      }
+
+      this._emit('launch:close', {
+        sessionId,
+        pid: gameProcess.pid,
+        code,
+        runningCount: this.runningProcesses.size
+      });
+      this._emit('game:sessions-changed', {
+        runningCount: this.runningProcesses.size,
+        sessions: this.getRunningProcesses()
+      });
+    };
+
+    gameProcess.on('exit', (code) => handleSessionClose(code));
+    clientLauncher.on('close', (code) => handleSessionClose(code));
+  }
+
+  killSession(sessionId) {
+    const session = this.runningProcesses.get(sessionId);
+    if (!session) return false;
+
+    logger.warn(`[LaunchManager] Interrumpiendo sesión ${sessionId} (PID: ${session.pid})...`);
+    try {
+      if (process.platform === 'win32' && session.pid) {
+        const { exec } = require('child_process');
+        exec(`taskkill /pid ${session.pid} /f /t`);
+      } else if (session.child) {
+        session.child.kill('SIGKILL');
+      }
+    } catch (err) {
+      logger.error(`Error al terminar proceso PID ${session.pid}:`, err);
+    }
+
+    this.runningProcesses.delete(sessionId);
+    if (this.runningProcesses.size === 0) {
+      this.hasGameStarted = false;
+    }
+
+    this._emit('launch:close', {
+      sessionId,
+      pid: session.pid,
+      code: -1,
+      runningCount: this.runningProcesses.size
+    });
+    this._emit('game:sessions-changed', {
+      runningCount: this.runningProcesses.size,
+      sessions: this.getRunningProcesses()
+    });
+    return true;
+  }
+
+  killAll() {
+    logger.warn(`[LaunchManager] Cerrando todas las sesiones de Minecraft activas (${this.runningProcesses.size})...`);
+    for (const [sessionId, session] of this.runningProcesses.entries()) {
+      try {
+        if (process.platform === 'win32' && session.pid) {
+          const { exec } = require('child_process');
+          exec(`taskkill /pid ${session.pid} /f /t`);
+        } else if (session.child) {
+          session.child.kill('SIGKILL');
+        }
+      } catch (_) {}
+    }
+
+    this.runningProcesses.clear();
+    this.hasGameStarted = false;
+    this.isLaunching = false;
+
     if (this.logFlushTimer) {
       clearInterval(this.logFlushTimer);
       this.logFlushTimer = null;
     }
-    if (this.activeProcess) {
-      logger.warn('Interrumpiendo proceso activo de Minecraft...');
-      try {
-        this.activeProcess.kill();
-      } catch (err) {}
-      this.activeProcess = null;
-      this.isLaunching = false;
-      return true;
-    }
-    return false;
+
+    this._emit('launch:close', { code: -1, runningCount: 0 });
+    this._emit('game:sessions-changed', { runningCount: 0, sessions: [] });
+    return true;
+  }
+
+  abort() {
+    this.isLaunching = false;
+    return this.killAll();
   }
 
   _openPathSafely(targetPath) {
@@ -558,8 +659,10 @@ class LaunchManager {
   getStatus() {
     return {
       isLaunching: this.isLaunching,
-      isRunning: this.activeProcess !== null,
-      pid: this.activeProcess ? this.activeProcess.pid : null,
+      isRunning: this.runningProcesses.size > 0,
+      runningCount: this.runningProcesses.size,
+      sessions: this.getRunningProcesses(),
+      pid: this.runningProcesses.size > 0 ? Array.from(this.runningProcesses.values())[0].pid : null,
       hasGameStarted: this.hasGameStarted
     };
   }

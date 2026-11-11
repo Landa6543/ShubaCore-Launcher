@@ -1,6 +1,6 @@
 {
   "name": "shubacore-launcher",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Launcher privado de Minecraft de alto rendimiento desarrollado por SHUBATECH",
   "main": "main.js",
   "author": "SHUBATECH",
@@ -10,7 +10,7 @@
     "dist": "electron-builder --win --x64",
     "release": "electron-builder --win --x64 --publish always",
     "publish-update": "node scripts/publish-update.js",
-    "test": "node test/backend-test.js && node test/mod-manager-test.js && node test/profile-test.js && node test/skin-pack-test.js"
+    "test": "node test/backend-test.js && node test/mod-manager-test.js && node test/profile-test.js && node test/skin-pack-test.js && node test/multi-instance-test.js"
   },
   "build": {
     "appId": "com.shubatech.shubacore",

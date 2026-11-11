@@ -378,8 +378,16 @@ body {
 }
 
 /* Botón JUGAR */
-.btn-play {
+.launch-btn-row {
+  display: flex;
+  gap: 8px;
   width: 100%;
+  align-items: center;
+}
+
+.btn-play {
+  flex: 1;
+  min-width: 0;
   height: 40px;
   background-color: var(--accent-emerald);
   border: none;
@@ -395,6 +403,49 @@ body {
   cursor: pointer;
   transition: all 0.15s ease;
   box-shadow: 0 2px 4px rgba(16, 185, 129, 0.25);
+  white-space: nowrap;
+}
+
+.btn-play.btn-launch-multi {
+  background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important;
+  box-shadow: 0 0 14px rgba(16, 185, 129, 0.45) !important;
+  font-size: 11.5px !important;
+  letter-spacing: 0.2px !important;
+  padding: 0 10px !important;
+  font-weight: 700 !important;
+}
+
+.btn-play.btn-launch-multi:hover {
+  background: linear-gradient(135deg, #10b981 0%, #34d399 100%) !important;
+  box-shadow: 0 0 18px rgba(52, 211, 153, 0.6) !important;
+}
+
+.btn-stop {
+  height: 40px;
+  background-color: #ef4444;
+  border: none;
+  border-radius: var(--radius-md);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.25);
+  flex-shrink: 0;
+}
+
+.btn-stop:hover {
+  background-color: #dc2626;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.45);
+}
+
+.btn-stop:active {
+  transform: translateY(1px);
 }
 
 .btn-play:hover {

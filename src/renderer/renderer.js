@@ -83,6 +83,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Dock de Lanzamiento
   const btnLaunch = document.getElementById('btn-launch');
   const btnLaunchText = document.getElementById('btn-launch-text');
+  const btnStopSessions = document.getElementById('btn-stop-sessions');
   const dockLaunchProgress = document.getElementById('dock-launch-progress');
   const progressBar = document.getElementById('launch-progress-bar');
   const progressTaskLabel = document.getElementById('progress-task-label');
@@ -3117,8 +3118,57 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // =======================================================
-  // MOTOR DE LANZAMIENTO (JUGAR INSTANCIA ACTIVA)
+  // MOTOR DE LANZAMIENTO (JUGAR INSTANCIA ACTIVA & MULTI-SESIÓN)
   // =======================================================
+  let activeSessionsCount = 0;
+
+  function updateLaunchUIState(count) {
+    activeSessionsCount = count || 0;
+    if (activeSessionsCount > 0) {
+      btnLaunch.disabled = false;
+      btnLaunch.classList.add('btn-launch-multi');
+      if (btnLaunchText) {
+        btnLaunchText.textContent = `➕ LANZAR OTRA SESIÓN (${activeSessionsCount} en juego)`;
+      }
+      if (btnStopSessions) {
+        btnStopSessions.style.display = 'inline-flex';
+      }
+      launchBadge.textContent = `${activeSessionsCount} en juego`;
+      launchBadge.className = 'badge badge-running';
+    } else {
+      btnLaunch.disabled = false;
+      btnLaunch.classList.remove('btn-launch-multi');
+      if (btnLaunchText) {
+        btnLaunchText.textContent = 'JUGAR';
+      }
+      if (btnStopSessions) {
+        btnStopSessions.style.display = 'none';
+      }
+      launchBadge.textContent = 'En espera';
+      launchBadge.className = 'badge badge-idle';
+    }
+  }
+
+  if (btnStopSessions) {
+    btnStopSessions.addEventListener('click', async () => {
+      btnStopSessions.disabled = true;
+      btnStopSessions.innerHTML = '<span>Deteniendo...</span>';
+      try {
+        await api.launcher.killAll();
+      } catch (err) {
+        appendLog(`[Detener] Error al detener instancias: ${err.message}`, 'error');
+      } finally {
+        btnStopSessions.disabled = false;
+        btnStopSessions.innerHTML = `
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <rect x="5" y="5" width="14" height="14" rx="2"/>
+          </svg>
+          <span>Detener</span>
+        `;
+      }
+    });
+  }
+
   btnLaunch.addEventListener('click', async () => {
     btnLaunch.disabled = true;
     if (btnLaunchText) btnLaunchText.textContent = 'INICIANDO...';
@@ -3152,8 +3202,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       appendLog(`[Error Crítico de Lanzamiento] ${err.message}`, 'error');
       launchBadge.textContent = 'Error';
       launchBadge.className = 'badge badge-idle';
-      btnLaunch.disabled = false;
-      if (btnLaunchText) btnLaunchText.textContent = 'JUGAR';
+      updateLaunchUIState(activeSessionsCount);
       if (dockLaunchProgress) dockLaunchProgress.style.display = 'none';
       alert(`Error al lanzar Minecraft:\n${err.message}`);
     }
@@ -3186,6 +3235,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  api.events.on('launch:started', (data) => {
+    appendLog(`[ShubaCore] Proceso de Minecraft (${data.profile} - ${data.username}) iniciado con PID: ${data.pid}`, 'success');
+    if (dockLaunchProgress) dockLaunchProgress.style.display = 'none';
+    progressBar.style.width = '0%';
+    updateLaunchUIState(data.runningCount);
+  });
+
+  api.events.on('game:sessions-changed', (data) => {
+    updateLaunchUIState(data.runningCount);
+  });
+
   api.events.on('launch:log', (line) => {
     appendLog(line, 'game');
   });
@@ -3208,8 +3268,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  api.events.on('launch:game-ready', () => {
-    appendLog('[ShubaCore] ¡Ventana de Minecraft abierta y lista!', 'success');
+  api.events.on('launch:game-ready', (data) => {
+    appendLog(`[ShubaCore] ¡Ventana de Minecraft (${data?.profile || 'Sesión'}) abierta y lista!`, 'success');
+    if (dockLaunchProgress) dockLaunchProgress.style.display = 'none';
+    progressBar.style.width = '0%';
+    if (data?.runningCount !== undefined) {
+      updateLaunchUIState(data.runningCount);
+    }
   });
 
   api.events.on('launch:closing-launcher', (data) => {
@@ -3221,14 +3286,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   api.events.on('launch:close', (data) => {
     appendLog(`[Launcher] El proceso de Minecraft finalizó con código: ${data.code}`, 'info');
-    launchBadge.textContent = 'Finalizado';
-    launchBadge.className = 'badge badge-idle';
-    btnLaunch.disabled = false;
-    if (btnLaunchText) btnLaunchText.textContent = 'JUGAR';
     if (dockLaunchProgress) dockLaunchProgress.style.display = 'none';
     progressBar.style.width = '0%';
     progressPercentLabel.textContent = '0%';
     progressTaskLabel.textContent = 'Listo';
+    updateLaunchUIState(data.runningCount !== undefined ? data.runningCount : 0);
   });
 
   api.events.on('mods:performance-pack-progress', (progress) => {
@@ -3453,4 +3515,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   await initLauncherUpdater();
   await loadConfig();
   await detectJava();
+  try {
+    const running = await api.launcher.getRunning();
+    updateLaunchUIState(running ? running.length : 0);
+  } catch (_) {}
 });
