@@ -33,34 +33,45 @@ function registerIpcHandlers(mainWindow) {
 
   // Suscribir eventos del LaunchManager para retransmitirlos a la ventana del renderer
   launchManager.onEvent((eventName, data) => {
-    // REQUISITO 1: Modo Rendimiento al Jugar sin matar el proceso Java
+    // Comportamiento del Launcher al Iniciar el Juego (launchBehavior: 'hide' | 'keep' | 'close')
+    const launchBehavior = configManager.get('performance.launchBehavior', 'hide');
+
     if (eventName === 'launch:game-ready') {
-      const closeOnLaunch = configManager.get('performance.closeOnLaunch', true);
-      if (closeOnLaunch && mainWindow && !mainWindow.isDestroyed()) {
-        logger.info('⚡ [RENDIMIENTO MÁXIMO] Modo Rendimiento activado: ShubaCore oculto y cachés liberadas (0% GPU/CPU).');
-        try {
-          if (mainWindow.webContents && mainWindow.webContents.session) {
-            mainWindow.webContents.session.clearCache().catch(() => {});
-          }
-        } catch (_) {}
-        mainWindow.hide();
-      }
-    } else if (eventName === 'launch:close') {
-      const closeOnLaunch = configManager.get('performance.closeOnLaunch', true);
-      if (closeOnLaunch) {
-        logger.info('[SHUBATECH] Proceso de Minecraft cerrado por el usuario. Cerrando ShubaCore por completo ("Cerrar al jugar" activado)...');
+      if (launchBehavior === 'hide') {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          logger.info('⚡ [RENDIMIENTO MÁXIMO] Modo Rendimiento ("hide"): ShubaCore oculto en segundo plano (0% GPU). Discord RPC y logs continúan activos.');
+          try {
+            if (mainWindow.webContents && mainWindow.webContents.session) {
+              mainWindow.webContents.session.clearCache().catch(() => {});
+            }
+          } catch (_) {}
+          mainWindow.hide();
+        }
+      } else if (launchBehavior === 'close') {
+        logger.info('[SHUBATECH] launchBehavior="close": Esperando 4 segundos a que Minecraft despegue para cerrar el launcher...');
         setTimeout(() => {
           try {
             app.quit();
           } catch (_) {
             process.exit(0);
           }
-        }, 500);
-      } else {
+        }, 4000);
+      } else if (launchBehavior === 'keep') {
+        logger.info('[SHUBATECH] launchBehavior="keep": Manteniendo la ventana del launcher abierta durante la partida.');
+      }
+    } else if (eventName === 'launch:close') {
+      if (launchBehavior === 'hide' || launchBehavior === 'keep') {
         if (mainWindow && !mainWindow.isDestroyed()) {
-          logger.info('[SHUBATECH] Proceso de Minecraft cerrado. Restaurando ventana de ShubaCore.');
+          logger.info('[SHUBATECH] Proceso de Minecraft cerrado. Restaurando ventana de ShubaCore de inmediato.');
           mainWindow.show();
           mainWindow.focus();
+        }
+      } else if (launchBehavior === 'close') {
+        logger.info('[SHUBATECH] Proceso de Minecraft cerrado. Cerrando launcher completamente ("close").');
+        try {
+          app.quit();
+        } catch (_) {
+          process.exit(0);
         }
       }
     }

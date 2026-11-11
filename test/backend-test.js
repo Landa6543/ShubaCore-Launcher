@@ -24,7 +24,7 @@ const { ConfigManager } = require('../src/main/config/ConfigManager');
 const config = new ConfigManager(testDataDir);
 
 assert.strictEqual(config.get('app.brand'), 'SHUBATECH', 'Marca debe ser SHUBATECH');
-assert.strictEqual(config.get('performance.closeOnLaunch'), true, 'Cerrar al jugar debe ser true por defecto');
+assert.strictEqual(config.get('performance.launchBehavior'), 'hide', 'launchBehavior debe ser "hide" por defecto');
 
 config.set('memory.max', '8G');
 assert.strictEqual(config.get('memory.max'), '8G', 'Modificación de RAM fallida');

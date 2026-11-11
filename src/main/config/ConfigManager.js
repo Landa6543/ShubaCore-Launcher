@@ -34,7 +34,8 @@ class ConfigManager {
         max: '6G'
       },
       performance: {
-        closeOnLaunch: true, // "Cerrar ShubaCore al jugar" para liberar 100% de RAM y CPU
+        launchBehavior: 'hide', // 'hide' (por defecto: ocultar y reaparecer) | 'keep' (mantener abierto) | 'close' (cerrar)
+        closeOnLaunch: false, // Compatibilidad hacia atrás
         autoDetectJava: true,
         javaPath: '', // Vacío para autodetección
         customJvmArgs: ''
@@ -60,11 +61,14 @@ class ConfigManager {
         fs.mkdirSync(this.configDir, { recursive: true });
       }
 
-      if (fs.existsSync(this.configPath)) {
-        const raw = fs.readFileSync(this.configPath, 'utf8');
+      const settingsPath = path.join(this.configDir, 'settings.json');
+      const targetPath = fs.existsSync(this.configPath) ? this.configPath : (fs.existsSync(settingsPath) ? settingsPath : null);
+
+      if (targetPath) {
+        const raw = fs.readFileSync(targetPath, 'utf8');
         const parsed = JSON.parse(raw);
         this.config = this._deepMerge(this.defaultConfig, parsed);
-        logger.info(`Configuración cargada exitosamente desde: ${this.configPath}`);
+        logger.info(`Configuración cargada exitosamente desde: ${targetPath}`);
       } else {
         logger.info(`No se encontró config.json existente. Creando configuración por defecto en: ${this.configPath}`);
         this.save();
@@ -100,6 +104,10 @@ class ConfigManager {
 
   get(keyPath, defaultValue = null) {
     if (!keyPath) return this.config;
+    if (keyPath === 'launchBehavior') {
+      keyPath = 'performance.launchBehavior';
+    }
+
     const parts = keyPath.split('.');
     let current = this.config;
 
@@ -108,10 +116,22 @@ class ConfigManager {
       current = current[part];
     }
 
+    if (keyPath === 'performance.launchBehavior' && (current === undefined || current === null)) {
+      const oldClose = this.config?.performance?.closeOnLaunch;
+      if (oldClose === true) return 'close';
+      if (oldClose === false) return 'hide';
+      return defaultValue || 'hide';
+    }
+
     return current !== undefined ? current : defaultValue;
   }
 
   set(keyPath, value) {
+    if (keyPath === 'launchBehavior' || keyPath === 'performance.launchBehavior') {
+      keyPath = 'performance.launchBehavior';
+      this.config.performance.closeOnLaunch = (value === 'close');
+    }
+
     const parts = keyPath.split('.');
     let current = this.config;
 
@@ -146,6 +166,13 @@ class ConfigManager {
       const serialized = JSON.stringify(this.config, null, 2);
       fs.writeFileSync(tempPath, serialized, 'utf8');
       fs.renameSync(tempPath, this.configPath);
+
+      // Sincronizar simultáneamente con settings.json en <userData>
+      try {
+        const settingsPath = path.join(this.configDir, 'settings.json');
+        fs.writeFileSync(settingsPath, serialized, 'utf8');
+      } catch (_) {}
+
       return true;
     } catch (err) {
       logger.error('Error al guardar config.json:', err);

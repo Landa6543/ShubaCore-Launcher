@@ -225,6 +225,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const javaInstallStatusText = document.getElementById('java-install-status-text');
   const inputMinRam = document.getElementById('input-min-ram');
   const inputMaxRam = document.getElementById('input-max-ram');
+  const selectLaunchBehavior = document.getElementById('select-launch-behavior');
   const checkCloseOnLaunch = document.getElementById('check-close-on-launch');
   const checkDiscordRpc = document.getElementById('check-discord-rpc');
   const inputInstancePath = document.getElementById('input-instance-path');
@@ -490,8 +491,26 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   if (accountStatus) {
-    accountStatus.addEventListener('click', () => {
+    accountStatus.addEventListener('click', async () => {
       if (modalAccountManager) modalAccountManager.classList.add('active');
+      try {
+        const saved = await api.auth.getSavedSession();
+        if (saved && saved.activeMode === 'microsoft') {
+          if (tabPremium && tabOffline && formPremium && formOffline) {
+            tabPremium.classList.add('active');
+            tabOffline.classList.remove('active');
+            formPremium.classList.add('active');
+            formOffline.classList.remove('active');
+          }
+        } else {
+          if (tabPremium && tabOffline && formPremium && formOffline) {
+            tabOffline.classList.add('active');
+            tabPremium.classList.remove('active');
+            formOffline.classList.add('active');
+            formPremium.classList.remove('active');
+          }
+        }
+      } catch (_) {}
       refreshMicrosoftAccountState();
     });
   }
@@ -1572,7 +1591,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       const config = await api.config.get();
 
-      checkCloseOnLaunch.checked = config.performance?.closeOnLaunch !== false;
+      if (selectLaunchBehavior) {
+        const behavior = config.performance?.launchBehavior || (config.performance?.closeOnLaunch ? 'close' : 'hide') || 'hide';
+        selectLaunchBehavior.value = behavior;
+      }
+      if (checkCloseOnLaunch) {
+        checkCloseOnLaunch.checked = config.performance?.closeOnLaunch !== false;
+      }
       if (checkDiscordRpc && api.discord) {
         const dStatus = await api.discord.getStatus();
         checkDiscordRpc.checked = dStatus ? dStatus.enabled : true;
@@ -1592,6 +1617,12 @@ document.addEventListener('DOMContentLoaded', async () => {
               type: 'premium',
               skinUrl: savedSession.microsoftAccount.skinUrl
             };
+            if (tabPremium && tabOffline && formPremium && formOffline) {
+              tabPremium.classList.add('active');
+              tabOffline.classList.remove('active');
+              formPremium.classList.add('active');
+              formOffline.classList.remove('active');
+            }
             await updatePlayerBadge(msAcc);
             await refreshMicrosoftAccountState();
             appendLog(`[Auth] Sesión Microsoft restaurada automáticamente: "${msAcc.name}" (Premium)`, 'info');
@@ -1601,7 +1632,13 @@ document.addEventListener('DOMContentLoaded', async () => {
               uuid: savedSession.offlineAccount.uuid,
               type: 'offline'
             };
-            inputOfflineUser.value = offAcc.name;
+            if (inputOfflineUser) inputOfflineUser.value = offAcc.name;
+            if (tabPremium && tabOffline && formPremium && formOffline) {
+              tabOffline.classList.add('active');
+              tabPremium.classList.remove('active');
+              formOffline.classList.add('active');
+              formPremium.classList.remove('active');
+            }
             await updatePlayerBadge(offAcc);
             appendLog(`[Auth] Sesión Offline restaurada: "${offAcc.name}"`, 'info');
           } else if (config.auth?.currentUser) {
@@ -1647,10 +1684,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     refreshJvmFlags();
   });
 
-  checkCloseOnLaunch.addEventListener('change', () => {
-    api.config.set('performance.closeOnLaunch', checkCloseOnLaunch.checked);
-    appendLog(`[Config] 'Cerrar ShubaCore al jugar': ${checkCloseOnLaunch.checked ? 'ACTIVADO' : 'DESACTIVADO'}`, 'info');
-  });
+  if (selectLaunchBehavior) {
+    selectLaunchBehavior.addEventListener('change', async () => {
+      const val = selectLaunchBehavior.value;
+      await api.config.set('performance.launchBehavior', val);
+      await api.config.set('launchBehavior', val);
+      const labels = {
+        hide: 'Ocultar en segundo plano y reaparecer al salir',
+        keep: 'Mantener ventana abierta',
+        close: 'Cerrar launcher completamente'
+      };
+      appendLog(`[Config] Comportamiento al iniciar el juego: ${labels[val] || val}`, 'info');
+    });
+  }
+
+  if (checkCloseOnLaunch) {
+    checkCloseOnLaunch.addEventListener('change', () => {
+      api.config.set('performance.closeOnLaunch', checkCloseOnLaunch.checked);
+      appendLog(`[Config] 'Cerrar ShubaCore al jugar': ${checkCloseOnLaunch.checked ? 'ACTIVADO' : 'DESACTIVADO'}`, 'info');
+    });
+  }
 
   if (checkDiscordRpc && api.discord) {
     checkDiscordRpc.addEventListener('change', async () => {

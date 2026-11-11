@@ -42,13 +42,122 @@ class ProfileManager {
   }
 
   /**
+   * Limpia un nombre eliminando caracteres prohibidos en rutas de Windows [<>:"/\\|?*]
+   */
+  cleanFolderName(rawName) {
+    if (!rawName || typeof rawName !== 'string') return 'Perfil';
+    let clean = rawName.replace(/[<>:"/\\|?*\x00-\x1F]/g, '').trim();
+    clean = clean.replace(/\.+$/, '').trim();
+    return clean || 'Perfil';
+  }
+
+  /**
+   * Genera un nombre de carpeta limpio y único dentro de instances/ (ej: "Mi Aventura", "Mi Aventura (2)")
+   */
+  generateUniqueFolderName(baseName, excludeId = null) {
+    const cleanBase = this.cleanFolderName(baseName);
+    let candidate = cleanBase;
+    let counter = 2;
+    while (true) {
+      if (candidate === excludeId) return candidate;
+      const targetPath = path.join(this.instancesDir, candidate);
+      const idInUse = Array.isArray(this.data?.profiles) && this.data.profiles.some((p) => p.id === candidate && p.id !== excludeId);
+      if (!fs.existsSync(targetPath) && !idInUse) {
+        return candidate;
+      }
+      candidate = `${cleanBase} (${counter})`;
+      counter++;
+    }
+  }
+
+  /**
+   * Detecta y renombra carpetas antiguas con sufijos aleatorios (-[a-z0-9]{6,9}$)
+   * migrándolas limpiamente en disco y actualizando profiles.json
+   */
+  _migrateOldRandomSuffixFolders() {
+    if (!fs.existsSync(this.instancesDir)) return;
+    const randomSuffixRegex = /-[a-z0-9]{6,9}$/i;
+    let hasChanges = false;
+
+    // 1. Migrar perfiles registrados en profiles.json
+    if (Array.isArray(this.data?.profiles)) {
+      for (const profile of this.data.profiles) {
+        if (!profile || !profile.id) continue;
+        if (randomSuffixRegex.test(profile.id)) {
+          const oldId = profile.id;
+          const oldPath = path.join(this.instancesDir, oldId);
+          const preferredName = profile.name ? this.cleanFolderName(profile.name) : oldId.replace(randomSuffixRegex, '');
+          const newId = this.generateUniqueFolderName(preferredName, oldId);
+
+          if (newId !== oldId) {
+            const newPath = path.join(this.instancesDir, newId);
+            try {
+              if (fs.existsSync(oldPath)) {
+                fs.renameSync(oldPath, newPath);
+                logger.info(`[ProfileManager] Carpeta migrada limpiamente: "${oldId}" -> "${newId}"`);
+              }
+              profile.id = newId;
+              profile.instancePath = newPath;
+              if (this.data.activeProfileId === oldId) {
+                this.data.activeProfileId = newId;
+              }
+              const metaFile = path.join(newPath, 'profile.json');
+              if (fs.existsSync(metaFile)) {
+                try {
+                  const meta = JSON.parse(fs.readFileSync(metaFile, 'utf8'));
+                  meta.id = newId;
+                  meta.instancePath = newPath;
+                  fs.writeFileSync(metaFile, JSON.stringify(meta, null, 2), 'utf8');
+                } catch (_) {}
+              }
+              hasChanges = true;
+            } catch (err) {
+              logger.warn(`[ProfileManager] No se pudo migrar carpeta "${oldId}":`, err.message);
+            }
+          }
+        }
+      }
+    }
+
+    // 2. Migrar carpetas huérfanas en instances/
+    try {
+      const entries = fs.readdirSync(this.instancesDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isDirectory() && randomSuffixRegex.test(entry.name)) {
+          const oldFolder = entry.name;
+          const isRegistered = Array.isArray(this.data?.profiles) && this.data.profiles.some((p) => p.id === oldFolder);
+          if (!isRegistered) {
+            const oldPath = path.join(this.instancesDir, oldFolder);
+            const cleanName = oldFolder.replace(randomSuffixRegex, '');
+            const newFolder = this.generateUniqueFolderName(cleanName, oldFolder);
+            if (newFolder !== oldFolder) {
+              const newPath = path.join(this.instancesDir, newFolder);
+              try {
+                fs.renameSync(oldPath, newPath);
+                logger.info(`[ProfileManager] Carpeta huérfana migrada limpiamente: "${oldFolder}" -> "${newFolder}"`);
+                hasChanges = true;
+              } catch (renameErr) {
+                logger.warn(`[ProfileManager] Error renombrando carpeta huérfana "${oldFolder}":`, renameErr.message);
+              }
+            }
+          }
+        }
+      }
+    } catch (_) {}
+
+    if (hasChanges) {
+      this.save();
+    }
+  }
+
+  /**
    * Estandariza un objeto de perfil asegurando todas las propiedades obligatorias
    * con valores por defecto seguros y sin errores de toUpperCase/toLowerCase.
    */
   sanitizeProfile(raw = {}, folderId = null) {
     const rawObj = (raw && typeof raw === 'object') ? raw : {};
-    const id = rawObj.id || folderId || `profile-${Date.now().toString(36)}`;
     const name = (rawObj.name || folderId || 'Mi Aventura').toString().trim() || 'Mi Aventura';
+    const id = rawObj.id || folderId || this.generateUniqueFolderName(name);
     const mcVersion = (rawObj.mcVersion || '1.21.1').toString().trim();
 
     // Normalizar nombre de Loader respetando mayúsculas/minúsculas estándar
@@ -213,6 +322,9 @@ class ProfileManager {
         }
       }
 
+      // Migrar carpetas antiguas con sufijos aleatorios (-[a-z0-9]{6,9}$) a nombres limpios
+      this._migrateOldRandomSuffixFolders();
+
       this.sanitizeAndSyncInstances();
     } catch (err) {
       logger.error('Error al inicializar ProfileManager:', err);
@@ -310,12 +422,8 @@ class ProfileManager {
       throw new Error('El nombre del perfil es obligatorio.');
     }
 
-    const slug = rawName
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '') || 'profile';
-
-    const id = `${slug}-${Date.now().toString(36)}`;
+    // Generar nombre de carpeta limpio en instances/ sin sufijos aleatorios
+    const id = this.generateUniqueFolderName(rawName);
 
     const newProfile = this.sanitizeProfile({
       ...data,
