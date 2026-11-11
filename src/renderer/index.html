@@ -94,6 +94,14 @@
           <span>Mis Servidores</span>
         </button>
 
+        <button id="tab-view-screenshots" class="nav-item" data-view="screenshots">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+            <circle cx="12" cy="13" r="4"/>
+          </svg>
+          <span>📸 Capturas</span>
+        </button>
+
         <button id="tab-view-skins" class="nav-item" data-view="skins">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
             <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
@@ -323,6 +331,10 @@
             <span>🌍 Mundos & Backups</span>
             <span id="badge-subtab-worlds" class="badge-count">0</span>
           </button>
+          <button id="subtab-instance-hud" class="instance-subtab-btn" data-subtab="hud">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            <span>⚡ Utilidades HUD / Lunar+</span>
+          </button>
         </div>
 
         <!-- SUB-PANEL 1: MODS -->
@@ -496,6 +508,138 @@
           </div>
           <div id="worlds-installed-list" class="installed-mods-list view-list">
             <div class="empty-state">No se encontraron mundos en esta instancia todavía.</div>
+          </div>
+        </div>
+
+        <!-- SUB-PANEL 5: UTILIDADES HUD / VANILLA+ (ESTILO LUNAR CLIENT) -->
+        <div id="subpanel-instance-hud" class="instance-subpanel" style="display: none;">
+          <div class="installed-mods-actions-bar" style="border: none; padding: 0; background: transparent; margin-bottom: 16px;">
+            <div>
+              <span style="font-weight: 600; color: var(--text-primary); font-size: 14px;">⚡ Utilidades HUD & Comodidades Lunar Client (Vanilla+)</span>
+              <p style="margin: 4px 0 0 0; color: var(--text-secondary); font-size: 12.5px;">Ajustes rápidos directos en options.txt y módulos HUD visuales sin cosméticos pesados.</p>
+            </div>
+            <div class="toolbar-actions">
+              <button id="btn-refresh-hud-state" class="btn btn-secondary btn-small" title="Refrescar estado de opciones y mods HUD">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+                <span>Refrescar</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="hud-utilities-grid">
+            <!-- BLOQUE 1: AJUSTES DIRECTOS EN OPTIONS.TXT -->
+            <div class="hud-section-card">
+              <div class="hud-section-header">
+                <span class="hud-section-badge">OPTIONS.TXT</span>
+                <h3 class="hud-section-title">Ajustes Nativos de Juego</h3>
+              </div>
+              <div class="hud-toggles-list">
+                <!-- Fullbright -->
+                <div class="hud-toggle-item">
+                  <div class="hud-toggle-info">
+                    <label class="hud-toggle-label" for="switch-hud-fullbright">🔆 Fullbright (Gamma 1000% en cuevas)</label>
+                    <small class="hud-toggle-desc">Ilumina completamente cuevas, minas y dimensiones oscuras sin antorchas.</small>
+                  </div>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="switch-hud-fullbright">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+
+                <!-- Auto-Sprint -->
+                <div class="hud-toggle-item">
+                  <div class="hud-toggle-info">
+                    <label class="hud-toggle-label" for="switch-hud-autosprint">🏃 Auto-Sprint (Toggle Sprint)</label>
+                    <small class="hud-toggle-desc">Corre automáticamente al pulsar la tecla de sprint una sola vez sin mantenerla pulsada.</small>
+                  </div>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="switch-hud-autosprint">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+
+                <!-- Ocultar Nubes y Sombras -->
+                <div class="hud-toggle-item">
+                  <div class="hud-toggle-info">
+                    <label class="hud-toggle-label" for="switch-hud-noclouds">👁 Ocultar Nubes y Sombras de Entidades</label>
+                    <small class="hud-toggle-desc">Desactiva nubes y sombras para maximizar visibilidad y aumentar los FPS.</small>
+                  </div>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="switch-hud-noclouds">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+
+                <!-- Desactivar VSync -->
+                <div class="hud-toggle-item">
+                  <div class="hud-toggle-info">
+                    <label class="hud-toggle-label" for="switch-hud-novsync">⚡ Desactivar VSync (Sin Input Lag)</label>
+                    <small class="hud-toggle-desc">Desbloquea los FPS eliminando el retraso del ratón y la sincronización vertical.</small>
+                  </div>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="switch-hud-novsync">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- BLOQUE 2: MÓDULOS HUD EN PANTALLA (MODRINTH AUTO) -->
+            <div class="hud-section-card">
+              <div class="hud-section-header">
+                <span class="hud-section-badge badge-hud-mods">MODRINTH AUTO</span>
+                <h3 class="hud-section-title">Módulos HUD en Pantalla</h3>
+              </div>
+              <div class="hud-toggles-list">
+                <!-- Contador de Días + Coordenadas -->
+                <div class="hud-toggle-item">
+                  <div class="hud-toggle-info">
+                    <label class="hud-toggle-label" for="switch-hud-coords">📅 Coordenadas XYZ + Dirección + Días Jugados</label>
+                    <small class="hud-toggle-desc">Muestra en pantalla bioma, orientación, coordenadas y tiempo de mundo sin abrir el menú F3 gigante.</small>
+                  </div>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="switch-hud-coords">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+
+                <!-- Zoom Óptico -->
+                <div class="hud-toggle-item">
+                  <div class="hud-toggle-info">
+                    <label class="hud-toggle-label" for="switch-hud-zoom">🔍 Zoom Óptico Suave (Tecla C)</label>
+                    <small class="hud-toggle-desc">Acercamiento cinemático estilo Lunar/OptiFine al presionar la tecla C.</small>
+                  </div>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="switch-hud-zoom">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+
+                <!-- Estado de Armadura -->
+                <div class="hud-toggle-item">
+                  <div class="hud-toggle-info">
+                    <label class="hud-toggle-label" for="switch-hud-armor">🛡 Estado y Durabilidad de Armadura en HUD</label>
+                    <small class="hud-toggle-desc">Visualiza en tiempo real los puntos de vida de tu armadura, armas y mano secundaria.</small>
+                  </div>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="switch-hud-armor">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+
+                <!-- Pack de FPS -->
+                <div class="hud-toggle-item">
+                  <div class="hud-toggle-info">
+                    <label class="hud-toggle-label" for="switch-hud-fps">🚀 Pack de FPS (Sodium + Lithium + FerriteCore)</label>
+                    <small class="hud-toggle-desc">Multiplica tus FPS reduciendo el uso de RAM y procesador en segundo plano.</small>
+                  </div>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="switch-hud-fps">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -837,6 +981,35 @@
         </div>
       </section>
 
+      <!-- VISTA: GALERÍA DE CAPTURAS DE PANTALLA -->
+      <section id="view-screenshots" class="view-panel view-container hidden">
+        <div class="view-toolbar">
+          <div>
+            <h2 class="view-title">📸 Galería de Capturas</h2>
+            <p class="view-subtitle">Explora, comparte y copia al portapapeles todas las capturas (F2) tomadas en tus mundos y servidores.</p>
+          </div>
+          <div class="toolbar-actions">
+            <select id="select-screenshots-instance-filter" class="catalog-select" style="min-width: 180px;">
+              <option value="all">Todas las instancias</option>
+            </select>
+            <button id="btn-open-active-screenshots-folder" class="btn btn-secondary" title="Abrir carpeta de capturas en el explorador">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              <span>Abrir Carpeta</span>
+            </button>
+            <button id="btn-refresh-screenshots" class="btn btn-secondary">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+              <span>Refrescar</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="screenshots-content-scroll">
+          <div id="screenshots-grid-container" class="screenshots-gallery-grid">
+            <div class="empty-state">No se han encontrado capturas de pantalla aún. Presiona F2 en el juego para capturar momentos épicos.</div>
+          </div>
+        </div>
+      </section>
+
       <!-- VISTA 4: VESTIDOR DE SKINS -->
       <section id="view-skins" class="view-panel view-container hidden">
         <div class="view-toolbar">
@@ -857,19 +1030,49 @@
         </div>
 
         <div class="skins-studio-grid">
-          <!-- Tarjeta de Vista Previa 2D (Cara y Cuerpo) -->
-          <div class="skin-preview-card">
-            <div class="skin-preview-header">
-              <span class="card-section-title">Vista Previa Frontal 2D</span>
-              <span id="skin-preview-label" class="badge badge-idle">Steve</span>
-            </div>
-            <div class="skin-canvas-showcase">
-              <canvas id="vestidor-body-canvas" width="160" height="320" class="skin-body-canvas"></canvas>
-              <div class="skin-face-inset">
-                <canvas id="vestidor-face-canvas" width="64" height="64" class="skin-face-canvas"></canvas>
-                <small>Cara</small>
+          <!-- Tarjeta de Visor 3D Interactivo (skinview3d) -->
+          <div class="skin-preview-card skin-preview-card-3d">
+            <div class="skin-preview-header" style="flex-wrap: wrap; gap: 8px;">
+              <div>
+                <span class="card-section-title">Visor 3D Interactivo</span>
+                <span id="skin-preview-label" class="badge badge-idle" style="margin-left: 6px;">Steve</span>
+              </div>
+              <!-- Selector de Tipo de Cuerpo -->
+              <div class="skin-model-selector-group">
+                <button id="btn-model-classic" class="btn-model-toggle active" data-model="default" title="Brazos clásicos de 4 píxeles">
+                  💪 Clásico (Steve 4px)
+                </button>
+                <button id="btn-model-slim" class="btn-model-toggle" data-model="slim" title="Brazos delgados de 3 píxeles">
+                  ⚡ Delgado (Alex 3px)
+                </button>
               </div>
             </div>
+
+            <div class="skin-canvas-3d-wrapper">
+              <canvas id="skinview-3d-canvas" width="300" height="420" class="skinview-3d-canvas"></canvas>
+              <div class="skin-face-inset">
+                <canvas id="vestidor-face-canvas" width="56" height="56" class="skin-face-canvas"></canvas>
+                <small>Cara</small>
+              </div>
+              <div class="skin-3d-hint">Gira 360° con el mouse · Zoom con la rueda</div>
+            </div>
+
+            <!-- Controles de Animación en Vivo -->
+            <div class="skin-3d-controls-bar">
+              <button id="btn-anim-idle" class="btn btn-secondary btn-compact" title="Posición quieta">
+                🧍 Quieto
+              </button>
+              <button id="btn-anim-walk" class="btn btn-secondary btn-compact active" title="Caminar">
+                🚶 Caminar
+              </button>
+              <button id="btn-anim-run" class="btn btn-secondary btn-compact" title="Correr">
+                🏃 Correr
+              </button>
+              <button id="btn-anim-rotate" class="btn btn-secondary btn-compact" title="Rotación automática">
+                🔄 Auto-Rotar
+              </button>
+            </div>
+
             <div class="skin-info-footer">
               <span>Usuario asignado: <strong id="skin-modal-username">Jugador</strong></span>
               <small id="skin-applied-status" class="hint">Sin skin personalizada aún</small>
@@ -1774,10 +1977,40 @@
   </div>
 
   <!-- MODAL: IMAGE LIGHTBOX -->
+  <!-- LIGHTBOX DE CAPTURAS CON ACCIONES COMPLETAS -->
+  <div id="modal-screenshot-lightbox" class="modal-backdrop hidden">
+    <div class="modal-card modal-lightbox">
+      <div class="lightbox-header">
+        <div class="lightbox-title-box">
+          <h3 id="lightbox-filename" class="lightbox-filename">screenshot.png</h3>
+          <span id="lightbox-meta" class="lightbox-meta">Instancia · 1.4 MB</span>
+        </div>
+        <button id="btn-close-lightbox" class="modal-close-btn">&times;</button>
+      </div>
+      <div class="lightbox-body">
+        <img id="lightbox-image" src="" alt="Captura de pantalla" />
+      </div>
+      <div class="lightbox-footer">
+        <button id="btn-lightbox-copy" class="btn btn-primary">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+          <span>📋 Copiar Imagen al Portapapeles</span>
+        </button>
+        <button id="btn-lightbox-folder" class="btn btn-secondary">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          <span>📂 Mostrar en Carpeta</span>
+        </button>
+        <button id="btn-lightbox-delete" class="btn btn-danger">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          <span>🗑 Eliminar</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div id="image-lightbox" class="modal-overlay image-lightbox-overlay">
     <div class="image-lightbox-wrapper">
-      <button id="btn-close-lightbox" class="btn btn-small close-btn lightbox-close-btn">✕</button>
-      <img id="lightbox-image" src="" alt="Screenshot" />
+      <button id="btn-close-simple-lightbox" class="btn btn-small close-btn lightbox-close-btn">✕</button>
+      <img id="simple-lightbox-image" src="" alt="Screenshot" />
     </div>
   </div>
 
@@ -1807,6 +2040,7 @@
     </div>
   </div>
 
+  <script src="libs/skinview3d.bundle.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>

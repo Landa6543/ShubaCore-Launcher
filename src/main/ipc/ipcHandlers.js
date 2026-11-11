@@ -24,6 +24,8 @@ const { getProfileSyncManager } = require('../sync/ProfileSyncManager');
 const { getInstancePacksManager } = require('../packs/InstancePacksManager');
 const { getWorldManager } = require('../worlds/WorldManager');
 const { getServerManager } = require('../servers/ServerManager');
+const { getScreenshotsManager } = require('../screenshots/ScreenshotsManager');
+const { getHudOptionsManager } = require('../hud/HudOptionsManager');
 const { defaultLogger: logger } = require('../utils/logger');
 
 function registerIpcHandlers(mainWindow) {
@@ -41,6 +43,8 @@ function registerIpcHandlers(mainWindow) {
   const worldManager = getWorldManager();
   const serverManager = getServerManager();
   serverManager.setMainWindow(mainWindow);
+  const screenshotsManager = getScreenshotsManager();
+  const hudOptionsManager = getHudOptionsManager();
 
   // Estado de visibilidad de la pestaña de consola para evitar IPC flood y backpressure
   let isConsoleTabVisible = false;
@@ -1312,6 +1316,86 @@ function registerIpcHandlers(mainWindow) {
       return await serverManager.openFolder(id);
     } catch (err) {
       logger.error('Error en servers:open-folder IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  // ==========================================
+  // GALERÍA DE CAPTURAS DE PANTALLA (SCREENSHOTS)
+  // ==========================================
+  ipcMain.handle('screenshots:list', async (event, options) => {
+    try {
+      return screenshotsManager.listScreenshots(options);
+    } catch (err) {
+      logger.error('Error en screenshots:list IPC:', err);
+      return [];
+    }
+  });
+
+  ipcMain.handle('screenshots:copy', async (event, filePath) => {
+    try {
+      return screenshotsManager.copyToClipboard(filePath);
+    } catch (err) {
+      logger.error('Error en screenshots:copy IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('screenshots:show-folder', async (event, filePath) => {
+    try {
+      return screenshotsManager.showInFolder(filePath);
+    } catch (err) {
+      logger.error('Error en screenshots:show-folder IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('screenshots:delete', async (event, filePath) => {
+    try {
+      return screenshotsManager.deleteScreenshot(filePath);
+    } catch (err) {
+      logger.error('Error en screenshots:delete IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('screenshots:open-folder', async (event, instanceId) => {
+    try {
+      return screenshotsManager.openFolder(instanceId);
+    } catch (err) {
+      logger.error('Error en screenshots:open-folder IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  // ==========================================
+  // UTILIDADES HUD / VANILLA+ (LUNAR CLIENT STYLE)
+  // ==========================================
+  ipcMain.handle('hud:get-state', async (event, { instanceDir }) => {
+    try {
+      const options = hudOptionsManager.readOptions(instanceDir);
+      const mods = hudOptionsManager.getHudModsState(instanceDir);
+      return { success: true, options, mods };
+    } catch (err) {
+      logger.error('Error en hud:get-state IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('hud:set-option', async (event, { instanceDir, optionKey, value }) => {
+    try {
+      return hudOptionsManager.setOption(instanceDir, optionKey, value);
+    } catch (err) {
+      logger.error('Error en hud:set-option IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('hud:toggle-mod', async (event, { profileId, modType, enable }) => {
+    try {
+      return await hudOptionsManager.toggleHudMod({ profileId, modType, enable });
+    } catch (err) {
+      logger.error('Error en hud:toggle-mod IPC:', err);
       return { success: false, error: err.message };
     }
   });

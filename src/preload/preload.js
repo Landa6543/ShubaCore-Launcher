@@ -254,6 +254,26 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
   },
 
   // ==========================================
+  // GALERÍA DE CAPTURAS DE PANTALLA
+  // ==========================================
+  screenshots: {
+    list: (options) => ipcRenderer.invoke('screenshots:list', options),
+    copyToClipboard: (filePath) => ipcRenderer.invoke('screenshots:copy', filePath),
+    showInFolder: (filePath) => ipcRenderer.invoke('screenshots:show-folder', filePath),
+    delete: (filePath) => ipcRenderer.invoke('screenshots:delete', filePath),
+    openFolder: (instanceId) => ipcRenderer.invoke('screenshots:open-folder', instanceId)
+  },
+
+  // ==========================================
+  // UTILIDADES HUD / VANILLA+
+  // ==========================================
+  hud: {
+    getState: (instanceDir) => ipcRenderer.invoke('hud:get-state', { instanceDir }),
+    setOption: (instanceDir, optionKey, value) => ipcRenderer.invoke('hud:set-option', { instanceDir, optionKey, value }),
+    toggleMod: (profileId, modType, enable) => ipcRenderer.invoke('hud:toggle-mod', { profileId, modType, enable })
+  },
+
+  // ==========================================
   // SISTEMA Y VENTANA
   // ==========================================
   system: {

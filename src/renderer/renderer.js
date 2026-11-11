@@ -33,11 +33,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnMaximize = document.getElementById('btn-maximize');
   const btnClose = document.getElementById('btn-close');
 
-  // Vistas Principales (7 Vistas)
+  // Vistas Principales (8 Vistas)
   const tabViewProfiles = document.getElementById('tab-view-profiles');
   const tabViewCatalog = document.getElementById('tab-view-catalog');
   const tabViewMods = document.getElementById('tab-view-mods');
   const tabViewServers = document.getElementById('tab-view-servers');
+  const tabViewScreenshots = document.getElementById('tab-view-screenshots');
   const tabViewSkins = document.getElementById('tab-view-skins');
   const tabViewSettings = document.getElementById('tab-view-settings');
   const tabViewConsole = document.getElementById('tab-view-console');
@@ -46,6 +47,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const viewCatalog = document.getElementById('view-catalog');
   const viewMods = document.getElementById('view-mods');
   const viewServers = document.getElementById('view-servers');
+  const viewScreenshots = document.getElementById('view-screenshots');
   const viewSkins = document.getElementById('view-skins');
   const viewSettings = document.getElementById('view-settings');
   const viewConsole = document.getElementById('view-console');
@@ -450,13 +452,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // =======================================================
-  // NAVEGACIÓN DE VISTAS (7 VISTAS DE ESCRITORIO)
+  // NAVEGACIÓN DE VISTAS (8 VISTAS DE ESCRITORIO)
   // =======================================================
   const navItems = [
     { btn: tabViewProfiles, view: viewProfiles, name: 'profiles' },
     { btn: tabViewCatalog, view: viewCatalog, name: 'catalog' },
     { btn: tabViewMods, view: viewMods, name: 'mods' },
     { btn: tabViewServers, view: viewServers, name: 'servers' },
+    { btn: tabViewScreenshots, view: viewScreenshots, name: 'screenshots' },
     { btn: tabViewSkins, view: viewSkins, name: 'skins' },
     { btn: tabViewSettings, view: viewSettings, name: 'settings' },
     { btn: tabViewConsole, view: viewConsole, name: 'console' }
@@ -490,6 +493,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       loadInstalledMods();
     } else if (viewName === 'servers') {
       loadDedicatedServers();
+    } else if (viewName === 'screenshots') {
+      loadScreenshotsInstancesFilter();
+      loadScreenshotsGallery();
+    } else if (viewName === 'skins') {
+      initSkinViewer3D();
     } else if (viewName === 'settings') {
       renderJavaRuntimes();
     } else if (viewName === 'console') {
@@ -851,7 +859,145 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderSkinFaceToCanvas(skinToRender, sidebarAvatarCanvas);
     renderSkinFaceToCanvas(skinToRender, vestidorFaceCanvas);
     renderSkinBodyToCanvas(skinToRender, vestidorBodyCanvas);
+    loadSkinIn3DViewer(skinToRender);
   }
+
+  // =======================================================
+  // VISOR 3D INTERACTIVO DE SKINS (skinview3d)
+  // =======================================================
+  let skinViewer3D = null;
+  let currentModelType = 'default'; // 'default' (Steve 4px) | 'slim' (Alex 3px)
+  let activeAnimationMode = 'walk'; // 'idle' | 'walk' | 'run'
+  let isSkinAutoRotating = false;
+  let lastLoadedSkinUrl = null;
+
+  function initSkinViewer3D() {
+    const canvas = document.getElementById('skinview-3d-canvas');
+    if (!canvas) return;
+    if (typeof skinview3d === 'undefined') {
+      console.warn('[SkinViewer 3D] Librería skinview3d aún no está disponible.');
+      return;
+    }
+
+    if (skinViewer3D) {
+      try {
+        skinViewer3D.dispose();
+      } catch (_) {}
+      skinViewer3D = null;
+    }
+
+    try {
+      skinViewer3D = new skinview3d.SkinViewer({
+        canvas: canvas,
+        width: 300,
+        height: 420
+      });
+
+      skinViewer3D.controls.enableRotate = true;
+      skinViewer3D.controls.enableZoom = true;
+      skinViewer3D.controls.enablePan = false;
+      skinViewer3D.camera.position.set(0, 0, 70);
+
+      // Iniciar en modo caminar
+      setSkinAnimation(activeAnimationMode || 'walk');
+
+      if (lastLoadedSkinUrl) {
+        skinViewer3D.loadSkin(lastLoadedSkinUrl, { model: currentModelType });
+      }
+    } catch (err) {
+      console.error('[SkinViewer 3D] Error al instanciar visor:', err);
+    }
+  }
+
+  function loadSkinIn3DViewer(skinUrl) {
+    if (!skinUrl) return;
+    lastLoadedSkinUrl = skinUrl;
+    if (!skinViewer3D) {
+      initSkinViewer3D();
+    }
+    if (skinViewer3D) {
+      try {
+        skinViewer3D.loadSkin(skinUrl, { model: currentModelType });
+      } catch (err) {
+        console.warn('[SkinViewer 3D] Error al cargar textura:', err);
+      }
+    }
+  }
+
+  function setSkinModelType(model) {
+    currentModelType = model; // 'default' o 'slim'
+    const btnClassic = document.getElementById('btn-model-classic');
+    const btnSlim = document.getElementById('btn-model-slim');
+    if (btnClassic) btnClassic.classList.toggle('active', model === 'default');
+    if (btnSlim) btnSlim.classList.toggle('active', model === 'slim');
+
+    const label = document.getElementById('skin-preview-label');
+    if (label) {
+      label.textContent = model === 'slim' ? 'Alex (Delgado 3px)' : 'Steve (Clásico 4px)';
+    }
+
+    if (skinViewer3D) {
+      if (skinViewer3D.playerObject && skinViewer3D.playerObject.skin) {
+        skinViewer3D.playerObject.skin.modelType = model;
+      }
+      if (lastLoadedSkinUrl) {
+        skinViewer3D.loadSkin(lastLoadedSkinUrl, { model });
+      }
+    }
+  }
+
+  function setSkinAnimation(animType) {
+    if (!skinViewer3D || typeof skinview3d === 'undefined') return;
+    activeAnimationMode = animType;
+
+    const btnIdle = document.getElementById('btn-anim-idle');
+    const btnWalk = document.getElementById('btn-anim-walk');
+    const btnRun = document.getElementById('btn-anim-run');
+
+    if (btnIdle) btnIdle.classList.toggle('active', animType === 'idle');
+    if (btnWalk) btnWalk.classList.toggle('active', animType === 'walk');
+    if (btnRun) btnRun.classList.toggle('active', animType === 'run');
+
+    if (animType === 'idle') {
+      skinViewer3D.animation = null;
+      if (skinViewer3D.playerObject && skinViewer3D.playerObject.skin) {
+        skinViewer3D.playerObject.skin.leftArm.rotation.set(0, 0, 0);
+        skinViewer3D.playerObject.skin.rightArm.rotation.set(0, 0, 0);
+        skinViewer3D.playerObject.skin.leftLeg.rotation.set(0, 0, 0);
+        skinViewer3D.playerObject.skin.rightLeg.rotation.set(0, 0, 0);
+      }
+    } else if (animType === 'walk') {
+      skinViewer3D.animation = new skinview3d.WalkingAnimation();
+      skinViewer3D.animation.speed = 0.8;
+    } else if (animType === 'run') {
+      skinViewer3D.animation = new skinview3d.RunningAnimation();
+      skinViewer3D.animation.speed = 1.0;
+    }
+  }
+
+  function toggleSkinAutoRotate() {
+    if (!skinViewer3D) return;
+    isSkinAutoRotating = !isSkinAutoRotating;
+    skinViewer3D.autoRotate = isSkinAutoRotating;
+    skinViewer3D.autoRotateSpeed = 1.2;
+    const btnRotate = document.getElementById('btn-anim-rotate');
+    if (btnRotate) btnRotate.classList.toggle('active', isSkinAutoRotating);
+  }
+
+  // Conectar botones del visor 3D
+  const btnModelClassic = document.getElementById('btn-model-classic');
+  const btnModelSlim = document.getElementById('btn-model-slim');
+  const btnAnimIdle = document.getElementById('btn-anim-idle');
+  const btnAnimWalk = document.getElementById('btn-anim-walk');
+  const btnAnimRun = document.getElementById('btn-anim-run');
+  const btnAnimRotate = document.getElementById('btn-anim-rotate');
+
+  if (btnModelClassic) btnModelClassic.addEventListener('click', () => setSkinModelType('default'));
+  if (btnModelSlim) btnModelSlim.addEventListener('click', () => setSkinModelType('slim'));
+  if (btnAnimIdle) btnAnimIdle.addEventListener('click', () => setSkinAnimation('idle'));
+  if (btnAnimWalk) btnAnimWalk.addEventListener('click', () => setSkinAnimation('walk'));
+  if (btnAnimRun) btnAnimRun.addEventListener('click', () => setSkinAnimation('run'));
+  if (btnAnimRotate) btnAnimRotate.addEventListener('click', () => toggleSkinAutoRotate());
 
   // =======================================================
   // VESTIDOR DE SKINS (CLONAR MOJANG Y SUBIR PNG LOCAL)
@@ -870,6 +1016,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (data.success && data.skinUrl) {
           renderSkinFaceToCanvas(data.skinUrl, vestidorFaceCanvas);
           renderSkinBodyToCanvas(data.skinUrl, vestidorBodyCanvas);
+          loadSkinIn3DViewer(data.skinUrl);
           if (skinPreviewLabel) skinPreviewLabel.textContent = `${data.officialName} (Mojang)`;
           if (skinAppliedStatus) skinAppliedStatus.textContent = `Skin clonada lista para aplicar a ${inputOfflineUser.value.trim()}`;
           pendingSkinData = { type: 'mojang', value: targetUser };
@@ -893,6 +1040,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const fileUrl = `file:///${res.path.replace(/\\/g, '/')}`;
         renderSkinFaceToCanvas(fileUrl, vestidorFaceCanvas);
         renderSkinBodyToCanvas(fileUrl, vestidorBodyCanvas);
+        loadSkinIn3DViewer(fileUrl);
         if (skinPreviewLabel) skinPreviewLabel.textContent = 'Archivo PNG local';
         if (skinAppliedStatus) skinAppliedStatus.textContent = 'Archivo PNG seleccionado (listo para aplicar)';
         pendingSkinData = { type: 'file', value: res.path };
@@ -930,6 +1078,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           renderSkinFaceToCanvas(finalSkin, sidebarAvatarCanvas);
           renderSkinFaceToCanvas(finalSkin, vestidorFaceCanvas);
           renderSkinBodyToCanvas(finalSkin, vestidorBodyCanvas);
+          loadSkinIn3DViewer(finalSkin);
           if (skinAppliedStatus) skinAppliedStatus.textContent = 'Skin activa en el juego';
 
           // Si la cuenta activa es Premium, sincronizar con la API oficial de Mojang
@@ -973,6 +1122,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderSkinFaceToCanvas(defaultSteveUrl, sidebarAvatarCanvas);
         renderSkinFaceToCanvas(defaultSteveUrl, vestidorFaceCanvas);
         renderSkinBodyToCanvas(defaultSteveUrl, vestidorBodyCanvas);
+        loadSkinIn3DViewer(defaultSteveUrl);
         if (skinAppliedStatus) skinAppliedStatus.textContent = 'Skin predeterminada activa';
         if (skinPreviewLabel) skinPreviewLabel.textContent = 'Steve';
         appendLog(`[Skins] Skin de ${activeUser} restaurada a los valores predeterminados.`, 'info');
@@ -2462,7 +2612,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       mods: document.getElementById('subpanel-instance-mods'),
       shaders: document.getElementById('subpanel-instance-shaders'),
       resourcepacks: document.getElementById('subpanel-instance-resourcepacks'),
-      worlds: document.getElementById('subpanel-instance-worlds')
+      worlds: document.getElementById('subpanel-instance-worlds'),
+      hud: document.getElementById('subpanel-instance-hud')
     };
 
     Object.keys(subpanels).forEach((k) => {
@@ -2481,6 +2632,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       loadInstalledResourcePacks();
     } else if (tabName === 'worlds') {
       loadInstalledWorlds();
+    } else if (tabName === 'hud') {
+      loadHudState();
     }
   }
 
@@ -5518,6 +5671,317 @@ document.addEventListener('DOMContentLoaded', async () => {
       serverInstallProgressText.textContent = message;
     }
   });
+
+  // =======================================================
+  // GALERÍA DE CAPTURAS DE PANTALLA (SCREENSHOTS)
+  // =======================================================
+  const selectScreenshotsInstanceFilter = document.getElementById('select-screenshots-instance-filter');
+  const btnOpenActiveScreenshotsFolder = document.getElementById('btn-open-active-screenshots-folder');
+  const btnRefreshScreenshots = document.getElementById('btn-refresh-screenshots');
+  const screenshotsGridContainer = document.getElementById('screenshots-grid-container');
+
+  // Modal Lightbox
+  const modalScreenshotLightbox = document.getElementById('modal-screenshot-lightbox');
+  const btnCloseScreenshotLightbox = document.getElementById('btn-close-lightbox');
+  const lightboxFilename = document.getElementById('lightbox-filename');
+  const lightboxMeta = document.getElementById('lightbox-meta');
+  const btnLightboxCopy = document.getElementById('btn-lightbox-copy');
+  const btnLightboxFolder = document.getElementById('btn-lightbox-folder');
+  const btnLightboxDelete = document.getElementById('btn-lightbox-delete');
+
+  let currentActiveLightboxScreenshot = null;
+
+  async function loadScreenshotsInstancesFilter() {
+    if (!selectScreenshotsInstanceFilter) return;
+    try {
+      const profiles = await api.profiles.getAll();
+      const currentVal = selectScreenshotsInstanceFilter.value || 'all';
+      selectScreenshotsInstanceFilter.innerHTML = '<option value="all">Todas las instancias</option>';
+      (profiles || []).forEach((p) => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.name || 'Instancia';
+        selectScreenshotsInstanceFilter.appendChild(opt);
+      });
+      selectScreenshotsInstanceFilter.value = currentVal;
+    } catch (_) {}
+  }
+
+  async function loadScreenshotsGallery() {
+    if (!screenshotsGridContainer) return;
+    const filterId = selectScreenshotsInstanceFilter?.value || 'all';
+    screenshotsGridContainer.innerHTML = '<div class="empty-state">Escaneando capturas de pantalla...</div>';
+
+    try {
+      const items = await api.screenshots.list({ instanceId: filterId });
+
+      if (!items || items.length === 0) {
+        screenshotsGridContainer.innerHTML = `
+          <div class="empty-state" style="grid-column: 1 / -1; padding: 48px 16px;">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--text-dim); margin-bottom: 12px;">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+              <circle cx="12" cy="13" r="4"/>
+            </svg>
+            <p style="margin: 0; font-size: 14px; color: var(--text-primary); font-weight: 500;">No se encontraron capturas de pantalla</p>
+            <small style="color: var(--text-muted); margin-top: 4px; display: block;">Presiona F2 mientras juegas Minecraft para tomar capturas de alta resolución.</small>
+          </div>
+        `;
+        return;
+      }
+
+      screenshotsGridContainer.innerHTML = '';
+      items.forEach((item) => {
+        const card = document.createElement('div');
+        card.className = 'screenshot-card';
+        card.innerHTML = `
+          <div class="screenshot-thumb-box" title="Clic para ampliar en pantalla completa">
+            <img class="screenshot-thumb" src="${escapeHtml(item.fileUrl)}" alt="${escapeHtml(item.fileName)}" loading="lazy" />
+            <span class="screenshot-badge-instance">${escapeHtml(item.instanceName)}</span>
+          </div>
+          <div class="screenshot-card-body">
+            <span class="screenshot-card-filename" title="${escapeHtml(item.fileName)}">${escapeHtml(item.fileName)}</span>
+            <div class="screenshot-card-meta">
+              <span>${escapeHtml(item.dateFormatted)}</span>
+              <span>${escapeHtml(item.sizeFormatted)}</span>
+            </div>
+          </div>
+          <div class="screenshot-card-actions">
+            <button class="btn btn-secondary btn-compact btn-card-copy" title="Copiar imagen al portapapeles para pegar directo en Discord (Ctrl+V)">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+              <span>Copiar</span>
+            </button>
+            <button class="btn btn-secondary btn-compact btn-card-folder" title="Mostrar en el Explorador de Windows">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              <span>Carpeta</span>
+            </button>
+            <button class="btn btn-danger btn-compact btn-card-delete" title="Eliminar captura">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            </button>
+          </div>
+        `;
+
+        // Click en thumbnail para lightbox
+        card.querySelector('.screenshot-thumb-box').addEventListener('click', () => {
+          openScreenshotLightbox(item);
+        });
+
+        // Botón copiar al portapapeles
+        const btnCopy = card.querySelector('.btn-card-copy');
+        btnCopy.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          try {
+            await api.screenshots.copyToClipboard(item.filePath);
+            btnCopy.innerHTML = '<span>✔ ¡Copiada!</span>';
+            setTimeout(() => {
+              btnCopy.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span>Copiar</span>';
+            }, 2000);
+            appendLog('[Capturas] Imagen copiada al portapapeles. Pégala directamente con Ctrl+V en Discord o Paint.', 'success');
+          } catch (err) {
+            alert(`Error al copiar: ${err.message}`);
+          }
+        });
+
+        // Botón mostrar en carpeta
+        card.querySelector('.btn-card-folder').addEventListener('click', async (e) => {
+          e.stopPropagation();
+          await api.screenshots.showInFolder(item.filePath);
+        });
+
+        // Botón eliminar
+        card.querySelector('.btn-card-delete').addEventListener('click', async (e) => {
+          e.stopPropagation();
+          if (confirm(`¿Eliminar la captura "${item.fileName}"?`)) {
+            await api.screenshots.delete(item.filePath);
+            loadScreenshotsGallery();
+          }
+        });
+
+        screenshotsGridContainer.appendChild(card);
+      });
+    } catch (err) {
+      screenshotsGridContainer.innerHTML = `<div class="empty-state">Error cargando capturas: ${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  function openScreenshotLightbox(item) {
+    if (!modalScreenshotLightbox) return;
+    currentActiveLightboxScreenshot = item;
+    if (lightboxImage) lightboxImage.src = item.fileUrl;
+    if (lightboxFilename) lightboxFilename.textContent = item.fileName;
+    if (lightboxMeta) lightboxMeta.textContent = `Instancia: ${item.instanceName} · ${item.sizeFormatted} · ${item.dateFormatted}`;
+    modalScreenshotLightbox.classList.remove('hidden');
+  }
+
+  function closeScreenshotLightbox() {
+    if (!modalScreenshotLightbox) return;
+    modalScreenshotLightbox.classList.add('hidden');
+    currentActiveLightboxScreenshot = null;
+    if (lightboxImage) lightboxImage.src = '';
+  }
+
+  if (btnCloseScreenshotLightbox) {
+    btnCloseScreenshotLightbox.addEventListener('click', closeScreenshotLightbox);
+  }
+
+  if (modalScreenshotLightbox) {
+    modalScreenshotLightbox.addEventListener('click', (e) => {
+      if (e.target === modalScreenshotLightbox) {
+        closeScreenshotLightbox();
+      }
+    });
+  }
+
+  if (btnLightboxCopy) {
+    btnLightboxCopy.addEventListener('click', async () => {
+      if (!currentActiveLightboxScreenshot) return;
+      try {
+        await api.screenshots.copyToClipboard(currentActiveLightboxScreenshot.filePath);
+        const originalText = btnLightboxCopy.innerHTML;
+        btnLightboxCopy.innerHTML = '<span>✔ ¡Copiada al Portapapeles!</span>';
+        setTimeout(() => {
+          btnLightboxCopy.innerHTML = originalText;
+        }, 2200);
+        appendLog('[Capturas] Captura copiada al portapapeles. Pégala con Ctrl+V en Discord.', 'success');
+      } catch (err) {
+        alert(`Error al copiar: ${err.message}`);
+      }
+    });
+  }
+
+  if (btnLightboxFolder) {
+    btnLightboxFolder.addEventListener('click', async () => {
+      if (currentActiveLightboxScreenshot) {
+        await api.screenshots.showInFolder(currentActiveLightboxScreenshot.filePath);
+      }
+    });
+  }
+
+  if (btnLightboxDelete) {
+    btnLightboxDelete.addEventListener('click', async () => {
+      if (!currentActiveLightboxScreenshot) return;
+      if (confirm(`¿Eliminar definitivamente la captura "${currentActiveLightboxScreenshot.fileName}"?`)) {
+        await api.screenshots.delete(currentActiveLightboxScreenshot.filePath);
+        closeScreenshotLightbox();
+        loadScreenshotsGallery();
+      }
+    });
+  }
+
+  if (selectScreenshotsInstanceFilter) {
+    selectScreenshotsInstanceFilter.addEventListener('change', () => {
+      loadScreenshotsGallery();
+    });
+  }
+
+  if (btnRefreshScreenshots) {
+    btnRefreshScreenshots.addEventListener('click', () => {
+      loadScreenshotsGallery();
+    });
+  }
+
+  if (btnOpenActiveScreenshotsFolder) {
+    btnOpenActiveScreenshotsFolder.addEventListener('click', async () => {
+      const filterId = selectScreenshotsInstanceFilter?.value || 'all';
+      await api.screenshots.openFolder(filterId);
+    });
+  }
+
+  // =======================================================
+  // UTILIDADES HUD / VANILLA+ (LUNAR CLIENT STYLE)
+  // =======================================================
+  const switchHudFullbright = document.getElementById('switch-hud-fullbright');
+  const switchHudAutosprint = document.getElementById('switch-hud-autosprint');
+  const switchHudNoclouds = document.getElementById('switch-hud-noclouds');
+  const switchHudNovsync = document.getElementById('switch-hud-novsync');
+
+  const switchHudCoords = document.getElementById('switch-hud-coords');
+  const switchHudZoom = document.getElementById('switch-hud-zoom');
+  const switchHudArmor = document.getElementById('switch-hud-armor');
+  const switchHudFps = document.getElementById('switch-hud-fps');
+  const btnRefreshHudState = document.getElementById('btn-refresh-hud-state');
+
+  async function loadHudState() {
+    try {
+      const activeProfile = await api.profiles.getActive();
+      if (!activeProfile) return;
+      const instanceDir = activeProfile.gameDirectory;
+      if (!instanceDir) return;
+
+      const res = await api.hud.getState(instanceDir);
+      if (res && res.success) {
+        if (switchHudFullbright) switchHudFullbright.checked = !!res.options.fullbright;
+        if (switchHudAutosprint) switchHudAutosprint.checked = !!res.options.autoSprint;
+        if (switchHudNoclouds) switchHudNoclouds.checked = !!res.options.noClouds;
+        if (switchHudNovsync) switchHudNovsync.checked = !!res.options.noVsync;
+
+        if (switchHudCoords) switchHudCoords.checked = !!res.mods.coords;
+        if (switchHudZoom) switchHudZoom.checked = !!res.mods.zoom;
+        if (switchHudArmor) switchHudArmor.checked = !!res.mods.armor;
+        if (switchHudFps) switchHudFps.checked = !!res.mods.fps;
+      }
+    } catch (err) {
+      console.warn('Error cargando estado HUD:', err.message);
+    }
+  }
+
+  async function handleOptionToggle(optionKey, value) {
+    try {
+      const activeProfile = await api.profiles.getActive();
+      if (!activeProfile || !activeProfile.gameDirectory) return;
+      await api.hud.setOption(activeProfile.gameDirectory, optionKey, value);
+      appendLog(`[HUD] Ajuste "${optionKey}" ${value ? 'ACTIVADO' : 'DESACTIVADO'} en options.txt de la instancia.`, 'info');
+    } catch (err) {
+      alert(`Error al actualizar options.txt: ${err.message}`);
+    }
+  }
+
+  async function handleModToggle(modType, enable, switchElem) {
+    try {
+      const activeProfile = await api.profiles.getActive();
+      if (!activeProfile) return;
+      if (switchElem) switchElem.disabled = true;
+      appendLog(`[HUD Mods] ${enable ? 'Instalando y activando' : 'Desactivando'} módulo "${modType}"...`, 'info');
+      const res = await api.hud.toggleMod(activeProfile.id, modType, enable);
+      if (res && res.success) {
+        appendLog(`[HUD Mods] Módulo "${modType}" ${enable ? 'activado' : 'desactivado'} con éxito.`, 'success');
+      }
+    } catch (err) {
+      alert(`Error en módulo HUD: ${err.message}`);
+      if (switchElem) switchElem.checked = !enable;
+    } finally {
+      if (switchElem) switchElem.disabled = false;
+      loadHudState();
+    }
+  }
+
+  if (switchHudFullbright) {
+    switchHudFullbright.addEventListener('change', (e) => handleOptionToggle('fullbright', e.target.checked));
+  }
+  if (switchHudAutosprint) {
+    switchHudAutosprint.addEventListener('change', (e) => handleOptionToggle('autoSprint', e.target.checked));
+  }
+  if (switchHudNoclouds) {
+    switchHudNoclouds.addEventListener('change', (e) => handleOptionToggle('noClouds', e.target.checked));
+  }
+  if (switchHudNovsync) {
+    switchHudNovsync.addEventListener('change', (e) => handleOptionToggle('noVsync', e.target.checked));
+  }
+
+  if (switchHudCoords) {
+    switchHudCoords.addEventListener('change', (e) => handleModToggle('coords', e.target.checked, switchHudCoords));
+  }
+  if (switchHudZoom) {
+    switchHudZoom.addEventListener('change', (e) => handleModToggle('zoom', e.target.checked, switchHudZoom));
+  }
+  if (switchHudArmor) {
+    switchHudArmor.addEventListener('change', (e) => handleModToggle('armor', e.target.checked, switchHudArmor));
+  }
+  if (switchHudFps) {
+    switchHudFps.addEventListener('change', (e) => handleModToggle('fps', e.target.checked, switchHudFps));
+  }
+  if (btnRefreshHudState) {
+    btnRefreshHudState.addEventListener('click', () => loadHudState());
+  }
 
   // Inicialización
   await initLauncherUpdater();
