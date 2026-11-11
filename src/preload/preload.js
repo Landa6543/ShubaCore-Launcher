@@ -368,6 +368,14 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
   },
 
   // ==========================================
+  // CONTROLLER AGENT: SOPORTE NATIVO PARA MANDOS (JVM AGENT)
+  // ==========================================
+  controller: {
+    getStatus: () => ipcRenderer.invoke('controller:get-status'),
+    ensure: () => ipcRenderer.invoke('controller:ensure')
+  },
+
+  // ==========================================
   // EVENTOS Y REGISTROS EN TIEMPO REAL
   // ==========================================
   events: {

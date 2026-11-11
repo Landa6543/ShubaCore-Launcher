@@ -2022,6 +2022,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         const dStatus = await api.discord.getStatus();
         checkDiscordRpc.checked = dStatus ? dStatus.enabled : true;
       }
+      const checkGlobalController = document.getElementById('check-global-controller');
+      if (checkGlobalController && api.config) {
+        const ctrlEnabled = await api.config.getKey('performance.controllerSupport', false);
+        checkGlobalController.checked = !!ctrlEnabled;
+      }
       inputInstancePath.value = config.instance?.path || '';
       if (inputCustomJava) inputCustomJava.value = config.performance?.javaPath || '';
       if (selectGlobalJava) selectGlobalJava.value = config.performance?.javaSelection || 'auto';
@@ -2100,6 +2105,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     checkDiscordRpc.addEventListener('change', async () => {
       await api.discord.setEnabled(checkDiscordRpc.checked);
       appendLog(`[Discord RPC] Actividad en Discord: ${checkDiscordRpc.checked ? 'ACTIVADA' : 'DESACTIVADA'}`, 'info');
+    });
+  }
+
+  const checkGlobalController = document.getElementById('check-global-controller');
+  if (checkGlobalController && api.config) {
+    checkGlobalController.addEventListener('change', async () => {
+      await api.config.set('performance.controllerSupport', checkGlobalController.checked);
+      if (checkGlobalController.checked && api.controller) {
+        await api.controller.ensure();
+      }
+      appendLog(`[Mando] Soporte nativo para mando: ${checkGlobalController.checked ? 'ACTIVADO' : 'DESACTIVADO'} (Java Agent GLFW sin mods).`, 'info');
     });
   }
 
@@ -6219,6 +6235,13 @@ document.addEventListener('DOMContentLoaded', async () => {
           switchHudCustomSplash.checked = isSplashOn;
           updateHudStatusText(statusHudCustomSplash, isSplashOn);
         }
+        const switchHudController = document.getElementById('switch-hud-controller');
+        const statusHudController = document.getElementById('status-hud-controller');
+        if (switchHudController) {
+          const isControllerOn = !!(currentActiveProfile?.controllerSupport);
+          switchHudController.checked = isControllerOn;
+          updateHudStatusText(statusHudController, isControllerOn);
+        }
       }
     } catch (err) {
       console.warn('[HUD] Error cargando estado de opciones:', err.message);
@@ -6274,6 +6297,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       }
       appendLog(`[Splash Screen] Pantalla de carga personalizada ${isChecked ? 'ACTIVADA' : 'DESACTIVADA'}.`, 'info');
+    });
+  }
+
+  const switchHudController = document.getElementById('switch-hud-controller');
+  const statusHudController = document.getElementById('status-hud-controller');
+  if (switchHudController) {
+    switchHudController.addEventListener('change', async (e) => {
+      const isChecked = e.target.checked;
+      updateHudStatusText(statusHudController, isChecked);
+      if (currentActiveProfile) {
+        currentActiveProfile.controllerSupport = isChecked;
+        await api.profiles.update(currentActiveProfile.id, { controllerSupport: isChecked });
+        if (isChecked && api.controller) {
+          await api.controller.ensure();
+        }
+      }
+      appendLog(`[Mando] Soporte nativo para mando ${isChecked ? 'ACTIVADO' : 'DESACTIVADO'} (Java Agent GLFW sin mods).`, 'info');
     });
   }
 

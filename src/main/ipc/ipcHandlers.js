@@ -36,6 +36,7 @@ const { getMemoryCleaner } = require('../system/MemoryCleaner');
 const { getPlayItManager } = require('../tunnel/PlayItManager');
 const { getServerMonitor } = require('../servers/ServerMonitor');
 const { getSplashScreen } = require('../splash/SplashScreen');
+const { getControllerAgentManager } = require('../controller/ControllerAgentManager');
 const { defaultLogger: logger } = require('../utils/logger');
 
 function registerIpcHandlers(mainWindow) {
@@ -1764,6 +1765,33 @@ function registerIpcHandlers(mainWindow) {
       return splashScreen.removeFromOptionsTxt(instancePath);
     } catch (err) {
       return false;
+    }
+  });
+
+  // ==========================================
+  // CONTROLLER AGENT: SOPORTE NATIVO PARA MANDOS (JVM AGENT)
+  // ==========================================
+  ipcMain.handle('controller:get-status', async () => {
+    try {
+      const agentMgr = getControllerAgentManager();
+      return {
+        success: true,
+        isInstalled: agentMgr.isAgentInstalled(),
+        path: agentMgr.getAgentPath()
+      };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('controller:ensure', async () => {
+    try {
+      const agentMgr = getControllerAgentManager();
+      const agentPath = agentMgr.ensureAgentJar();
+      return { success: true, path: agentPath };
+    } catch (err) {
+      logger.error('Error en controller:ensure IPC:', err);
+      return { success: false, error: err.message };
     }
   });
 
