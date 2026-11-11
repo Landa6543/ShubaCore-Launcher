@@ -2427,8 +2427,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       btnCheckModUpdates.disabled = true;
       const originalHtml = btnCheckModUpdates.innerHTML;
       btnCheckModUpdates.innerHTML = '<span>Buscando...</span>';
-      const channel = document.getElementById('select-update-channel')?.value || 'release';
-      appendLog(`[Mods] Comprobando versiones compatibles más recientes en CurseForge y Modrinth (Canal: ${channel.toUpperCase()})...`, 'info');
+      const channel = 'release';
+      appendLog(`[Mods] Comprobando versiones compatibles más recientes en CurseForge y Modrinth (Solo Estables)...`, 'info');
 
       try {
         const targetInstance = currentActiveProfile?.instancePath || null;
@@ -2436,7 +2436,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           instancePath: targetInstance,
           mcVersion: currentActiveProfile?.mcVersion,
           loader: currentActiveProfile?.loader,
-          channel
+          channel: 'release'
         });
 
         activeAvailableUpdates = res.updates || [];
@@ -2449,7 +2449,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             btnUpdateAllMods.classList.add('has-updates');
             btnUpdateAllMods.innerHTML = `
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-              <span>⚡ Actualizar Todos (<span id="updates-available-count">${activeAvailableUpdates.length}</span>)</span>
+              <span>Actualizar Todos (<span id="updates-available-count">${activeAvailableUpdates.length}</span>)</span>
             `;
           }
         } else {
@@ -2473,35 +2473,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  const selectUpdateChannel = document.getElementById('select-update-channel');
-  if (selectUpdateChannel) {
-    selectUpdateChannel.addEventListener('change', () => {
-      if (btnCheckModUpdates && !btnCheckModUpdates.disabled) {
-        btnCheckModUpdates.click();
-      }
-    });
-  }
-
   if (btnUpdateAllMods) {
     btnUpdateAllMods.addEventListener('click', async () => {
       const targetInstance = currentActiveProfile?.instancePath || null;
       const mcVer = currentActiveProfile?.mcVersion || '1.21.1';
       const loader = currentActiveProfile?.loader || 'neoforge';
-      const channel = document.getElementById('select-update-channel')?.value || 'release';
+      const channel = 'release';
 
       // 1. Si el usuario hace clic sin haber escaneado previamente, ejecutar escaneo primero
       if (!activeAvailableUpdates || activeAvailableUpdates.length === 0) {
         btnUpdateAllMods.disabled = true;
         const originalBtnHtml = btnUpdateAllMods.innerHTML;
         btnUpdateAllMods.innerHTML = '<span>Buscando...</span>';
-        appendLog(`[Mods] Comprobando versiones compatibles más recientes en CurseForge y Modrinth (Canal: ${channel.toUpperCase()})...`, 'info');
+        appendLog(`[Mods] Comprobando versiones compatibles más recientes en CurseForge y Modrinth (Solo Estables)...`, 'info');
 
         try {
           const res = await api.mods.checkUpdates({
             instancePath: targetInstance,
             mcVersion: mcVer,
             loader: loader,
-            channel
+            channel: 'release'
           });
 
           activeAvailableUpdates = res.updates || [];
@@ -2521,7 +2512,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           btnUpdateAllMods.classList.add('has-updates');
           btnUpdateAllMods.innerHTML = `
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-            <span>⚡ Actualizar Todos (<span id="updates-available-count">${activeAvailableUpdates.length}</span>)</span>
+            <span>Actualizar Todos (<span id="updates-available-count">${activeAvailableUpdates.length}</span>)</span>
           `;
           await loadInstalledMods();
         } catch (err) {
@@ -3341,7 +3332,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       const ver = await api.updater.getVersion();
       if (launcherCurrentVersion && ver) {
-        launcherCurrentVersion.textContent = 'v' + ver;
+        launcherCurrentVersion.textContent = `v${ver} — Awakening Edition`;
       }
     } catch (_) {}
   }

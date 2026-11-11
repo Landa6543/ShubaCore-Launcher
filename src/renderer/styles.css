@@ -615,7 +615,7 @@ body {
 .badge-curseforge { background-color: rgba(249, 115, 22, 0.15); color: #fb923c; border: 1px solid rgba(249, 115, 22, 0.3); }
 
 /* Inputs y Selects */
-.text-input, .select-input {
+.text-input {
   background-color: var(--bg-input);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -627,8 +627,33 @@ body {
   transition: border-color 0.15s ease;
 }
 
-.text-input:focus, .select-input:focus {
+.text-input:focus {
   border-color: var(--border-focus);
+}
+
+select, .select-input, .catalog-select, .dark-select {
+  background-color: #14171f !important;
+  color: #e5e7eb !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  font-family: var(--font-sans);
+  outline: none;
+  cursor: pointer;
+  color-scheme: dark;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+select:hover, .select-input:hover, .catalog-select:hover, .dark-select:hover,
+select:focus, .select-input:focus, .catalog-select:focus, .dark-select:focus {
+  border-color: #10b981 !important;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.15);
+}
+
+select option, .select-input option, .catalog-select option, .dark-select option {
+  background-color: #14171f;
+  color: #e5e7eb;
 }
 
 .input-group {
