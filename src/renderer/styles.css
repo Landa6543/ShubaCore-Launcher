@@ -527,7 +527,9 @@ body {
   box-sizing: border-box !important;
 }
 
-.view-panel.active {
+.view-panel.active,
+.view-container.active,
+[id^="view-"].active {
   display: flex !important;
   width: 100% !important;
   max-width: none !important;
@@ -4008,6 +4010,7 @@ input:checked + .switch-slider:before {
 .view-container:not(.active),
 .catalog-view:not(.active),
 [id^="view-"]:not(.active),
+.view-panel.hidden,
 .view-container.hidden,
 .catalog-view.hidden,
 [id^="view-"].hidden,

@@ -65,11 +65,14 @@ class ServerInstaller {
    */
   static async getAvailableMinecraftVersions() {
     try {
-      const res = await fetch('https://piston-meta.mojang.com/mc/game/version_manifest_v2.json');
+      const res = await fetch('https://piston-meta.mojang.com/mc/game/version_manifest_v2.json', {
+        headers: { 'User-Agent': 'SHUBATECH/ShubaCore/1.1.0' }
+      });
       if (res.ok) {
         const data = await res.json();
         const releases = (data.versions || [])
-          .filter((v) => v.type === 'release')
+          .filter((v) => v.type === 'release' && typeof v.id === 'string' && /^1\.\d+(\.\d+)?$/.test(v.id))
+          .sort((a, b) => new Date(b.releaseTime) - new Date(a.releaseTime))
           .map((v) => v.id);
         if (releases.length > 0) return releases;
       }

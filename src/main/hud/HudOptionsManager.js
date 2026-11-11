@@ -254,15 +254,9 @@ class HudOptionsManager {
     }
 
     // CASO 2: Activar módulo
-    // Si la instancia es Vanilla, auto-configurar loader Fabric para soportar mods HUD
     let currentLoader = (profile.loader || 'vanilla').toLowerCase();
     if (currentLoader === 'vanilla') {
-      logger.info(`[HudOptions] Instancia "${profile.name}" es Vanilla. Auto-configurando Fabric Loader para permitir HUD...`);
-      this.profileManager.updateProfile(profile.id, {
-        loader: 'fabric',
-        loaderVersion: 'latest'
-      });
-      currentLoader = 'fabric';
+      throw new Error('Los módulos HUD en pantalla requieren un entorno con mods (NeoForge/Forge/Fabric). En Vanilla puro se aplican las optimizaciones nativas de options.txt.');
     }
 
     const mcVersion = profile.gameVersion || '1.21.1';

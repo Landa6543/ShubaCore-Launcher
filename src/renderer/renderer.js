@@ -467,11 +467,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   ];
 
   function switchMainView(viewName) {
+    if (viewName === 'instances') viewName = 'profiles';
+    if (viewName === 'instance-content') viewName = 'mods';
+
     navItems.forEach(({ btn, view }) => {
       if (btn) btn.classList.remove('active');
       if (view) {
         view.classList.remove('active');
         view.classList.add('hidden');
+        view.style.display = 'none';
       }
     });
 
@@ -479,30 +483,33 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (activeItem) {
       if (activeItem.btn) activeItem.btn.classList.add('active');
       if (activeItem.view) {
-        activeItem.view.classList.add('active');
         activeItem.view.classList.remove('hidden');
+        activeItem.view.classList.add('active');
+        activeItem.view.style.display = 'flex';
       }
     }
 
     if (viewName === 'profiles') {
-      loadProfiles();
+      try { loadProfiles(); } catch (e) { console.warn('[switchMainView] Error en loadProfiles:', e); }
     } else if (viewName === 'catalog') {
-      if (!inputModSearch.value.trim() && modsSearchResults.children.length <= 1) {
-        performModSearch();
-      }
+      try {
+        if (!inputModSearch.value.trim() && modsSearchResults.children.length <= 1) {
+          performModSearch();
+        }
+      } catch (e) { console.warn('[switchMainView] Error en performModSearch:', e); }
     } else if (viewName === 'mods') {
-      loadInstalledMods();
+      try { loadInstalledMods(); } catch (e) { console.warn('[switchMainView] Error en loadInstalledMods:', e); }
     } else if (viewName === 'servers') {
-      loadDedicatedServers();
+      try { loadDedicatedServers(); } catch (e) { console.warn('[switchMainView] Error en loadDedicatedServers:', e); }
     } else if (viewName === 'screenshots') {
-      loadScreenshotsInstancesFilter();
-      loadScreenshotsGallery();
+      try { loadScreenshotsInstancesFilter(); } catch (e) { console.warn('[switchMainView] Error en loadScreenshotsInstancesFilter:', e); }
+      try { loadScreenshotsGallery(); } catch (e) { console.warn('[switchMainView] Error en loadScreenshotsGallery:', e); }
     } else if (viewName === 'skins') {
-      initSkinViewer3D();
+      try { initSkinViewer3D(); } catch (e) { console.warn('[switchMainView] Error en initSkinViewer3D:', e); }
     } else if (viewName === 'settings') {
-      renderJavaRuntimes();
+      try { renderJavaRuntimes(); } catch (e) { console.warn('[switchMainView] Error en renderJavaRuntimes:', e); }
     } else if (viewName === 'console') {
-      refreshJvmFlags();
+      try { refreshJvmFlags(); } catch (e) { console.warn('[switchMainView] Error en refreshJvmFlags:', e); }
       if (api.launcher && api.launcher.getRecentLogs) {
         api.launcher.getRecentLogs().then((logs) => {
           if (Array.isArray(logs) && logs.length > 0 && consoleLogBuffer.length === 0) {
@@ -521,6 +528,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       api.discord.updateView(viewName).catch(() => {});
     }
   }
+
+  // Compatibilidad universal con navegación por nombre o alias
+  window.switchTab = switchMainView;
+  window.switchMainView = switchMainView;
+  window.navigateTo = switchMainView;
 
   navItems.forEach(({ btn, name }) => {
     if (btn) {
@@ -1716,7 +1728,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           customOpt.textContent = `${profile.mcVersion} (Actual)`;
           selectEditProfileMc.appendChild(customOpt);
         }
-        allCachedMcVersions.slice(0, 35).forEach((ver) => {
+        allCachedMcVersions.forEach((ver) => {
           const opt = document.createElement('option');
           opt.value = ver;
           opt.textContent = ver;
@@ -1917,15 +1929,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       const versions = await api.system.getVersions();
       if (Array.isArray(versions) && versions.length > 0) {
-        allCachedMcVersions = versions;
+        const filtered = versions.filter((ver) => typeof ver === 'string' && /^1\.\d+(\.\d+)?$/.test(ver));
+        allCachedMcVersions = filtered;
         selectProfileMc.innerHTML = '';
-        versions.slice(0, 35).forEach((ver) => {
+        const defaultVer = filtered.includes('1.21.4') ? '1.21.4' : (filtered.includes('1.21.1') ? '1.21.1' : filtered[0]);
+        filtered.forEach((ver) => {
           const opt = document.createElement('option');
           opt.value = ver;
           opt.textContent = ver;
-          if (ver === '1.21.1') opt.selected = true;
+          if (ver === defaultVer) opt.selected = true;
           selectProfileMc.appendChild(opt);
         });
+        if (!selectProfileMc.value) selectProfileMc.value = defaultVer;
       }
     } catch (e) {
       console.warn('Error al cargar versiones de Mojang:', e);
@@ -3631,9 +3646,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
           const formattedSize = item.size ? (item.size > 1048576 ? `${(item.size / (1024 * 1024)).toFixed(1)} MB` : `${(item.size / 1024).toFixed(0)} KB`) : '';
 
+          const modIcon = item.iconUrl || 'assets/logo.png';
+
           card.innerHTML = `
             <div class="mod-card-top">
-              <img src="assets/logo.png" class="mod-card-icon" alt="Icon" onerror="this.src='assets/logo.png'">
+              <img src="${escapeHtml(modIcon)}" class="mod-card-icon" alt="Icon" onerror="this.src='assets/logo.png'">
               <div class="mod-card-body">
                 <div class="mod-card-title-row">
                   <span class="mod-card-title" title="${escapeHtml(item.title || item.name)}">${escapeHtml(item.title || item.name)}</span>
@@ -3657,7 +3674,7 @@ document.addEventListener('DOMContentLoaded', async () => {
               summary: item.summary || item.description,
               author: item.author || 'Landa6543',
               source: 'github',
-              iconUrl: 'assets/logo.png',
+              iconUrl: modIcon,
               downloads: item.downloads || 1,
               websiteUrl: item.htmlUrl || 'https://github.com/Landa6543/ShubaCore-Mods'
             });
@@ -3690,6 +3707,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                 btnEl.className = 'btn btn-small btn-secondary btn-download-gh-mod';
                 btnEl.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg><span>Instalado</span>`;
                 btnEl.disabled = true;
+
+                // Actualizar imagen en la tarjeta al instante si se extrajo icono del jar
+                if (res.iconUrl) {
+                  const cardEl = btnEl.closest('.mod-card');
+                  if (cardEl) {
+                    const img = cardEl.querySelector('.mod-card-icon');
+                    if (img) img.src = res.iconUrl;
+                  }
+                }
                 await loadInstalledMods();
               } else {
                 throw new Error(res.error || 'Error al descargar mod custom.');
@@ -5560,17 +5586,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       const versions = await api.servers.getMcVersions();
       if (Array.isArray(versions) && versions.length > 0) {
-        const currentVal = selectServerCreateMc.value || '1.21.1';
+        const filtered = versions.filter((v) => typeof v === 'string' && /^1\.\d+(\.\d+)?$/.test(v));
+        const defaultVer = filtered.includes('1.21.4') ? '1.21.4' : (filtered.includes('1.21.1') ? '1.21.1' : filtered[0]);
+        const currentVal = selectServerCreateMc.value || defaultVer;
         selectServerCreateMc.innerHTML = '';
-        versions.forEach((v) => {
+        filtered.forEach((v) => {
           const opt = document.createElement('option');
           opt.value = v;
-          opt.textContent = `Minecraft ${v}${v === '1.21.1' ? ' (Recomendado)' : ''}`;
+          opt.textContent = `Minecraft ${v}${v === defaultVer ? ' (Recomendado)' : ''}`;
           if (v === currentVal) opt.selected = true;
           selectServerCreateMc.appendChild(opt);
         });
-        if (!selectServerCreateMc.value && versions.includes('1.21.1')) {
-          selectServerCreateMc.value = '1.21.1';
+        if (!selectServerCreateMc.value) {
+          selectServerCreateMc.value = defaultVer;
         }
       }
     } catch (_) {}
@@ -6090,6 +6118,28 @@ document.addEventListener('DOMContentLoaded', async () => {
       const instanceDir = activeProfile?.instancePath || activeProfile?.gameDirectory || currentActiveProfile?.instancePath;
       if (!instanceDir) return;
 
+      const isVanilla = ((activeProfile?.loader || 'vanilla').toLowerCase() === 'vanilla');
+      const hudVanillaWarning = document.getElementById('hud-vanilla-warning');
+      if (hudVanillaWarning) {
+        hudVanillaWarning.style.display = isVanilla ? 'flex' : 'none';
+      }
+
+      const hudModSwitches = [
+        switchHudKeystrokes, switchHudCps, switchHudCoords,
+        switchHudArmor, switchHudZoom, switchHudMinimap
+      ];
+      hudModSwitches.forEach((sw) => {
+        if (sw) {
+          if (isVanilla) {
+            sw.disabled = true;
+            sw.title = 'Requiere NeoForge, Forge o Fabric. En Vanilla puro aplica los ajustes de options.txt.';
+          } else {
+            sw.disabled = false;
+            sw.title = '';
+          }
+        }
+      });
+
       const res = await api.hud.getState(instanceDir);
       if (res && res.success) {
         if (switchHudFullbright) {
@@ -6101,28 +6151,28 @@ document.addEventListener('DOMContentLoaded', async () => {
           updateHudStatusText(statusHudAutosprint, !!res.options.autoSprint);
         }
         if (switchHudKeystrokes) {
-          switchHudKeystrokes.checked = !!res.mods?.keystrokes;
-          updateHudStatusText(statusHudKeystrokes, !!res.mods?.keystrokes);
+          switchHudKeystrokes.checked = isVanilla ? false : !!res.mods?.keystrokes;
+          updateHudStatusText(statusHudKeystrokes, isVanilla ? false : !!res.mods?.keystrokes);
         }
         if (switchHudCps) {
-          switchHudCps.checked = !!res.mods?.cps;
-          updateHudStatusText(statusHudCps, !!res.mods?.cps);
+          switchHudCps.checked = isVanilla ? false : !!res.mods?.cps;
+          updateHudStatusText(statusHudCps, isVanilla ? false : !!res.mods?.cps);
         }
         if (switchHudCoords) {
-          switchHudCoords.checked = !!res.mods?.coords;
-          updateHudStatusText(statusHudCoords, !!res.mods?.coords);
+          switchHudCoords.checked = isVanilla ? false : !!res.mods?.coords;
+          updateHudStatusText(statusHudCoords, isVanilla ? false : !!res.mods?.coords);
         }
         if (switchHudArmor) {
-          switchHudArmor.checked = !!res.mods?.armor;
-          updateHudStatusText(statusHudArmor, !!res.mods?.armor);
+          switchHudArmor.checked = isVanilla ? false : !!res.mods?.armor;
+          updateHudStatusText(statusHudArmor, isVanilla ? false : !!res.mods?.armor);
         }
         if (switchHudZoom) {
-          switchHudZoom.checked = !!res.mods?.zoom;
-          updateHudStatusText(statusHudZoom, !!res.mods?.zoom);
+          switchHudZoom.checked = isVanilla ? false : !!res.mods?.zoom;
+          updateHudStatusText(statusHudZoom, isVanilla ? false : !!res.mods?.zoom);
         }
         if (switchHudMinimap) {
-          switchHudMinimap.checked = !!res.mods?.minimap;
-          updateHudStatusText(statusHudMinimap, !!res.mods?.minimap);
+          switchHudMinimap.checked = isVanilla ? false : !!res.mods?.minimap;
+          updateHudStatusText(statusHudMinimap, isVanilla ? false : !!res.mods?.minimap);
         }
       }
     } catch (err) {
@@ -6147,6 +6197,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       const activeProfile = await api.profiles.getActive();
       if (!activeProfile) return;
+
+      const isVanilla = ((activeProfile.loader || 'vanilla').toLowerCase() === 'vanilla');
+      if (isVanilla && enable) {
+        alert('Los módulos HUD en pantalla requieren un entorno con mods (NeoForge/Forge/Fabric). En Vanilla puro se aplican las optimizaciones nativas de options.txt.');
+        if (switchElem) switchElem.checked = false;
+        updateHudStatusText(statusElem, false);
+        return;
+      }
+
       if (switchElem) switchElem.disabled = true;
       appendLog(`[HUD Mods] ${enable ? 'Instalando y activando' : 'Desactivando'} módulo "${modType}"...`, 'info');
       const res = await api.hud.toggleMod(activeProfile.id, modType, enable);

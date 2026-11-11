@@ -11,6 +11,7 @@ const crypto = require('crypto');
 const { execSync } = require('child_process');
 const AdmZip = require('adm-zip');
 const { getConfigManager } = require('../config/ConfigManager');
+const { getProfileManager } = require('../profiles/ProfileManager');
 const { defaultLogger: logger } = require('../utils/logger');
 
 class GitHubModsManager {
@@ -19,6 +20,23 @@ class GitHubModsManager {
     this.cachedMods = null;
     this.lastFetched = 0;
     this.cacheTtlMs = 60000; // 1 minuto de caché para evitar rate-limits innecesarios
+
+    try {
+      const { app } = require('electron');
+      this.userDataPath = app ? app.getPath('userData') : path.join(process.env.APPDATA || '', '.shubacore');
+    } catch (_) {
+      this.userDataPath = path.join(process.env.APPDATA || '', '.shubacore');
+    }
+    this.iconsCacheDir = path.join(this.userDataPath, 'cache', 'mod-icons');
+    if (!fs.existsSync(this.iconsCacheDir)) {
+      try { fs.mkdirSync(this.iconsCacheDir, { recursive: true }); } catch (_) {}
+    }
+  }
+
+  getIconPath(fileName) {
+    if (!fileName) return null;
+    const clean = fileName.toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+    return path.join(this.iconsCacheDir, `${clean}.png`);
   }
 
   getRepoInfo() {
@@ -189,6 +207,57 @@ class GitHubModsManager {
     }
 
     const modsList = Array.from(modsMap.values());
+
+    // Resolver iconos locales o cacheados para cada mod custom
+    try {
+      const profileManager = getProfileManager();
+      const allProfiles = (profileManager && profileManager.getAll) ? profileManager.getAll() : [];
+
+      for (const mod of modsList) {
+        const fileName = mod.fileName;
+        if (!fileName) continue;
+
+        // 1. Verificar si ya tenemos el icono en caché en disco
+        const iconCachePath = this.getIconPath(fileName);
+        if (iconCachePath && fs.existsSync(iconCachePath)) {
+          try {
+            const buf = fs.readFileSync(iconCachePath);
+            if (buf && buf.length > 0) {
+              mod.iconUrl = `data:image/png;base64,${buf.toString('base64')}`;
+            }
+          } catch (_) {}
+        }
+
+        // 2. Si no tiene icono o sigue con el logo por defecto, buscar el .jar localmente
+        if (!mod.iconUrl || mod.iconUrl === 'assets/logo.png') {
+          let foundJarPath = null;
+          for (const p of allProfiles) {
+            const pDir = p.instancePath || p.gameDirectory;
+            if (pDir) {
+              const cand = path.join(pDir, 'mods', fileName);
+              if (fs.existsSync(cand)) {
+                foundJarPath = cand;
+                break;
+              }
+            }
+          }
+
+          if (foundJarPath) {
+            const extracted = this._extractJarMetadata(foundJarPath);
+            if (extracted) {
+              if (extracted.iconBase64) mod.iconUrl = extracted.iconBase64;
+              if (extracted.name) { mod.name = extracted.name; mod.title = extracted.name; }
+              if (extracted.version) mod.version = extracted.version;
+              if (extracted.author) mod.author = extracted.author;
+              if (extracted.description) { mod.description = extracted.description; mod.summary = extracted.description; }
+            }
+          }
+        }
+      }
+    } catch (iconErr) {
+      logger.debug(`[GitHubMods] Advertencia resolviendo iconos locales: ${iconErr.message}`);
+    }
+
     this.cachedMods = modsList;
     this.lastFetched = Date.now();
     logger.info(`⚡ [GitHubMods] ${modsList.length} mods custom obtenidos desde https://github.com/${owner}/${repo}`);
@@ -326,57 +395,132 @@ class GitHubModsManager {
       path: targetFilePath,
       sha1,
       size: fileBuf.length,
-      extractedMeta
+      extractedMeta,
+      iconUrl: extractedMeta?.iconBase64 || null
     };
   }
 
   _extractJarMetadata(jarPath) {
-    const zip = new AdmZip(jarPath);
-    const entries = zip.getEntries();
-    let name = null;
-    let version = null;
-    let description = null;
-    let iconBase64 = null;
+    if (!jarPath || !fs.existsSync(jarPath)) return null;
+    try {
+      const zip = new AdmZip(jarPath);
+      const entries = zip.getEntries();
+      let name = null;
+      let modId = null;
+      let version = null;
+      let author = null;
+      let description = null;
+      let iconBase64 = null;
+      let logoFileName = null;
 
-    // Buscar iconos
-    for (const entry of entries) {
-      const eName = entry.entryName.toLowerCase();
-      if (eName === 'icon.png' || eName === 'logo.png' || eName.endsWith('/icon.png') || eName.endsWith('/logo.png')) {
+      // 1. NeoForge / Forge mods.toml / neoforge.mods.toml
+      const neoToml = zip.getEntry('META-INF/neoforge.mods.toml') || zip.getEntry('META-INF/mods.toml');
+      const fabricJson = zip.getEntry('fabric.mod.json') || zip.getEntry('quilt.mod.json');
+      const mcmodInfo = zip.getEntry('mcmod.info');
+
+      if (neoToml) {
         try {
-          const buf = zip.readFile(entry);
-          if (buf && buf.length > 0) {
-            iconBase64 = `data:image/png;base64,${buf.toString('base64')}`;
-            break;
+          const content = neoToml.getData().toString('utf8');
+          const modsSectionMatch = content.match(/\[\[mods\]\]([\s\S]*?)(?:\[\[|$)/i);
+          const modBlock = modsSectionMatch ? modsSectionMatch[1] : content;
+
+          const nameMatch = modBlock.match(/(?:displayName|name)\s*=\s*["']([^"']+)["']/i) || content.match(/(?:displayName|name)\s*=\s*["']([^"']+)["']/i);
+          const modIdMatch = modBlock.match(/modId\s*=\s*["']([^"']+)["']/i) || content.match(/modId\s*=\s*["']([^"']+)["']/i);
+          const verMatch = modBlock.match(/version\s*=\s*["']([^"']+)["']/i);
+          const authorMatch = modBlock.match(/(?:authors|author|credits)\s*=\s*["']([^"']+)["']/i) || content.match(/(?:authors|author|credits)\s*=\s*["']([^"']+)["']/i);
+          const logoMatch = modBlock.match(/logoFile\s*=\s*["']([^"']+)["']/i) || content.match(/logoFile\s*=\s*["']([^"']+)["']/i);
+          const descMatch = modBlock.match(/description\s*=\s*(?:'''|""")([\s\S]*?)(?:'''|""")|description\s*=\s*["']([^"']+)["']/i) || content.match(/description\s*=\s*(?:'''|""")([\s\S]*?)(?:'''|""")|description\s*=\s*["']([^"']+)["']/i);
+
+          if (nameMatch) name = nameMatch[1];
+          if (modIdMatch) modId = modIdMatch[1];
+          if (verMatch && verMatch[1] !== '${file.jarVersion}') version = verMatch[1];
+          if (authorMatch) author = authorMatch[1];
+          if (logoMatch) logoFileName = logoMatch[1];
+          if (descMatch) description = (descMatch[1] || descMatch[2] || '').trim();
+        } catch (_) {}
+      } else if (fabricJson) {
+        try {
+          const json = JSON.parse(fabricJson.getData().toString('utf8'));
+          name = json.name;
+          modId = json.id;
+          version = json.version;
+          description = json.description;
+          if (Array.isArray(json.authors)) {
+            author = json.authors.map((a) => (typeof a === 'string' ? a : (a.name || ''))).filter(Boolean).join(', ');
+          } else if (typeof json.authors === 'string') {
+            author = json.authors;
+          }
+          if (typeof json.icon === 'string') {
+            logoFileName = json.icon;
+          } else if (json.icon && typeof json.icon === 'object') {
+            logoFileName = Object.values(json.icon)[0];
+          }
+        } catch (_) {}
+      } else if (mcmodInfo) {
+        try {
+          const json = JSON.parse(mcmodInfo.getData().toString('utf8'));
+          const m = Array.isArray(json) ? json[0] : (json.modList ? json.modList[0] : json);
+          if (m) {
+            name = m.name;
+            modId = m.modid;
+            version = m.version;
+            description = m.description;
+            author = Array.isArray(m.authorList) ? m.authorList.join(', ') : m.authorList;
+            logoFileName = m.logoFile;
           }
         } catch (_) {}
       }
-    }
 
-    // Buscar toml o json
-    for (const entry of entries) {
-      const eName = entry.entryName.toLowerCase();
-      if (eName.includes('mods.toml')) {
+      // 2. Localizar icono interno
+      let iconEntry = null;
+      if (logoFileName) {
+        const cleanLogo = logoFileName.replace(/^[/\\]+/, '');
+        iconEntry = zip.getEntry(cleanLogo) ||
+                    zip.getEntry(logoFileName) ||
+                    (modId ? zip.getEntry('assets/' + modId + '/' + cleanLogo) : null);
+        if (!iconEntry) {
+          iconEntry = entries.find((e) => e.entryName.toLowerCase().endsWith(cleanLogo.toLowerCase()) && !e.isDirectory);
+        }
+      }
+
+      if (!iconEntry) {
+        const commonNames = ['logo.png', 'icon.png', 'pack.png'];
+        for (const cn of commonNames) {
+          iconEntry = zip.getEntry(cn);
+          if (iconEntry) break;
+          if (modId) {
+            iconEntry = zip.getEntry('assets/' + modId + '/' + cn) ||
+                        zip.getEntry('assets/' + modId + '/textures/gui/' + cn);
+            if (iconEntry) break;
+          }
+        }
+        if (!iconEntry) {
+          iconEntry = entries.find((e) => {
+            const l = e.entryName.toLowerCase();
+            return l.endsWith('.png') && (l.includes('icon') || l.includes('logo')) && !e.isDirectory;
+          });
+        }
+      }
+
+      if (iconEntry) {
         try {
-          const text = zip.readAsText(entry);
-          const nameMatch = text.match(/displayName\s*=\s*["']([^"']+)["']/i);
-          const verMatch = text.match(/version\s*=\s*["']([^"']+)["']/i);
-          const descMatch = text.match(/description\s*=\s*'''([\s\S]*?)'''/i) || text.match(/description\s*=\s*["']([^"']+)["']/i);
-          if (nameMatch) name = nameMatch[1];
-          if (verMatch) version = verMatch[1];
-          if (descMatch) description = descMatch[1].trim();
-        } catch (_) {}
-      } else if (eName.includes('fabric.mod.json')) {
-        try {
-          const text = zip.readAsText(entry);
-          const json = JSON.parse(text);
-          if (json.name) name = json.name;
-          if (json.version) version = json.version;
-          if (json.description) description = json.description;
+          const buf = iconEntry.getData();
+          if (buf && buf.length > 0) {
+            iconBase64 = `data:image/png;base64,${buf.toString('base64')}`;
+            // Guardar en caché persistente en disco
+            const iconCachePath = this.getIconPath(path.basename(jarPath));
+            if (iconCachePath) {
+              try { fs.writeFileSync(iconCachePath, buf); } catch (_) {}
+            }
+          }
         } catch (_) {}
       }
-    }
 
-    return { name, version, description, iconBase64 };
+      return { name, modId, version, author, description, iconBase64 };
+    } catch (err) {
+      logger.debug(`[GitHubMods] Error al inspeccionar metadatos de jar ${jarPath}: ${err.message}`);
+      return null;
+    }
   }
 
   /**
@@ -537,6 +681,14 @@ class GitHubModsManager {
         uploadedSuccessfully = true;
         logger.info(`[GitHubMods] ✅ "${fileName}" subido exitosamente vía REST API.`);
       }
+
+      // Extraer y cachear metadatos e icono localmente
+      try {
+        const extracted = this._extractJarMetadata(filePath);
+        if (extracted && extracted.iconBase64) {
+          logger.info(`[GitHubMods] Icono extraído y cacheado para "${fileName}".`);
+        }
+      } catch (_) {}
 
       results.push({ fileName, path: filePath, size: fileSize, success: true });
     }

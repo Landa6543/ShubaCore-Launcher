@@ -926,32 +926,17 @@ function registerIpcHandlers(mainWindow) {
   ipcMain.handle('system:get-versions', async () => {
     const list = [];
 
-    // 1. Incluir versiones ya instaladas físicamente en <sharedRoot>/versions/
-    try {
-      const sharedRoot = configManager.get('launcher.gameDirectory', path.join(process.env.APPDATA || '', '.shubacore'));
-      const versDir = path.join(sharedRoot, 'versions');
-      if (fs.existsSync(versDir)) {
-        const dirs = fs.readdirSync(versDir, { withFileTypes: true });
-        for (const d of dirs) {
-          if (d.isDirectory()) {
-            const jsonFile = path.join(versDir, d.name, `${d.name}.json`);
-            if (fs.existsSync(jsonFile) && !d.name.includes('neoforge-') && !d.name.includes('forge-') && !d.name.includes('fabric-')) {
-              list.push(d.name);
-            }
-          }
-        }
-      }
-    } catch (_) {}
-
     try {
       const response = await fetch('https://piston-meta.mojang.com/mc/game/version_manifest_v2.json', {
         headers: { 'User-Agent': 'SHUBATECH/ShubaCore/1.1.0' }
       });
       if (response.ok) {
         const data = await response.json();
-        const releases = data.versions
-          .filter((v) => v.type === 'release')
+        const releases = (data.versions || [])
+          .filter((v) => v.type === 'release' && typeof v.id === 'string' && /^1\.\d+(\.\d+)?$/.test(v.id))
+          .sort((a, b) => new Date(b.releaseTime) - new Date(a.releaseTime))
           .map((v) => v.id);
+
         for (const r of releases) {
           if (!list.includes(r)) list.push(r);
         }
@@ -961,12 +946,39 @@ function registerIpcHandlers(mainWindow) {
       logger.warn('No se pudo obtener el manifiesto de Mojang online. Usando lista predeterminada:', err.message);
     }
 
+    // 2. Incluir versiones ya instaladas físicamente en <sharedRoot>/versions/ si cumplen el formato
+    try {
+      const sharedRoot = configManager.get('launcher.gameDirectory', path.join(process.env.APPDATA || '', '.shubacore'));
+      const versDir = path.join(sharedRoot, 'versions');
+      if (fs.existsSync(versDir)) {
+        const dirs = fs.readdirSync(versDir, { withFileTypes: true });
+        for (const d of dirs) {
+          if (d.isDirectory() && /^1\.\d+(\.\d+)?$/.test(d.name)) {
+            const jsonFile = path.join(versDir, d.name, `${d.name}.json`);
+            if (fs.existsSync(jsonFile) && !list.includes(d.name)) {
+              list.push(d.name);
+            }
+          }
+        }
+      }
+    } catch (_) {}
+
     const defaults = [
-      '26.3', '1.21.4', '1.21.3', '1.21.2', '1.21.1', '1.21',
-      '1.20.6', '1.20.4', '1.20.2', '1.20.1',
+      '1.21.4', '1.21.3', '1.21.2', '1.21.1', '1.21',
+      '1.20.6', '1.20.5', '1.20.4', '1.20.3', '1.20.2', '1.20.1', '1.20',
       '1.19.4', '1.19.3', '1.19.2', '1.19.1', '1.19',
       '1.18.2', '1.18.1', '1.18',
-      '1.17.1', '1.16.5', '1.15.2', '1.14.4', '1.12.2', '1.8.9', '1.7.10'
+      '1.17.1', '1.17',
+      '1.16.5', '1.16.4', '1.16.3', '1.16.2', '1.16.1', '1.16',
+      '1.15.2', '1.15.1', '1.15',
+      '1.14.4', '1.14.3', '1.14.2', '1.14.1', '1.14',
+      '1.13.2', '1.13.1', '1.13',
+      '1.12.2', '1.12.1', '1.12',
+      '1.11.2', '1.11',
+      '1.10.2', '1.10',
+      '1.9.4', '1.9',
+      '1.8.9', '1.8.8', '1.8',
+      '1.7.10'
     ];
     for (const d of defaults) {
       if (!list.includes(d)) list.push(d);

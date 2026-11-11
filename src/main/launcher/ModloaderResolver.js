@@ -72,7 +72,7 @@ class ModloaderResolver {
     }
 
     const manifestRes = await fetch('https://piston-meta.mojang.com/mc/game/version_manifest_v2.json', {
-      headers: { 'User-Agent': 'SHUBATECH/ShubaCore/1.0.0' }
+      headers: { 'User-Agent': 'SHUBATECH/ShubaCore/1.1.0' }
     });
 
     if (!manifestRes.ok) {
@@ -87,7 +87,7 @@ class ModloaderResolver {
     }
 
     if (onProgress) onProgress({ type: 'vanilla', message: `Descargando metadatos oficiales de ${mcVersion}.json...`, percent: 20 });
-    const pkgRes = await fetch(verEntry.url, { headers: { 'User-Agent': 'SHUBATECH/ShubaCore/1.0.0' } });
+    const pkgRes = await fetch(verEntry.url, { headers: { 'User-Agent': 'SHUBATECH/ShubaCore/1.1.0' } });
     if (!pkgRes.ok) throw new Error(`Fallo al descargar metadatos de ${mcVersion}`);
     const pkgData = await pkgRes.json();
 
@@ -379,7 +379,7 @@ class ModloaderResolver {
   }
 
   static async _downloadFile(url, destinationPath, onProgress = null) {
-    const response = await fetch(url, { headers: { 'User-Agent': 'SHUBATECH/ShubaCore/1.0.0' } });
+    const response = await fetch(url, { headers: { 'User-Agent': 'SHUBATECH/ShubaCore/1.1.0' } });
     if (!response.ok) {
       throw new Error(`Fallo al descargar ${url}: ${response.status} ${response.statusText}`);
     }
