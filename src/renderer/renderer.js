@@ -463,18 +463,20 @@ document.addEventListener('DOMContentLoaded', async () => {
       const msAccount = await api.auth.getMsAccount();
       const currentAccount = await api.auth.getCurrent();
 
-      if (msAccount && msAccount.name) {
+      if (msAccount && (msAccount.name || msAccount.username)) {
+        const msName = msAccount.name || msAccount.username;
+        const msUuid = msAccount.uuid || '-';
         if (msActiveAccountCard) msActiveAccountCard.style.display = 'flex';
         if (msLoginPrompt) msLoginPrompt.style.display = 'none';
-        if (msActiveGamertag) msActiveGamertag.textContent = msAccount.name;
-        if (msActiveUuid) msActiveUuid.textContent = msAccount.uuid || '-';
+        if (msActiveGamertag) msActiveGamertag.textContent = msName;
+        if (msActiveUuid) msActiveUuid.textContent = msUuid;
 
         // Renderizar cara en el canvas
-        const skinUrl = msAccount.skinUrl || `https://mc-heads.net/skin/${msAccount.name}`;
+        const skinUrl = msAccount.skinUrl || `https://mc-heads.net/skin/${msName}`;
         if (msActiveAvatarCanvas) renderSkinFaceToCanvas(skinUrl, msActiveAvatarCanvas);
 
         // Si la cuenta activa actual es esta cuenta Microsoft
-        const isCurrentActive = currentAccount && currentAccount.uuid === msAccount.uuid && currentAccount.type === 'premium';
+        const isCurrentActive = currentAccount && currentAccount.uuid === msUuid && (currentAccount.type === 'premium' || currentAccount.type === 'microsoft');
         if (btnMsUseAccount) {
           btnMsUseAccount.style.display = isCurrentActive ? 'none' : 'inline-flex';
         }
@@ -500,19 +502,40 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  tabOffline.addEventListener('click', () => {
+  tabOffline.addEventListener('click', async (e) => {
     tabOffline.classList.add('active');
     tabPremium.classList.remove('active');
     formOffline.classList.add('active');
     formPremium.classList.remove('active');
+    if (e.isTrusted) {
+      try {
+        const res = await api.auth.setActiveMode('offline');
+        if (res && res.account) {
+          await updatePlayerBadge(res.account);
+          appendLog(`[Auth] Modo cambiado a Offline: "${res.account.name}"`, 'info');
+        }
+      } catch (_) {}
+    }
   });
 
-  tabPremium.addEventListener('click', () => {
+  tabPremium.addEventListener('click', async (e) => {
     tabPremium.classList.add('active');
     tabOffline.classList.remove('active');
     formPremium.classList.add('active');
     formOffline.classList.remove('active');
-    refreshMicrosoftAccountState();
+    await refreshMicrosoftAccountState();
+    if (e.isTrusted) {
+      try {
+        const msAccount = await api.auth.getMsAccount();
+        if (msAccount) {
+          const res = await api.auth.setActiveMode('microsoft');
+          if (res && res.account) {
+            await updatePlayerBadge(res.account);
+            appendLog(`[Auth] Modo cambiado a Microsoft: "${res.account.name}"`, 'info');
+          }
+        }
+      } catch (_) {}
+    }
   });
 
   if (btnMsUseAccount) {
@@ -522,6 +545,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const res = await api.auth.switchAccount(msAccount.uuid);
       if (res && res.success) {
         await updatePlayerBadge(res.account);
+        await refreshMicrosoftAccountState();
         appendLog(`[Auth] Sesión cambiada a cuenta Microsoft: "${res.account.name}"`, 'success');
         if (modalAccountManager) modalAccountManager.classList.remove('active');
       }
@@ -1557,11 +1581,46 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (inputCustomJava) inputCustomJava.value = config.performance?.javaPath || '';
       if (selectGlobalJava) selectGlobalJava.value = config.performance?.javaSelection || 'auto';
 
-      const current = config.auth?.currentUser;
-      if (current) {
-        updatePlayerBadge(current);
-      } else {
-        await handleOfflineLogin(inputOfflineUser.value.trim() || 'LanderAlo');
+      // Restauración de sesión persistente desde auth-session.json (<userData>)
+      try {
+        const savedSession = await api.auth.getSavedSession();
+        if (savedSession && savedSession.success) {
+          if (savedSession.activeMode === 'microsoft' && savedSession.microsoftAccount) {
+            const msAcc = savedSession.account || {
+              name: savedSession.microsoftAccount.username,
+              uuid: savedSession.microsoftAccount.uuid,
+              type: 'premium',
+              skinUrl: savedSession.microsoftAccount.skinUrl
+            };
+            await updatePlayerBadge(msAcc);
+            await refreshMicrosoftAccountState();
+            appendLog(`[Auth] Sesión Microsoft restaurada automáticamente: "${msAcc.name}" (Premium)`, 'info');
+          } else if (savedSession.offlineAccount) {
+            const offAcc = savedSession.account || {
+              name: savedSession.offlineAccount.username,
+              uuid: savedSession.offlineAccount.uuid,
+              type: 'offline'
+            };
+            inputOfflineUser.value = offAcc.name;
+            await updatePlayerBadge(offAcc);
+            appendLog(`[Auth] Sesión Offline restaurada: "${offAcc.name}"`, 'info');
+          } else if (config.auth?.currentUser) {
+            await updatePlayerBadge(config.auth.currentUser);
+          } else {
+            await handleOfflineLogin(inputOfflineUser.value.trim() || 'LanderAlo');
+          }
+        } else if (config.auth?.currentUser) {
+          await updatePlayerBadge(config.auth.currentUser);
+        } else {
+          await handleOfflineLogin(inputOfflineUser.value.trim() || 'LanderAlo');
+        }
+      } catch (authInitErr) {
+        console.warn('Error al cargar sesión persistente:', authInitErr);
+        if (config.auth?.currentUser) {
+          await updatePlayerBadge(config.auth.currentUser);
+        } else {
+          await handleOfflineLogin(inputOfflineUser.value.trim() || 'LanderAlo');
+        }
       }
 
       await renderJavaRuntimes();

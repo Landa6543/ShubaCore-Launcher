@@ -250,8 +250,24 @@ function registerIpcHandlers(mainWindow) {
   });
 
   // ==========================================
-  // AUTENTICACIÓN HÍBRIDA
+  // AUTENTICACIÓN HÍBRIDA & SESIÓN PERSISTENTE
   // ==========================================
+  ipcMain.handle('get-saved-session', async () => {
+    return await authManager.getSavedSession();
+  });
+
+  ipcMain.handle('auth:get-saved-session', async () => {
+    return await authManager.getSavedSession();
+  });
+
+  ipcMain.handle('auth:set-active-mode', async (event, mode) => {
+    return authManager.setActiveMode(mode);
+  });
+
+  ipcMain.handle('auth:refresh-ms-token', async (event, force) => {
+    return await authManager.refreshMicrosoftSession(force);
+  });
+
   ipcMain.handle('auth:get-current', async () => {
     return authManager.getCurrentAccount();
   });

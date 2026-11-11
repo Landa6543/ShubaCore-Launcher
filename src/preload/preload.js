@@ -71,6 +71,9 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
   // AUTENTICACIÓN HÍBRIDA (OFFLINE & MICROSOFT DEVICE CODE)
   // ==========================================
   auth: {
+    getSavedSession: () => ipcRenderer.invoke('get-saved-session'),
+    setActiveMode: (mode) => ipcRenderer.invoke('auth:set-active-mode', mode),
+    refreshMsToken: (force) => ipcRenderer.invoke('auth:refresh-ms-token', force),
     getCurrent: () => ipcRenderer.invoke('auth:get-current'),
     getMsAccount: () => ipcRenderer.invoke('auth:get-ms-account'),
     loginOffline: (username) => ipcRenderer.invoke('auth:login-offline', username),

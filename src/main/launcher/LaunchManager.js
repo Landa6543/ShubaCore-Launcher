@@ -59,7 +59,10 @@ class LaunchManager {
     this._emit('launch:status', { state: 'initializing', message: 'Inicializando motor ShubaCore...' });
 
     try {
-      // 1. Validar autenticación activa
+      // 1. Validar autenticación activa y auto-renovar tokens si es necesario
+      if (this.authManager && typeof this.authManager.ensureValidSession === 'function') {
+        await this.authManager.ensureValidSession();
+      }
       const auth = this.authManager.getMCLCAuth();
       const currentAccount = this.authManager.getCurrentAccount();
       logger.info(`Jugador autenticado: ${auth.name} (${currentAccount.type.toUpperCase()})`);

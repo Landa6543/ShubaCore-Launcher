@@ -9,6 +9,7 @@ const path = require('path');
 const fs = require('fs');
 const { autoUpdater } = require('electron-updater');
 const { getConfigManager } = require('./src/main/config/ConfigManager');
+const { getAuthManager } = require('./src/main/auth/AuthManager');
 const { registerIpcHandlers } = require('./src/main/ipc/ipcHandlers');
 const { defaultLogger: logger } = require('./src/main/utils/logger');
 
@@ -49,6 +50,18 @@ function createMainWindow() {
     }
   } catch (profilesErr) {
     logger.warn('Aviso al verificar launcher_profiles.json:', profilesErr?.message || profilesErr);
+  }
+
+  // Cargar sesión persistente de usuario (auth-session.json) y auto-renovar tokens si es necesario
+  try {
+    const authManager = getAuthManager();
+    authManager.getSavedSession().then((session) => {
+      logger.info(`[Auth] Sesión persistente restaurada. Modo activo: ${session.activeMode} (Usuario: ${session.account?.name || 'Ninguno'})`);
+    }).catch((err) => {
+      logger.warn('[Auth] Error al restaurar sesión persistente:', err.message);
+    });
+  } catch (authErr) {
+    logger.warn('[Auth] Aviso al inicializar sesión:', authErr.message);
   }
 
   mainWindow = new BrowserWindow({
