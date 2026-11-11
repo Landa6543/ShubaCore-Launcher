@@ -50,7 +50,7 @@
         <canvas id="sidebar-avatar-canvas" width="64" height="64" class="player-avatar-canvas"></canvas>
         <div class="player-info">
           <div class="player-name-row">
-            <span id="player-name" class="player-name">LanderAlo</span>
+            <span id="player-name" class="player-name">Jugador</span>
             <span id="account-status-badge" class="badge badge-offline">OFFLINE</span>
           </div>
           <span class="player-action-hint">Cambiar Cuenta</span>
@@ -375,14 +375,14 @@
               <span id="skin-preview-label" class="badge badge-idle">Steve</span>
             </div>
             <div class="skin-canvas-showcase">
-              <canvas id="vestidor-body-canvas" width="64" height="128" class="skin-body-canvas"></canvas>
+              <canvas id="vestidor-body-canvas" width="160" height="320" class="skin-body-canvas"></canvas>
               <div class="skin-face-inset">
                 <canvas id="vestidor-face-canvas" width="64" height="64" class="skin-face-canvas"></canvas>
                 <small>Cara</small>
               </div>
             </div>
             <div class="skin-info-footer">
-              <span>Usuario asignado: <strong id="skin-modal-username">LanderAlo</strong></span>
+              <span>Usuario asignado: <strong id="skin-modal-username">Jugador</strong></span>
               <small id="skin-applied-status" class="hint">Sin skin personalizada aún</small>
             </div>
           </div>
@@ -394,7 +394,7 @@
               <h3 class="settings-card-title">Clonar Skin de Jugador Premium (API Oficial Mojang)</h3>
               <p class="settings-card-desc">Descarga las texturas oficiales de cualquier cuenta Premium de Minecraft sin APIs externas caídas.</p>
               <div class="input-group">
-                <input type="text" id="input-mojang-skin-clone" class="text-input" placeholder="Nombre de usuario Mojang (ej. Technoblade, LanderAlo)">
+                <input type="text" id="input-mojang-skin-clone" class="text-input" placeholder="Nombre de usuario Mojang (ej. Notch, Technoblade)">
                 <button id="btn-preview-mojang-skin" class="btn btn-secondary">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
                   <span>Obtener</span>
@@ -634,7 +634,7 @@
           <div class="form-group">
             <label for="offline-username">Nombre de Usuario Offline:</label>
             <div class="input-group">
-              <input type="text" id="offline-username" placeholder="Nombre en el juego" maxlength="16" value="LanderAlo">
+              <input type="text" id="offline-username" placeholder="Nombre en el juego" maxlength="16" value="Jugador">
               <button id="btn-login-offline" class="btn btn-primary" title="Activar y guardar esta cuenta No-Premium">Guardar y Usar Cuenta Offline</button>
             </div>
             <small class="hint">UUID asignado: <code id="preview-offline-uuid">-</code></small>

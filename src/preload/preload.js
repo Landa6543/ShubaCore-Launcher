@@ -158,7 +158,8 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
     setFromUsername: (offlineUser, mojangUser) => ipcRenderer.invoke('skins:set-from-username', { offlineUser, mojangUser }),
     setFromFile: (offlineUser, filePath) => ipcRenderer.invoke('skins:set-from-file', { offlineUser, filePath }),
     selectFile: () => ipcRenderer.invoke('skins:select-file'),
-    remove: (username) => ipcRenderer.invoke('skins:remove', username)
+    remove: (username) => ipcRenderer.invoke('skins:remove', username),
+    uploadToMojang: (mcAccessToken, skinData, variant) => ipcRenderer.invoke('skins:upload-to-mojang', { mcAccessToken, skinData, variant })
   },
 
   // ==========================================

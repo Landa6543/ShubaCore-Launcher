@@ -806,6 +806,15 @@ function registerIpcHandlers(mainWindow) {
     }
   });
 
+  ipcMain.handle('skins:upload-to-mojang', async (event, { mcAccessToken, skinData, variant }) => {
+    try {
+      return await skinManager.uploadSkinToMojang(mcAccessToken, skinData, variant);
+    } catch (err) {
+      logger.error('Error en skins:upload-to-mojang IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
   // ==========================================
   // SISTEMA DE EXPORTACIÓN / IMPORTACIÓN .shubapack
   // ==========================================

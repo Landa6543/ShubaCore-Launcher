@@ -281,31 +281,38 @@ document.addEventListener('DOMContentLoaded', async () => {
   // =======================================================
   // RENDERIZADO DE SKIN EN CANVAS (CARA Y CUERPO 2D NATIVOS)
   // =======================================================
+  const DEFAULT_STEVE_SKIN_URL = 'https://mc-heads.net/skin/Steve';
+
   function renderSkinFaceToCanvas(imageSource, targetCanvas) {
     if (!targetCanvas) return;
     const ctx = targetCanvas.getContext('2d');
     ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
 
-    if (!imageSource) {
-      drawDefaultSteveFace(targetCanvas);
-      return;
-    }
+    const src = (imageSource && typeof imageSource === 'string' && imageSource.trim())
+      ? imageSource.trim().replace(/^http:\/\/textures\.minecraft\.net/, 'https://textures.minecraft.net')
+      : DEFAULT_STEVE_SKIN_URL;
 
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    if (!src.startsWith('data:') && !src.startsWith('file:')) {
+      img.crossOrigin = 'anonymous';
+    }
     img.onload = () => {
       ctx.imageSmoothingEnabled = false;
       ctx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
-      // 1. Capa base de la cara (x:8, y:8, w:8, h:8)
-      ctx.drawImage(img, 8, 8, 8, 8, 0, 0, targetCanvas.width, targetCanvas.height);
-      // 2. Capa superior de pelo/sombrero (x:40, y:8, w:8, h:8)
-      ctx.drawImage(img, 40, 8, 8, 8, 0, 0, targetCanvas.width, targetCanvas.height);
+      const w = targetCanvas.width;
+      const h = targetCanvas.height;
+      // 1. Capa base cara (8, 8, 8, 8) -> todo el canvas
+      ctx.drawImage(img, 8, 8, 8, 8, 0, 0, w, h);
+      // 2. Capa superior pelo/overlay (40, 8, 8, 8) -> todo el canvas
+      ctx.drawImage(img, 40, 8, 8, 8, 0, 0, w, h);
     };
     img.onerror = () => {
-      drawDefaultSteveFace(targetCanvas);
+      if (src !== DEFAULT_STEVE_SKIN_URL) {
+        renderSkinFaceToCanvas(DEFAULT_STEVE_SKIN_URL, targetCanvas);
+      }
     };
-    img.src = imageSource;
+    img.src = src;
   }
 
   function renderSkinBodyToCanvas(imageSource, targetCanvas) {
@@ -314,34 +321,40 @@ document.addEventListener('DOMContentLoaded', async () => {
     ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
 
-    if (!imageSource) return;
+    const src = (imageSource && typeof imageSource === 'string' && imageSource.trim())
+      ? imageSource.trim().replace(/^http:\/\/textures\.minecraft\.net/, 'https://textures.minecraft.net')
+      : DEFAULT_STEVE_SKIN_URL;
 
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    if (!src.startsWith('data:') && !src.startsWith('file:')) {
+      img.crossOrigin = 'anonymous';
+    }
     img.onload = () => {
       ctx.imageSmoothingEnabled = false;
       ctx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
+
       const is64x64 = img.height >= 64;
-      const s = targetCanvas.width / 16; // Normalizado 16x32
+      const s = targetCanvas.width / 16; // Con width=160 -> s=10
 
-      // Cabeza: 8x8 en (4, 0)
-      ctx.drawImage(img, 8, 8, 8, 8, 4 * s, 0 * s, 8 * s, 8 * s);
-      ctx.drawImage(img, 40, 8, 8, 8, 4 * s, 0 * s, 8 * s, 8 * s);
+      // 1. Cabeza Base y Overlay: (8,8,8,8) y (40,8,8,8) en (4*s, 0, 8*s, 8*s)
+      ctx.drawImage(img, 8, 8, 8, 8, 4 * s, 0, 8 * s, 8 * s);
+      ctx.drawImage(img, 40, 8, 8, 8, 4 * s, 0, 8 * s, 8 * s);
 
-      // Torso: 8x12 en (4, 8)
+      // 2. Torso Base y Overlay: (20,20,8,12) y (20,36,8,12) en (4*s, 8*s, 8*s, 12*s)
       ctx.drawImage(img, 20, 20, 8, 12, 4 * s, 8 * s, 8 * s, 12 * s);
       if (is64x64) {
         ctx.drawImage(img, 20, 36, 8, 12, 4 * s, 8 * s, 8 * s, 12 * s);
       }
 
-      // Brazo Derecho: 4x12 en (0, 8)
-      ctx.drawImage(img, 44, 20, 4, 12, 0 * s, 8 * s, 4 * s, 12 * s);
+      // 3. Brazo Derecho (A la izquierda en vista frontal): (44,20,4,12) y (44,36,4,12) en (0, 8*s, 4*s, 12*s)
+      ctx.drawImage(img, 44, 20, 4, 12, 0, 8 * s, 4 * s, 12 * s);
       if (is64x64) {
-        ctx.drawImage(img, 44, 36, 4, 12, 0 * s, 8 * s, 4 * s, 12 * s);
+        ctx.drawImage(img, 44, 36, 4, 12, 0, 8 * s, 4 * s, 12 * s);
       }
 
-      // Brazo Izquierdo: 4x12 en (12, 8)
+      // 4. Brazo Izquierdo (A la derecha en vista frontal):
       if (is64x64) {
+        // Base (36,52,4,12) y Overlay (52,52,4,12) en (12*s, 8*s, 4*s, 12*s)
         ctx.drawImage(img, 36, 52, 4, 12, 12 * s, 8 * s, 4 * s, 12 * s);
         ctx.drawImage(img, 52, 52, 4, 12, 12 * s, 8 * s, 4 * s, 12 * s);
       } else {
@@ -351,14 +364,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         ctx.restore();
       }
 
-      // Pierna Derecha: 4x12 en (4, 20)
+      // 5. Pierna Derecha (A la izquierda en vista frontal): (4,20,4,12) y (4,36,4,12) en (4*s, 20*s, 4*s, 12*s)
       ctx.drawImage(img, 4, 20, 4, 12, 4 * s, 20 * s, 4 * s, 12 * s);
       if (is64x64) {
         ctx.drawImage(img, 4, 36, 4, 12, 4 * s, 20 * s, 4 * s, 12 * s);
       }
 
-      // Pierna Izquierda: 4x12 en (8, 20)
+      // 6. Pierna Izquierda (A la derecha en vista frontal):
       if (is64x64) {
+        // Base (20,52,4,12) y Overlay (4,52,4,12) en (8*s, 20*s, 4*s, 12*s)
         ctx.drawImage(img, 20, 52, 4, 12, 8 * s, 20 * s, 4 * s, 12 * s);
         ctx.drawImage(img, 4, 52, 4, 12, 8 * s, 20 * s, 4 * s, 12 * s);
       } else {
@@ -368,38 +382,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         ctx.restore();
       }
     };
-    img.src = imageSource;
-  }
-
-  function drawDefaultSteveFace(targetCanvas) {
-    if (!targetCanvas) return;
-    const ctx = targetCanvas.getContext('2d');
-    ctx.imageSmoothingEnabled = false;
-    const w = targetCanvas.width;
-    const h = targetCanvas.height;
-    const p = w / 8;
-
-    ctx.fillStyle = '#b78258';
-    ctx.fillRect(0, 0, w, h);
-
-    ctx.fillStyle = '#4a321d';
-    ctx.fillRect(0, 0, w, p * 2);
-    ctx.fillRect(0, p * 2, p, p);
-    ctx.fillRect(w - p, p * 2, p, p);
-
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(p, p * 4, p * 2, p);
-    ctx.fillRect(p * 5, p * 4, p * 2, p);
-    ctx.fillStyle = '#2c357b';
-    ctx.fillRect(p * 2, p * 4, p, p);
-    ctx.fillRect(p * 5, p * 4, p, p);
-
-    ctx.fillStyle = '#9b6c46';
-    ctx.fillRect(p * 3, p * 5, p * 2, p);
-
-    ctx.fillStyle = '#5c3924';
-    ctx.fillRect(p * 2, p * 6, p * 4, p);
-    ctx.fillRect(p * 3, p * 7, p * 2, p);
+    img.onerror = () => {
+      if (src !== DEFAULT_STEVE_SKIN_URL) {
+        renderSkinBodyToCanvas(DEFAULT_STEVE_SKIN_URL, targetCanvas);
+      }
+    };
+    img.src = src;
   }
 
   // =======================================================
@@ -489,10 +477,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   async function refreshMicrosoftAccountState() {
     try {
-      const msAccount = await api.auth.getMsAccount();
-      const currentAccount = await api.auth.getCurrent();
+      const sess = await api.auth.getSavedSession().catch(() => null);
+      const msAccount = sess?.microsoftAccount || await api.auth.getMsAccount();
 
-      if (msAccount && (msAccount.name || msAccount.username)) {
+      if (msAccount && (msAccount.name || msAccount.username) && msAccount.mcAccessToken) {
         const msName = msAccount.name || msAccount.username;
         const msUuid = msAccount.uuid || '-';
         if (msActiveAccountCard) msActiveAccountCard.style.display = 'flex';
@@ -500,12 +488,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (msActiveGamertag) msActiveGamertag.textContent = msName;
         if (msActiveUuid) msActiveUuid.textContent = msUuid;
 
-        // Renderizar cara en el canvas
-        const skinUrl = msAccount.skinUrl || `https://mc-heads.net/skin/${msName}`;
+        const skinUrl = msAccount.skinUrl || `https://mc-heads.net/skin/${encodeURIComponent(msName)}`;
         if (msActiveAvatarCanvas) renderSkinFaceToCanvas(skinUrl, msActiveAvatarCanvas);
 
-        // Si la cuenta activa actual es esta cuenta Microsoft
-        const isCurrentActive = currentAccount && currentAccount.uuid === msUuid && (currentAccount.type === 'premium' || currentAccount.type === 'microsoft');
+        const isCurrentActive = Boolean(sess && sess.activeMode === 'microsoft');
         if (btnMsUseAccount) {
           btnMsUseAccount.style.display = 'inline-flex';
           if (isCurrentActive) {
@@ -513,7 +499,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             btnMsUseAccount.disabled = true;
             btnMsUseAccount.style.opacity = '0.65';
           } else {
-            btnMsUseAccount.textContent = 'Activar esta cuenta Microsoft';
+            btnMsUseAccount.textContent = 'Usar esta cuenta Microsoft';
             btnMsUseAccount.disabled = false;
             btnMsUseAccount.style.opacity = '1';
           }
@@ -521,6 +507,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       } else {
         if (msActiveAccountCard) msActiveAccountCard.style.display = 'none';
         if (msLoginPrompt) msLoginPrompt.style.display = 'block';
+      }
+
+      if (sess && sess.offlineAccount) {
+        if (inputOfflineUser) inputOfflineUser.value = sess.offlineAccount.username || 'Jugador';
+        if (previewOfflineUuid) previewOfflineUuid.textContent = sess.offlineAccount.uuid || '-';
       }
     } catch (err) {
       console.warn('Error al verificar estado de Microsoft:', err);
@@ -572,22 +563,19 @@ document.addEventListener('DOMContentLoaded', async () => {
       btnMsUseAccount.textContent = 'Activando...';
 
       try {
-        await api.auth.switchAccount(msAccount.uuid);
         const res = await api.auth.setActiveMode('microsoft');
-        const activeAcc = (res && res.account) ? res.account : msAccount;
-        if (activeAcc) {
-          activeAcc.type = 'premium';
-          activeAcc.isPremium = true;
-          activeAcc.activeMode = 'microsoft';
-          await updatePlayerBadge(activeAcc);
+        if (res && res.success) {
+          const sess = await api.auth.getSavedSession();
+          await updatePlayerBadge(sess.account, sess);
           await refreshMicrosoftAccountState();
-          appendLog(`[Auth] Sesión cambiada a cuenta Microsoft: "${activeAcc.name || activeAcc.username}"`, 'success');
+          appendLog(`[Auth] Sesión cambiada a cuenta Microsoft: "${msAccount.username || msAccount.name}" (Premium)`, 'success');
           if (modalAccountManager) modalAccountManager.classList.remove('active');
         }
       } catch (err) {
         appendLog(`[Auth Error] ${err.message}`, 'error');
+      } finally {
         btnMsUseAccount.disabled = false;
-        btnMsUseAccount.textContent = 'Activar esta cuenta Microsoft';
+        btnMsUseAccount.textContent = 'Usar esta cuenta Microsoft';
       }
     });
   }
@@ -601,30 +589,37 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (btnMsLogout) {
     btnMsLogout.addEventListener('click', async () => {
       if (!confirm('¿Estás seguro de que deseas cerrar sesión de tu cuenta de Microsoft?')) return;
-      await api.auth.logoutMs();
-      appendLog('[Auth] Sesión de Microsoft cerrada y desvinculada.', 'info');
-      const current = await api.auth.getCurrent();
-      if (!current) {
-        await handleOfflineLogin('LanderAlo');
-      } else {
-        await updatePlayerBadge(current);
+      btnMsLogout.disabled = true;
+      try {
+        await api.auth.logoutMs();
+        appendLog('[Auth] Sesión de Microsoft cerrada. Modo cambiado a Offline.', 'info');
+        const sess = await api.auth.getSavedSession();
+        await updatePlayerBadge(sess.account, sess);
+        await refreshMicrosoftAccountState();
+      } catch (err) {
+        appendLog(`[Auth Error] ${err.message}`, 'error');
+      } finally {
+        btnMsLogout.disabled = false;
       }
-      await refreshMicrosoftAccountState();
     });
   }
 
   async function handleOfflineLogin(username) {
-    if (!username || username.trim().length < 3) {
+    const raw = (username || 'Jugador').trim();
+    if (!raw || raw.length < 3) {
       alert('Ingresa un nombre de usuario válido de al menos 3 caracteres.');
       return;
     }
-    const result = await api.auth.loginOffline(username.trim());
-    if (result.success) {
-      updatePlayerBadge(result.account);
-      appendLog(`[Auth] Sesión offline establecida para: ${result.account.name}`, 'info');
+    const result = await api.auth.loginOffline(raw);
+    if (result && result.success) {
+      const sess = await api.auth.getSavedSession();
+      await updatePlayerBadge(result.account, sess);
+      await refreshMicrosoftAccountState();
+      appendLog(`[Auth] Sesión offline establecida para: "${result.account.name}" (UUID: ${result.account.uuid})`, 'info');
       if (modalAccountManager) modalAccountManager.classList.remove('active');
     } else {
-      appendLog(`[Auth Error] ${result.error}`, 'error');
+      appendLog(`[Auth Error] ${result?.error || 'Fallo desconocido'}`, 'error');
+      alert(`Error al activar cuenta offline: ${result?.error || 'Fallo desconocido'}`);
     }
   }
 
@@ -704,28 +699,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  async function updatePlayerBadge(account) {
+  async function updatePlayerBadge(account, explicitSession) {
     if (!account) return;
-    const accName = account.name || account.username || 'Steve';
-    if (playerName) playerName.textContent = accName;
-    if (playerUuid) playerUuid.textContent = `UUID: ${account.uuid || '-'}`;
-    if (skinModalUsername) skinModalUsername.textContent = accName;
+    const session = explicitSession || await api.auth.getSavedSession().catch(() => null);
 
-    let skinToRender = account.skinUrl || `https://mc-heads.net/skin/${accName}`;
     const isPremium = Boolean(
-      account?.type === 'premium' ||
-      account?.type === 'microsoft' ||
-      account?.mode === 'microsoft' ||
-      account?.mode === 'premium' ||
-      account?.activeMode === 'microsoft' ||
-      account?.activeMode === 'premium' ||
-      account?.isPremium === true ||
-      account?.mcAccessToken ||
-      account?.accessToken ||
-      account?.tokens?.mcAccessToken ||
-      account?.tokens?.msAccessToken ||
-      account?.mclcAuth?.access_token
+      session &&
+      session.activeMode === 'microsoft' &&
+      session.microsoftAccount &&
+      session.microsoftAccount.mcAccessToken &&
+      !String(session.microsoftAccount.mcAccessToken).startsWith('offline_') &&
+      session.microsoftAccount.uuid
     );
+
+    const accName = isPremium
+      ? (session.microsoftAccount.username || session.microsoftAccount.name || account.name || account.username || 'Jugador')
+      : (session?.offlineAccount?.username || account.name || account.username || 'Jugador');
+
+    const accUuid = isPremium
+      ? (session.microsoftAccount.uuid || account.uuid || '-')
+      : (session?.offlineAccount?.uuid || account.uuid || '-');
+
+    if (playerName) playerName.textContent = accName;
+    if (playerUuid) playerUuid.textContent = `UUID: ${accUuid}`;
+    if (skinModalUsername) skinModalUsername.textContent = accName;
 
     // Asegurar que exista un ÚNICO badge en .player-name-row y eliminar hermanos duplicados
     const nameRow = document.querySelector('.player-info .player-name-row') || document.querySelector('.player-name-row');
@@ -739,9 +736,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     const badge = document.getElementById('account-status-badge') ||
-                  (nameRow ? nameRow.querySelector('.badge') : null) ||
-                  document.getElementById('sidebar-account-badge') ||
-                  document.getElementById('player-type');
+                  (nameRow ? nameRow.querySelector('.badge') : null);
 
     if (badge) {
       badge.id = 'account-status-badge';
@@ -766,23 +761,31 @@ document.addEventListener('DOMContentLoaded', async () => {
       switchAccountModalTab('premium');
     } else {
       if (inputOfflineUser) inputOfflineUser.value = accName;
-      if (previewOfflineUuid) previewOfflineUuid.textContent = account.uuid || '-';
+      if (previewOfflineUuid) previewOfflineUuid.textContent = accUuid;
       switchAccountModalTab('offline');
-
-      try {
-        const customSkin = await api.skins.get(accName);
-        if (customSkin && customSkin.exists && customSkin.dataUrl) {
-          skinToRender = customSkin.dataUrl;
-          if (skinAppliedStatus) skinAppliedStatus.textContent = 'Skin personalizada activa';
-          if (skinPreviewLabel) skinPreviewLabel.textContent = 'Personalizada';
-        } else {
-          if (skinAppliedStatus) skinAppliedStatus.textContent = 'Skin predeterminada de Minecraft';
-          if (skinPreviewLabel) skinPreviewLabel.textContent = 'Steve';
-        }
-      } catch (_) {}
     }
 
-    // Renderizar cara en la barra lateral y en el vestidor
+    // Cargar Skin activa (Mojang oficial para Premium, skin local o mc-heads para Offline)
+    let skinToRender = null;
+    try {
+      const localSkin = await api.skins.get(accName);
+      if (localSkin && localSkin.exists && localSkin.dataUrl) {
+        skinToRender = localSkin.dataUrl;
+        if (skinAppliedStatus) skinAppliedStatus.textContent = 'Skin personalizada activa';
+        if (skinPreviewLabel) skinPreviewLabel.textContent = 'Personalizada';
+      } else if (isPremium) {
+        skinToRender = session.microsoftAccount.skinUrl || `https://mc-heads.net/skin/${encodeURIComponent(accName)}`;
+        if (skinAppliedStatus) skinAppliedStatus.textContent = 'Skin oficial sincronizada con Mojang';
+        if (skinPreviewLabel) skinPreviewLabel.textContent = 'Oficial';
+      } else {
+        skinToRender = `https://mc-heads.net/skin/${encodeURIComponent(accName)}`;
+        if (skinAppliedStatus) skinAppliedStatus.textContent = 'Skin vinculada por nombre de usuario';
+        if (skinPreviewLabel) skinPreviewLabel.textContent = accName;
+      }
+    } catch (_) {
+      skinToRender = `https://mc-heads.net/skin/${encodeURIComponent(accName)}`;
+    }
+
     renderSkinFaceToCanvas(skinToRender, sidebarAvatarCanvas);
     renderSkinFaceToCanvas(skinToRender, vestidorFaceCanvas);
     renderSkinBodyToCanvas(skinToRender, vestidorBodyCanvas);
@@ -866,6 +869,26 @@ document.addEventListener('DOMContentLoaded', async () => {
           renderSkinFaceToCanvas(finalSkin, vestidorFaceCanvas);
           renderSkinBodyToCanvas(finalSkin, vestidorBodyCanvas);
           if (skinAppliedStatus) skinAppliedStatus.textContent = 'Skin activa en el juego';
+
+          // Si la cuenta activa es Premium, sincronizar con la API oficial de Mojang
+          const sess = await api.auth.getSavedSession().catch(() => null);
+          if (sess && sess.isPremium && sess.microsoftAccount?.mcAccessToken) {
+            appendLog('[Skins] Cuenta Premium detectada: enviando skin a los servidores oficiales de Mojang...', 'info');
+            try {
+              const uploadRes = await api.skins.uploadToMojang(
+                sess.microsoftAccount.mcAccessToken,
+                finalSkin,
+                result.skinModel || 'classic'
+              );
+              if (uploadRes && uploadRes.success) {
+                appendLog('¡Skin sincronizada exitosamente con Mojang y visible en servidores oficiales!', 'success');
+              } else {
+                appendLog(`[Skins Aviso] Guardada localmente (Aviso Mojang: ${uploadRes?.error || 'servidor ocupado'})`, 'warn');
+              }
+            } catch (mojangUploadErr) {
+              appendLog(`[Skins Aviso] Guardada localmente (Error Mojang: ${mojangUploadErr.message})`, 'warn');
+            }
+          }
         } else {
           throw new Error(result?.error || 'No se pudo guardar la skin.');
         }
@@ -1713,94 +1736,26 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Restauración de sesión persistente desde auth-session.json (<userData>)
       try {
         const savedSession = await api.auth.getSavedSession();
-        const isValidUser = (u) => Boolean(u && typeof u === 'string' && u.trim() !== '' && u.trim() !== 'undefined');
-
         if (savedSession && savedSession.success) {
-          const msUser = savedSession.microsoftAccount?.username || savedSession.microsoftAccount?.name;
-          const offUser = savedSession.offlineAccount?.username || savedSession.offlineAccount?.name;
-          const hasValidMs = isValidUser(msUser);
-          const hasValidOff = isValidUser(offUser);
-
-          const isMsActive = Boolean(
-            hasValidMs && (
-              savedSession.activeMode === 'microsoft' ||
-              savedSession.activeMode === 'premium' ||
-              savedSession.account?.isPremium === true ||
-              savedSession.account?.type === 'premium' ||
-              savedSession.account?.type === 'microsoft' ||
-              savedSession.account?.activeMode === 'microsoft' ||
-              !hasValidOff
-            )
-          );
-
-          if (isMsActive) {
-            const cleanMs = msUser.trim();
-            const msAcc = savedSession.account || {
-              name: cleanMs,
-              username: cleanMs,
-              uuid: savedSession.microsoftAccount.uuid,
-              type: 'premium',
-              isPremium: true,
-              activeMode: 'microsoft',
-              skinUrl: savedSession.microsoftAccount.skinUrl
-            };
-            msAcc.type = 'premium';
-            msAcc.isPremium = true;
-            msAcc.activeMode = 'microsoft';
-            if (tabPremium && tabOffline && formPremium && formOffline) {
-              tabPremium.classList.add('active');
-              tabOffline.classList.remove('active');
-              formPremium.classList.add('active');
-              formOffline.classList.remove('active');
-            }
-            await updatePlayerBadge(msAcc);
-            await refreshMicrosoftAccountState();
-            appendLog(`[Auth] Sesión Microsoft restaurada: "${cleanMs}" (Premium)`, 'info');
-          } else if (hasValidOff) {
-            const cleanOff = offUser.trim();
-            const offAcc = savedSession.account || {
-              name: cleanOff,
-              username: cleanOff,
-              uuid: savedSession.offlineAccount?.uuid,
-              type: 'offline',
-              isPremium: false,
-              activeMode: 'offline'
-            };
-            offAcc.type = 'offline';
-            offAcc.isPremium = false;
-            offAcc.activeMode = 'offline';
-            if (inputOfflineUser) inputOfflineUser.value = cleanOff;
-            if (tabPremium && tabOffline && formPremium && formOffline) {
-              tabOffline.classList.add('active');
-              tabPremium.classList.remove('active');
-              formOffline.classList.add('active');
-              formPremium.classList.remove('active');
-            }
-            await updatePlayerBadge(offAcc);
-            appendLog(`[Auth] Sesión Offline restaurada: "${cleanOff}"`, 'info');
-          } else if (config.auth?.currentUser && isValidUser(config.auth.currentUser.name)) {
-            await updatePlayerBadge(config.auth.currentUser);
+          await updatePlayerBadge(savedSession.account, savedSession);
+          await refreshMicrosoftAccountState();
+          if (savedSession.isPremium) {
+            appendLog(`[Auth] Sesión Microsoft restaurada: "${savedSession.microsoftAccount.username}" (Premium)`, 'info');
           } else {
-            const fallbackNick = (inputOfflineUser && isValidUser(inputOfflineUser.value))
-              ? inputOfflineUser.value.trim()
-              : 'LanderAlo';
-            await handleOfflineLogin(fallbackNick);
+            appendLog(`[Auth] Sesión Offline restaurada: "${savedSession.offlineAccount?.username || 'Jugador'}"`, 'info');
           }
-        } else if (config.auth?.currentUser && isValidUser(config.auth.currentUser.name)) {
-          await updatePlayerBadge(config.auth.currentUser);
         } else {
-          const fallbackNick = (inputOfflineUser && isValidUser(inputOfflineUser.value))
+          const fallbackUser = (inputOfflineUser && inputOfflineUser.value.trim().length >= 3)
             ? inputOfflineUser.value.trim()
-            : 'LanderAlo';
-          await handleOfflineLogin(fallbackNick);
+            : 'Jugador';
+          await handleOfflineLogin(fallbackUser);
         }
       } catch (authInitErr) {
         console.warn('Error al cargar sesión persistente:', authInitErr);
-        if (config.auth?.currentUser && config.auth.currentUser.name && config.auth.currentUser.name !== 'undefined') {
-          await updatePlayerBadge(config.auth.currentUser);
-        } else {
-          await handleOfflineLogin('LanderAlo');
-        }
+        const fallbackUser = (inputOfflineUser && inputOfflineUser.value.trim().length >= 3)
+          ? inputOfflineUser.value.trim()
+          : 'Jugador';
+        await handleOfflineLogin(fallbackUser);
       }
 
       await renderJavaRuntimes();

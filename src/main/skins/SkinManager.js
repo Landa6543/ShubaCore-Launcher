@@ -356,6 +356,62 @@ class SkinManager {
   }
 
   /**
+   * Sube una skin a los servidores oficiales de Mojang para una cuenta Premium
+   */
+  async uploadSkinToMojang(mcAccessToken, skinBufferOrPath, variant = 'classic') {
+    if (!mcAccessToken) {
+      throw new Error('Se requiere un token de acceso de Minecraft válido para subir la skin a Mojang.');
+    }
+
+    const varModel = String(variant).toLowerCase() === 'slim' ? 'slim' : 'classic';
+
+    try {
+      let buffer = null;
+      if (Buffer.isBuffer(skinBufferOrPath)) {
+        buffer = skinBufferOrPath;
+      } else if (typeof skinBufferOrPath === 'string') {
+        if (skinBufferOrPath.startsWith('data:image')) {
+          const base64Data = skinBufferOrPath.split(',')[1];
+          buffer = Buffer.from(base64Data, 'base64');
+        } else if (fs.existsSync(skinBufferOrPath)) {
+          buffer = fs.readFileSync(skinBufferOrPath);
+        }
+      }
+
+      if (!buffer) {
+        throw new Error('No se pudo obtener el buffer de la skin para subir a Mojang.');
+      }
+
+      const formData = new FormData();
+      formData.append('variant', varModel);
+      const blob = new Blob([buffer], { type: 'image/png' });
+      formData.append('file', blob, 'skin.png');
+
+      logger.info(`[SkinManager] Subiendo skin oficial a Mojang (${varModel})...`);
+      const res = await fetch('https://api.minecraftservices.com/minecraft/profile/skins', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${mcAccessToken}`
+        },
+        body: formData
+      });
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        logger.warn(`[SkinManager] Mojang respondió código ${res.status}: ${errText}`);
+        return { success: false, status: res.status, error: errText };
+      }
+
+      const json = await res.json().catch(() => ({}));
+      logger.info('[SkinManager] ¡Skin actualizada con éxito en los servidores oficiales de Mojang!');
+      return { success: true, ...json };
+    } catch (err) {
+      logger.error('[SkinManager] Error al subir skin a Mojang:', err.message);
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
    * REQUISITO 2: Inyección de Resource Pack Nativo "ShubaSkinOverride" (100% Vanilla sin mods)
    *
    * Crea <instanceDir>/resourcepacks/ShubaSkinOverride/:
