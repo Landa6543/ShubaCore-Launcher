@@ -2772,6 +2772,7 @@ class ModManager {
       fs.writeFileSync(this._getLockFilePath(instancePath), JSON.stringify(lockData, null, 2), 'utf8');
     }
 
+    this.purgeDuplicateMods(instancePath);
     const allMods = this.scanAndSyncMods(instancePath);
     return {
       success: true,
@@ -2972,6 +2973,7 @@ class ModManager {
       fs.writeFileSync(this._getLockFilePath(instancePath), JSON.stringify(lockData, null, 2), 'utf8');
     }
 
+    this.purgeDuplicateMods(instancePath);
     const allMods = this.scanAndSyncMods(instancePath);
     logger.info(`[Modpack:CurseForge] Instalación completa de "${packName}". ${completedCount} archivos instalados.`);
 
@@ -2987,6 +2989,197 @@ class ModManager {
       instancePath,
       profile: createdProfile,
       allMods
+    };
+  }
+
+  // =========================================================================
+  // DETECCIÓN Y PURGA AUTOMÁTICA DE MODS DUPLICADOS (CONSERVAR VERSIÓN MÁS NUEVA)
+  // =========================================================================
+
+  _extractVersionParts(verStr) {
+    if (!verStr || typeof verStr !== 'string') return [];
+    let clean = verStr.replace(/\.disabled$/i, '').replace(/\.jar$/i, '');
+    if (/[a-z]/i.test(clean)) {
+      clean = this._extractVersionFromFileName(clean);
+    }
+    const matches = clean.match(/\d+/g);
+    return matches ? matches.map(Number) : [];
+  }
+
+  _compareModVersions(a, b) {
+    // 1. fileId numérico (CurseForge / Modrinth)
+    const fidA = parseInt(a.fileId || '0', 10);
+    const fidB = parseInt(b.fileId || '0', 10);
+    if (!isNaN(fidA) && !isNaN(fidB) && fidA > 0 && fidB > 0 && fidA !== fidB) {
+      return fidB - fidA;
+    }
+
+    // 2. Comparación semántica de componentes numéricos de versión
+    const getValidVer = (item) => {
+      if (item.internalVersion && /\d/.test(item.internalVersion)) return item.internalVersion;
+      if (item.versionNumber && /\d/.test(item.versionNumber) && item.versionNumber !== 'custom') return item.versionNumber;
+      if (item.version && /\d/.test(item.version) && !item.version.endsWith('.jar') && item.version !== 'custom') return item.version;
+      return item.fileName;
+    };
+    const rawVerA = getValidVer(a);
+    const rawVerB = getValidVer(b);
+    const partsA = this._extractVersionParts(rawVerA);
+    const partsB = this._extractVersionParts(rawVerB);
+    const maxLen = Math.max(partsA.length, partsB.length);
+    for (let i = 0; i < maxLen; i++) {
+      const pA = partsA[i] || 0;
+      const pB = partsB[i] || 0;
+      if (pA !== pB) {
+        return pB - pA;
+      }
+    }
+
+    // 3. Fecha de publicación o fecha instalada
+    const dateA = a.installedFileDate || a.dateInstalled || a.installedAt;
+    const dateB = b.installedFileDate || b.dateInstalled || b.installedAt;
+    if (dateA && dateB) {
+      const tA = new Date(dateA).getTime();
+      const tB = new Date(dateB).getTime();
+      if (!isNaN(tA) && !isNaN(tB) && tA !== tB) {
+        return tB - tA;
+      }
+    }
+
+    // 4. Fecha de modificación en disco
+    if (a.mtimeMs && b.mtimeMs && a.mtimeMs !== b.mtimeMs) {
+      return b.mtimeMs - a.mtimeMs;
+    }
+
+    // 5. Tamaño de archivo como fallback
+    return (b.size || 0) - (a.size || 0);
+  }
+
+  async purgeDuplicateMods(instancePath = null) {
+    const activeInstance = instancePath || this.configManager.getInstanceDirectory();
+    const modsDir = path.join(activeInstance, 'mods');
+    if (!fs.existsSync(modsDir)) {
+      return { success: true, purgedCount: 0, removedFiles: [], remainingCount: 0 };
+    }
+
+    this.scanAndSyncMods(activeInstance);
+    const lockData = this._readLockFile(activeInstance);
+    const diskFiles = fs.readdirSync(modsDir).filter((f) => f.endsWith('.jar') || f.endsWith('.jar.disabled'));
+
+    if (diskFiles.length <= 1) {
+      return { success: true, purgedCount: 0, removedFiles: [], remainingCount: diskFiles.length };
+    }
+
+    logger.info(`[PurgeDuplicates] Analizando ${diskFiles.length} archivos .jar en "${modsDir}" en busca de duplicados...`);
+
+    // Recopilar información de cada archivo en disco
+    const fileEntries = [];
+    for (const f of diskFiles) {
+      const filePath = path.join(modsDir, f);
+      let stats = null;
+      try {
+        stats = fs.statSync(filePath);
+      } catch (_) {
+        continue;
+      }
+
+      const lockEntry = lockData.mods[f] || lockData.mods[f.replace(/\.disabled$/i, '')] || {};
+      const jarMeta = this._extractJarMetadata(filePath);
+
+      const pid = lockEntry.projectId || lockEntry.projectID || lockEntry.modId || null;
+      const fid = lockEntry.fileId || lockEntry.fileID || null;
+      const intModId = (jarMeta && jarMeta.modId) ? jarMeta.modId.toLowerCase().trim() : null;
+      const intVersion = jarMeta?.version || null;
+      const baseClean = this._cleanJarName(f).toLowerCase().replace(/[^a-z0-9]/g, '');
+
+      fileEntries.push({
+        fileName: f,
+        filePath,
+        size: stats.size,
+        mtimeMs: stats.mtimeMs,
+        projectId: pid ? String(pid).toLowerCase() : null,
+        fileId: fid ? String(fid) : null,
+        internalModId: intModId,
+        internalVersion: intVersion,
+        version: lockEntry.version || lockEntry.versionNumber || null,
+        baseClean: baseClean.length >= 3 ? baseClean : null,
+        installedFileDate: lockEntry.installedFileDate,
+        dateInstalled: lockEntry.dateInstalled,
+        installedAt: lockEntry.installedAt
+      });
+    }
+
+    // Agrupar archivos que representen el mismo mod
+    // Dos archivos pertenecen al mismo grupo si comparten projectId (no nulo), internalModId (no nulo) o baseClean (no nulo)
+    const groups = [];
+    for (const entry of fileEntries) {
+      let matchedGroup = null;
+      for (const g of groups) {
+        const sharesProject = entry.projectId && g.some((x) => x.projectId && x.projectId === entry.projectId);
+        const sharesModId = entry.internalModId && g.some((x) => x.internalModId && x.internalModId === entry.internalModId);
+        const sharesBase = entry.baseClean && g.some((x) => x.baseClean && x.baseClean === entry.baseClean);
+
+        if (sharesProject || sharesModId || sharesBase) {
+          matchedGroup = g;
+          break;
+        }
+      }
+
+      if (matchedGroup) {
+        matchedGroup.push(entry);
+      } else {
+        groups.push([entry]);
+      }
+    }
+
+    let purgedCount = 0;
+    const removedFiles = [];
+    let lockModified = false;
+
+    for (const group of groups) {
+      if (group.length <= 1) continue;
+
+      // Ordenar: el más nuevo primero (índice 0 se conserva)
+      group.sort((a, b) => this._compareModVersions(a, b));
+      const winner = group[0];
+      const duplicatesToRemove = group.slice(1);
+
+      for (const dup of duplicatesToRemove) {
+        try {
+          if (fs.existsSync(dup.filePath)) {
+            fs.unlinkSync(dup.filePath);
+          }
+          const siblingPath = dup.filePath.endsWith('.disabled')
+            ? dup.filePath.replace(/\.disabled$/i, '')
+            : `${dup.filePath}.disabled`;
+          if (fs.existsSync(siblingPath)) {
+            fs.unlinkSync(siblingPath);
+          }
+
+          delete lockData.mods[dup.fileName];
+          delete lockData.mods[dup.fileName.replace(/\.disabled$/i, '')];
+          lockModified = true;
+
+          removedFiles.push(dup.fileName);
+          purgedCount++;
+          logger.info(`[PurgeDuplicates] Eliminado mod duplicado más antiguo: "${dup.fileName}" (Conservado: "${winner.fileName}")`);
+        } catch (err) {
+          logger.warn(`[PurgeDuplicates] Error al eliminar "${dup.fileName}": ${err.message}`);
+        }
+      }
+    }
+
+    if (lockModified) {
+      lockData.lastUpdated = new Date().toISOString();
+      fs.writeFileSync(this._getLockFilePath(activeInstance), JSON.stringify(lockData, null, 2), 'utf8');
+      this.scanAndSyncMods(activeInstance);
+    }
+
+    logger.info(`[PurgeDuplicates] Finalizado. ${purgedCount} archivos antiguos duplicados purgados.`);
+    return {
+      success: true,
+      purgedCount,
+      removedFiles,
+      remainingCount: diskFiles.length - purgedCount
     };
   }
 }

@@ -132,6 +132,7 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
       return () => ipcRenderer.removeListener('mods:update-progress', handler);
     },
     resolveIcons: (instancePath) => ipcRenderer.invoke('mods:resolve-icons', instancePath),
+    purgeDuplicates: (instancePath) => ipcRenderer.invoke('mods:purge-duplicates', instancePath),
     openFolder: (instancePath) => ipcRenderer.invoke('mods:open-folder', instancePath)
   },
 

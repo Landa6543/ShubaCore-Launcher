@@ -459,6 +459,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   // =======================================================
   // GESTOR DE CUENTAS (OFFLINE Y MICROSOFT)
   // =======================================================
+  function switchAccountModalTab(tab) {
+    if (tab === 'premium') {
+      if (tabPremium) tabPremium.classList.add('active');
+      if (tabOffline) tabOffline.classList.remove('active');
+      if (formPremium) formPremium.classList.add('active');
+      if (formOffline) formOffline.classList.remove('active');
+      refreshMicrosoftAccountState();
+    } else {
+      if (tabOffline) tabOffline.classList.add('active');
+      if (tabPremium) tabPremium.classList.remove('active');
+      if (formOffline) formOffline.classList.add('active');
+      if (formPremium) formPremium.classList.remove('active');
+    }
+  }
+
   async function refreshMicrosoftAccountState() {
     try {
       const msAccount = await api.auth.getMsAccount();
@@ -479,7 +494,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Si la cuenta activa actual es esta cuenta Microsoft
         const isCurrentActive = currentAccount && currentAccount.uuid === msUuid && (currentAccount.type === 'premium' || currentAccount.type === 'microsoft');
         if (btnMsUseAccount) {
-          btnMsUseAccount.style.display = isCurrentActive ? 'none' : 'inline-flex';
+          btnMsUseAccount.style.display = 'inline-flex';
+          if (isCurrentActive) {
+            btnMsUseAccount.textContent = '✔ Cuenta Activa';
+            btnMsUseAccount.disabled = true;
+            btnMsUseAccount.style.opacity = '0.65';
+          } else {
+            btnMsUseAccount.textContent = 'Activar esta cuenta Microsoft';
+            btnMsUseAccount.disabled = false;
+            btnMsUseAccount.style.opacity = '1';
+          }
         }
       } else {
         if (msActiveAccountCard) msActiveAccountCard.style.display = 'none';
@@ -496,21 +520,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       try {
         const saved = await api.auth.getSavedSession();
         if (saved && saved.activeMode === 'microsoft') {
-          if (tabPremium && tabOffline && formPremium && formOffline) {
-            tabPremium.classList.add('active');
-            tabOffline.classList.remove('active');
-            formPremium.classList.add('active');
-            formOffline.classList.remove('active');
-          }
+          switchAccountModalTab('premium');
         } else {
-          if (tabPremium && tabOffline && formPremium && formOffline) {
-            tabOffline.classList.add('active');
-            tabPremium.classList.remove('active');
-            formOffline.classList.add('active');
-            formPremium.classList.remove('active');
-          }
+          switchAccountModalTab('offline');
         }
-      } catch (_) {}
+      } catch (_) {
+        switchAccountModalTab('offline');
+      }
       refreshMicrosoftAccountState();
     });
   }
@@ -521,52 +537,40 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  tabOffline.addEventListener('click', async (e) => {
-    tabOffline.classList.add('active');
-    tabPremium.classList.remove('active');
-    formOffline.classList.add('active');
-    formPremium.classList.remove('active');
-    if (e.isTrusted) {
-      try {
-        const res = await api.auth.setActiveMode('offline');
-        if (res && res.account) {
-          await updatePlayerBadge(res.account);
-          appendLog(`[Auth] Modo cambiado a Offline: "${res.account.name}"`, 'info');
-        }
-      } catch (_) {}
-    }
-  });
+  if (tabOffline) {
+    tabOffline.addEventListener('click', (e) => {
+      e.preventDefault();
+      switchAccountModalTab('offline');
+    });
+  }
 
-  tabPremium.addEventListener('click', async (e) => {
-    tabPremium.classList.add('active');
-    tabOffline.classList.remove('active');
-    formPremium.classList.add('active');
-    formOffline.classList.remove('active');
-    await refreshMicrosoftAccountState();
-    if (e.isTrusted) {
-      try {
-        const msAccount = await api.auth.getMsAccount();
-        if (msAccount) {
-          const res = await api.auth.setActiveMode('microsoft');
-          if (res && res.account) {
-            await updatePlayerBadge(res.account);
-            appendLog(`[Auth] Modo cambiado a Microsoft: "${res.account.name}"`, 'info');
-          }
-        }
-      } catch (_) {}
-    }
-  });
+  if (tabPremium) {
+    tabPremium.addEventListener('click', (e) => {
+      e.preventDefault();
+      switchAccountModalTab('premium');
+    });
+  }
 
   if (btnMsUseAccount) {
     btnMsUseAccount.addEventListener('click', async () => {
       const msAccount = await api.auth.getMsAccount();
       if (!msAccount) return;
-      const res = await api.auth.switchAccount(msAccount.uuid);
-      if (res && res.success) {
-        await updatePlayerBadge(res.account);
-        await refreshMicrosoftAccountState();
-        appendLog(`[Auth] Sesión cambiada a cuenta Microsoft: "${res.account.name}"`, 'success');
-        if (modalAccountManager) modalAccountManager.classList.remove('active');
+      btnMsUseAccount.disabled = true;
+      btnMsUseAccount.textContent = 'Activando...';
+
+      try {
+        await api.auth.switchAccount(msAccount.uuid);
+        const res = await api.auth.setActiveMode('microsoft');
+        if (res && res.account) {
+          await updatePlayerBadge(res.account);
+          await refreshMicrosoftAccountState();
+          appendLog(`[Auth] Sesión cambiada a cuenta Microsoft: "${res.account.name}"`, 'success');
+          if (modalAccountManager) modalAccountManager.classList.remove('active');
+        }
+      } catch (err) {
+        appendLog(`[Auth Error] ${err.message}`, 'error');
+        btnMsUseAccount.disabled = false;
+        btnMsUseAccount.textContent = 'Activar esta cuenta Microsoft';
       }
     });
   }
@@ -663,6 +667,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const loginRes = await api.auth.pollDeviceCode(codeRes.deviceCode, codeRes.interval || 5);
       if (loginRes.success && loginRes.account) {
         if (modalMsDeviceCode) modalMsDeviceCode.classList.remove('active');
+        await api.auth.setActiveMode('microsoft');
         await updatePlayerBadge(loginRes.account);
         await refreshMicrosoftAccountState();
         appendLog(`[Auth] ¡Sesión oficial de Microsoft iniciada para "${loginRes.account.name}"!`, 'success');
@@ -683,25 +688,28 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   async function updatePlayerBadge(account) {
-    playerName.textContent = account.name;
-    if (playerUuid) playerUuid.textContent = `UUID: ${account.uuid}`;
-    if (skinModalUsername) skinModalUsername.textContent = account.name;
+    if (!account) return;
+    const accName = account.name || account.username || 'Steve';
+    playerName.textContent = accName;
+    if (playerUuid) playerUuid.textContent = `UUID: ${account.uuid || '-'}`;
+    if (skinModalUsername) skinModalUsername.textContent = accName;
 
-    let skinToRender = account.skinUrl || `https://mc-heads.net/skin/${account.name}`;
+    let skinToRender = account.skinUrl || `https://mc-heads.net/skin/${accName}`;
+    const isPremium = account.type === 'premium' || account.type === 'microsoft';
 
-    if (account.type === 'premium') {
+    if (isPremium) {
       playerType.textContent = 'MICROSOFT';
       playerType.className = 'badge badge-premium';
-      tabPremium.click();
+      switchAccountModalTab('premium');
     } else {
       playerType.textContent = 'OFFLINE';
       playerType.className = 'badge badge-offline';
-      inputOfflineUser.value = account.name;
-      previewOfflineUuid.textContent = account.uuid;
-      tabOffline.click();
+      if (inputOfflineUser) inputOfflineUser.value = accName;
+      if (previewOfflineUuid) previewOfflineUuid.textContent = account.uuid || '-';
+      switchAccountModalTab('offline');
 
       try {
-        const customSkin = await api.skins.get(account.name);
+        const customSkin = await api.skins.get(accName);
         if (customSkin && customSkin.exists && customSkin.dataUrl) {
           skinToRender = customSkin.dataUrl;
           if (skinAppliedStatus) skinAppliedStatus.textContent = 'Skin personalizada activa';
@@ -2325,7 +2333,47 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  btnRefreshInstalledMods.addEventListener('click', loadInstalledMods);
+  const btnPurgeDuplicates = document.getElementById('btn-purge-duplicates');
+  if (btnPurgeDuplicates) {
+    btnPurgeDuplicates.addEventListener('click', async () => {
+      btnPurgeDuplicates.disabled = true;
+      const originalHtml = btnPurgeDuplicates.innerHTML;
+      btnPurgeDuplicates.innerHTML = '<span>Purgando...</span>';
+      appendLog('[Mods] Analizando mods en busca de versiones duplicadas antiguas...', 'info');
+
+      try {
+        const targetInstance = currentActiveProfile?.instancePath || null;
+        const res = await api.mods.purgeDuplicates(targetInstance);
+        if (res && res.purgedCount > 0) {
+          appendLog(`[Mods] ¡Se purgaron ${res.purgedCount} versiones duplicadas antiguas con éxito! Archivos eliminados: ${res.removedFiles.join(', ')}`, 'success');
+          alert(`¡Purga completada! Se eliminaron ${res.purgedCount} mod(s) duplicados antiguos:\n- ${res.removedFiles.join('\n- ')}`);
+        } else {
+          appendLog('[Mods] No se encontraron mods duplicados. La carpeta de mods está limpia y optimizada.', 'info');
+          alert('No se encontraron mods duplicados en esta instancia.');
+        }
+        await loadInstalledMods();
+      } catch (err) {
+        appendLog(`[Mods Error] Error al purgar mods duplicados: ${err.message}`, 'error');
+        alert(`Error al purgar duplicados: ${err.message}`);
+      } finally {
+        btnPurgeDuplicates.disabled = false;
+        btnPurgeDuplicates.innerHTML = originalHtml;
+      }
+    });
+  }
+
+  btnRefreshInstalledMods.addEventListener('click', async () => {
+    btnRefreshInstalledMods.disabled = true;
+    try {
+      const targetInstance = currentActiveProfile?.instancePath || null;
+      const purgeRes = await api.mods.purgeDuplicates(targetInstance);
+      if (purgeRes && purgeRes.purgedCount > 0) {
+        appendLog(`[Mods] Sincronización: Se purgaron ${purgeRes.purgedCount} versiones duplicadas antiguas (${purgeRes.removedFiles.join(', ')}).`, 'info');
+      }
+    } catch (_) {}
+    await loadInstalledMods();
+    btnRefreshInstalledMods.disabled = false;
+  });
 
   if (btnCheckModUpdates) {
     btnCheckModUpdates.addEventListener('click', async () => {

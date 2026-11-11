@@ -660,6 +660,16 @@ function registerIpcHandlers(mainWindow) {
     }
   });
 
+  ipcMain.handle('mods:purge-duplicates', async (event, instancePath) => {
+    try {
+      const targetInstance = instancePath || profileManager.getActiveInstancePath();
+      return modManager.purgeDuplicateMods(targetInstance);
+    } catch (err) {
+      logger.error('Error en mods:purge-duplicates IPC:', err);
+      return { success: false, error: err.message, purgedCount: 0, removedFiles: [] };
+    }
+  });
+
   ipcMain.handle('mods:open-folder', async (event, instancePath) => {
     try {
       const targetInstance = instancePath || profileManager.getActiveInstancePath();
