@@ -456,39 +456,71 @@ document.addEventListener('DOMContentLoaded', async () => {
   // NAVEGACIÓN DE VISTAS (8 VISTAS DE ESCRITORIO)
   // =======================================================
   const navItems = [
-    { btn: tabViewProfiles, view: viewProfiles, name: 'profiles' },
-    { btn: tabViewCatalog, view: viewCatalog, name: 'catalog' },
-    { btn: tabViewMods, view: viewMods, name: 'mods' },
-    { btn: tabViewServers, view: viewServers, name: 'servers' },
-    { btn: tabViewScreenshots, view: viewScreenshots, name: 'screenshots' },
-    { btn: tabViewSkins, view: viewSkins, name: 'skins' },
-    { btn: tabViewSettings, view: viewSettings, name: 'settings' },
-    { btn: tabViewConsole, view: viewConsole, name: 'console' }
+    { btn: tabViewProfiles, view: viewProfiles, name: 'profiles', id: 'view-profiles' },
+    { btn: tabViewCatalog, view: viewCatalog, name: 'catalog', id: 'view-catalog' },
+    { btn: tabViewMods, view: viewMods, name: 'mods', id: 'view-mods' },
+    { btn: tabViewServers, view: viewServers, name: 'servers', id: 'view-servers' },
+    { btn: tabViewScreenshots, view: viewScreenshots, name: 'screenshots', id: 'view-screenshots' },
+    { btn: tabViewSkins, view: viewSkins, name: 'skins', id: 'view-skins' },
+    { btn: tabViewSettings, view: viewSettings, name: 'settings', id: 'view-settings' },
+    { btn: tabViewConsole, view: viewConsole, name: 'console', id: 'view-console' }
   ];
 
-  function switchMainView(viewName) {
+  function normalizeViewName(target) {
+    if (!target) return 'profiles';
+    let name = String(target).toLowerCase().trim();
+    if (name.startsWith('#')) name = name.slice(1);
+    if (name.startsWith('tab-view-')) name = name.replace('tab-view-', '');
+    if (name.startsWith('tab-')) name = name.replace('tab-', '');
+    if (name.startsWith('view-')) name = name.replace('view-', '');
+    if (name === 'instances' || name === 'instance') return 'profiles';
+    if (name === 'instance-content' || name === 'content' || name === 'installed-mods') return 'mods';
+    return name;
+  }
+
+  function switchMainView(rawTarget) {
+    let viewName = normalizeViewName(rawTarget);
     if (viewName === 'instances') viewName = 'profiles';
     if (viewName === 'instance-content') viewName = 'mods';
 
-    navItems.forEach(({ btn, view }) => {
-      if (btn) btn.classList.remove('active');
-      if (view) {
-        view.classList.remove('active');
-        view.classList.add('hidden');
-        view.style.display = 'none';
-      }
+    const viewMap = {
+      profiles: { btn: tabViewProfiles, view: viewProfiles, id: 'view-profiles' },
+      catalog: { btn: tabViewCatalog, view: viewCatalog, id: 'view-catalog' },
+      mods: { btn: tabViewMods, view: viewMods, id: 'view-mods' },
+      servers: { btn: tabViewServers, view: viewServers, id: 'view-servers' },
+      screenshots: { btn: tabViewScreenshots, view: viewScreenshots, id: 'view-screenshots' },
+      skins: { btn: tabViewSkins, view: viewSkins, id: 'view-skins' },
+      settings: { btn: tabViewSettings, view: viewSettings, id: 'view-settings' },
+      console: { btn: tabViewConsole, view: viewConsole, id: 'view-console' }
+    };
+
+    const targetConfig = viewMap[viewName] || viewMap['profiles'];
+    const activeViewEl = targetConfig.view || document.getElementById(targetConfig.id);
+    const activeBtnEl = targetConfig.btn || document.getElementById(`tab-${targetConfig.id}`);
+
+    // 1. Ocultar todas las vistas registradas y en el DOM
+    document.querySelectorAll('.view-panel, .view-container, [id^="view-"]').forEach((v) => {
+      v.classList.remove('active');
+      v.classList.add('hidden');
+      v.style.setProperty('display', 'none', 'important');
     });
 
-    const activeItem = navItems.find((item) => item.name === viewName);
-    if (activeItem) {
-      if (activeItem.btn) activeItem.btn.classList.add('active');
-      if (activeItem.view) {
-        activeItem.view.classList.remove('hidden');
-        activeItem.view.classList.add('active');
-        activeItem.view.style.display = 'flex';
-      }
+    // 2. Deseleccionar todos los botones de la barra de navegación lateral
+    document.querySelectorAll('.sidebar-nav .nav-item').forEach((b) => {
+      b.classList.remove('active');
+    });
+
+    // 3. Encender inmediatamente la vista y pestaña seleccionada (Garantía de Cero Pantalla Negra)
+    if (activeViewEl) {
+      activeViewEl.classList.remove('hidden');
+      activeViewEl.classList.add('active');
+      activeViewEl.style.setProperty('display', 'flex', 'important');
+    }
+    if (activeBtnEl) {
+      activeBtnEl.classList.add('active');
     }
 
+    // 4. Cargadores asíncronos secundarios envueltos en try/catch aislados
     if (viewName === 'profiles') {
       try { loadProfiles(); } catch (e) { console.warn('[switchMainView] Error en loadProfiles:', e); }
     } else if (viewName === 'catalog') {
@@ -539,6 +571,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       btn.addEventListener('click', () => switchMainView(name));
     }
   });
+
+  // Delegación de clics en la barra lateral para capturar clics en iconos y texto sin fallar
+  const sidebarNavContainer = document.querySelector('.sidebar-nav');
+  if (sidebarNavContainer) {
+    sidebarNavContainer.addEventListener('click', (e) => {
+      const itemBtn = e.target.closest('.nav-item');
+      if (itemBtn) {
+        const targetView = itemBtn.getAttribute('data-view') || itemBtn.id;
+        switchMainView(targetView);
+      }
+    });
+  }
 
   // =======================================================
   // GESTOR DE CUENTAS (OFFLINE Y MICROSOFT)
@@ -6084,26 +6128,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // =======================================================
-  // UTILIDADES HUD / VANILLA+ (LUNAR CLIENT STYLE)
+  // OPTIMIZACIONES NATIVAS (OPTIONS.TXT — 100% SIN MODS)
   // =======================================================
-  // UTILIDADES HUD / VANILLA+ (LUNAR CLIENT STYLE)
-  // =======================================================
-  const switchHudKeystrokes = document.getElementById('switch-hud-keystrokes');
-  const statusHudKeystrokes = document.getElementById('status-hud-keystrokes');
-  const switchHudCps = document.getElementById('switch-hud-cps');
-  const statusHudCps = document.getElementById('status-hud-cps');
-  const switchHudCoords = document.getElementById('switch-hud-coords');
-  const statusHudCoords = document.getElementById('status-hud-coords');
-  const switchHudArmor = document.getElementById('switch-hud-armor');
-  const statusHudArmor = document.getElementById('status-hud-armor');
-  const switchHudZoom = document.getElementById('switch-hud-zoom');
-  const statusHudZoom = document.getElementById('status-hud-zoom');
   const switchHudFullbright = document.getElementById('switch-hud-fullbright');
   const statusHudFullbright = document.getElementById('status-hud-fullbright');
   const switchHudAutosprint = document.getElementById('switch-hud-autosprint');
   const statusHudAutosprint = document.getElementById('status-hud-autosprint');
-  const switchHudMinimap = document.getElementById('switch-hud-minimap');
-  const statusHudMinimap = document.getElementById('status-hud-minimap');
+  const switchHudNoClouds = document.getElementById('switch-hud-noclouds');
+  const statusHudNoClouds = document.getElementById('status-hud-noclouds');
+  const switchHudEntityShadows = document.getElementById('switch-hud-entityshadows');
+  const statusHudEntityShadows = document.getElementById('status-hud-entityshadows');
+  const switchHudNoVsync = document.getElementById('switch-hud-novsync');
+  const statusHudNoVsync = document.getElementById('status-hud-novsync');
   const btnRefreshHudState = document.getElementById('btn-refresh-hud-state');
 
   function updateHudStatusText(elem, isChecked) {
@@ -6118,65 +6154,33 @@ document.addEventListener('DOMContentLoaded', async () => {
       const instanceDir = activeProfile?.instancePath || activeProfile?.gameDirectory || currentActiveProfile?.instancePath;
       if (!instanceDir) return;
 
-      const isVanilla = ((activeProfile?.loader || 'vanilla').toLowerCase() === 'vanilla');
-      const hudVanillaWarning = document.getElementById('hud-vanilla-warning');
-      if (hudVanillaWarning) {
-        hudVanillaWarning.style.display = isVanilla ? 'flex' : 'none';
-      }
-
-      const hudModSwitches = [
-        switchHudKeystrokes, switchHudCps, switchHudCoords,
-        switchHudArmor, switchHudZoom, switchHudMinimap
-      ];
-      hudModSwitches.forEach((sw) => {
-        if (sw) {
-          if (isVanilla) {
-            sw.disabled = true;
-            sw.title = 'Requiere NeoForge, Forge o Fabric. En Vanilla puro aplica los ajustes de options.txt.';
-          } else {
-            sw.disabled = false;
-            sw.title = '';
-          }
-        }
-      });
-
       const res = await api.hud.getState(instanceDir);
-      if (res && res.success) {
+      if (res && res.success && res.options) {
         if (switchHudFullbright) {
           switchHudFullbright.checked = !!res.options.fullbright;
-          updateHudStatusText(statusHudFullbright, !!res.options.fullbright);
+          updateHudStatusText(statusHudFullbright, switchHudFullbright.checked);
         }
         if (switchHudAutosprint) {
           switchHudAutosprint.checked = !!res.options.autoSprint;
-          updateHudStatusText(statusHudAutosprint, !!res.options.autoSprint);
+          updateHudStatusText(statusHudAutosprint, switchHudAutosprint.checked);
         }
-        if (switchHudKeystrokes) {
-          switchHudKeystrokes.checked = isVanilla ? false : !!res.mods?.keystrokes;
-          updateHudStatusText(statusHudKeystrokes, isVanilla ? false : !!res.mods?.keystrokes);
+        if (switchHudNoClouds) {
+          switchHudNoClouds.checked = !!res.options.noClouds;
+          updateHudStatusText(statusHudNoClouds, switchHudNoClouds.checked);
         }
-        if (switchHudCps) {
-          switchHudCps.checked = isVanilla ? false : !!res.mods?.cps;
-          updateHudStatusText(statusHudCps, isVanilla ? false : !!res.mods?.cps);
+        if (switchHudEntityShadows) {
+          const isShadowsDisabled = (res.options.entityShadows === false || !!res.options.noEntityShadows);
+          switchHudEntityShadows.checked = isShadowsDisabled;
+          updateHudStatusText(statusHudEntityShadows, isShadowsDisabled);
         }
-        if (switchHudCoords) {
-          switchHudCoords.checked = isVanilla ? false : !!res.mods?.coords;
-          updateHudStatusText(statusHudCoords, isVanilla ? false : !!res.mods?.coords);
-        }
-        if (switchHudArmor) {
-          switchHudArmor.checked = isVanilla ? false : !!res.mods?.armor;
-          updateHudStatusText(statusHudArmor, isVanilla ? false : !!res.mods?.armor);
-        }
-        if (switchHudZoom) {
-          switchHudZoom.checked = isVanilla ? false : !!res.mods?.zoom;
-          updateHudStatusText(statusHudZoom, isVanilla ? false : !!res.mods?.zoom);
-        }
-        if (switchHudMinimap) {
-          switchHudMinimap.checked = isVanilla ? false : !!res.mods?.minimap;
-          updateHudStatusText(statusHudMinimap, isVanilla ? false : !!res.mods?.minimap);
+        if (switchHudNoVsync) {
+          const isVsyncDisabled = (res.options.enableVsync === false || !!res.options.noVsync);
+          switchHudNoVsync.checked = isVsyncDisabled;
+          updateHudStatusText(statusHudNoVsync, isVsyncDisabled);
         }
       }
     } catch (err) {
-      console.warn('Error cargando estado HUD:', err.message);
+      console.warn('[HUD] Error cargando estado de opciones:', err.message);
     }
   }
 
@@ -6187,39 +6191,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (!instanceDir) return;
       await api.hud.setOption(instanceDir, optionKey, value);
       updateHudStatusText(statusElem, value);
-      appendLog(`[HUD] Ajuste "${optionKey}" ${value ? 'ACTIVADO' : 'DESACTIVADO'} en options.txt de la instancia.`, 'info');
+      appendLog(`[Optimizaciones] Ajuste "${optionKey}" ${value ? 'ACTIVADO' : 'DESACTIVADO'} en options.txt.`, 'info');
     } catch (err) {
       alert(`Error al actualizar options.txt: ${err.message}`);
-    }
-  }
-
-  async function handleModToggle(modType, enable, switchElem, statusElem) {
-    try {
-      const activeProfile = await api.profiles.getActive();
-      if (!activeProfile) return;
-
-      const isVanilla = ((activeProfile.loader || 'vanilla').toLowerCase() === 'vanilla');
-      if (isVanilla && enable) {
-        alert('Los módulos HUD en pantalla requieren un entorno con mods (NeoForge/Forge/Fabric). En Vanilla puro se aplican las optimizaciones nativas de options.txt.');
-        if (switchElem) switchElem.checked = false;
-        updateHudStatusText(statusElem, false);
-        return;
-      }
-
-      if (switchElem) switchElem.disabled = true;
-      appendLog(`[HUD Mods] ${enable ? 'Instalando y activando' : 'Desactivando'} módulo "${modType}"...`, 'info');
-      const res = await api.hud.toggleMod(activeProfile.id, modType, enable);
-      if (res && res.success) {
-        updateHudStatusText(statusElem, enable);
-        appendLog(`[HUD Mods] Módulo "${modType}" ${enable ? 'activado' : 'desactivado'} con éxito.`, 'success');
-      }
-    } catch (err) {
-      alert(`Error en módulo HUD: ${err.message}`);
-      if (switchElem) switchElem.checked = !enable;
-      updateHudStatusText(statusElem, !enable);
-    } finally {
-      if (switchElem) switchElem.disabled = false;
-      loadHudState();
     }
   }
 
@@ -6229,24 +6203,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (switchHudAutosprint) {
     switchHudAutosprint.addEventListener('change', (e) => handleOptionToggle('autoSprint', e.target.checked, statusHudAutosprint));
   }
-
-  if (switchHudKeystrokes) {
-    switchHudKeystrokes.addEventListener('change', (e) => handleModToggle('keystrokes', e.target.checked, switchHudKeystrokes, statusHudKeystrokes));
+  if (switchHudNoClouds) {
+    switchHudNoClouds.addEventListener('change', (e) => handleOptionToggle('noClouds', e.target.checked, statusHudNoClouds));
   }
-  if (switchHudCps) {
-    switchHudCps.addEventListener('change', (e) => handleModToggle('cps', e.target.checked, switchHudCps, statusHudCps));
+  if (switchHudEntityShadows) {
+    switchHudEntityShadows.addEventListener('change', (e) => handleOptionToggle('noEntityShadows', e.target.checked, statusHudEntityShadows));
   }
-  if (switchHudCoords) {
-    switchHudCoords.addEventListener('change', (e) => handleModToggle('coords', e.target.checked, switchHudCoords, statusHudCoords));
-  }
-  if (switchHudArmor) {
-    switchHudArmor.addEventListener('change', (e) => handleModToggle('armor', e.target.checked, switchHudArmor, statusHudArmor));
-  }
-  if (switchHudZoom) {
-    switchHudZoom.addEventListener('change', (e) => handleModToggle('zoom', e.target.checked, switchHudZoom, statusHudZoom));
-  }
-  if (switchHudMinimap) {
-    switchHudMinimap.addEventListener('change', (e) => handleModToggle('minimap', e.target.checked, switchHudMinimap, statusHudMinimap));
+  if (switchHudNoVsync) {
+    switchHudNoVsync.addEventListener('change', (e) => handleOptionToggle('noVsync', e.target.checked, statusHudNoVsync));
   }
 
   if (btnRefreshHudState) {

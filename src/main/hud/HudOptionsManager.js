@@ -1,56 +1,42 @@
 /**
- * ShubaCore - Vanilla+ HUD & Quality of Life Utilities Manager (Bloque 5 v1.1.0)
+ * ShubaCore - Native options.txt Quality of Life & Performance Manager (Bloque 5 v1.1.0)
  * Developed by SHUBATECH
  *
- * Implements:
- * 1. Direct options.txt modification (Fullbright, Auto-Sprint, No Clouds/Shadows, No VSync).
- * 2. On-screen HUD mods management (Coordinates/Days, Smooth Zoom C, Armor Status, FPS Pack)
- *    with automatic loader setup and silent Modrinth downloading.
+ * Implements 100% native options.txt modifications without requiring external mods:
+ * 1. Fullbright (gamma: 100.0)
+ * 2. Auto-Sprint (toggleSprint: true)
+ * 3. Ocultar nubes (renderClouds: "false")
+ * 4. Sombras de entidades (entityShadows: false)
+ * 5. Desactivar VSync (enableVsync: false)
+ *
+ * All automatic background mod downloads from Modrinth/CurseForge have been permanently removed
+ * to keep Vanilla and modded instances 100% clean and pristine.
  */
 
 const fs = require('fs');
 const path = require('path');
-const https = require('https');
 const { defaultLogger: logger } = require('../utils/logger');
 const { getProfileManager } = require('../profiles/ProfileManager');
 
-// Modrinth Project IDs recomendados para utilidades Vanilla+
+// Palabras clave de detección en modo solo lectura (para mods instalados manualmente por el usuario)
+const HUD_MOD_KEYWORDS = {
+  keystrokes: ['keystroke', 'keybinds', 'keys-hud', 'movement-hud', 'kronhud'],
+  cps: ['cps', 'clicks', 'fps-display', 'simple-cps', 'cpsdisplay'],
+  coords: ['betterf3', 'minihud', 'simple-hud-enhanced', 'batty'],
+  armor: ['inventory-hud', 'armor-statues', 'status-effect-hud', 'equipment-compare'],
+  zoom: ['zoomify', 'wi-zoom', 'logical-zoom', 'ok-zoomer'],
+  minimap: ['xaero', 'minimap', 'journeymap', 'map'],
+  fps: ['sodium', 'embeddium', 'lithium', 'ferritecore', 'ferrite-core']
+};
+
 const HUD_MOD_PROJECTS = {
-  keystrokes: {
-    name: 'Keystrokes (Teclas en Pantalla)',
-    slug: 'keystrokes',
-    keywords: ['keystroke', 'keybinds', 'keys-hud', 'movement-hud', 'kronhud']
-  },
-  cps: {
-    name: 'Contador de CPS y FPS en Pantalla',
-    slug: 'simple-cps',
-    keywords: ['cps', 'clicks', 'fps-display', 'simple-cps', 'cpsdisplay']
-  },
-  coords: {
-    name: 'BetterF3 (Coordenadas y Días)',
-    slug: 'betterf3',
-    keywords: ['betterf3', 'minihud', 'simple-hud-enhanced', 'batty']
-  },
-  armor: {
-    name: 'Inventory HUD+ (Durabilidad y Armadura)',
-    slug: 'inventory-hud-plus',
-    keywords: ['inventory-hud', 'armor-statues', 'status-effect-hud', 'equipment-compare']
-  },
-  zoom: {
-    name: 'Zoomify (Zoom Suave Tecla C)',
-    slug: 'zoomify',
-    keywords: ['zoomify', 'wi-zoom', 'logical-zoom', 'ok-zoomer']
-  },
-  minimap: {
-    name: 'Minimapa y Marcadores (Xaeros Minimap)',
-    slug: 'xaeros-minimap',
-    keywords: ['xaero', 'minimap', 'journeymap', 'map']
-  },
-  fps: {
-    name: 'Pack FPS Esencial (Sodium + Lithium + FerriteCore)',
-    slug: 'sodium',
-    keywords: ['sodium', 'embeddium', 'lithium', 'ferritecore', 'ferrite-core']
-  }
+  keystrokes: { name: 'Keystrokes', keywords: HUD_MOD_KEYWORDS.keystrokes },
+  cps: { name: 'CPS/FPS', keywords: HUD_MOD_KEYWORDS.cps },
+  coords: { name: 'BetterF3', keywords: HUD_MOD_KEYWORDS.coords },
+  armor: { name: 'Inventory HUD+', keywords: HUD_MOD_KEYWORDS.armor },
+  zoom: { name: 'Zoomify', keywords: HUD_MOD_KEYWORDS.zoom },
+  minimap: { name: 'Minimap', keywords: HUD_MOD_KEYWORDS.minimap },
+  fps: { name: 'Pack FPS', keywords: HUD_MOD_KEYWORDS.fps }
 };
 
 class HudOptionsManager {
@@ -66,7 +52,7 @@ class HudOptionsManager {
   }
 
   /**
-   * Lee y parsea options.txt de la instancia
+   * Lee y parsea options.txt de la instancia devolviendo los 5 ajustes nativos
    */
   readOptions(instanceDir) {
     const optsFile = this.getOptionsFilePath(instanceDir);
@@ -74,7 +60,10 @@ class HudOptionsManager {
       fullbright: false,
       autoSprint: false,
       noClouds: false,
-      noVsync: false
+      entityShadows: true,
+      noEntityShadows: false,
+      noVsync: false,
+      enableVsync: true
     };
 
     if (!fs.existsSync(optsFile)) {
@@ -100,15 +89,18 @@ class HudOptionsManager {
       const gammaVal = parseFloat(rawMap['gamma'] || '1.0');
       const isFullbright = gammaVal >= 5.0;
       const isAutoSprint = rawMap['toggleSprint'] === 'true';
-      const isNoClouds = (rawMap['renderClouds'] === '"false"' || rawMap['renderClouds'] === 'false') &&
-                         rawMap['entityShadows'] === 'false';
+      const isNoClouds = (rawMap['renderClouds'] === '"false"' || rawMap['renderClouds'] === 'false');
+      const isEntityShadowsDisabled = rawMap['entityShadows'] === 'false';
       const isNoVsync = rawMap['enableVsync'] === 'false';
 
       return {
         fullbright: isFullbright,
         autoSprint: isAutoSprint,
         noClouds: isNoClouds,
-        noVsync: isNoVsync
+        entityShadows: !isEntityShadowsDisabled,
+        noEntityShadows: isEntityShadowsDisabled,
+        noVsync: isNoVsync,
+        enableVsync: !isNoVsync
       };
     } catch (err) {
       logger.warn('[HudOptions] Error al leer options.txt:', err.message);
@@ -117,7 +109,7 @@ class HudOptionsManager {
   }
 
   /**
-   * Aplica un ajuste directo en options.txt
+   * Aplica un ajuste directo en options.txt sin mods
    */
   setOption(instanceDir, optionKey, value) {
     const optsFile = this.getOptionsFilePath(instanceDir);
@@ -137,9 +129,14 @@ class HudOptionsManager {
       updates['toggleSprint'] = value ? 'true' : 'false';
     } else if (optionKey === 'noClouds') {
       updates['renderClouds'] = value ? '"false"' : '"fancy"';
+    } else if (optionKey === 'entityShadows') {
+      updates['entityShadows'] = value ? 'true' : 'false';
+    } else if (optionKey === 'noEntityShadows') {
       updates['entityShadows'] = value ? 'false' : 'true';
     } else if (optionKey === 'noVsync') {
       updates['enableVsync'] = value ? 'false' : 'true';
+    } else if (optionKey === 'enableVsync' || optionKey === 'vsync') {
+      updates['enableVsync'] = value ? 'true' : 'false';
     }
 
     const map = new Map();
@@ -154,12 +151,10 @@ class HudOptionsManager {
       }
     }
 
-    // Aplicar actualizaciones
     for (const [k, v] of Object.entries(updates)) {
       map.set(k, v);
     }
 
-    // Reconstruir archivo
     const outLines = [];
     for (const [k, v] of map.entries()) {
       outLines.push(`${k}:${v}`);
@@ -175,7 +170,7 @@ class HudOptionsManager {
   }
 
   /**
-   * Inspecciona el estado de los módulos de mods HUD instalados en /mods
+   * Inspecciona el estado de los módulos de mods HUD instalados manualmente en /mods (Solo lectura)
    */
   getHudModsState(instanceDir) {
     const modsDir = path.join(instanceDir, 'mods');
@@ -198,9 +193,9 @@ class HudOptionsManager {
         .filter((f) => f.endsWith('.jar'))
         .map((f) => f.toLowerCase());
 
-      for (const [modType, config] of Object.entries(HUD_MOD_PROJECTS)) {
+      for (const [modType, keywords] of Object.entries(HUD_MOD_KEYWORDS)) {
         const isPresent = files.some((fileName) =>
-          config.keywords.some((kw) => fileName.includes(kw))
+          keywords.some((kw) => fileName.includes(kw))
         );
         state[modType] = isPresent;
       }
@@ -212,158 +207,10 @@ class HudOptionsManager {
   }
 
   /**
-   * Alterna la instalación / activación de un módulo de mods HUD
+   * Bloqueo permanente de descargas automáticas de mods
    */
-  async toggleHudMod({ profileId, modType, enable }) {
-    const profile = (profileId ? this.profileManager.getById(profileId) : null) || this.profileManager.getActive();
-    if (!profile) {
-      throw new Error(`Perfil no encontrado.`);
-    }
-
-    const instanceDir = profile.instancePath || profile.gameDirectory || (profile.id ? this.profileManager.getInstancePath(profile.id) : null) || this.profileManager.getDataDirectory();
-    const modsDir = path.join(instanceDir, 'mods');
-    if (!fs.existsSync(modsDir)) {
-      fs.mkdirSync(modsDir, { recursive: true });
-    }
-
-    const config = HUD_MOD_PROJECTS[modType];
-    if (!config) {
-      throw new Error(`Módulo HUD desconocido: "${modType}".`);
-    }
-
-    // CASO 1: Desactivar módulo
-    if (!enable) {
-      const files = fs.readdirSync(modsDir);
-      let removedCount = 0;
-      for (const f of files) {
-        const lower = f.toLowerCase();
-        if (config.keywords.some((kw) => lower.includes(kw))) {
-          const filePath = path.join(modsDir, f);
-          try {
-            fs.unlinkSync(filePath);
-            removedCount++;
-            logger.info(`[HudOptions] Mod HUD desinstalado: ${f}`);
-          } catch (_) {}
-        }
-      }
-      return {
-        success: true,
-        enabled: false,
-        modsState: this.getHudModsState(instanceDir)
-      };
-    }
-
-    // CASO 2: Activar módulo
-    let currentLoader = (profile.loader || 'vanilla').toLowerCase();
-    if (currentLoader === 'vanilla') {
-      throw new Error('Los módulos HUD en pantalla requieren un entorno con mods (NeoForge/Forge/Fabric). En Vanilla puro se aplican las optimizaciones nativas de options.txt.');
-    }
-
-    const mcVersion = profile.gameVersion || '1.21.1';
-    logger.info(`[HudOptions] Descargando módulo HUD "${config.name}" para MC ${mcVersion} (${currentLoader})...`);
-
-    // Descargar archivos correspondientes desde Modrinth
-    const slugsToDownload = modType === 'fps'
-      ? (currentLoader === 'fabric' ? ['sodium', 'lithium', 'ferrite-core'] : ['embeddium', 'ferrite-core'])
-      : [config.slug];
-
-    let downloadedCount = 0;
-    for (const slug of slugsToDownload) {
-      try {
-        const fileInfo = await this._resolveModrinthVersion(slug, mcVersion, currentLoader);
-        if (fileInfo && fileInfo.downloadUrl) {
-          const destPath = path.join(modsDir, fileInfo.fileName);
-          await this._downloadFile(fileInfo.downloadUrl, destPath);
-          downloadedCount++;
-          logger.info(`[HudOptions] Descargado e instalado: ${fileInfo.fileName}`);
-        }
-      } catch (dlErr) {
-        logger.warn(`[HudOptions] No se pudo descargar "${slug}":`, dlErr.message);
-      }
-    }
-
-    return {
-      success: true,
-      enabled: true,
-      downloadedCount,
-      modsState: this.getHudModsState(instanceDir)
-    };
-  }
-
-  /**
-   * Resuelve la versión compatible de un proyecto en Modrinth
-   */
-  _resolveModrinthVersion(slug, mcVersion, loader) {
-    return new Promise((resolve) => {
-      const url = `https://api.modrinth.com/v2/project/${slug}/version?game_versions=["${mcVersion}"]&loaders=["${loader}"]`;
-      const req = https.get(
-        url,
-        { headers: { 'User-Agent': 'ShubaCore-Launcher/1.1.0 (SHUBATECH)' } },
-        (res) => {
-          if (res.statusCode !== 200) {
-            // Intentar sin filtro estricto de loader si no encuentra
-            resolve(null);
-            return;
-          }
-          let raw = '';
-          res.on('data', (c) => (raw += c));
-          res.on('end', () => {
-            try {
-              const versions = JSON.parse(raw);
-              if (Array.isArray(versions) && versions.length > 0) {
-                const primaryFile = versions[0].files.find((f) => f.primary) || versions[0].files[0];
-                if (primaryFile) {
-                  resolve({
-                    fileName: primaryFile.filename,
-                    downloadUrl: primaryFile.url
-                  });
-                  return;
-                }
-              }
-            } catch (_) {}
-            resolve(null);
-          });
-        }
-      );
-      req.on('error', () => resolve(null));
-      req.setTimeout(8000, () => {
-        req.destroy();
-        resolve(null);
-      });
-    });
-  }
-
-  /**
-   * Descarga un archivo por HTTPS
-   */
-  _downloadFile(url, destPath) {
-    return new Promise((resolve, reject) => {
-      const file = fs.createWriteStream(destPath);
-      const req = https.get(
-        url,
-        { headers: { 'User-Agent': 'ShubaCore-Launcher/1.1.0 (SHUBATECH)' } },
-        (res) => {
-          if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-            return this._downloadFile(res.headers.location, destPath).then(resolve).catch(reject);
-          }
-          if (res.statusCode !== 200) {
-            file.close();
-            try { fs.unlinkSync(destPath); } catch (_) {}
-            reject(new Error(`HTTP ${res.statusCode} al descargar mod`));
-            return;
-          }
-          res.pipe(file);
-          file.on('finish', () => {
-            file.close(resolve);
-          });
-        }
-      );
-      req.on('error', (err) => {
-        file.close();
-        try { fs.unlinkSync(destPath); } catch (_) {}
-        reject(err);
-      });
-    });
+  async toggleHudMod() {
+    throw new Error('Las descargas automáticas de mods han sido desactivadas permanentemente. Los módulos HUD externos requieren instalación manual en la carpeta mods/ y requieren un entorno con mods (NeoForge/Forge/Fabric). En Vanilla puro se aplican las optimizaciones nativas de options.txt.');
   }
 }
 

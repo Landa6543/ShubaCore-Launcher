@@ -1450,13 +1450,12 @@ function registerIpcHandlers(mainWindow) {
   });
 
   // ==========================================
-  // UTILIDADES HUD / VANILLA+ (LUNAR CLIENT STYLE)
+  // UTILIDADES HUD / OPTIMIZACIONES NATIVAS (OPTIONS.TXT)
   // ==========================================
   ipcMain.handle('hud:get-state', async (event, { instanceDir }) => {
     try {
       const options = hudOptionsManager.readOptions(instanceDir);
-      const mods = hudOptionsManager.getHudModsState(instanceDir);
-      return { success: true, options, mods };
+      return { success: true, options };
     } catch (err) {
       logger.error('Error en hud:get-state IPC:', err);
       return { success: false, error: err.message };
@@ -1472,13 +1471,11 @@ function registerIpcHandlers(mainWindow) {
     }
   });
 
-  ipcMain.handle('hud:toggle-mod', async (event, { profileId, modType, enable }) => {
-    try {
-      return await hudOptionsManager.toggleHudMod({ profileId, modType, enable });
-    } catch (err) {
-      logger.error('Error en hud:toggle-mod IPC:', err);
-      return { success: false, error: err.message };
-    }
+  ipcMain.handle('hud:toggle-mod', async () => {
+    return {
+      success: false,
+      error: 'Las descargas automáticas de mods han sido desactivadas para proteger la estabilidad de la instancia.'
+    };
   });
 
   ipcMain.on('window:minimize', () => {

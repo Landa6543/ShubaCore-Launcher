@@ -89,16 +89,18 @@ async function runCriticalFixesTests() {
   assert(threwExpected, 'Debe lanzar un error al intentar instalar mods HUD en una instancia Vanilla pura');
   assert.strictEqual(mockVanillaProfile.loader, 'vanilla', 'PROHIBIDO: El loader de la instancia Vanilla NO debe ser alterado a Fabric');
 
-  // Los ajustes de options.txt deben funcionar al 100% en la instancia Vanilla
+  // Los ajustes de options.txt deben funcionar al 100% en la instancia Vanilla (5 ajustes nativos)
   hudManager.setOption(vanillaInstanceDir, 'fullbright', true);
   hudManager.setOption(vanillaInstanceDir, 'autoSprint', true);
   hudManager.setOption(vanillaInstanceDir, 'noClouds', true);
+  hudManager.setOption(vanillaInstanceDir, 'noEntityShadows', true);
   hudManager.setOption(vanillaInstanceDir, 'noVsync', true);
 
   const optsState = hudManager.readOptions(vanillaInstanceDir);
   assert.strictEqual(optsState.fullbright, true, 'Fullbright debe guardarse en options.txt de Vanilla');
   assert.strictEqual(optsState.autoSprint, true, 'AutoSprint debe guardarse en options.txt de Vanilla');
   assert.strictEqual(optsState.noClouds, true, 'Sin nubes debe guardarse en options.txt de Vanilla');
+  assert.strictEqual(optsState.entityShadows, false, 'entityShadows: false debe guardarse en options.txt de Vanilla');
   assert.strictEqual(optsState.noVsync, true, 'Sin VSync debe guardarse en options.txt de Vanilla');
   console.log('   ✔ Instancias Vanilla protegidas: loader permanece Vanilla y options.txt se aplica de forma nativa.');
 

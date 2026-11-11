@@ -515,15 +515,15 @@
           </div>
         </div>
 
-        <!-- SUB-PANEL 5: UTILIDADES HUD / VANILLA+ (ESTILO LUNAR CLIENT) -->
+        <!-- SUB-PANEL 5: OPTIMIZACIONES NATIVAS (OPTIONS.TXT) -->
         <div id="subpanel-instance-hud" class="instance-subpanel" style="display: none;">
-          <div class="hud-top-bar" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+          <div class="hud-top-bar" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
             <div>
-              <h3 style="margin: 0; font-size: 16px; color: var(--text-primary); font-weight: 700;">Utilidades HUD & Lunar+ (Vanilla+)</h3>
-              <p style="margin: 4px 0 0 0; color: var(--text-secondary); font-size: 13px;">Comodidades visuales estilo cliente PvP y ajustes directos para optimizar tu experiencia de juego sin cosméticos pesados.</p>
+              <h3 style="margin: 0; font-size: 16px; color: var(--text-primary); font-weight: 700;">Optimizaciones Nativas (options.txt)</h3>
+              <p style="margin: 4px 0 0 0; color: var(--text-secondary); font-size: 13px;">Ajustes directos de rendimiento y comodidad visual aplicados nativamente en options.txt sin mods externos ni descargas automáticas.</p>
             </div>
             <div class="toolbar-actions">
-              <button id="btn-refresh-hud-state" class="btn btn-secondary btn-small" title="Refrescar estado de opciones y mods HUD">
+              <button id="btn-refresh-hud-state" class="btn btn-secondary btn-small" title="Refrescar estado de opciones">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
                 <span>Refrescar</span>
               </button>
@@ -531,117 +531,19 @@
           </div>
 
           <!-- Banner Informativo para Instancias Vanilla -->
-          <div id="hud-vanilla-warning" class="hud-vanilla-notice" style="display: none; padding: 10px 14px; border-radius: 6px; background: rgba(59, 130, 246, 0.12); border: 1px solid rgba(59, 130, 246, 0.3); color: var(--text-primary); font-size: 13px; margin: 8px 0 12px 0; align-items: center; gap: 10px;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #60a5fa; flex-shrink: 0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-            <span><strong>Modo Vanilla Puro:</strong> Las optimizaciones nativas de <code>options.txt</code> (Fullbright, Toggle Sprint, Sin Nubes, VSync) se aplican directamente sin alterar tu juego. Los módulos HUD en pantalla requieren un entorno con modloader (NeoForge, Forge o Fabric).</span>
-          </div>
+          <div id="hud-vanilla-warning" class="hud-vanilla-notice" style="display: none;"></div>
 
           <div class="hud-utilities-grid">
-            <!-- 1. KEYSTROKES -->
-            <div class="hud-card">
-              <div class="hud-card-header">
-                <div class="hud-card-icon">⌨</div>
-                <div class="hud-card-title-group">
-                  <h4 class="hud-card-title">Keystrokes (Teclas en Pantalla)</h4>
-                  <span class="hud-card-badge badge-mod">HUD MOD</span>
-                </div>
-              </div>
-              <p class="hud-card-desc">Muestra en una esquina de la pantalla qué teclas estás presionando en tiempo real (WASD, Espacio) y los clics del ratón LMB/RMB.</p>
-              <div class="hud-card-footer">
-                <span id="status-hud-keystrokes" class="hud-card-status">Desactivado</span>
-                <label class="toggle-switch">
-                  <input type="checkbox" id="switch-hud-keystrokes">
-                  <span class="toggle-slider"></span>
-                </label>
-              </div>
-            </div>
-
-            <!-- 2. CONTADOR DE CPS & FPS -->
-            <div class="hud-card">
-              <div class="hud-card-header">
-                <div class="hud-card-icon">🖱</div>
-                <div class="hud-card-title-group">
-                  <h4 class="hud-card-title">Contador de CPS y FPS en Pantalla</h4>
-                  <span class="hud-card-badge badge-mod">HUD MOD</span>
-                </div>
-              </div>
-              <p class="hud-card-desc">Muestra tus clics por segundo (CPS) y la tasa de cuadros por segundo (FPS) en tiempo real directamente en el HUD del juego.</p>
-              <div class="hud-card-footer">
-                <span id="status-hud-cps" class="hud-card-status">Desactivado</span>
-                <label class="toggle-switch">
-                  <input type="checkbox" id="switch-hud-cps">
-                  <span class="toggle-slider"></span>
-                </label>
-              </div>
-            </div>
-
-            <!-- 3. COORDENADAS + DIRECCIÓN + DÍAS -->
-            <div class="hud-card">
-              <div class="hud-card-header">
-                <div class="hud-card-icon">🧭</div>
-                <div class="hud-card-title-group">
-                  <h4 class="hud-card-title">Coordenadas + Dirección + Días Jugados</h4>
-                  <span class="hud-card-badge badge-mod">HUD MOD</span>
-                </div>
-              </div>
-              <p class="hud-card-desc">Muestra X/Y/Z, dirección cardinal, bioma y el día actual del mundo en pantalla sin necesidad de abrir el menú gigante F3.</p>
-              <div class="hud-card-footer">
-                <span id="status-hud-coords" class="hud-card-status">Desactivado</span>
-                <label class="toggle-switch">
-                  <input type="checkbox" id="switch-hud-coords">
-                  <span class="toggle-slider"></span>
-                </label>
-              </div>
-            </div>
-
-            <!-- 4. ARMOR & POTION HUD -->
-            <div class="hud-card">
-              <div class="hud-card-header">
-                <div class="hud-card-icon">🛡</div>
-                <div class="hud-card-title-group">
-                  <h4 class="hud-card-title">Armor & Potion HUD (Durabilidad)</h4>
-                  <span class="hud-card-badge badge-mod">HUD MOD</span>
-                </div>
-              </div>
-              <p class="hud-card-desc">Muestra las piezas de armadura equipadas con su durabilidad numérica exacta y el tiempo de los efectos de pociones activos.</p>
-              <div class="hud-card-footer">
-                <span id="status-hud-armor" class="hud-card-status">Desactivado</span>
-                <label class="toggle-switch">
-                  <input type="checkbox" id="switch-hud-armor">
-                  <span class="toggle-slider"></span>
-                </label>
-              </div>
-            </div>
-
-            <!-- 5. ZOOM ÓPTICO SUAVE -->
-            <div class="hud-card">
-              <div class="hud-card-header">
-                <div class="hud-card-icon">🔍</div>
-                <div class="hud-card-title-group">
-                  <h4 class="hud-card-title">Zoom Óptico Suave (Tecla C)</h4>
-                  <span class="hud-card-badge badge-mod">HUD MOD</span>
-                </div>
-              </div>
-              <p class="hud-card-desc">Permite hacer zoom cinemático fluido con la rueda del ratón al presionar la tecla C sin requerir OptiFine.</p>
-              <div class="hud-card-footer">
-                <span id="status-hud-zoom" class="hud-card-status">Desactivado</span>
-                <label class="toggle-switch">
-                  <input type="checkbox" id="switch-hud-zoom">
-                  <span class="toggle-slider"></span>
-                </label>
-              </div>
-            </div>
-
-            <!-- 6. FULLBRIGHT -->
+            <!-- 1. FULLBRIGHT (gamma: 100.0) -->
             <div class="hud-card">
               <div class="hud-card-header">
                 <div class="hud-card-icon">🔆</div>
                 <div class="hud-card-title-group">
-                  <h4 class="hud-card-title">Fullbright (Brillo Máximo en Cuevas)</h4>
+                  <h4 class="hud-card-title">Fullbright (Brillo Máximo)</h4>
                   <span class="hud-card-badge">OPTIONS.TXT</span>
                 </div>
               </div>
-              <p class="hud-card-desc">Ajusta el brillo interno de Minecraft (gamma: 100.0) para ver con claridad total en cuevas, minas y en el Nether sin antorchas.</p>
+              <p class="hud-card-desc">Ajusta el brillo interno de Minecraft (gamma: 100.0) para ver con claridad total en cuevas, minas y en el Nether sin colocar antorchas.</p>
               <div class="hud-card-footer">
                 <span id="status-hud-fullbright" class="hud-card-status">Desactivado</span>
                 <label class="toggle-switch">
@@ -651,16 +553,16 @@
               </div>
             </div>
 
-            <!-- 7. AUTO-SPRINT / TOGGLE SPRINT -->
+            <!-- 2. AUTO-SPRINT (toggleSprint: true) -->
             <div class="hud-card">
               <div class="hud-card-header">
                 <div class="hud-card-icon">🏃</div>
                 <div class="hud-card-title-group">
-                  <h4 class="hud-card-title">Toggle Sprint / Auto-Sprint</h4>
+                  <h4 class="hud-card-title">Auto-Sprint (Toggle Sprint)</h4>
                   <span class="hud-card-badge">OPTIONS.TXT</span>
                 </div>
               </div>
-              <p class="hud-card-desc">Mantiene el sprint activo automáticamente al caminar hacia adelante sin necesidad de dejar presionado el botón Ctrl.</p>
+              <p class="hud-card-desc">Mantiene el sprint activado automáticamente al caminar hacia adelante (toggleSprint: true) sin necesidad de mantener presionado Ctrl.</p>
               <div class="hud-card-footer">
                 <span id="status-hud-autosprint" class="hud-card-status">Desactivado</span>
                 <label class="toggle-switch">
@@ -670,20 +572,58 @@
               </div>
             </div>
 
-            <!-- 8. MINIMAPA Y MARCADORES -->
+            <!-- 3. OCULTAR NUBES (renderClouds: "false") -->
             <div class="hud-card">
               <div class="hud-card-header">
-                <div class="hud-card-icon">🗺</div>
+                <div class="hud-card-icon">☁</div>
                 <div class="hud-card-title-group">
-                  <h4 class="hud-card-title">Minimapa y Marcadores (Waypoints)</h4>
-                  <span class="hud-card-badge badge-mod">HUD MOD</span>
+                  <h4 class="hud-card-title">Ocultar Nubes</h4>
+                  <span class="hud-card-badge">OPTIONS.TXT</span>
                 </div>
               </div>
-              <p class="hud-card-desc">Muestra un minimapa limpio en la esquina superior con orientación, cuevas y puntos de referencia personalizados.</p>
+              <p class="hud-card-desc">Desactiva el renderizado de nubes en el cielo (renderClouds: "false") para aumentar los FPS y despejar la visión en alturas elevadas.</p>
               <div class="hud-card-footer">
-                <span id="status-hud-minimap" class="hud-card-status">Desactivado</span>
+                <span id="status-hud-noclouds" class="hud-card-status">Desactivado</span>
                 <label class="toggle-switch">
-                  <input type="checkbox" id="switch-hud-minimap">
+                  <input type="checkbox" id="switch-hud-noclouds">
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <!-- 4. SOMBRAS DE ENTIDADES (entityShadows: false) -->
+            <div class="hud-card">
+              <div class="hud-card-header">
+                <div class="hud-card-icon">👤</div>
+                <div class="hud-card-title-group">
+                  <h4 class="hud-card-title">Desactivar Sombras de Entidades</h4>
+                  <span class="hud-card-badge">OPTIONS.TXT</span>
+                </div>
+              </div>
+              <p class="hud-card-desc">Desactiva las sombras circulares bajo mobs y jugadores (entityShadows: false) para maximizar los FPS en granjas masivas.</p>
+              <div class="hud-card-footer">
+                <span id="status-hud-entityshadows" class="hud-card-status">Desactivado</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="switch-hud-entityshadows">
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <!-- 5. DESACTIVAR VSYNC (enableVsync: false) -->
+            <div class="hud-card">
+              <div class="hud-card-header">
+                <div class="hud-card-icon">⚡</div>
+                <div class="hud-card-title-group">
+                  <h4 class="hud-card-title">Desactivar VSync</h4>
+                  <span class="hud-card-badge">OPTIONS.TXT</span>
+                </div>
+              </div>
+              <p class="hud-card-desc">Desactiva la sincronización vertical (enableVsync: false) para eliminar el input lag del ratón y liberar la tasa de cuadros por segundo.</p>
+              <div class="hud-card-footer">
+                <span id="status-hud-novsync" class="hud-card-status">Desactivado</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="switch-hud-novsync">
                   <span class="toggle-slider"></span>
                 </label>
               </div>
@@ -1043,7 +983,7 @@
       <section id="view-screenshots" class="view-panel view-container hidden">
         <div class="view-toolbar">
           <div>
-            <h2 class="view-title">📸 Galería de Capturas</h2>
+            <h2 class="view-title">Galería de Capturas</h2>
             <p class="view-subtitle">Explora, comparte y copia al portapapeles todas las capturas (F2) tomadas en tus mundos y servidores.</p>
           </div>
           <div class="toolbar-actions">
