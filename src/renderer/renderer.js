@@ -6214,6 +6214,11 @@ document.addEventListener('DOMContentLoaded', async () => {
           switchHudNoVsync.checked = isVsyncDisabled;
           updateHudStatusText(statusHudNoVsync, isVsyncDisabled);
         }
+        if (switchHudCustomSplash) {
+          const isSplashOn = currentActiveProfile?.customSplash !== false;
+          switchHudCustomSplash.checked = isSplashOn;
+          updateHudStatusText(statusHudCustomSplash, isSplashOn);
+        }
       }
     } catch (err) {
       console.warn('[HUD] Error cargando estado de opciones:', err.message);
@@ -6247,6 +6252,29 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   if (switchHudNoVsync) {
     switchHudNoVsync.addEventListener('change', (e) => handleOptionToggle('noVsync', e.target.checked, statusHudNoVsync));
+  }
+
+  const switchHudCustomSplash = document.getElementById('switch-hud-custom-splash');
+  const statusHudCustomSplash = document.getElementById('status-hud-custom-splash');
+
+  if (switchHudCustomSplash) {
+    switchHudCustomSplash.addEventListener('change', async (e) => {
+      const isChecked = e.target.checked;
+      updateHudStatusText(statusHudCustomSplash, isChecked);
+      if (currentActiveProfile) {
+        currentActiveProfile.customSplash = isChecked;
+        await api.profiles.update(currentActiveProfile.id, { customSplash: isChecked });
+        const targetDir = currentActiveProfile.instancePath || null;
+        if (targetDir && api.splash) {
+          if (isChecked) {
+            await api.splash.inject({ instancePath: targetDir, mcVersion: currentActiveProfile.mcVersion });
+          } else {
+            await api.splash.remove({ instancePath: targetDir });
+          }
+        }
+      }
+      appendLog(`[Splash Screen] Pantalla de carga personalizada ${isChecked ? 'ACTIVADA' : 'DESACTIVADA'}.`, 'info');
+    });
   }
 
   if (btnRefreshHudState) {
@@ -6608,12 +6636,287 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  // ==========================================
+  // PLAYIT.GG: TÚNEL LAN P2P
+  // ==========================================
+  const btnOpenPlayItTunnelMods = document.getElementById('btn-open-playit-tunnel-mods');
+  const btnOpenPlayItTunnelServers = document.getElementById('btn-open-playit-tunnel-servers');
+  const modalPlayItTunnel = document.getElementById('modal-playit-tunnel');
+  const btnClosePlayItModal = document.getElementById('btn-close-playit-modal');
+  const btnClosePlayItBottom = document.getElementById('btn-close-playit-bottom');
+  const btnStartPlayItTunnel = document.getElementById('btn-start-playit-tunnel');
+  const btnStopPlayItTunnel = document.getElementById('btn-stop-playit-tunnel');
+  const inputPlayItPort = document.getElementById('input-playit-port');
+  const playItStatusBadge = document.getElementById('playit-status-badge');
+  const playItActiveBox = document.getElementById('playit-active-box');
+  const playItPublicAddress = document.getElementById('playit-public-address');
+  const btnCopyPlayItIp = document.getElementById('btn-copy-playit-ip');
+  const playItClaimBox = document.getElementById('playit-claim-box');
+  const linkPlayItClaim = document.getElementById('link-playit-claim');
+  const playItProgressBox = document.getElementById('playit-progress-box');
+  const playItProgressText = document.getElementById('playit-progress-text');
+
+  function updatePlayItUI(state) {
+    if (!state) return;
+
+    if (state.running) {
+      if (playItStatusBadge) {
+        playItStatusBadge.textContent = '🟢 En Línea';
+        playItStatusBadge.className = 'badge badge-success';
+      }
+      if (btnStartPlayItTunnel) btnStartPlayItTunnel.style.display = 'none';
+      if (btnStopPlayItTunnel) btnStopPlayItTunnel.style.display = 'inline-flex';
+      if (playItProgressBox) playItProgressBox.style.display = 'none';
+
+      if (state.tunnelAddress) {
+        if (playItActiveBox) playItActiveBox.style.display = 'flex';
+        if (playItPublicAddress) playItPublicAddress.textContent = state.tunnelAddress;
+      }
+    } else if (state.status === 'starting' || state.status === 'downloading') {
+      if (playItStatusBadge) {
+        playItStatusBadge.textContent = state.status === 'downloading' ? 'Descargando...' : 'Conectando...';
+        playItStatusBadge.className = 'badge badge-warning';
+      }
+      if (playItProgressBox) {
+        playItProgressBox.style.display = 'block';
+        if (playItProgressText) playItProgressText.textContent = state.status === 'downloading' ? 'Descargando PlayIt.gg CLI oficial...' : 'Estableciendo túnel P2P...';
+      }
+    } else {
+      if (playItStatusBadge) {
+        playItStatusBadge.textContent = 'Detenido';
+        playItStatusBadge.className = 'badge badge-idle';
+      }
+      if (btnStartPlayItTunnel) {
+        btnStartPlayItTunnel.style.display = 'inline-flex';
+        btnStartPlayItTunnel.disabled = false;
+        btnStartPlayItTunnel.innerHTML = '<span>🚀 Iniciar Túnel PlayIt</span>';
+      }
+      if (btnStopPlayItTunnel) btnStopPlayItTunnel.style.display = 'none';
+      if (playItActiveBox) playItActiveBox.style.display = 'none';
+      if (playItProgressBox) playItProgressBox.style.display = 'none';
+    }
+
+    if (state.claimUrl && playItClaimBox && linkPlayItClaim) {
+      playItClaimBox.style.display = 'block';
+      linkPlayItClaim.href = state.claimUrl;
+    }
+  }
+
+  async function openPlayItModal() {
+    if (!modalPlayItTunnel) return;
+    modalPlayItTunnel.style.display = 'flex';
+    try {
+      const res = await api.playit.getStatus();
+      if (res && res.state) {
+        updatePlayItUI(res.state);
+      }
+    } catch (_) {}
+  }
+
+  function closePlayItModal() {
+    if (modalPlayItTunnel) modalPlayItTunnel.style.display = 'none';
+  }
+
+  if (btnOpenPlayItTunnelMods) btnOpenPlayItTunnelMods.addEventListener('click', openPlayItModal);
+  if (btnOpenPlayItTunnelServers) btnOpenPlayItTunnelServers.addEventListener('click', openPlayItModal);
+  if (btnClosePlayItModal) btnClosePlayItModal.addEventListener('click', closePlayItModal);
+  if (btnClosePlayItBottom) btnClosePlayItBottom.addEventListener('click', closePlayItModal);
+
+  if (btnStartPlayItTunnel) {
+    btnStartPlayItTunnel.addEventListener('click', async () => {
+      const port = parseInt(inputPlayItPort?.value, 10) || 25565;
+      btnStartPlayItTunnel.disabled = true;
+      btnStartPlayItTunnel.innerHTML = '<span>Conectando...</span>';
+      try {
+        const res = await api.playit.start({ localPort: port });
+        if (!res.success) {
+          alert(`Error al iniciar túnel PlayIt: ${res.error || 'Desconocido'}`);
+          btnStartPlayItTunnel.disabled = false;
+          btnStartPlayItTunnel.innerHTML = '<span>🚀 Iniciar Túnel PlayIt</span>';
+        }
+      } catch (err) {
+        alert(`Error al iniciar PlayIt: ${err.message}`);
+        btnStartPlayItTunnel.disabled = false;
+        btnStartPlayItTunnel.innerHTML = '<span>🚀 Iniciar Túnel PlayIt</span>';
+      }
+    });
+  }
+
+  if (btnStopPlayItTunnel) {
+    btnStopPlayItTunnel.addEventListener('click', async () => {
+      btnStopPlayItTunnel.disabled = true;
+      try {
+        await api.playit.stop();
+      } catch (_) {}
+      btnStopPlayItTunnel.disabled = false;
+    });
+  }
+
+  if (btnCopyPlayItIp) {
+    btnCopyPlayItIp.addEventListener('click', () => {
+      const addr = playItPublicAddress?.textContent;
+      if (addr && navigator.clipboard) {
+        navigator.clipboard.writeText(addr).then(() => {
+          btnCopyPlayItIp.textContent = '✔ ¡Copiada!';
+          setTimeout(() => { btnCopyPlayItIp.textContent = '📋 Copiar IP'; }, 2000);
+        }).catch(() => {});
+      }
+    });
+  }
+
+  if (linkPlayItClaim) {
+    linkPlayItClaim.addEventListener('click', (e) => {
+      e.preventDefault();
+      const url = linkPlayItClaim.href;
+      if (url && api.system) api.system.openExternal(url);
+    });
+  }
+
+  // Listeners de eventos de PlayIt
+  api.events.on('playit:status', (state) => updatePlayItUI(state));
+  api.events.on('playit:claim-url', (claimUrl) => {
+    if (playItClaimBox && linkPlayItClaim) {
+      playItClaimBox.style.display = 'block';
+      linkPlayItClaim.href = claimUrl;
+    }
+  });
+  api.events.on('playit:tunnel-ready', (address) => {
+    if (playItActiveBox && playItPublicAddress) {
+      playItActiveBox.style.display = 'flex';
+      playItPublicAddress.textContent = address;
+    }
+  });
+
+  // ==========================================
+  // SERVER MONITOR: WIDGET DE ESTADO EN VIVO
+  // ==========================================
+  const instanceServerMonitorWidget = document.getElementById('instance-server-monitor-widget');
+  const monitorServerStatusDot = document.getElementById('monitor-server-status-dot');
+  const monitorServerName = document.getElementById('monitor-server-name');
+  const monitorServerStatusBadge = document.getElementById('monitor-server-status-badge');
+  const monitorServerPingBadge = document.getElementById('monitor-server-ping-badge');
+  const monitorServerAddress = document.getElementById('monitor-server-address');
+  const monitorServerPlayers = document.getElementById('monitor-server-players');
+  const monitorServerMotd = document.getElementById('monitor-server-motd');
+  const btnRefreshMonitoredServer = document.getElementById('btn-refresh-monitored-server');
+  const btnEditMonitoredServer = document.getElementById('btn-edit-monitored-server');
+
+  const modalEditMonitoredServer = document.getElementById('modal-edit-monitored-server');
+  const inputTargetServerIp = document.getElementById('input-target-server-ip');
+  const btnSaveTargetServer = document.getElementById('btn-save-target-server');
+  const btnCancelTargetServer = document.getElementById('btn-cancel-target-server');
+  const btnCloseEditMonitorModal = document.getElementById('btn-close-edit-monitor-modal');
+
+  let currentMonitoredAddress = '127.0.0.1:25565';
+
+  function renderServerMonitorStatus(res) {
+    if (!res) return;
+
+    if (monitorServerAddress) monitorServerAddress.textContent = res.address || currentMonitoredAddress;
+
+    if (res.online) {
+      if (monitorServerStatusDot) {
+        monitorServerStatusDot.style.background = '#10b981';
+        monitorServerStatusDot.style.boxShadow = '0 0 8px #10b981';
+      }
+      if (monitorServerStatusBadge) {
+        monitorServerStatusBadge.textContent = '🟢 En Línea';
+        monitorServerStatusBadge.className = 'badge badge-success';
+      }
+      if (monitorServerPingBadge) {
+        monitorServerPingBadge.style.display = 'inline-block';
+        monitorServerPingBadge.textContent = `${res.pingMs || 0}ms`;
+        monitorServerPingBadge.className = (res.pingMs < 100) ? 'badge badge-success' : 'badge badge-warning';
+      }
+      if (monitorServerPlayers) {
+        monitorServerPlayers.textContent = `👥 ${res.players?.online || 0}/${res.players?.max || 20}`;
+      }
+      if (monitorServerMotd) {
+        monitorServerMotd.textContent = res.motd ? `· ${res.motd}` : '';
+      }
+    } else {
+      if (monitorServerStatusDot) {
+        monitorServerStatusDot.style.background = '#9ca3af';
+        monitorServerStatusDot.style.boxShadow = 'none';
+      }
+      if (monitorServerStatusBadge) {
+        monitorServerStatusBadge.textContent = '🔴 Fuera de línea';
+        monitorServerStatusBadge.className = 'badge badge-idle';
+      }
+      if (monitorServerPingBadge) {
+        monitorServerPingBadge.style.display = 'none';
+      }
+      if (monitorServerPlayers) {
+        monitorServerPlayers.textContent = '';
+      }
+      if (monitorServerMotd) {
+        monitorServerMotd.textContent = '· Servidor fuera de línea';
+      }
+    }
+  }
+
+  async function checkMonitoredServer() {
+    if (!api.serverMonitor) return;
+    if (monitorServerStatusBadge) monitorServerStatusBadge.textContent = 'Comprobando...';
+    try {
+      const res = await api.serverMonitor.ping({ host: currentMonitoredAddress });
+      renderServerMonitorStatus(res);
+    } catch (_) {}
+  }
+
+  if (btnRefreshMonitoredServer) {
+    btnRefreshMonitoredServer.addEventListener('click', () => checkMonitoredServer());
+  }
+
+  if (btnEditMonitoredServer) {
+    btnEditMonitoredServer.addEventListener('click', () => {
+      if (inputTargetServerIp) inputTargetServerIp.value = currentMonitoredAddress;
+      if (modalEditMonitoredServer) modalEditMonitoredServer.style.display = 'flex';
+    });
+  }
+
+  function closeEditMonitorModal() {
+    if (modalEditMonitoredServer) modalEditMonitoredServer.style.display = 'none';
+  }
+
+  if (btnCancelTargetServer) btnCancelTargetServer.addEventListener('click', closeEditMonitorModal);
+  if (btnCloseEditMonitorModal) btnCloseEditMonitorModal.addEventListener('click', closeEditMonitorModal);
+
+  if (btnSaveTargetServer) {
+    btnSaveTargetServer.addEventListener('click', async () => {
+      const newAddress = inputTargetServerIp?.value?.trim();
+      if (!newAddress) {
+        alert('Introduce una dirección válida.');
+        return;
+      }
+      currentMonitoredAddress = newAddress;
+      if (currentActiveProfile) {
+        currentActiveProfile.favoriteServerIp = newAddress;
+        await api.profiles.update(currentActiveProfile.id, { favoriteServerIp: newAddress });
+      }
+      closeEditMonitorModal();
+      if (api.serverMonitor) {
+        await api.serverMonitor.setTarget({ host: newAddress });
+      }
+      await checkMonitoredServer();
+    });
+  }
+
+  api.events.on('server-monitor:update', (data) => renderServerMonitorStatus(data));
+
   // Inicialización
   await initLauncherUpdater();
   await loadConfig();
   await detectJava();
   try {
     loadNewsFeed().catch(() => {});
+  } catch (_) {}
+  try {
+    if (api.serverMonitor) {
+      const fav = currentActiveProfile?.favoriteServerIp || '127.0.0.1:25565';
+      currentMonitoredAddress = fav;
+      api.serverMonitor.setTarget({ host: fav }).catch(() => {});
+    }
   } catch (_) {}
   try {
     const running = await api.launcher.getRunning();

@@ -324,6 +324,10 @@
             </div>
           </div>
           <div class="instance-context-quick-actions">
+            <button id="btn-open-playit-tunnel-mods" class="btn btn-secondary" title="Abrir Túnel LAN P2P con PlayIt.gg para invitar amigos a jugar">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+              <span>🌐 Túnel LAN PlayIt</span>
+            </button>
             <button id="btn-add-more-mods" class="btn btn-primary" title="Explorar y descargar más mods para esta instancia">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               <span>+ Añadir más Mods</span>
@@ -331,6 +335,34 @@
             <button id="btn-open-mods-folder" class="btn btn-secondary" title="Abrir carpeta /mods en el explorador de archivos">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
               <span>Abrir Carpeta de Mods</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- WIDGET DE ESTADO DEL SERVIDOR EN VIVO -->
+        <div id="instance-server-monitor-widget" class="server-monitor-widget" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; margin: 0 0 12px 0; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
+          <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
+            <div id="monitor-server-status-dot" style="width: 10px; height: 10px; border-radius: 50%; background: #6b7280; box-shadow: 0 0 6px rgba(107,114,128,0.5); flex-shrink: 0;"></div>
+            <div style="min-width: 0;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <strong id="monitor-server-name" style="font-size: 13.5px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Servidor Favorito / PlayIt</strong>
+                <span id="monitor-server-status-badge" class="badge badge-idle" style="font-size: 10.5px;">Comprobando...</span>
+                <span id="monitor-server-ping-badge" class="badge badge-secondary" style="font-size: 10.5px; display: none;">-- ms</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px; margin-top: 2px;">
+                <span id="monitor-server-address" style="font-size: 11.5px; color: var(--text-muted); font-family: var(--font-mono);">127.0.0.1:25565</span>
+                <span id="monitor-server-players" style="font-size: 11.5px; color: var(--text-secondary);"></span>
+                <span id="monitor-server-motd" style="font-size: 11.5px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 250px;"></span>
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+            <button id="btn-refresh-monitored-server" class="btn btn-secondary btn-compact" title="Refrescar estado del servidor ahora">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+              <span>Ping</span>
+            </button>
+            <button id="btn-edit-monitored-server" class="btn btn-secondary btn-compact" title="Cambiar la IP del servidor a monitorizar">
+              <span>⚙ Cambiar IP</span>
             </button>
           </div>
         </div>
@@ -666,6 +698,25 @@
                 </label>
               </div>
             </div>
+
+            <!-- 6. PANTALLA DE CARGA PERSONALIZADA (SPLASH SCREEN SHUBATECH) -->
+            <div class="hud-card">
+              <div class="hud-card-header">
+                <div class="hud-card-icon">🎨</div>
+                <div class="hud-card-title-group">
+                  <h4 class="hud-card-title">Pantalla de Carga SHUBATECH</h4>
+                  <span class="hud-card-badge">RESOURCE PACK NATIVO</span>
+                </div>
+              </div>
+              <p class="hud-card-desc">Reemplaza la aburrida pantalla roja de carga de Mojang por el logo oficial de SHUBATECH mediante un Resource Pack dinámico inyectado en options.txt sin mods.</p>
+              <div class="hud-card-footer">
+                <span id="status-hud-custom-splash" class="hud-card-status">Activado</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="switch-hud-custom-splash" checked>
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -678,6 +729,10 @@
             <p class="view-subtitle">Crea, sincroniza mods y hostea servidores dedicados de Minecraft con consola interactiva y métricas en vivo.</p>
           </div>
           <div class="toolbar-actions">
+            <button id="btn-open-playit-tunnel-servers" class="btn btn-secondary" title="Abrir Túnel LAN P2P con PlayIt.gg para conectar amigos al servidor">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1 4-10z"/></svg>
+              <span>🌐 Túnel LAN PlayIt</span>
+            </button>
             <button id="btn-open-create-server-modal" class="btn btn-primary">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               <span>➕ Crear Nuevo Servidor</span>
@@ -2103,6 +2158,91 @@
         <button id="btn-cancel-import-code" class="btn btn-secondary">Cancelar</button>
         <button id="btn-execute-import-code" class="btn btn-primary">
           <span>⚡ Descargar e Instalar</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: TÚNEL LAN P2P (PLAYIT.GG) -->
+  <div id="modal-playit-tunnel" class="modal-overlay" style="display: none;">
+    <div class="modal-content card" style="max-width: 520px;">
+      <div class="modal-header" style="display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 18px;">🌐</span>
+          <h3 class="modal-title" style="margin: 0;">Túnel LAN P2P (PlayIt.gg)</h3>
+        </div>
+        <button id="btn-close-playit-modal" class="btn btn-small close-btn">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 18px 20px; display: flex; flex-direction: column; gap: 14px;">
+        <p style="margin: 0; font-size: 13px; color: var(--text-secondary);">
+          Comparte tu mundo de un jugador (LAN) o tu Servidor Dedicado con amigos por Internet al instante sin abrir puertos en tu router (Zero-Config Port Forwarding).
+        </p>
+
+        <div style="display: flex; gap: 12px; align-items: flex-end;">
+          <div class="form-group flex-1">
+            <label for="input-playit-port" style="font-size: 12.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px; display: block;">Puerto Local de Minecraft:</label>
+            <input type="number" id="input-playit-port" class="text-input" value="25565" style="width: 100%; font-family: var(--font-mono); font-weight: 700;" />
+          </div>
+          <div style="padding-bottom: 2px;">
+            <span id="playit-status-badge" class="badge badge-idle" style="font-size: 12px; padding: 6px 12px;">Detenido</span>
+          </div>
+        </div>
+
+        <!-- Box de IP de conexión para amigos -->
+        <div id="playit-active-box" style="display: none; flex-direction: column; gap: 8px; padding: 14px 16px; border-radius: var(--radius-md); background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25);">
+          <span style="font-size: 11.5px; color: var(--accent-success); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">🟢 ¡Túnel Activo! Dale esta IP a tus amigos:</span>
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--bg-surface); padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+            <span id="playit-public-address" style="font-size: 16px; font-weight: 800; font-family: var(--font-mono); color: #10b981; word-break: break-all;">Conectando...</span>
+            <button id="btn-copy-playit-ip" class="btn btn-secondary btn-small" title="Copiar IP al portapapeles">📋 Copiar IP</button>
+          </div>
+          <small style="color: var(--text-secondary); font-size: 11.5px;">Tus amigos solo deben pegar esta dirección en la lista de Multijugador de Minecraft.</small>
+        </div>
+
+        <!-- Box de Reclamo de Cuenta PlayIt (si aplica) -->
+        <div id="playit-claim-box" style="display: none; padding: 10px 14px; border-radius: var(--radius-md); background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.25); font-size: 12.5px;">
+          <span>Es la primera vez que usas PlayIt: </span>
+          <a href="#" id="link-playit-claim" style="color: #60a5fa; font-weight: 700; text-decoration: underline;">Haz clic aquí para reclamar tu cuenta</a>
+        </div>
+
+        <!-- Box de descarga / progreso -->
+        <div id="playit-progress-box" style="display: none; font-size: 12.5px; color: var(--text-secondary); text-align: center; padding: 8px;">
+          <span id="playit-progress-text">Iniciando agente PlayIt...</span>
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; gap: 10px; padding-top: 10px;">
+        <button id="btn-close-playit-bottom" class="btn btn-secondary">Cerrar</button>
+        <div style="display: flex; gap: 8px;">
+          <button id="btn-stop-playit-tunnel" class="btn btn-danger" style="display: none;">
+            <span>🛑 Detener Túnel</span>
+          </button>
+          <button id="btn-start-playit-tunnel" class="btn btn-primary">
+            <span>🚀 Iniciar Túnel PlayIt</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CAMBIAR IP DE SERVIDOR MONITORIZADO -->
+  <div id="modal-edit-monitored-server" class="modal-overlay" style="display: none;">
+    <div class="modal-content card" style="max-width: 440px;">
+      <div class="modal-header" style="display: flex; align-items: center; justify-content: space-between;">
+        <h3 class="modal-title" style="margin: 0;">⚙ Configurar Servidor a Monitorizar</h3>
+        <button id="btn-close-edit-monitor-modal" class="btn btn-small close-btn">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 12px;">
+        <p style="margin: 0; font-size: 13px; color: var(--text-secondary);">
+          Introduce la IP o dominio de tu servidor de Minecraft favorito (o la IP generada por PlayIt) para ver en vivo su estado, ping y jugadores en la pantalla de la instancia.
+        </p>
+        <div class="form-group">
+          <label for="input-target-server-ip" style="font-size: 12.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px; display: block;">Dirección del Servidor (IP:Puerto):</label>
+          <input type="text" id="input-target-server-ip" class="text-input" placeholder="Ej: 127.0.0.1:25565 o play.mi-servidor.com" style="width: 100%; font-family: var(--font-mono); font-weight: 600;" />
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; padding-top: 10px;">
+        <button id="btn-cancel-target-server" class="btn btn-secondary">Cancelar</button>
+        <button id="btn-save-target-server" class="btn btn-primary">
+          <span>Guardar y Comprobar</span>
         </button>
       </div>
     </div>

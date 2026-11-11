@@ -45,7 +45,12 @@ const VALID_RECEIVE_CHANNELS = [
   'sync:code-progress',
   'jvm:smart-progress',
   'discord:join-game',
-  'discord:join-request'
+  'discord:join-request',
+  'playit:status',
+  'playit:claim-url',
+  'playit:tunnel-ready',
+  'playit:progress',
+  'server-monitor:update'
 ];
 
 contextBridge.exposeInMainWorld('shubaCoreAPI', {
@@ -334,6 +339,32 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
     check: () => ipcRenderer.invoke('updater:check'),
     quitAndInstall: () => ipcRenderer.invoke('updater:quit-and-install'),
     getVersion: () => ipcRenderer.invoke('updater:get-version')
+  },
+
+  // ==========================================
+  // PLAYIT.GG: TÚNEL LAN P2P
+  // ==========================================
+  playit: {
+    start: (options) => ipcRenderer.invoke('playit:start', options),
+    stop: () => ipcRenderer.invoke('playit:stop'),
+    getStatus: () => ipcRenderer.invoke('playit:get-status')
+  },
+
+  // ==========================================
+  // SERVER MONITOR: WIDGET DE ESTADO EN VIVO
+  // ==========================================
+  serverMonitor: {
+    ping: (options) => ipcRenderer.invoke('server-monitor:ping', options),
+    setTarget: (options) => ipcRenderer.invoke('server-monitor:set-target', options),
+    getStatus: () => ipcRenderer.invoke('server-monitor:get-status')
+  },
+
+  // ==========================================
+  // SPLASH SCREEN: PANTALLA DE CARGA NATIVA
+  // ==========================================
+  splash: {
+    inject: (options) => ipcRenderer.invoke('splash:inject', options),
+    remove: (options) => ipcRenderer.invoke('splash:remove', options)
   },
 
   // ==========================================

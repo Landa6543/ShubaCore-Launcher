@@ -33,6 +33,9 @@ const { getSmartJVM } = require('../jvm/SmartJVM');
 const { getNewsManager } = require('../news/NewsManager');
 const { getHardwareOptimizer } = require('../hardware/HardwareOptimizer');
 const { getMemoryCleaner } = require('../system/MemoryCleaner');
+const { getPlayItManager } = require('../tunnel/PlayItManager');
+const { getServerMonitor } = require('../servers/ServerMonitor');
+const { getSplashScreen } = require('../splash/SplashScreen');
 const { defaultLogger: logger } = require('../utils/logger');
 
 function registerIpcHandlers(mainWindow) {
@@ -59,6 +62,27 @@ function registerIpcHandlers(mainWindow) {
   const newsManager = getNewsManager();
   const hardwareOptimizer = getHardwareOptimizer();
   const memoryCleaner = getMemoryCleaner();
+  const playItManager = getPlayItManager();
+  const serverMonitor = getServerMonitor();
+  serverMonitor.setMainWindow(mainWindow);
+  const splashScreen = getSplashScreen();
+
+  // Reenviar eventos de PlayIt al renderer
+  playItManager.on('status', (state) => {
+    if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
+      try { mainWindow.webContents.send('playit:status', state); } catch (_) {}
+    }
+  });
+  playItManager.on('claim-url', (claimUrl) => {
+    if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
+      try { mainWindow.webContents.send('playit:claim-url', claimUrl); } catch (_) {}
+    }
+  });
+  playItManager.on('tunnel-ready', (address) => {
+    if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
+      try { mainWindow.webContents.send('playit:tunnel-ready', address); } catch (_) {}
+    }
+  });
 
   // Estado de visibilidad de la pestaña de consola para evitar IPC flood y backpressure
   let isConsoleTabVisible = false;
@@ -1653,6 +1677,93 @@ function registerIpcHandlers(mainWindow) {
     } catch (err) {
       logger.error('Error en system:clean-memory IPC:', err);
       return { success: false, error: err.message };
+    }
+  });
+
+  // ==========================================
+  // PLAYIT.GG: TÚNEL LAN P2P
+  // ==========================================
+  ipcMain.handle('playit:start', async (event, options = {}) => {
+    try {
+      const onProgress = (prog) => {
+        if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
+          mainWindow.webContents.send('playit:progress', prog);
+        }
+      };
+      return await playItManager.startTunnel({ ...options, onProgress });
+    } catch (err) {
+      logger.error('Error en playit:start IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('playit:stop', async () => {
+    try {
+      return await playItManager.stopTunnel();
+    } catch (err) {
+      logger.error('Error en playit:stop IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('playit:get-status', async () => {
+    try {
+      return { success: true, state: playItManager.getStatus(), isInstalled: playItManager.isBinaryInstalled() };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // ==========================================
+  // SERVER MONITOR: WIDGET DE ESTADO EN VIVO
+  // ==========================================
+  ipcMain.handle('server-monitor:ping', async (event, { host, port, timeoutMs } = {}) => {
+    try {
+      return await serverMonitor.pingServer(host, port, timeoutMs);
+    } catch (err) {
+      logger.error('Error en server-monitor:ping IPC:', err);
+      return { online: false, error: err.message, players: { online: 0, max: 0 }, motd: 'Error de conexión' };
+    }
+  });
+
+  ipcMain.handle('server-monitor:set-target', async (event, { host, port } = {}) => {
+    try {
+      return await serverMonitor.setTargetServer(host, port);
+    } catch (err) {
+      logger.error('Error en server-monitor:set-target IPC:', err);
+      return { online: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('server-monitor:get-status', async () => {
+    try {
+      return {
+        success: true,
+        target: serverMonitor.getTarget(),
+        lastResult: serverMonitor.getLastResult()
+      };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // ==========================================
+  // SPLASH SCREEN: PANTALLA DE CARGA PERSONALIZADA
+  // ==========================================
+  ipcMain.handle('splash:inject', async (event, options = {}) => {
+    try {
+      return await splashScreen.injectSplashScreen(options);
+    } catch (err) {
+      logger.error('Error en splash:inject IPC:', err);
+      return { applied: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('splash:remove', async (event, { instancePath } = {}) => {
+    try {
+      return splashScreen.removeFromOptionsTxt(instancePath);
+    } catch (err) {
+      return false;
     }
   });
 

@@ -338,6 +338,21 @@ class LaunchManager {
         logger.warn(`[LaunchManager] Aviso al inyectar Resource Pack ShubaSkinOverride: ${skinErr.message}`);
       }
 
+      // MECANISMO 3: Inyección de Pantalla de Carga Custom (Splash Screen SHUBATECH)
+      try {
+        const { getSplashScreen } = require('../splash/SplashScreen');
+        const splashRes = await getSplashScreen().injectSplashScreen({
+          instancePath,
+          mcVersion,
+          profile: activeProfile
+        });
+        if (splashRes.applied) {
+          logger.info(`⚡ [LaunchManager] [MECANISMO 3] Pantalla de carga personalizada SHUBATECH inyectada en "${instancePath}".`);
+        }
+      } catch (splashErr) {
+        logger.warn(`[LaunchManager] Aviso al inyectar SplashScreen: ${splashErr.message}`);
+      }
+
       // 7. ShubaCore Pro - Limpieza de memoria Standby (Anti-Stuttering) antes del despegue
       try {
         const { getMemoryCleaner } = require('../system/MemoryCleaner');
