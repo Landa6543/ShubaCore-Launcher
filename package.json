@@ -10,7 +10,7 @@
     "dist": "electron-builder --win --x64",
     "release": "electron-builder --win --x64 --publish always",
     "publish-update": "node scripts/publish-update.js",
-    "test": "node test/backend-test.js && node test/mod-manager-test.js && node test/profile-test.js && node test/skin-pack-test.js && node test/multi-instance-test.js && node test/github-sync-test.js && node test/instance-tabs-worlds-test.js && node test/auth-concurrency-test.js && node test/server-manager-test.js && node test/v110-closing-features-test.js && node test/server-and-github-mods-enhancements-test.js && node test/critical-ui-versions-hud-fixes-test.js && node test/shubacore-pro-modules-test.js && node test/premium-features-test.js && node test/controller-agent-test.js"
+    "test": "node test/backend-test.js && node test/mod-manager-test.js && node test/profile-test.js && node test/skin-pack-test.js && node test/multi-instance-test.js && node test/github-sync-test.js && node test/instance-tabs-worlds-test.js && node test/auth-concurrency-test.js && node test/server-manager-test.js && node test/v110-closing-features-test.js && node test/server-and-github-mods-enhancements-test.js && node test/critical-ui-versions-hud-fixes-test.js && node test/shubacore-pro-modules-test.js && node test/premium-features-test.js && node test/controller-agent-test.js && node test/controller-mapping-test.js"
   },
   "build": {
     "appId": "com.shubatech.shubacore",

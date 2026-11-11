@@ -6242,6 +6242,9 @@ document.addEventListener('DOMContentLoaded', async () => {
           switchHudController.checked = isControllerOn;
           updateHudStatusText(statusHudController, isControllerOn);
         }
+        if (typeof loadControllerMapping === 'function') {
+          loadControllerMapping(currentActiveProfile?.instancePath || null).catch(() => {});
+        }
       }
     } catch (err) {
       console.warn('[HUD] Error cargando estado de opciones:', err.message);
@@ -6316,6 +6319,313 @@ document.addEventListener('DOMContentLoaded', async () => {
       appendLog(`[Mando] Soporte nativo para mando ${isChecked ? 'ACTIVADO' : 'DESACTIVADO'} (Java Agent GLFW sin mods).`, 'info');
     });
   }
+
+  // ==========================================
+  // ESTUDIO VISUAL DE MAPEO DE MANDO (HTML5 GAMEPAD API)
+  // ==========================================
+  let currentControllerMap = null;
+  let availableControllerActions = [];
+  let selectedButtonIndexToRebind = null;
+  let gamepadPollRafId = null;
+
+  const gamepadBadge = document.getElementById('gamepad-connection-badge');
+  const gamepadBadgeText = document.getElementById('gamepad-connection-text');
+  const btnResetControllerMapping = document.getElementById('btn-reset-controller-mapping');
+  const btnSaveControllerMapping = document.getElementById('btn-save-controller-mapping');
+  const controllerBindingsGrid = document.getElementById('controller-bindings-grid');
+  const presetTag = document.getElementById('current-controller-preset-tag');
+
+  // Modal de Reasignación
+  const modalBindGamepad = document.getElementById('modal-bind-gamepad-action');
+  const modalBindGamepadTitle = document.getElementById('modal-bind-gamepad-title');
+  const modalBindGamepadSubtitle = document.getElementById('modal-bind-gamepad-subtitle');
+  const modalGamepadActionsList = document.getElementById('modal-gamepad-actions-list');
+  const btnCloseBindGamepadModal = document.getElementById('btn-close-bind-gamepad-modal');
+  const btnCancelBindGamepad = document.getElementById('btn-cancel-bind-gamepad');
+
+  async function loadControllerActions() {
+    try {
+      if (api.controller?.getActions) {
+        const res = await api.controller.getActions();
+        if (res && res.success && Array.isArray(res.actions)) {
+          availableControllerActions = res.actions;
+        }
+      }
+    } catch (e) {
+      console.warn('[Gamepad] Error al obtener catálogo de acciones:', e);
+    }
+  }
+
+  async function loadControllerMapping(instanceDir) {
+    try {
+      if (!api.controller?.getMap) return;
+      if (availableControllerActions.length === 0) {
+        await loadControllerActions();
+      }
+      const targetDir = instanceDir || currentActiveProfile?.instancePath || null;
+      const res = await api.controller.getMap({ instanceDir: targetDir });
+      if (res && res.success && res.map) {
+        currentControllerMap = res.map;
+        renderControllerBindingsGrid();
+        if (presetTag) presetTag.textContent = currentControllerMap.preset || 'Personalizado';
+      }
+    } catch (err) {
+      console.warn('[Gamepad] Error al cargar mapa de controles:', err);
+    }
+  }
+
+  function renderControllerBindingsGrid() {
+    if (!controllerBindingsGrid || !currentControllerMap?.buttons) return;
+    controllerBindingsGrid.innerHTML = '';
+
+    const buttons = currentControllerMap.buttons;
+    const buttonIndices = Object.keys(buttons).sort((a, b) => Number(a) - Number(b));
+
+    for (const idx of buttonIndices) {
+      const btnData = buttons[idx];
+      const row = document.createElement('div');
+      row.className = 'binding-row-item';
+      row.id = `binding-row-${idx}`;
+      row.setAttribute('data-btn-index', idx);
+
+      const actionObj = availableControllerActions.find(a => a.id === btnData.action) || {
+        label: btnData.action || 'Desconocido',
+        key: btnData.key || ''
+      };
+
+      row.innerHTML = `
+        <div class="binding-btn-info">
+          <span class="binding-badge">${btnData.name || idx}</span>
+          <span class="binding-btn-name">${btnData.label || btnData.name || `Botón ${idx}`}</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="binding-action-chip">
+            <span>${actionObj.label}</span>
+            ${actionObj.key ? `<span class="chip-key">${actionObj.key}</span>` : ''}
+          </span>
+          <span style="font-size: 11px; color: var(--text-muted); opacity: 0.6;">✏️</span>
+        </div>
+      `;
+
+      row.addEventListener('click', () => {
+        openRebindModal(idx);
+      });
+
+      controllerBindingsGrid.appendChild(row);
+    }
+  }
+
+  function openRebindModal(btnIndex) {
+    selectedButtonIndexToRebind = String(btnIndex);
+    const btnData = currentControllerMap?.buttons?.[selectedButtonIndexToRebind] || { name: `Botón ${btnIndex}`, label: `Botón ${btnIndex}` };
+
+    // Marcar visualmente el botón seleccionado en el SVG
+    document.querySelectorAll('.gamepad-interactive-btn').forEach(el => el.classList.remove('selected'));
+    const svgElem = document.getElementById(`pad-btn-${btnIndex}`);
+    if (svgElem) svgElem.classList.add('selected');
+
+    if (modalBindGamepadTitle) {
+      modalBindGamepadTitle.textContent = `🎮 Asignar Acción: [${btnData.name}] ${btnData.label || ''}`;
+    }
+    if (modalBindGamepadSubtitle) {
+      modalBindGamepadSubtitle.textContent = `Selecciona qué acción de Minecraft se activará al presionar el botón "${btnData.name}":`;
+    }
+
+    if (modalGamepadActionsList) {
+      modalGamepadActionsList.innerHTML = '';
+      for (const action of availableControllerActions) {
+        const card = document.createElement('div');
+        const isCurrent = btnData.action === action.id;
+        card.className = `action-picker-card ${isCurrent ? 'active' : ''}`;
+        card.innerHTML = `
+          <div class="action-picker-left">
+            <span class="action-picker-title">${action.label}</span>
+            <span class="action-picker-desc">${action.desc || ''}</span>
+          </div>
+          ${action.key ? `<span class="action-picker-key-chip">${action.key}</span>` : ''}
+        `;
+        card.addEventListener('click', () => {
+          applyButtonAction(selectedButtonIndexToRebind, action);
+        });
+        modalGamepadActionsList.appendChild(card);
+      }
+    }
+
+    if (modalBindGamepad) modalBindGamepad.style.display = 'flex';
+  }
+
+  function closeRebindModal() {
+    if (modalBindGamepad) modalBindGamepad.style.display = 'none';
+    document.querySelectorAll('.gamepad-interactive-btn').forEach(el => el.classList.remove('selected'));
+    selectedButtonIndexToRebind = null;
+  }
+
+  async function applyButtonAction(btnIndex, action) {
+    if (!currentControllerMap) return;
+    if (!currentControllerMap.buttons[btnIndex]) {
+      currentControllerMap.buttons[btnIndex] = { name: `Button_${btnIndex}` };
+    }
+    currentControllerMap.buttons[btnIndex].action = action.id;
+    currentControllerMap.buttons[btnIndex].key = action.key || '';
+    currentControllerMap.preset = 'Personalizado';
+    if (presetTag) presetTag.textContent = 'Personalizado';
+
+    closeRebindModal();
+    renderControllerBindingsGrid();
+
+    // Guardar inmediatamente vía IPC
+    try {
+      const targetDir = currentActiveProfile?.instancePath || null;
+      if (targetDir && api.controller?.saveMap) {
+        await api.controller.saveMap({ instanceDir: targetDir, mapData: currentControllerMap });
+        appendLog(`[Mando] Botón "${currentControllerMap.buttons[btnIndex].name}" asignado a "${action.label}" (${action.key || 'N/A'}).`, 'info');
+      }
+    } catch (saveErr) {
+      console.warn('[Gamepad] Error al guardar reasignación:', saveErr);
+    }
+  }
+
+  // Interacción con SVG: Hacer clic en cualquier botón del diagrama
+  function setupSvgInteractivity() {
+    document.querySelectorAll('.gamepad-interactive-btn').forEach(elem => {
+      elem.addEventListener('click', () => {
+        const btnIndex = elem.getAttribute('data-btn-index');
+        if (btnIndex !== null) {
+          openRebindModal(btnIndex);
+        }
+      });
+    });
+  }
+
+  // Polling loop en tiempo real con HTML5 Gamepad API
+  let isGamepadPollingRunning = false;
+  function startGamepadPolling() {
+    if (isGamepadPollingRunning) return;
+    isGamepadPollingRunning = true;
+
+    function poll() {
+      try {
+        const gamepads = typeof navigator.getGamepads === 'function' ? navigator.getGamepads() : [];
+        let activePad = null;
+        for (let i = 0; i < gamepads.length; i++) {
+          if (gamepads[i] && gamepads[i].connected) {
+            activePad = gamepads[i];
+            break;
+          }
+        }
+
+        // Actualizar Badge de Estado
+        if (gamepadBadge && gamepadBadgeText) {
+          if (activePad) {
+            if (!gamepadBadge.classList.contains('connected')) {
+              gamepadBadge.className = 'badge-status-controller connected';
+            }
+            const cleanId = (activePad.id || 'Mando Estándar').replace(/\(.*?\)/g, '').trim().slice(0, 32);
+            gamepadBadgeText.textContent = `🎮 ${cleanId} (Conectado)`;
+          } else {
+            if (!gamepadBadge.classList.contains('disconnected')) {
+              gamepadBadge.className = 'badge-status-controller disconnected';
+            }
+            gamepadBadgeText.textContent = '⚠️ Ningún mando conectado (Mueve un joystick o pulsa un botón)';
+          }
+        }
+
+        // Iluminación en tiempo real de botones y sticks
+        if (activePad && activePad.buttons) {
+          for (let i = 0; i < Math.min(activePad.buttons.length, 16); i++) {
+            const btn = activePad.buttons[i];
+            const isPressed = !!(btn && (btn.pressed || btn.value > 0.2));
+            const svgBtn = document.getElementById(`pad-btn-${i}`);
+            if (svgBtn) {
+              if (isPressed) svgBtn.classList.add('pressed');
+              else svgBtn.classList.remove('pressed');
+            }
+            const rowItem = document.getElementById(`binding-row-${i}`);
+            if (rowItem) {
+              if (isPressed) rowItem.classList.add('pressed');
+              else rowItem.classList.remove('pressed');
+            }
+          }
+
+          // Inflexión suave de los joysticks según los ejes
+          if (activePad.axes && activePad.axes.length >= 4) {
+            const lx = activePad.axes[0] || 0;
+            const ly = activePad.axes[1] || 0;
+            const rx = activePad.axes[2] || 0;
+            const ry = activePad.axes[3] || 0;
+            const leftKnob = document.getElementById('stick-left-knob');
+            const rightKnob = document.getElementById('stick-right-knob');
+            if (leftKnob) {
+              leftKnob.setAttribute('cx', String(140 + lx * 8));
+              leftKnob.setAttribute('cy', String(115 + ly * 8));
+            }
+            if (rightKnob) {
+              rightKnob.setAttribute('cx', String(275 + rx * 8));
+              rightKnob.setAttribute('cy', String(180 + ry * 8));
+            }
+          }
+        } else {
+          // Si no hay mando activo, apagar estados pressed
+          document.querySelectorAll('.gamepad-interactive-btn.pressed').forEach(el => el.classList.remove('pressed'));
+          document.querySelectorAll('.binding-row-item.pressed').forEach(el => el.classList.remove('pressed'));
+        }
+      } catch (_) {}
+
+      gamepadPollRafId = requestAnimationFrame(poll);
+    }
+
+    gamepadPollRafId = requestAnimationFrame(poll);
+  }
+
+  // Inicialización de Controles del Estudio de Mando
+  if (btnResetControllerMapping) {
+    btnResetControllerMapping.addEventListener('click', async () => {
+      try {
+        const targetDir = currentActiveProfile?.instancePath || null;
+        if (targetDir && api.controller?.resetMap) {
+          const res = await api.controller.resetMap({ instanceDir: targetDir });
+          if (res && res.success && res.map) {
+            currentControllerMap = res.map;
+            renderControllerBindingsGrid();
+            if (presetTag) presetTag.textContent = currentControllerMap.preset || 'Xbox Standard';
+            appendLog('[Mando] Mapeo restablecido a la configuración estándar de Xbox / Bedrock.', 'info');
+          }
+        }
+      } catch (err) {
+        alert(`Error al restablecer mapeo: ${err.message}`);
+      }
+    });
+  }
+
+  if (btnSaveControllerMapping) {
+    btnSaveControllerMapping.addEventListener('click', async () => {
+      try {
+        const targetDir = currentActiveProfile?.instancePath || null;
+        if (targetDir && currentControllerMap && api.controller?.saveMap) {
+          await api.controller.saveMap({ instanceDir: targetDir, mapData: currentControllerMap });
+          appendLog('[Mando] ✅ Mapeo de controles guardado correctamente en controller-map.json.', 'info');
+          alert('¡Mapeo de mando guardado exitosamente en la instancia!');
+        }
+      } catch (err) {
+        alert(`Error al guardar: ${err.message}`);
+      }
+    });
+  }
+
+  if (btnCloseBindGamepadModal) btnCloseBindGamepadModal.addEventListener('click', closeRebindModal);
+  if (btnCancelBindGamepad) btnCancelBindGamepad.addEventListener('click', closeRebindModal);
+
+  window.addEventListener('gamepadconnected', (e) => {
+    appendLog(`[Mando] Dispositivo detectado: "${e.gamepad.id}".`, 'info');
+  });
+  window.addEventListener('gamepaddisconnected', (e) => {
+    appendLog(`[Mando] Dispositivo desconectado: "${e.gamepad.id}".`, 'warn');
+  });
+
+  // Arrancar componentes del estudio
+  setupSvgInteractivity();
+  startGamepadPolling();
+  loadControllerActions().catch(() => {});
 
   if (btnRefreshHudState) {
     btnRefreshHudState.addEventListener('click', () => loadHudState());

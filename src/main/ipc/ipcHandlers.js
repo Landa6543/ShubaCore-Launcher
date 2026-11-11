@@ -37,6 +37,7 @@ const { getPlayItManager } = require('../tunnel/PlayItManager');
 const { getServerMonitor } = require('../servers/ServerMonitor');
 const { getSplashScreen } = require('../splash/SplashScreen');
 const { getControllerAgentManager } = require('../controller/ControllerAgentManager');
+const { getControllerMapManager } = require('../controller/ControllerMapManager');
 const { defaultLogger: logger } = require('../utils/logger');
 
 function registerIpcHandlers(mainWindow) {
@@ -1791,6 +1792,61 @@ function registerIpcHandlers(mainWindow) {
       return { success: true, path: agentPath };
     } catch (err) {
       logger.error('Error en controller:ensure IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('controller:get-map', async (_event, params) => {
+    try {
+      const mapMgr = getControllerMapManager();
+      const instanceDir = params?.instanceDir;
+      const map = mapMgr.getMapping(instanceDir);
+      return { success: true, map };
+    } catch (err) {
+      logger.error('Error en controller:get-map IPC:', err);
+      return { success: false, error: err.message, map: getControllerMapManager().getDefaultMapping() };
+    }
+  });
+
+  ipcMain.handle('controller:save-map', async (_event, params) => {
+    try {
+      const mapMgr = getControllerMapManager();
+      const instanceDir = params?.instanceDir;
+      const mapData = params?.mapData;
+      const saved = mapMgr.saveMapping(instanceDir, mapData);
+      return { success: true, map: saved };
+    } catch (err) {
+      logger.error('Error en controller:save-map IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('controller:reset-map', async (_event, params) => {
+    try {
+      const mapMgr = getControllerMapManager();
+      const instanceDir = params?.instanceDir;
+      const map = mapMgr.resetToDefault(instanceDir);
+      return { success: true, map };
+    } catch (err) {
+      logger.error('Error en controller:reset-map IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('controller:get-default-map', async () => {
+    try {
+      const mapMgr = getControllerMapManager();
+      return { success: true, map: mapMgr.getDefaultMapping() };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('controller:get-actions', async () => {
+    try {
+      const mapMgr = getControllerMapManager();
+      return { success: true, actions: mapMgr.getAvailableActions() };
+    } catch (err) {
       return { success: false, error: err.message };
     }
   });

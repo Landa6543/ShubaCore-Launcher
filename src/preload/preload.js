@@ -372,7 +372,12 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
   // ==========================================
   controller: {
     getStatus: () => ipcRenderer.invoke('controller:get-status'),
-    ensure: () => ipcRenderer.invoke('controller:ensure')
+    ensure: () => ipcRenderer.invoke('controller:ensure'),
+    getMap: (params) => ipcRenderer.invoke('controller:get-map', params),
+    saveMap: (params) => ipcRenderer.invoke('controller:save-map', params),
+    resetMap: (params) => ipcRenderer.invoke('controller:reset-map', params),
+    getDefaultMap: () => ipcRenderer.invoke('controller:get-default-map'),
+    getActions: () => ipcRenderer.invoke('controller:get-actions')
   },
 
   // ==========================================

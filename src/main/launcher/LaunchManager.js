@@ -259,6 +259,11 @@ class LaunchManager {
               logger.info(`🎮 [LaunchManager] Soporte nativo para mando activo: Inyectado "${agentFlag}" (JVM interceptor GLFW sin mods).`);
             }
           }
+          // Asegurar controller-map.json en la carpeta de la instancia
+          try {
+            const { getControllerMapManager } = require('../controller/ControllerMapManager');
+            getControllerMapManager().ensureMappingFile(instanceDir);
+          } catch (_) {}
         } catch (agentErr) {
           logger.warn(`[LaunchManager] Aviso al inyectar Java Agent de mando: ${agentErr.message}`);
         }

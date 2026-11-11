@@ -4028,3 +4028,382 @@ body.app-frozen *::after {
   animation-play-state: paused !important;
   transition: none !important;
 }
+
+/* ==========================================================================
+   ESTUDIO VISUAL DE MAPEO DE MANDO (HTML5 GAMEPAD API)
+   ========================================================================== */
+.controller-studio-card {
+  background: var(--bg-card, rgba(18, 20, 26, 0.75));
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-lg, 12px);
+  padding: 18px 20px;
+  backdrop-filter: blur(12px);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.controller-studio-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.06));
+}
+
+.badge-status-controller {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.badge-status-controller.connected {
+  background: rgba(16, 185, 129, 0.12);
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+.badge-status-controller.connected .status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #10b981;
+  box-shadow: 0 0 6px #10b981;
+  animation: pulse-dot 1.5s infinite;
+}
+
+.badge-status-controller.disconnected {
+  background: rgba(245, 158, 11, 0.12);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.badge-status-controller.disconnected .status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #f59e0b;
+}
+
+@keyframes pulse-dot {
+  0% { transform: scale(0.9); opacity: 0.8; }
+  50% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.8; }
+}
+
+.badge-preset {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.controller-visualizer-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 980px) {
+  .controller-visualizer-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.controller-svg-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: var(--radius-md, 8px);
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.controller-svg-hint {
+  font-size: 11.5px;
+  color: var(--text-muted, #9ca3af);
+  line-height: 1.4;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+}
+
+.controller-svg-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 10px 0;
+}
+
+.controller-svg {
+  width: 100%;
+  max-width: 440px;
+  height: auto;
+  user-select: none;
+}
+
+/* Elementos SVG interactivos */
+.gamepad-interactive-btn {
+  cursor: pointer;
+  transition: transform 0.08s ease;
+}
+
+.btn-shape {
+  transition: fill 0.1s ease, stroke 0.1s ease, filter 0.1s ease;
+  stroke-width: 1.5;
+}
+
+.btn-shape.trigger {
+  fill: #1a1e26;
+  stroke: #374151;
+}
+
+.btn-shape.bumper {
+  fill: #1f242d;
+  stroke: #4b5563;
+}
+
+.btn-shape.stick-base {
+  fill: #14161c;
+  stroke: #2e3440;
+}
+
+.btn-shape.stick-top {
+  fill: #242934;
+  stroke: #4b5563;
+  stroke-width: 1.5;
+}
+
+.btn-shape.dpad {
+  fill: #222731;
+  stroke: #374151;
+}
+
+.btn-shape.center-btn {
+  fill: #222731;
+  stroke: #4b5563;
+}
+
+.btn-shape.action-a {
+  fill: #064e3b;
+  stroke: #10b981;
+}
+
+.btn-shape.action-b {
+  fill: #7f1d1d;
+  stroke: #ef4444;
+}
+
+.btn-shape.action-x {
+  fill: #1e3a8a;
+  stroke: #3b82f6;
+}
+
+.btn-shape.action-y {
+  fill: #713f12;
+  stroke: #eab308;
+}
+
+.btn-label {
+  fill: #9ca3af;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  pointer-events: none;
+  user-select: none;
+}
+
+.btn-label.small {
+  font-size: 9px;
+}
+
+.btn-label.text-a { fill: #34d399; }
+.btn-label.text-b { fill: #f87171; }
+.btn-label.text-x { fill: #60a5fa; }
+.btn-label.text-y { fill: #fde047; }
+
+/* Efecto hover */
+.gamepad-interactive-btn:hover .btn-shape {
+  stroke: #60a5fa !important;
+  stroke-width: 2px !important;
+  filter: drop-shadow(0 0 5px rgba(96, 165, 250, 0.6));
+}
+
+/* Efecto botón físico presionado en tiempo real (Gamepad API) */
+.gamepad-interactive-btn.pressed .btn-shape {
+  fill: #10b981 !important;
+  stroke: #34d399 !important;
+  stroke-width: 2px !important;
+  filter: drop-shadow(0 0 10px rgba(16, 185, 129, 0.9)) !important;
+}
+
+.gamepad-interactive-btn.pressed .btn-label {
+  fill: #ffffff !important;
+  font-weight: bold;
+}
+
+/* Efecto botón seleccionado para editar */
+.gamepad-interactive-btn.selected .btn-shape {
+  stroke: #3b82f6 !important;
+  stroke-width: 2.5px !important;
+  filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.8)) !important;
+}
+
+/* Lado Derecho: Lista de mapeo */
+.controller-mapping-list-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 380px;
+}
+
+.mapping-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.controller-bindings-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+  max-height: 340px;
+  padding-right: 4px;
+}
+
+.binding-row-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.binding-row-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(96, 165, 250, 0.3);
+}
+
+.binding-row-item.pressed {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.5);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.3);
+}
+
+.binding-btn-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.binding-badge {
+  display: inline-block;
+  min-width: 30px;
+  text-align: center;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #1f242d;
+  border: 1px solid #374151;
+  font-size: 11px;
+  font-weight: 700;
+  color: #e5e7eb;
+}
+
+.binding-btn-name {
+  font-size: 12px;
+  color: var(--text-secondary, #d1d5db);
+  font-weight: 500;
+}
+
+.binding-action-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 5px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  color: #34d399;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.binding-action-chip .chip-key {
+  color: var(--text-muted, #9ca3af);
+  font-size: 10px;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+/* Modal Selector de Acciones */
+.action-picker-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.action-picker-card:hover {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.4);
+  transform: translateY(-1px);
+}
+
+.action-picker-card.active {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+.action-picker-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.action-picker-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #f3f4f6;
+}
+
+.action-picker-desc {
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.action-picker-key-chip {
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  font-weight: 600;
+  color: #60a5fa;
+}
