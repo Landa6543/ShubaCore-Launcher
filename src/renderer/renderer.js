@@ -37,7 +37,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const accountStatus = document.getElementById('account-status');
   const sidebarAvatarCanvas = document.getElementById('sidebar-avatar-canvas');
   const playerName = document.getElementById('player-name');
-  const playerType = document.getElementById('sidebar-account-badge') || document.getElementById('player-type');
+  const playerType = document.getElementById('account-status-badge') || document.getElementById('sidebar-account-badge') || document.getElementById('player-type');
   const sidebarAccountBadge = playerType;
   const playerUuid = document.getElementById('player-uuid');
   const playerAvatar = document.getElementById('player-avatar');
@@ -574,10 +574,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       try {
         await api.auth.switchAccount(msAccount.uuid);
         const res = await api.auth.setActiveMode('microsoft');
-        if (res && res.account) {
-          await updatePlayerBadge(res.account);
+        const activeAcc = (res && res.account) ? res.account : msAccount;
+        if (activeAcc) {
+          activeAcc.type = 'premium';
+          activeAcc.isPremium = true;
+          activeAcc.activeMode = 'microsoft';
+          await updatePlayerBadge(activeAcc);
           await refreshMicrosoftAccountState();
-          appendLog(`[Auth] Sesión cambiada a cuenta Microsoft: "${res.account.name}"`, 'success');
+          appendLog(`[Auth] Sesión cambiada a cuenta Microsoft: "${activeAcc.name || activeAcc.username}"`, 'success');
           if (modalAccountManager) modalAccountManager.classList.remove('active');
         }
       } catch (err) {
@@ -708,39 +712,55 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (skinModalUsername) skinModalUsername.textContent = accName;
 
     let skinToRender = account.skinUrl || `https://mc-heads.net/skin/${accName}`;
-    const isPremium = (account.type === 'offline')
-      ? false
-      : Boolean(
-          account.type === 'premium' ||
-          account.type === 'microsoft' ||
-          account.isPremium === true ||
-          account.activeMode === 'microsoft' ||
-          account.mcAccessToken ||
-          account.tokens?.mcAccessToken
-        );
+    const isPremium = Boolean(
+      account?.type === 'premium' ||
+      account?.type === 'microsoft' ||
+      account?.mode === 'microsoft' ||
+      account?.mode === 'premium' ||
+      account?.activeMode === 'microsoft' ||
+      account?.activeMode === 'premium' ||
+      account?.isPremium === true ||
+      account?.mcAccessToken ||
+      account?.accessToken ||
+      account?.tokens?.mcAccessToken ||
+      account?.tokens?.msAccessToken ||
+      account?.mclcAuth?.access_token
+    );
 
-    const badges = [
-      document.getElementById('sidebar-account-badge'),
-      document.getElementById('player-type')
-    ].filter(Boolean);
-
-    badges.forEach(b => {
-      if (isPremium) {
-        b.textContent = 'PREMIUM';
-        b.className = 'badge badge-premium badge-microsoft';
-        b.style.setProperty('background-color', 'rgba(16, 185, 129, 0.15)', 'important');
-        b.style.setProperty('color', '#10b981', 'important');
-        b.style.setProperty('border', '1px solid rgba(16, 185, 129, 0.35)', 'important');
-        b.style.display = 'inline-block';
-      } else {
-        b.textContent = 'OFFLINE';
-        b.className = 'badge badge-offline';
-        b.style.removeProperty('background-color');
-        b.style.removeProperty('color');
-        b.style.removeProperty('border');
-        b.style.display = 'inline-block';
+    // Asegurar que exista un ÚNICO badge en .player-name-row y eliminar hermanos duplicados
+    const nameRow = document.querySelector('.player-info .player-name-row') || document.querySelector('.player-name-row');
+    if (nameRow) {
+      const existingBadges = nameRow.querySelectorAll('.badge, [id*="badge"]');
+      if (existingBadges.length > 1) {
+        for (let i = 1; i < existingBadges.length; i++) {
+          existingBadges[i].remove();
+        }
       }
-    });
+    }
+
+    const badge = document.getElementById('account-status-badge') ||
+                  (nameRow ? nameRow.querySelector('.badge') : null) ||
+                  document.getElementById('sidebar-account-badge') ||
+                  document.getElementById('player-type');
+
+    if (badge) {
+      badge.id = 'account-status-badge';
+      if (isPremium) {
+        badge.textContent = 'PREMIUM';
+        badge.className = 'badge badge-premium badge-microsoft';
+        badge.style.setProperty('background-color', 'rgba(16, 185, 129, 0.15)', 'important');
+        badge.style.setProperty('color', '#10b981', 'important');
+        badge.style.setProperty('border', '1px solid rgba(16, 185, 129, 0.35)', 'important');
+        badge.style.display = 'inline-block';
+      } else {
+        badge.textContent = 'OFFLINE';
+        badge.className = 'badge badge-offline';
+        badge.style.removeProperty('background-color');
+        badge.style.removeProperty('color');
+        badge.style.removeProperty('border');
+        badge.style.display = 'inline-block';
+      }
+    }
 
     if (isPremium) {
       switchAccountModalTab('premium');
@@ -1701,10 +1721,19 @@ document.addEventListener('DOMContentLoaded', async () => {
           const hasValidMs = isValidUser(msUser);
           const hasValidOff = isValidUser(offUser);
 
-          // Si en auth-session.json hay una cuenta Microsoft activa o el modo es microsoft, restaurar Microsoft directamente
-          const preferMs = hasValidMs && (savedSession.activeMode === 'microsoft' || !hasValidOff);
+          const isMsActive = Boolean(
+            hasValidMs && (
+              savedSession.activeMode === 'microsoft' ||
+              savedSession.activeMode === 'premium' ||
+              savedSession.account?.isPremium === true ||
+              savedSession.account?.type === 'premium' ||
+              savedSession.account?.type === 'microsoft' ||
+              savedSession.account?.activeMode === 'microsoft' ||
+              !hasValidOff
+            )
+          );
 
-          if (preferMs) {
+          if (isMsActive) {
             const cleanMs = msUser.trim();
             const msAcc = savedSession.account || {
               name: cleanMs,
@@ -1717,49 +1746,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             };
             msAcc.type = 'premium';
             msAcc.isPremium = true;
-            if (tabPremium && tabOffline && formPremium && formOffline) {
-              tabPremium.classList.add('active');
-              tabOffline.classList.remove('active');
-              formPremium.classList.add('active');
-              formOffline.classList.remove('active');
-            }
-            await updatePlayerBadge(msAcc);
-            await refreshMicrosoftAccountState();
-            appendLog(`[Auth] Sesión Microsoft restaurada automáticamente: "${cleanMs}" (Premium)`, 'info');
-          } else if (hasValidOff && savedSession.activeMode === 'offline') {
-            const cleanOff = offUser.trim();
-            const offAcc = savedSession.account || {
-              name: cleanOff,
-              username: cleanOff,
-              uuid: savedSession.offlineAccount?.uuid,
-              type: 'offline',
-              isPremium: false,
-              activeMode: 'offline'
-            };
-            offAcc.type = 'offline';
-            offAcc.isPremium = false;
-            if (inputOfflineUser) inputOfflineUser.value = cleanOff;
-            if (tabPremium && tabOffline && formPremium && formOffline) {
-              tabOffline.classList.add('active');
-              tabPremium.classList.remove('active');
-              formOffline.classList.add('active');
-              formPremium.classList.remove('active');
-            }
-            await updatePlayerBadge(offAcc);
-            appendLog(`[Auth] Sesión Offline restaurada: "${cleanOff}"`, 'info');
-          } else if (hasValidMs) {
-            const cleanMs = msUser.trim();
-            const msAcc = savedSession.account || {
-              name: cleanMs,
-              username: cleanMs,
-              uuid: savedSession.microsoftAccount.uuid,
-              type: 'premium',
-              isPremium: true,
-              activeMode: 'microsoft',
-              skinUrl: savedSession.microsoftAccount.skinUrl
-            };
-            msAcc.type = 'premium';
-            msAcc.isPremium = true;
+            msAcc.activeMode = 'microsoft';
             if (tabPremium && tabOffline && formPremium && formOffline) {
               tabPremium.classList.add('active');
               tabOffline.classList.remove('active');
@@ -1771,7 +1758,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             appendLog(`[Auth] Sesión Microsoft restaurada: "${cleanMs}" (Premium)`, 'info');
           } else if (hasValidOff) {
             const cleanOff = offUser.trim();
-            const offAcc = {
+            const offAcc = savedSession.account || {
               name: cleanOff,
               username: cleanOff,
               uuid: savedSession.offlineAccount?.uuid,
@@ -1779,7 +1766,16 @@ document.addEventListener('DOMContentLoaded', async () => {
               isPremium: false,
               activeMode: 'offline'
             };
+            offAcc.type = 'offline';
+            offAcc.isPremium = false;
+            offAcc.activeMode = 'offline';
             if (inputOfflineUser) inputOfflineUser.value = cleanOff;
+            if (tabPremium && tabOffline && formPremium && formOffline) {
+              tabOffline.classList.add('active');
+              tabPremium.classList.remove('active');
+              formOffline.classList.add('active');
+              formPremium.classList.remove('active');
+            }
             await updatePlayerBadge(offAcc);
             appendLog(`[Auth] Sesión Offline restaurada: "${cleanOff}"`, 'info');
           } else if (config.auth?.currentUser && isValidUser(config.auth.currentUser.name)) {

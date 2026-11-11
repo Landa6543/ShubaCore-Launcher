@@ -124,10 +124,31 @@ autoUpdater.autoDownload = true;
 autoUpdater.autoInstallOnAppQuit = true;
 
 function setupAutoUpdater(win) {
+  const isIgnorableUpdaterError = (errOrMsg) => {
+    const text = String(errOrMsg?.message || errOrMsg || '');
+    return text.includes('No published versions on GitHub') ||
+           text.includes('HttpError: 404') ||
+           text.includes('404 Not Found') ||
+           text.includes('Cannot find latest.yml') ||
+           text.includes('status 404');
+  };
+
   autoUpdater.logger = {
     info: (msg) => logger.info(`[AutoUpdater] ${msg}`),
-    warn: (msg) => logger.warn(`[AutoUpdater] ${msg}`),
-    error: (msg) => logger.error(`[AutoUpdater] ${msg}`),
+    warn: (msg) => {
+      if (isIgnorableUpdaterError(msg)) {
+        logger.info(`[AutoUpdater] Versión actual al día (v${app.getVersion()})`);
+        return;
+      }
+      logger.warn(`[AutoUpdater] ${msg}`);
+    },
+    error: (msg) => {
+      if (isIgnorableUpdaterError(msg)) {
+        logger.info(`[AutoUpdater] Versión actual al día (v${app.getVersion()})`);
+        return;
+      }
+      logger.error(`[AutoUpdater] ${msg}`);
+    },
     debug: (msg) => logger.debug(`[AutoUpdater] ${msg}`)
   };
 
@@ -179,6 +200,15 @@ function setupAutoUpdater(win) {
   });
 
   autoUpdater.on('error', (err) => {
+    if (isIgnorableUpdaterError(err)) {
+      logger.info(`[AutoUpdater] Versión actual al día (v${app.getVersion()})`);
+      if (win && !win.isDestroyed()) {
+        win.webContents.send('updater:update-not-available', {
+          version: app.getVersion()
+        });
+      }
+      return;
+    }
     logger.warn(`[AutoUpdater Error] ${err.message}`);
     if (win && !win.isDestroyed()) {
       win.webContents.send('updater:error', {
@@ -190,6 +220,10 @@ function setupAutoUpdater(win) {
   // Al iniciar la app, si está empaquetada (app.isPackaged), comprobar automáticamente
   if (app.isPackaged) {
     autoUpdater.checkForUpdatesAndNotify().catch((err) => {
+      if (isIgnorableUpdaterError(err)) {
+        logger.info(`[AutoUpdater] Versión actual al día (v${app.getVersion()})`);
+        return;
+      }
       logger.warn('[AutoUpdater] No se pudo verificar actualización automática al inicio:', err.message);
     });
   }
@@ -197,6 +231,15 @@ function setupAutoUpdater(win) {
 
 // Handlers IPC para AutoUpdater
 ipcMain.handle('updater:check', async () => {
+  const isIgnorableUpdaterError = (errOrMsg) => {
+    const text = String(errOrMsg?.message || errOrMsg || '');
+    return text.includes('No published versions on GitHub') ||
+           text.includes('HttpError: 404') ||
+           text.includes('404 Not Found') ||
+           text.includes('Cannot find latest.yml') ||
+           text.includes('status 404');
+  };
+
   try {
     logger.info('[AutoUpdater] Verificación manual solicitada por el usuario...');
     if (!app.isPackaged) {
@@ -219,6 +262,15 @@ ipcMain.handle('updater:check', async () => {
     const res = await autoUpdater.checkForUpdates();
     return { success: true, result: res };
   } catch (err) {
+    if (isIgnorableUpdaterError(err)) {
+      logger.info(`[AutoUpdater] Versión actual al día (v${app.getVersion()})`);
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('updater:update-not-available', {
+          version: app.getVersion()
+        });
+      }
+      return { success: true, message: `Versión actual al día (v${app.getVersion()})` };
+    }
     logger.error('Error al comprobar actualizaciones:', err);
     return { success: false, error: err.message };
   }

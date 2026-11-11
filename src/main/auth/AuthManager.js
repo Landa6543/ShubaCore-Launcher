@@ -516,24 +516,32 @@ class AuthManager {
    */
   switchAccount(uuid) {
     const session = this._readSessionFile();
-    if (session.microsoftAccount && session.microsoftAccount.uuid === uuid) {
-      session.activeMode = 'microsoft';
-      this._writeSessionFile(session);
-      const account = this._buildAccountFromSession(session.microsoftAccount);
-      this.configManager.set('auth.currentUser', account);
-      this.configManager.set('auth.mode', 'premium');
-      logger.info(`[Auth] Cuenta cambiada a Microsoft: "${account.name}".`);
-      return { success: true, account };
+    const cleanUuid = String(uuid || '').replace(/-/g, '').toLowerCase();
+
+    if (session.microsoftAccount) {
+      const msUuid = String(session.microsoftAccount.uuid || '').replace(/-/g, '').toLowerCase();
+      if (msUuid === cleanUuid || session.microsoftAccount.uuid === uuid) {
+        session.activeMode = 'microsoft';
+        this._writeSessionFile(session);
+        const account = this._buildAccountFromSession(session.microsoftAccount);
+        this.configManager.set('auth.currentUser', account);
+        this.configManager.set('auth.mode', 'premium');
+        logger.info(`[Auth] Cuenta cambiada a Microsoft: "${account.name}".`);
+        return { success: true, account };
+      }
     }
 
-    if (session.offlineAccount && session.offlineAccount.uuid === uuid) {
-      session.activeMode = 'offline';
-      this._writeSessionFile(session);
-      const account = this._buildOfflineAccountFromSession(session.offlineAccount);
-      this.configManager.set('auth.currentUser', account);
-      this.configManager.set('auth.mode', 'offline');
-      logger.info(`[Auth] Cuenta cambiada a Offline: "${account.name}".`);
-      return { success: true, account };
+    if (session.offlineAccount) {
+      const offUuid = String(session.offlineAccount.uuid || '').replace(/-/g, '').toLowerCase();
+      if (offUuid === cleanUuid || session.offlineAccount.uuid === uuid) {
+        session.activeMode = 'offline';
+        this._writeSessionFile(session);
+        const account = this._buildOfflineAccountFromSession(session.offlineAccount);
+        this.configManager.set('auth.currentUser', account);
+        this.configManager.set('auth.mode', 'offline');
+        logger.info(`[Auth] Cuenta cambiada a Offline: "${account.name}".`);
+        return { success: true, account };
+      }
     }
 
     const saved = this.configManager.get('auth.savedAccounts', []);
