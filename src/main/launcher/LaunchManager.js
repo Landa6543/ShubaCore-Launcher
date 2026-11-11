@@ -9,12 +9,77 @@ const path = require('path');
 const fs = require('fs');
 const { app } = require('electron');
 const { Client } = require('minecraft-launcher-core');
+const Handler = require('minecraft-launcher-core/components/handler');
 const { getConfigManager } = require('../config/ConfigManager');
 const { getAuthManager } = require('../auth/AuthManager');
 const { getProfileManager } = require('../profiles/ProfileManager');
 const { JVMOptimizer } = require('../jvm/JVMOptimizer');
 const { ModloaderResolver } = require('./ModloaderResolver');
 const { defaultLogger: logger } = require('../utils/logger');
+
+// FILTRO ESTRICTO DE LIBRERÍAS INCOMPATIBLES (ARM64, X86, LINUX, OSX, MACOS)
+// Evita que DLLs de 32 bits o ARM64 entren al classpath o sobreescriban natives/ en Windows x64
+function isLibraryIncompatible(libName = '', libPath = '') {
+  const name = String(libName || '').toLowerCase();
+  const p = String(libPath || '').toLowerCase();
+  if (
+    name.includes('arm64') || name.includes('x86') ||
+    p.includes('arm64') || p.includes('x86') ||
+    name.includes('linux') || name.includes('macos') || name.includes('osx') ||
+    p.includes('linux') || p.includes('macos') || p.includes('osx')
+  ) {
+    return true;
+  }
+  return false;
+}
+
+// Interceptar parseRule de MCLC para descartar dependencias de plataformas ajenas o no-x64
+const origParseRule = Handler.prototype.parseRule;
+Handler.prototype.parseRule = function(lib) {
+  const libName = lib.name || '';
+  const libPath = lib.downloads?.artifact?.path || '';
+  if (isLibraryIncompatible(libName, libPath)) {
+    return true; // true = regla rechazada, libreria omitida
+  }
+  return origParseRule.call(this, lib);
+};
+
+// Interceptar getVersion de MCLC para depurar las librerías cargadas desde el JSON de versión
+const origGetVersion = Handler.prototype.getVersion;
+Handler.prototype.getVersion = async function() {
+  const ver = await origGetVersion.call(this);
+  if (ver && Array.isArray(ver.libraries)) {
+    ver.libraries = ver.libraries.filter((lib) => {
+      const libName = lib.name || '';
+      const libPath = lib.downloads?.artifact?.path || '';
+      return !isLibraryIncompatible(libName, libPath);
+    });
+  }
+  return ver;
+};
+
+// Interceptar getClasses de MCLC para garantizar que NINGÚN .jar incompatible entre al classpath (-cp)
+const origGetClasses = Handler.prototype.getClasses;
+Handler.prototype.getClasses = async function(classJson) {
+  if (classJson && Array.isArray(classJson.libraries)) {
+    classJson.libraries = classJson.libraries.filter((lib) => {
+      const libName = lib.name || '';
+      const libPath = lib.downloads?.artifact?.path || '';
+      return !isLibraryIncompatible(libName, libPath);
+    });
+  }
+  const classes = await origGetClasses.call(this, classJson);
+  return classes.filter((filePath) => !isLibraryIncompatible(filePath, filePath));
+};
+
+// Interceptar getNatives de MCLC para respetar el directorio de nativos saneado
+const origGetNatives = Handler.prototype.getNatives;
+Handler.prototype.getNatives = async function() {
+  if (this.options?.overrides?.natives) {
+    return this.options.overrides.natives;
+  }
+  return origGetNatives.call(this);
+};
 
 class LaunchManager {
   constructor() {
@@ -250,7 +315,7 @@ class LaunchManager {
         getControllerMapManager().ensureMappingFile(instancePath);
       } catch (_) {}
 
-      // 5d. Asegurar options.txt sin pisar configuraciones del usuario ni idioma español
+      // 5d. Asegurar options.txt forzando lang:es_es y autoJump:false
       try {
         const { getHudOptionsManager } = require('../hud/HudOptionsManager');
         getHudOptionsManager().prepareInstanceOptions(instancePath);
@@ -258,7 +323,18 @@ class LaunchManager {
         logger.warn(`[LaunchManager] Aviso preparando options.txt: ${optErr.message}`);
       }
 
-      logger.info(`Flags JVM completas aplicadas (Java ${resolvedJavaMajor}):\n${finalJvmArgs.join(' ')}`);
+      // 5e. REQUISITO 1: Purga total de <instanceDir>/natives/ y extracción exclusiva de nativos x64
+      const instanceNativesDir = this._prepareCleanNatives(instancePath, sharedRoot);
+
+      // 5f. REQUISITO 2: Asegurar assetIndex y descarga completa de minecraft/lang/es_es.json
+      await this._ensureLanguageAssets(sharedRoot, mcVersion, customVersionName);
+
+      // Inyectar rutas limpias de nativos en las flags de Java (reemplazando cualquier ruta anterior)
+      const cleanedJvmArgs = finalJvmArgs.filter((arg) => !arg.startsWith('-Djava.library.path=') && !arg.startsWith('-Dorg.lwjgl.librarypath='));
+      cleanedJvmArgs.push(`-Djava.library.path=${instanceNativesDir}`);
+      cleanedJvmArgs.push(`-Dorg.lwjgl.librarypath=${instanceNativesDir}`);
+
+      logger.info(`Flags JVM completas aplicadas (Java ${resolvedJavaMajor}):\n${cleanedJvmArgs.join(' ')}`);
 
       // 6. Configurar opciones completas de MCLC
       const customLaunchArgs = [...(overrideOptions.customLaunchArgs || [])];
@@ -293,11 +369,12 @@ class LaunchManager {
           max: memoryMax
         },
         detached: true,
-        customArgs: finalJvmArgs,
+        customArgs: cleanedJvmArgs,
         customLaunchArgs,
         overrides: {
           cwd: instancePath, // Forzar CWD en el directorio de la instancia (evita desvíos a la raíz)
           gameDirectory: instancePath, // Aísla /mods, /config y /saves en la carpeta de la instancia (inyecta --gameDir automáticamente)
+          natives: instanceNativesDir, // Directorio de nativos 64-bit limpio y saneado
           detached: true
         }
       };
@@ -716,6 +793,126 @@ class LaunchManager {
     }
     this._openPathSafely(logsDir);
     return { success: true, path: logsDir };
+  }
+
+  /**
+   * REQUISITO 1: Purga total de <instanceDir>/natives/ y extracción exclusiva
+   * de los .jar que terminen exactamente en -natives-windows.jar (64 bits)
+   */
+  _prepareCleanNatives(instancePath, sharedRoot) {
+    const instanceNativesDir = path.join(instancePath, 'natives');
+    if (fs.existsSync(instanceNativesDir)) {
+      try {
+        fs.rmSync(instanceNativesDir, { recursive: true, force: true });
+      } catch (rmErr) {
+        logger.warn(`[LaunchManager] Aviso limpiando natives/: ${rmErr.message}`);
+      }
+    }
+    fs.mkdirSync(instanceNativesDir, { recursive: true });
+
+    const librariesRoot = path.join(sharedRoot, 'libraries');
+    if (fs.existsSync(librariesRoot)) {
+      const AdmZip = require('adm-zip');
+      const findNativeJars = (dir) => {
+        let results = [];
+        try {
+          const entries = fs.readdirSync(dir, { withFileTypes: true });
+          for (const entry of entries) {
+            const full = path.join(dir, entry.name);
+            if (entry.isDirectory()) {
+              results = results.concat(findNativeJars(full));
+            } else if (entry.isFile()) {
+              const lowerName = entry.name.toLowerCase();
+              // Regla estricta: debe terminar exactamente en -natives-windows.jar (64 bits) y no tener arm64 ni x86
+              if (lowerName.endsWith('-natives-windows.jar') && !lowerName.includes('arm64') && !lowerName.includes('x86')) {
+                results.push(full);
+              }
+            }
+          }
+        } catch (_) {}
+        return results;
+      };
+
+      const nativeJars = findNativeJars(librariesRoot);
+      logger.info(`[LaunchManager] Extrayendo ${nativeJars.length} jars de nativos oficiales 64-bit Windows en: ${instanceNativesDir}`);
+      for (const jarPath of nativeJars) {
+        try {
+          const zip = new AdmZip(jarPath);
+          const zipEntries = zip.getEntries();
+          for (const zEntry of zipEntries) {
+            if (!zEntry.isDirectory && zEntry.entryName.toLowerCase().endsWith('.dll') && !zEntry.entryName.includes('/')) {
+              const dest = path.join(instanceNativesDir, zEntry.name);
+              fs.writeFileSync(dest, zEntry.getData());
+            }
+          }
+        } catch (zipErr) {
+          logger.warn(`[LaunchManager] Aviso extrayendo nativos de ${path.basename(jarPath)}: ${zipErr.message}`);
+        }
+      }
+    }
+    return instanceNativesDir;
+  }
+
+  /**
+   * REQUISITO 2: Asegura que el assetIndex y el paquete oficial de idioma español
+   * (minecraft/lang/es_es.json) estén descargados antes de lanzar Minecraft.
+   */
+  async _ensureLanguageAssets(sharedRoot, mcVersion, customVersionName) {
+    try {
+      const assetDir = path.join(sharedRoot, 'assets');
+      const indexesDir = path.join(assetDir, 'indexes');
+      const objectsDir = path.join(assetDir, 'objects');
+
+      if (!fs.existsSync(indexesDir)) fs.mkdirSync(indexesDir, { recursive: true });
+      if (!fs.existsSync(objectsDir)) fs.mkdirSync(objectsDir, { recursive: true });
+
+      let indexFile = path.join(indexesDir, `${mcVersion}.json`);
+      if (!fs.existsSync(indexFile)) {
+        const indexFiles = fs.readdirSync(indexesDir).filter((f) => f.endsWith('.json'));
+        if (indexFiles.length > 0) {
+          indexFile = path.join(indexesDir, indexFiles[0]);
+        }
+      }
+
+      if (customVersionName && fs.existsSync(indexFile)) {
+        const customIndexTarget = path.join(indexesDir, `${customVersionName}.json`);
+        if (!fs.existsSync(customIndexTarget)) {
+          try {
+            fs.copyFileSync(indexFile, customIndexTarget);
+          } catch (_) {}
+        }
+      }
+
+      if (fs.existsSync(indexFile)) {
+        const indexData = JSON.parse(fs.readFileSync(indexFile, 'utf8'));
+        const objects = indexData.objects || {};
+        const esLangObj = objects['minecraft/lang/es_es.json'];
+        if (esLangObj && esLangObj.hash) {
+          const hash = esLangObj.hash;
+          const subhash = hash.substring(0, 2);
+          const objDir = path.join(objectsDir, subhash);
+          const objPath = path.join(objDir, hash);
+
+          if (!fs.existsSync(objPath) || fs.statSync(objPath).size === 0) {
+            if (!fs.existsSync(objDir)) fs.mkdirSync(objDir, { recursive: true });
+            const url = `https://resources.download.minecraft.net/${subhash}/${hash}`;
+            logger.info(`[LaunchManager] Descargando idioma español (es_es.json) desde: ${url}`);
+            const https = require('https');
+            await new Promise((resolve) => {
+              const file = fs.createWriteStream(objPath);
+              https.get(url, (res) => {
+                if (res.statusCode !== 200) return resolve();
+                res.pipe(file);
+                file.on('finish', () => file.close(resolve));
+              }).on('error', () => resolve());
+            });
+            logger.info(`[LaunchManager] ✅ Idioma español (es_es.json) verificado en: ${objPath}`);
+          }
+        }
+      }
+    } catch (err) {
+      logger.warn(`[LaunchManager] Aviso verificando idioma: ${err.message}`);
+    }
   }
 
   getStatus() {

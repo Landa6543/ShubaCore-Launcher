@@ -66,14 +66,17 @@ class ControllerBridge extends EventEmitter {
         buttons: map.buttons || {}
       });
 
-      logger.info(`[ControllerBridge] Iniciando puente nativo Win32 (PowerShell worker)...`);
+      logger.info(`[ControllerBridge] Iniciando puente nativo Win32 (XInput C# 10ms worker)...`);
 
+      const mapPath = instanceDir ? path.join(instanceDir, 'controller-map.json') : '';
       this.workerProcess = spawn('powershell.exe', [
         '-NoProfile',
         '-NonInteractive',
         '-ExecutionPolicy', 'Bypass',
         '-File', this.scriptPath,
-        '-ConfigJson', configPayload
+        '-ConfigJson', configPayload,
+        '-MapPath', mapPath,
+        '-TargetPid', String(this.currentPid || 0)
       ], {
         stdio: ['pipe', 'pipe', 'pipe'],
         windowsHide: true
@@ -90,7 +93,7 @@ class ControllerBridge extends EventEmitter {
       this.workerProcess.stdout.on('data', (data) => {
         const text = data.toString().trim();
         if (text.includes('SHUBA_CONTROLLER_READY')) {
-          logger.info('🎮 [ControllerBridge] ✅ Puente nativo Win32 activo y listo para Minecraft (60Hz SendInput/XInput).');
+          logger.info('🎮 [ControllerBridge] ✅ Puente nativo Win32 activo y listo para Minecraft (XInput nativo en C# cada 10ms a nivel de OS).');
           this.emit('ready');
         }
       });
@@ -146,6 +149,9 @@ class ControllerBridge extends EventEmitter {
         buttons: map.buttons || {}
       });
 
+      if (this.currentPid) {
+        this.workerProcess.stdin.write(`PID:${this.currentPid}\n`, () => {});
+      }
       this.workerProcess.stdin.write(`CONFIG:${configPayload}\n`, () => {});
       return true;
     } catch (err) {

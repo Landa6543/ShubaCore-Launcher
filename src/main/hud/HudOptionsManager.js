@@ -141,20 +141,33 @@ class HudOptionsManager {
     try {
       const content = fs.readFileSync(optsFile, 'utf8');
       const lines = content.split(/\r?\n/);
-      let hasLang = false;
+      let foundLangIndex = -1;
+      let currentLang = '';
       let hasAutoJump = false;
 
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (trimmed.startsWith('lang:')) hasLang = true;
+      for (let i = 0; i < lines.length; i++) {
+        const trimmed = lines[i].trim();
+        if (trimmed.startsWith('lang:')) {
+          foundLangIndex = i;
+          currentLang = trimmed.substring(5).trim();
+        }
         if (trimmed.startsWith('autoJump:')) hasAutoJump = true;
       }
 
       let modified = false;
-      if (!hasLang && forceSpanish) {
-        lines.push('lang:es_es');
-        modified = true;
+      // Si el switch global de Forzar Español está activo (o si lang era en_us), forzar explícitamente es_es
+      if (forceSpanish || currentLang === 'en_us' || currentLang === '') {
+        if (foundLangIndex !== -1) {
+          if (lines[foundLangIndex].trim() !== 'lang:es_es') {
+            lines[foundLangIndex] = 'lang:es_es';
+            modified = true;
+          }
+        } else {
+          lines.push('lang:es_es');
+          modified = true;
+        }
       }
+
       if (!hasAutoJump) {
         lines.push('autoJump:false');
         modified = true;
@@ -162,7 +175,7 @@ class HudOptionsManager {
 
       if (modified) {
         fs.writeFileSync(optsFile, lines.join('\n') + '\n', 'utf8');
-        logger.info(`[HudOptions] options.txt actualizado (lang:es_es/autoJump:false) preservando todas las demás opciones en: ${optsFile}`);
+        logger.info(`[HudOptions] options.txt actualizado (forzado lang:es_es y autoJump:false) preservando opciones de usuario en: ${optsFile}`);
       }
     } catch (err) {
       logger.warn(`[HudOptions] Error verificando options.txt: ${err.message}`);
