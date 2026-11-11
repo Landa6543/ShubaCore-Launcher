@@ -25,6 +25,7 @@ const VALID_RECEIVE_CHANNELS = [
   'mods:modpack-progress',
   'content:download-progress',
   'github-mods:download-progress',
+  'github-mods:upload-progress',
   'sync:progress',
   'packs:export-progress',
   'packs:import-progress',
@@ -198,6 +199,8 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
   githubMods: {
     fetch: (force) => ipcRenderer.invoke('github-mods:fetch', force),
     install: (options) => ipcRenderer.invoke('github-mods:install', options),
+    selectFiles: () => ipcRenderer.invoke('github-mods:select-files'),
+    upload: (filePaths) => ipcRenderer.invoke('github-mods:upload', filePaths),
     getRepo: () => ipcRenderer.invoke('github-mods:get-repo'),
     setRepo: (repo) => ipcRenderer.invoke('github-mods:set-repo', repo)
   },
@@ -240,7 +243,10 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
   servers: {
     list: () => ipcRenderer.invoke('servers:list'),
     get: (id) => ipcRenderer.invoke('servers:get', id),
+    getMcVersions: () => ipcRenderer.invoke('servers:get-mc-versions'),
     create: (options) => ipcRenderer.invoke('servers:create', options),
+    importDialog: () => ipcRenderer.invoke('servers:import-dialog'),
+    import: (sourceDir) => ipcRenderer.invoke('servers:import', sourceDir),
     start: (id) => ipcRenderer.invoke('servers:start', id),
     stop: (id) => ipcRenderer.invoke('servers:stop', id),
     sendCommand: (id, command) => ipcRenderer.invoke('servers:send-command', { id, command }),

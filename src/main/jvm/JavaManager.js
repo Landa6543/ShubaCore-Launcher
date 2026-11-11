@@ -257,6 +257,21 @@ class JavaManager {
   }
 
   /**
+   * Resuelve o busca un ejecutable de Java adecuado para la versión de Minecraft especificada
+   */
+  static async ensureJavaForVersion(mcVersion, sharedRoot = null) {
+    try {
+      const required = JavaManager.getRequiredJavaForMinecraft(mcVersion, sharedRoot);
+      const targetMajor = required.majorVersion || 21;
+      const found = JavaManager.findJavaForVersion(targetMajor, sharedRoot);
+      if (found && found.path) {
+        return { javaPath: found.path, majorVersion: found.majorVersion };
+      }
+    } catch (_) {}
+    return { javaPath: 'java', majorVersion: 21 };
+  }
+
+  /**
    * Descarga e instala en 1 clic Eclipse Temurin oficial portable para Windows x64
    */
   static async downloadAndInstallJava(majorVersion, sharedRoot, onProgress = null) {

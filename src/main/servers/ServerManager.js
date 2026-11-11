@@ -55,6 +55,28 @@ class ServerManager {
   }
 
   /**
+   * Formatea el argumento de RAM para la JVM, convirtiendo valores decimales en GB a MB si es necesario
+   */
+  formatRamArgument(ramInput) {
+    if (!ramInput) return '6G';
+    const clean = String(ramInput).trim().toUpperCase();
+    if (clean.endsWith('G')) {
+      const val = parseFloat(clean.slice(0, -1));
+      if (!isNaN(val)) {
+        if (Number.isInteger(val)) return `${val}G`;
+        return `${Math.round(val * 1024)}M`;
+      }
+    } else if (clean.endsWith('M')) {
+      return clean;
+    } else if (!isNaN(Number(clean))) {
+      const val = parseFloat(clean);
+      if (Number.isInteger(val)) return `${val}G`;
+      return `${Math.round(val * 1024)}M`;
+    }
+    return '6G';
+  }
+
+  /**
    * Lista todos los servidores dedicados creados en ShubaCore
    */
   async listServers() {
@@ -67,8 +89,8 @@ class ServerManager {
 
     const servers = [];
     for (const folder of dirs) {
-      const serverDir = path.join(rootDir, folder);
-      const metaPath = path.join(serverDir, 'server.json');
+      const registryDir = path.join(rootDir, folder);
+      const metaPath = path.join(registryDir, 'server.json');
 
       let meta = null;
       if (fs.existsSync(metaPath)) {
@@ -89,6 +111,9 @@ class ServerManager {
           createdAt: new Date().toISOString()
         };
       }
+
+      // Si es un servidor importado o tiene serverDir personalizado válido, usarlo
+      const serverDir = (meta.serverDir && fs.existsSync(meta.serverDir)) ? meta.serverDir : registryDir;
 
       const active = this.activeServers.get(meta.id);
       const status = active ? active.status : 'offline';
@@ -232,7 +257,7 @@ class ServerManager {
       javaPath = 'java';
     }
 
-    const ram = server.ram || '6G';
+    const ram = this.formatRamArgument(server.ram || '6G');
     const jvmFlags = [
       `-Xms2G`,
       `-Xmx${ram}`,
@@ -260,10 +285,25 @@ class ServerManager {
       spawnCmd = 'cmd.exe';
       spawnArgs = ['/c', 'run.bat', 'nogui'];
     } else {
-      let mainJar = 'server.jar';
+      let mainJar = server.mainFile || 'server.jar';
       if (server.loader === 'fabric') {
         mainJar = 'fabric-server-launch.jar';
+      } else if (server.loader === 'quilt') {
+        mainJar = 'quilt-server-launch.jar';
       }
+
+      // Si el jar específico no existe, buscar jars disponibles en el directorio
+      if (!fs.existsSync(path.join(serverDir, mainJar))) {
+        try {
+          const files = fs.readdirSync(serverDir).filter((f) => f.endsWith('.jar'));
+          if (files.includes('server.jar')) {
+            mainJar = 'server.jar';
+          } else if (files.length > 0) {
+            mainJar = files[0];
+          }
+        } catch (_) {}
+      }
+
       spawnCmd = javaPath;
       spawnArgs = [...jvmFlags, '-jar', mainJar, 'nogui'];
     }
@@ -428,17 +468,138 @@ class ServerManager {
   }
 
   /**
-   * Lee el archivo server.properties y lo retorna como un objeto estructurado
+   * Importa un servidor existente desde cualquier carpeta local del usuario
    */
-  async getProperties(id) {
-    const server = await this.getServer(id);
-    if (!server) throw new Error(`Servidor con ID "${id}" no encontrado.`);
-
-    const propsPath = path.join(server.serverDir, 'server.properties');
-    if (!fs.existsSync(propsPath)) {
-      ServerInstaller.ensureServerProperties(server.serverDir, { port: server.port, name: server.name });
+  async importServer(sourceDir) {
+    if (!sourceDir || !fs.existsSync(sourceDir)) {
+      throw new Error('La carpeta del servidor no existe o la ruta es inválida.');
     }
 
+    const stat = fs.statSync(sourceDir);
+    if (!stat.isDirectory()) {
+      throw new Error('La ruta seleccionada no es un directorio.');
+    }
+
+    const folderName = path.basename(sourceDir);
+    const id = `imported_${folderName.toLowerCase().replace(/[^a-z0-9_-]/g, '_')}_${Date.now().toString(36)}`;
+    const rootDir = this.getServersRootDir();
+    const registryDir = path.join(rootDir, id);
+    fs.mkdirSync(registryDir, { recursive: true });
+
+    // 1. Asegurar EULA y leer server.properties
+    ServerInstaller.ensureEula(sourceDir);
+    const propsPath = path.join(sourceDir, 'server.properties');
+    let properties = {};
+    if (fs.existsSync(propsPath)) {
+      properties = this._parsePropertiesFile(propsPath);
+    } else {
+      ServerInstaller.ensureServerProperties(sourceDir, { port: 25565, name: folderName });
+    }
+
+    const port = Number(properties['server-port']) || 25565;
+    const serverName = properties['motd'] ? String(properties['motd']).replace(/§[0-9a-fk-or]/gi, '').trim() : folderName;
+
+    // 2. Detección automática del Modloader y versión de Minecraft
+    let detectedLoader = 'vanilla';
+    let detectedMcVersion = '1.21.1';
+    let detectedMainJar = 'server.jar';
+
+    let dirFiles = [];
+    try {
+      dirFiles = fs.readdirSync(sourceDir);
+    } catch (_) {}
+    const lowerFiles = dirFiles.map((f) => f.toLowerCase());
+
+    const runBat = path.join(sourceDir, 'run.bat');
+    let runBatContent = '';
+    if (fs.existsSync(runBat)) {
+      try { runBatContent = fs.readFileSync(runBat, 'utf8'); } catch (_) {}
+    }
+
+    // Detectar NeoForge / Forge
+    if (
+      lowerFiles.some((f) => f.includes('neoforge')) ||
+      runBatContent.toLowerCase().includes('neoforge') ||
+      fs.existsSync(path.join(sourceDir, 'libraries', 'net', 'neoforged'))
+    ) {
+      detectedLoader = 'neoforge';
+      detectedMainJar = 'run.bat';
+    } else if (
+      lowerFiles.some((f) => f.includes('forge')) ||
+      runBatContent.toLowerCase().includes('forge') ||
+      fs.existsSync(path.join(sourceDir, 'libraries', 'net', 'minecraftforge'))
+    ) {
+      detectedLoader = 'forge';
+      detectedMainJar = 'run.bat';
+    } else if (lowerFiles.includes('quilt-server-launch.jar') || lowerFiles.some((f) => f.includes('quilt'))) {
+      detectedLoader = 'quilt';
+      detectedMainJar = 'quilt-server-launch.jar';
+    } else if (lowerFiles.includes('fabric-server-launch.jar') || lowerFiles.some((f) => f.includes('fabric'))) {
+      detectedLoader = 'fabric';
+      detectedMainJar = 'fabric-server-launch.jar';
+    } else if (
+      lowerFiles.some((f) => f.startsWith('paper') || f.startsWith('purpur') || f.includes('spigot') || f.includes('bukkit')) ||
+      fs.existsSync(path.join(sourceDir, 'plugins'))
+    ) {
+      detectedLoader = 'paper';
+      const paperJar = dirFiles.find((f) => f.endsWith('.jar') && (f.toLowerCase().startsWith('paper') || f.toLowerCase().startsWith('purpur')));
+      if (paperJar) detectedMainJar = paperJar;
+    }
+
+    // Intentar extraer versión de Minecraft de nombres de jars o archivos
+    const mcVersionMatch = lowerFiles.join(' ').match(/1\.(?:[1-9][0-9])(?:\.[0-9]+)?/);
+    if (mcVersionMatch && mcVersionMatch[0]) {
+      detectedMcVersion = mcVersionMatch[0];
+    }
+
+    // Resolver Java correspondiente
+    const javaRes = await JavaManager.ensureJavaForVersion(detectedMcVersion);
+    const javaPath = javaRes?.javaPath || 'java';
+
+    const serverMeta = {
+      id,
+      name: serverName || folderName,
+      mcVersion: detectedMcVersion,
+      loader: detectedLoader,
+      loaderVersion: 'imported',
+      ram: '6G',
+      port,
+      javaPath,
+      serverDir: sourceDir,
+      isImported: true,
+      mainFile: detectedMainJar,
+      createdAt: new Date().toISOString()
+    };
+
+    // Guardar metadata en el directorio de registro de ShubaCore
+    fs.writeFileSync(path.join(registryDir, 'server.json'), JSON.stringify(serverMeta, null, 2), 'utf8');
+
+    let modsCount = 0;
+    const modsDir = path.join(sourceDir, 'mods');
+    if (fs.existsSync(modsDir)) {
+      try {
+        modsCount = fs.readdirSync(modsDir).filter((f) => f.endsWith('.jar')).length;
+      } catch (_) {}
+    }
+
+    logger.info(`[ServerManager] Servidor importado exitosamente desde "${sourceDir}" (Loader: ${detectedLoader}, MC: ${detectedMcVersion}, ID: ${id})`);
+
+    return {
+      success: true,
+      server: {
+        ...serverMeta,
+        status: 'offline',
+        players: [],
+        modsCount
+      }
+    };
+  }
+
+  /**
+   * Parser auxiliar para archivos server.properties
+   */
+  _parsePropertiesFile(propsPath) {
+    if (!fs.existsSync(propsPath)) return {};
     const raw = fs.readFileSync(propsPath, 'utf8');
     const result = {};
 
@@ -459,6 +620,21 @@ class ServerManager {
     });
 
     return result;
+  }
+
+  /**
+   * Lee el archivo server.properties y lo retorna como un objeto estructurado
+   */
+  async getProperties(id) {
+    const server = await this.getServer(id);
+    if (!server) throw new Error(`Servidor con ID "${id}" no encontrado.`);
+
+    const propsPath = path.join(server.serverDir, 'server.properties');
+    if (!fs.existsSync(propsPath)) {
+      ServerInstaller.ensureServerProperties(server.serverDir, { port: server.port, name: server.name });
+    }
+
+    return this._parsePropertiesFile(propsPath);
   }
 
   /**
@@ -537,13 +713,28 @@ class ServerManager {
     }
 
     const server = await this.getServer(id);
-    if (server && deleteFiles && fs.existsSync(server.serverDir)) {
-      try {
-        fs.rmSync(server.serverDir, { recursive: true, force: true });
-        logger.info(`[ServerManager] Servidor "${server.name}" eliminado de disco: ${server.serverDir}`);
-      } catch (err) {
-        logger.warn(`[ServerManager] No se pudo borrar carpeta del servidor: ${err.message}`);
+    const rootDir = this.getServersRootDir();
+    const registryDir = path.join(rootDir, id);
+
+    if (server) {
+      if (server.isImported) {
+        // En servidores importados externos NUNCA borrar los archivos originales del usuario
+        logger.info(`[ServerManager] Desvinculando servidor importado "${server.name}". Sus archivos en "${server.serverDir}" se conservan intactos.`);
+      } else if (deleteFiles && fs.existsSync(server.serverDir)) {
+        try {
+          fs.rmSync(server.serverDir, { recursive: true, force: true });
+          logger.info(`[ServerManager] Servidor "${server.name}" eliminado de disco: ${server.serverDir}`);
+        } catch (err) {
+          logger.warn(`[ServerManager] No se pudo borrar carpeta del servidor: ${err.message}`);
+        }
       }
+    }
+
+    // Borrar directorio de metadatos de ShubaCore si existe
+    if (fs.existsSync(registryDir)) {
+      try {
+        fs.rmSync(registryDir, { recursive: true, force: true });
+      } catch (_) {}
     }
 
     return { success: true };

@@ -61,12 +61,46 @@ class ServerInstaller {
   }
 
   /**
+   * Obtiene la lista completa de versiones oficiales release de Minecraft desde Mojang
+   */
+  static async getAvailableMinecraftVersions() {
+    try {
+      const res = await fetch('https://piston-meta.mojang.com/mc/game/version_manifest_v2.json');
+      if (res.ok) {
+        const data = await res.json();
+        const releases = (data.versions || [])
+          .filter((v) => v.type === 'release')
+          .map((v) => v.id);
+        if (releases.length > 0) return releases;
+      }
+    } catch (_) {}
+
+    return [
+      '1.21.4', '1.21.3', '1.21.2', '1.21.1', '1.21',
+      '1.20.6', '1.20.5', '1.20.4', '1.20.3', '1.20.2', '1.20.1', '1.20',
+      '1.19.4', '1.19.3', '1.19.2', '1.19.1', '1.19',
+      '1.18.2', '1.18.1', '1.18',
+      '1.17.1', '1.17',
+      '1.16.5', '1.16.4', '1.16.3', '1.16.2', '1.16.1', '1.16',
+      '1.15.2', '1.15.1', '1.15',
+      '1.14.4', '1.14.3', '1.14.2', '1.14.1', '1.14',
+      '1.13.2', '1.13.1', '1.13',
+      '1.12.2', '1.12.1', '1.12',
+      '1.11.2', '1.11',
+      '1.10.2', '1.10',
+      '1.9.4', '1.9',
+      '1.8.9', '1.8.8', '1.8',
+      '1.7.10'
+    ];
+  }
+
+  /**
    * Instala un servidor dedicado completo en serverDir
    *
    * @param {Object} options
    * @param {string} options.serverDir
    * @param {string} options.mcVersion
-   * @param {string} options.loader - 'neoforge' | 'forge' | 'fabric' | 'vanilla'
+   * @param {string} options.loader - 'neoforge' | 'forge' | 'fabric' | 'quilt' | 'paper' | 'purpur' | 'vanilla'
    * @param {string} options.loaderVersion
    * @param {string} options.javaPath
    * @param {string} [options.name]
@@ -97,6 +131,10 @@ class ServerInstaller {
       return await ServerInstaller._installNeoForgeServer({ serverDir, mcVersion, loaderVersion, javaPath, onProgress });
     } else if (loader === 'forge') {
       return await ServerInstaller._installForgeServer({ serverDir, mcVersion, loaderVersion, javaPath, onProgress });
+    } else if (loader === 'quilt') {
+      return await ServerInstaller._installQuiltServer({ serverDir, mcVersion, loaderVersion, onProgress });
+    } else if (loader === 'paper' || loader === 'purpur' || loader.includes('paper') || loader.includes('purpur')) {
+      return await ServerInstaller._installPaperServer({ serverDir, mcVersion, onProgress });
     } else {
       throw new Error(`Loader de servidor no soportado: ${loader}`);
     }
@@ -246,6 +284,76 @@ class ServerInstaller {
     ServerInstaller.ensureEula(serverDir);
     if (onProgress) onProgress({ message: 'Servidor Forge instalado exitosamente.', percent: 100 });
     return { serverDir, launchType: 'script', mainFile: 'run.bat' };
+  }
+
+  /**
+   * Instala Quilt Server Launcher JAR desde meta.quiltmc.org
+   */
+  static async _installQuiltServer({ serverDir, mcVersion, loaderVersion, onProgress }) {
+    const quiltJarPath = path.join(serverDir, 'quilt-server-launch.jar');
+    if (fs.existsSync(quiltJarPath) && fs.statSync(quiltJarPath).size > 500 * 1024) {
+      logger.info(`[Quilt Server] quilt-server-launch.jar verificado: ${quiltJarPath}`);
+      return { serverJarPath: quiltJarPath, launchType: 'jar', mainFile: 'quilt-server-launch.jar' };
+    }
+
+    const cleanLoader = String(loaderVersion || 'latest').split(' ')[0].trim();
+    const url = cleanLoader === 'latest'
+      ? `https://meta.quiltmc.org/v3/versions/loader/${mcVersion}/latest/server/jar`
+      : `https://meta.quiltmc.org/v3/versions/loader/${mcVersion}/${cleanLoader}/server/jar`;
+
+    logger.info(`[Quilt Server] Descargando launcher oficial de Quilt Server desde: ${url}`);
+    if (onProgress) onProgress({ message: `Descargando launcher oficial de Quilt Server...`, percent: 35 });
+
+    await ServerInstaller._downloadFile(url, quiltJarPath, (pct) => {
+      if (onProgress) onProgress({ message: `Descargando Quilt Server (${pct}%)...`, percent: Math.round(35 + pct * 0.55) });
+    });
+
+    if (onProgress) onProgress({ message: 'Servidor Quilt instalado exitosamente.', percent: 100 });
+    return { serverJarPath: quiltJarPath, launchType: 'jar', mainFile: 'quilt-server-launch.jar' };
+  }
+
+  /**
+   * Instala Paper / Purpur Server (Plugins)
+   */
+  static async _installPaperServer({ serverDir, mcVersion, onProgress }) {
+    const serverJarPath = path.join(serverDir, 'server.jar');
+    if (fs.existsSync(serverJarPath) && fs.statSync(serverJarPath).size > 20 * 1024 * 1024) {
+      logger.info(`[Paper Server] server.jar verificado en caché: ${serverJarPath}`);
+      return { serverJarPath, launchType: 'jar', mainFile: 'server.jar' };
+    }
+
+    if (onProgress) onProgress({ message: `Consultando API oficial de PaperMC para MC ${mcVersion}...`, percent: 25 });
+
+    let downloadUrl = null;
+    try {
+      const verRes = await fetch(`https://api.papermc.io/v2/projects/paper/versions/${mcVersion}`);
+      if (verRes.ok) {
+        const verData = await verRes.json();
+        const builds = verData.builds;
+        if (Array.isArray(builds) && builds.length > 0) {
+          const latestBuild = builds[builds.length - 1];
+          const fileName = `paper-${mcVersion}-${latestBuild}.jar`;
+          downloadUrl = `https://api.papermc.io/v2/projects/paper/versions/${mcVersion}/builds/${latestBuild}/downloads/${fileName}`;
+          logger.info(`[Paper Server] URL resuelta desde PaperMC: ${downloadUrl}`);
+        }
+      }
+    } catch (e) {
+      logger.warn('[Paper Server] PaperMC API no disponible, probando Purpur:', e.message);
+    }
+
+    if (!downloadUrl) {
+      downloadUrl = `https://api.purpurmc.org/v2/purpur/${mcVersion}/latest/download`;
+      logger.info(`[Purpur Server] URL Purpur fallback: ${downloadUrl}`);
+    }
+
+    if (onProgress) onProgress({ message: `Descargando servidor Paper / Purpur (${mcVersion})...`, percent: 40 });
+
+    await ServerInstaller._downloadFile(downloadUrl, serverJarPath, (pct) => {
+      if (onProgress) onProgress({ message: `Descargando servidor Paper (${pct}%)...`, percent: Math.round(40 + pct * 0.55) });
+    });
+
+    if (onProgress) onProgress({ message: 'Servidor Paper / Purpur instalado exitosamente.', percent: 100 });
+    return { serverJarPath, launchType: 'jar', mainFile: 'server.jar' };
   }
 
   static async _downloadFile(url, destPath, onProgress) {

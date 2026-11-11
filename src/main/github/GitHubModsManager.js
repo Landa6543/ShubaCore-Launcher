@@ -379,6 +379,184 @@ class GitHubModsManager {
     return { name, version, description, iconBase64 };
   }
 
+  /**
+   * Sube uno o más archivos .jar a GitHub Releases (tag: custom-mods)
+   * Soporta archivos de cualquier tamaño (>100MB) sin el límite de 25MB de GitHub Contents API
+   * Utiliza GitHub CLI (gh) si está instalado o fallback a GitHub REST API con token
+   */
+  async uploadCustomMods({ filePaths, onProgress }) {
+    if (!Array.isArray(filePaths) || filePaths.length === 0) {
+      throw new Error('No se especificaron archivos para subir.');
+    }
+
+    const { owner, repo } = this.getRepoInfo();
+    const token = this.resolveToken();
+    const results = [];
+
+    // Verificar si gh CLI está disponible
+    let hasGhCli = false;
+    try {
+      execSync('gh --version', { stdio: 'ignore' });
+      hasGhCli = true;
+    } catch (_) {
+      hasGhCli = false;
+    }
+
+    logger.info(`[GitHubMods] Iniciando subida de ${filePaths.length} mod(s) a ${owner}/${repo}... (gh CLI: ${hasGhCli ? 'Disponible' : 'No detectado'})`);
+
+    for (let i = 0; i < filePaths.length; i++) {
+      const filePath = filePaths[i];
+      if (!fs.existsSync(filePath)) {
+        throw new Error(`El archivo no existe: ${filePath}`);
+      }
+
+      const fileName = path.basename(filePath);
+      const fileSize = fs.statSync(filePath).size;
+      const progressPercent = Math.round((i / filePaths.length) * 100);
+
+      if (onProgress) {
+        onProgress({
+          index: i + 1,
+          total: filePaths.length,
+          fileName,
+          percent: progressPercent,
+          message: `Preparando subida de "${fileName}" (${(fileSize / (1024 * 1024)).toFixed(1)} MB)...`
+        });
+      }
+
+      let uploadedSuccessfully = false;
+
+      // 1. Intentar mediante gh CLI si está presente
+      if (hasGhCli) {
+        try {
+          logger.info(`[GitHubMods] Subiendo "${fileName}" vía gh release upload...`);
+          // Asegurar que existe el release custom-mods
+          try {
+            execSync(`gh release view custom-mods --repo ${owner}/${repo}`, { stdio: 'ignore' });
+          } catch (_) {
+            execSync(`gh release create custom-mods --title "ShubaCore Custom Mods" --notes "Mods custom y ports de la comunidad ShubaCore" --repo ${owner}/${repo}`, { stdio: 'ignore' });
+          }
+
+          execSync(`gh release upload custom-mods "${filePath}" --repo ${owner}/${repo} --clobber`, {
+            stdio: ['ignore', 'pipe', 'pipe']
+          });
+
+          uploadedSuccessfully = true;
+          logger.info(`[GitHubMods] ✅ "${fileName}" subido exitosamente con gh CLI.`);
+        } catch (ghErr) {
+          logger.warn(`[GitHubMods] gh CLI falló al subir "${fileName}": ${ghErr.message}. Intentando fallback por API REST...`);
+        }
+      }
+
+      // 2. Si gh no estaba disponible o falló, usar API REST de GitHub
+      if (!uploadedSuccessfully) {
+        if (!token) {
+          throw new Error('Para subir mods a GitHub sin gh CLI se requiere un Personal Access Token configurado con permiso de repo o GITHUB_TOKEN.');
+        }
+
+        const headers = {
+          'Authorization': `token ${token}`,
+          'User-Agent': 'SHUBATECH-ShubaCore-Launcher/1.1.0',
+          'Accept': 'application/vnd.github.v3+json'
+        };
+
+        // Obtener o crear Release con tag "custom-mods"
+        let release = null;
+        const relUrl = `https://api.github.com/repos/${owner}/${repo}/releases/tags/custom-mods`;
+        const getRel = await fetch(relUrl, { headers });
+
+        if (getRel.ok) {
+          release = await getRel.json();
+        } else if (getRel.status === 404) {
+          // Crear el release
+          logger.info(`[GitHubMods] Creando release 'custom-mods' en ${owner}/${repo}...`);
+          const createRel = await fetch(`https://api.github.com/repos/${owner}/${repo}/releases`, {
+            method: 'POST',
+            headers: { ...headers, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              tag_name: 'custom-mods',
+              name: 'ShubaCore Custom Mods',
+              body: 'Repositorio oficial de mods custom y optimizaciones para ShubaCore.',
+              draft: false,
+              prerelease: false
+            })
+          });
+
+          if (!createRel.ok) {
+            const errTxt = await createRel.text();
+            throw new Error(`Error al crear el release en GitHub (${createRel.status}): ${errTxt}`);
+          }
+          release = await createRel.json();
+        } else {
+          const errTxt = await getRel.text();
+          throw new Error(`Error al consultar releases de GitHub (${getRel.status}): ${errTxt}`);
+        }
+
+        // Si ya existía un asset con el mismo nombre, eliminarlo primero
+        if (Array.isArray(release.assets)) {
+          const existingAsset = release.assets.find((a) => a.name.toLowerCase() === fileName.toLowerCase());
+          if (existingAsset) {
+            logger.info(`[GitHubMods] Reemplazando asset existente id=${existingAsset.id} ("${fileName}")...`);
+            await fetch(`https://api.github.com/repos/${owner}/${repo}/releases/assets/${existingAsset.id}`, {
+              method: 'DELETE',
+              headers
+            });
+          }
+        }
+
+        if (onProgress) {
+          onProgress({
+            index: i + 1,
+            total: filePaths.length,
+            fileName,
+            percent: Math.round(((i + 0.5) / filePaths.length) * 100),
+            message: `Transfiriendo "${fileName}" a GitHub Releases...`
+          });
+        }
+
+        // Subir binario a upload_url
+        const fileBuffer = fs.readFileSync(filePath);
+        const uploadUrl = `https://uploads.github.com/repos/${owner}/${repo}/releases/${release.id}/assets?name=${encodeURIComponent(fileName)}`;
+
+        const uploadRes = await fetch(uploadUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': `token ${token}`,
+            'User-Agent': 'SHUBATECH-ShubaCore-Launcher/1.1.0',
+            'Content-Type': 'application/java-archive',
+            'Content-Length': String(fileBuffer.length)
+          },
+          body: fileBuffer
+        });
+
+        if (!uploadRes.ok) {
+          const errTxt = await uploadRes.text();
+          throw new Error(`Error al subir "${fileName}" a GitHub (${uploadRes.status}): ${errTxt}`);
+        }
+
+        uploadedSuccessfully = true;
+        logger.info(`[GitHubMods] ✅ "${fileName}" subido exitosamente vía REST API.`);
+      }
+
+      results.push({ fileName, path: filePath, size: fileSize, success: true });
+    }
+
+    // Invalidar caché de mods para recargar el catálogo de inmediato
+    this.cachedMods = null;
+
+    if (onProgress) {
+      onProgress({
+        index: filePaths.length,
+        total: filePaths.length,
+        fileName: '',
+        percent: 100,
+        message: '¡Todos los mods fueron subidos exitosamente!'
+      });
+    }
+
+    return { success: true, uploaded: results };
+  }
+
   _recordInLockFile(instancePath, lockEntry) {
     try {
       const lockPath = path.join(instancePath, 'mods-lock.json');

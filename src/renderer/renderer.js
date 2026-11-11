@@ -171,6 +171,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const pillCatGithub = document.getElementById('pill-cat-github');
   const btnRefreshGithubMods = document.getElementById('btn-refresh-github-mods');
   const btnConfigGithubRepo = document.getElementById('btn-config-github-repo');
+  const btnUploadGithubMod = document.getElementById('btn-upload-github-mod');
 
   // Gestor de Mods de Instancia & Actualizaciones
   const installedModsTitle = document.getElementById('installed-mods-title');
@@ -3541,6 +3542,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const isGithub = (source === 'github' || currentContentType === 'github');
     if (btnRefreshGithubMods) btnRefreshGithubMods.style.display = isGithub ? 'inline-flex' : 'none';
     if (btnConfigGithubRepo) btnConfigGithubRepo.style.display = isGithub ? 'inline-flex' : 'none';
+    if (btnUploadGithubMod) btnUploadGithubMod.style.display = isGithub ? 'inline-flex' : 'none';
 
     if (isGithub) {
       if (query) {
@@ -3888,6 +3890,36 @@ document.addEventListener('DOMContentLoaded', async () => {
         await performModSearch();
       } finally {
         btnRefreshGithubMods.disabled = false;
+      }
+    });
+  }
+
+  if (btnUploadGithubMod) {
+    btnUploadGithubMod.addEventListener('click', async () => {
+      try {
+        const fileRes = await api.githubMods.selectFiles();
+        if (!fileRes || fileRes.canceled || !fileRes.filePaths || fileRes.filePaths.length === 0) {
+          return;
+        }
+
+        const count = fileRes.filePaths.length;
+        btnUploadGithubMod.disabled = true;
+        appendLog(`[GitHub Mods] Subiendo ${count} mod(s) a GitHub Releases (custom-mods)...`, 'info');
+
+        const uploadRes = await api.githubMods.upload(fileRes.filePaths);
+        if (uploadRes && uploadRes.success) {
+          appendLog(`[GitHub Mods] ¡${count} mod(s) subido(s) con éxito a GitHub Releases!`, 'success');
+          alert(`¡${count} mod(s) subido(s) con éxito a GitHub Releases! El catálogo se actualizará ahora.`);
+          await api.githubMods.fetch(true);
+          await performModSearch();
+        } else {
+          throw new Error(uploadRes?.error || 'Fallo desconocido al subir mods.');
+        }
+      } catch (err) {
+        alert(`Error al subir mod(s) a GitHub: ${err.message}`);
+        appendLog(`[GitHub Upload Error] ${err.message}`, 'error');
+      } finally {
+        btnUploadGithubMod.disabled = false;
       }
     });
   }
@@ -4967,6 +4999,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   const syncServerResultBox = document.getElementById('sync-server-result-box');
   const syncServerResultText = document.getElementById('sync-server-result-text');
 
+  const boxServerCustomRam = document.getElementById('box-server-custom-ram');
+  const inputServerCustomRam = document.getElementById('input-server-custom-ram');
+  const btnImportServer = document.getElementById('btn-import-server');
+  const btnEmptyImportServer = document.getElementById('btn-empty-import-server');
+
   async function loadDedicatedServers() {
     if (!api.servers) return;
     try {
@@ -5495,25 +5532,130 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // --- MODAL: CREAR NUEVO SERVIDOR ---
+  // --- MODAL: CREAR NUEVO SERVIDOR & IMPORTACIÓN ---
+  async function populateServerMcVersions() {
+    if (!selectServerCreateMc || !api.servers?.getMcVersions) return;
+    try {
+      const versions = await api.servers.getMcVersions();
+      if (Array.isArray(versions) && versions.length > 0) {
+        const currentVal = selectServerCreateMc.value || '1.21.1';
+        selectServerCreateMc.innerHTML = '';
+        versions.forEach((v) => {
+          const opt = document.createElement('option');
+          opt.value = v;
+          opt.textContent = `Minecraft ${v}${v === '1.21.1' ? ' (Recomendado)' : ''}`;
+          if (v === currentVal) opt.selected = true;
+          selectServerCreateMc.appendChild(opt);
+        });
+        if (!selectServerCreateMc.value && versions.includes('1.21.1')) {
+          selectServerCreateMc.value = '1.21.1';
+        }
+      }
+    } catch (_) {}
+  }
+
+  function applySelectedInstanceDefaults() {
+    if (!selectServerSyncInstance) return;
+    const opt = selectServerSyncInstance.selectedOptions[0];
+    if (!opt) return;
+    const mc = opt.dataset.mc;
+    const loader = opt.dataset.loader;
+
+    if (mc && selectServerCreateMc) {
+      let found = false;
+      for (const o of selectServerCreateMc.options) {
+        if (o.value === mc) {
+          selectServerCreateMc.value = mc;
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        const newOpt = document.createElement('option');
+        newOpt.value = mc;
+        newOpt.textContent = `Minecraft ${mc}`;
+        selectServerCreateMc.prepend(newOpt);
+        selectServerCreateMc.value = mc;
+      }
+    }
+
+    if (loader && selectServerCreateLoader) {
+      for (const o of selectServerCreateLoader.options) {
+        if (o.value.toLowerCase() === loader) {
+          selectServerCreateLoader.value = o.value;
+          break;
+        }
+      }
+    }
+  }
+
+  if (selectServerSyncInstance) {
+    selectServerSyncInstance.addEventListener('change', applySelectedInstanceDefaults);
+  }
+
+  if (selectServerCreateRam) {
+    selectServerCreateRam.addEventListener('change', () => {
+      if (boxServerCustomRam) {
+        boxServerCustomRam.style.display = selectServerCreateRam.value === 'custom' ? 'block' : 'none';
+      }
+    });
+  }
+
   async function populateInstancesDropdown(selectElement) {
     if (!selectElement) return;
     try {
-      const profiles = await api.profiles.getAll();
-      const list = Array.isArray(profiles) ? profiles : [];
+      const res = await api.profiles.getAll();
+      const list = Array.isArray(res) ? res : (res?.profiles || []);
       selectElement.innerHTML = '';
+      if (list.length === 0) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = 'No hay instancias creadas aún';
+        selectElement.appendChild(opt);
+        return;
+      }
       list.forEach((p) => {
         const opt = document.createElement('option');
         opt.value = p.instancePath;
-        opt.textContent = `${p.name} (${(p.loader || 'vanilla').toUpperCase()} ${p.gameVersion || p.mcVersion})`;
+        const loader = (p.loader || 'vanilla').toLowerCase();
+        const mc = p.gameVersion || p.mcVersion || '1.21.1';
+        const modsCount = Array.isArray(p.mods) ? p.mods.length : (p.modsCount || 0);
+        opt.dataset.mc = mc;
+        opt.dataset.loader = loader;
+        opt.textContent = `${p.name} (${loader.toUpperCase()} ${mc}) — ${modsCount} mods`;
         selectElement.appendChild(opt);
       });
+
+      if (selectElement === selectServerSyncInstance) {
+        applySelectedInstanceDefaults();
+      }
     } catch (_) {}
   }
+
+  async function handleImportServer() {
+    try {
+      const res = await api.servers.importDialog();
+      if (res && !res.canceled) {
+        if (res.success) {
+          appendLog(`[Servers] Servidor importado exitosamente: "${res.server.name}" (${(res.server.loader || 'vanilla').toUpperCase()} ${res.server.mcVersion})`, 'success');
+          await loadDedicatedServers();
+          if (res.server?.id) selectDedicatedServer(res.server.id);
+        } else if (res.error) {
+          alert(`Error al importar servidor: ${res.error}`);
+        }
+      }
+    } catch (err) {
+      alert(`Error al importar servidor: ${err.message}`);
+    }
+  }
+
+  if (btnImportServer) btnImportServer.addEventListener('click', handleImportServer);
+  if (btnEmptyImportServer) btnEmptyImportServer.addEventListener('click', handleImportServer);
 
   if (btnOpenCreateServerModal) {
     btnOpenCreateServerModal.addEventListener('click', async () => {
       if (modalCreateServer) modalCreateServer.style.display = 'flex';
+      await populateServerMcVersions();
       await populateInstancesDropdown(selectServerSyncInstance);
     });
   }
@@ -5521,6 +5663,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (btnEmptyCreateServer) {
     btnEmptyCreateServer.addEventListener('click', async () => {
       if (modalCreateServer) modalCreateServer.style.display = 'flex';
+      await populateServerMcVersions();
       await populateInstancesDropdown(selectServerSyncInstance);
     });
   }
@@ -5533,7 +5676,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       const name = inputServerCreateName ? inputServerCreateName.value.trim() : 'Mi Servidor';
       const mcVersion = selectServerCreateMc ? selectServerCreateMc.value : '1.21.1';
       const loader = selectServerCreateLoader ? selectServerCreateLoader.value : 'neoforge';
-      const ram = selectServerCreateRam ? selectServerCreateRam.value : '6G';
+      let ram = selectServerCreateRam ? selectServerCreateRam.value : '6G';
+      if (ram === 'custom') {
+        const customVal = inputServerCustomRam ? parseFloat(inputServerCustomRam.value) : 7;
+        ram = `${customVal || 6}G`;
+      }
       const port = inputServerCreatePort ? Number(inputServerCreatePort.value) || 25565 : 25565;
       const syncMods = Boolean(checkServerSyncModsOnCreate && checkServerSyncModsOnCreate.checked);
       const sourceInstancePath = selectServerSyncInstance ? selectServerSyncInstance.value : null;

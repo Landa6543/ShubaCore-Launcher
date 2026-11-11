@@ -1045,6 +1045,39 @@ function registerIpcHandlers(mainWindow) {
     return githubModsManager.setRepoInfo(owner, repo, token);
   });
 
+  ipcMain.handle('github-mods:select-files', async () => {
+    try {
+      const res = await dialog.showOpenDialog(mainWindow, {
+        title: 'Seleccionar Mods Custom (.jar) para Subir a GitHub',
+        filters: [{ name: 'Minecraft Mods (.jar)', extensions: ['jar'] }],
+        properties: ['openFile', 'multiSelections']
+      });
+      if (res.canceled || !res.filePaths || res.filePaths.length === 0) {
+        return { canceled: true, filePaths: [] };
+      }
+      return { canceled: false, filePaths: res.filePaths };
+    } catch (err) {
+      logger.error('Error en github-mods:select-files IPC:', err);
+      return { canceled: true, error: err.message };
+    }
+  });
+
+  ipcMain.handle('github-mods:upload', async (event, filePaths) => {
+    try {
+      return await githubModsManager.uploadCustomMods({
+        filePaths,
+        onProgress: (p) => {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('github-mods:upload-progress', p);
+          }
+        }
+      });
+    } catch (err) {
+      logger.error('Error en github-mods:upload IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
   // ==========================================
   // SINCRONIZADOR DE MODPACKS / PERFILES (1-CLIC SYNC)
   // ==========================================
@@ -1316,6 +1349,42 @@ function registerIpcHandlers(mainWindow) {
       return await serverManager.openFolder(id);
     } catch (err) {
       logger.error('Error en servers:open-folder IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('servers:get-mc-versions', async () => {
+    try {
+      const { ServerInstaller } = require('../servers/ServerInstaller');
+      return await ServerInstaller.getAvailableMinecraftVersions();
+    } catch (err) {
+      logger.error('Error en servers:get-mc-versions IPC:', err);
+      return ['1.21.1', '1.20.4', '1.20.1', '1.19.2', '1.18.2', '1.16.5', '1.12.2', '1.7.10'];
+    }
+  });
+
+  ipcMain.handle('servers:import-dialog', async () => {
+    try {
+      const res = await dialog.showOpenDialog(mainWindow, {
+        title: 'Seleccionar Carpeta de Servidor Existente',
+        properties: ['openDirectory']
+      });
+      if (res.canceled || !res.filePaths || res.filePaths.length === 0) {
+        return { canceled: true };
+      }
+      const sourceDir = res.filePaths[0];
+      return await serverManager.importServer(sourceDir);
+    } catch (err) {
+      logger.error('Error en servers:import-dialog IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('servers:import', async (event, sourceDir) => {
+    try {
+      return await serverManager.importServer(sourceDir);
+    } catch (err) {
+      logger.error('Error en servers:import IPC:', err);
       return { success: false, error: err.message };
     }
   });
