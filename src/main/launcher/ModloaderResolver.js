@@ -453,6 +453,10 @@ class ModloaderResolver {
       for (let i = 0; i < rawJvmArgs.length; i++) {
         const curr = rawJvmArgs[i];
         if (typeof curr === 'string') {
+          // Descartar banderas de memoria por defecto (-Xmx / -Xms) del manifiesto
+          if (curr.startsWith('-Xmx') || curr.startsWith('-Xms')) {
+            continue;
+          }
           if (curr === '-p' || curr === '--module-path') {
             if (i + 1 < rawJvmArgs.length && typeof rawJvmArgs[i + 1] === 'string') {
               unifiedArgs.push('--module-path=' + resolvePlaceholders(rawJvmArgs[i + 1]));
@@ -475,6 +479,10 @@ class ModloaderResolver {
           for (let j = 0; j < valList.length; j++) {
             const v = valList[j];
             if (typeof v === 'string') {
+              // Descartar banderas de memoria por defecto (-Xmx / -Xms) del manifiesto
+              if (v.startsWith('-Xmx') || v.startsWith('-Xms')) {
+                continue;
+              }
               if (v === '-p' || v === '--module-path') {
                 if (j + 1 < valList.length && typeof valList[j + 1] === 'string') {
                   unifiedArgs.push('--module-path=' + resolvePlaceholders(valList[j + 1]));
@@ -510,6 +518,23 @@ class ModloaderResolver {
       if (Array.isArray(vData.arguments.jvm) && vData.arguments.jvm.length > 0) {
         vData.arguments.jvm = [];
         jsonModified = true;
+      }
+      if (Array.isArray(vData.arguments['default-user-jvm'])) {
+        const prevLen = vData.arguments['default-user-jvm'].length;
+        vData.arguments['default-user-jvm'] = vData.arguments['default-user-jvm'].filter(arg => {
+          if (typeof arg === 'string') return !arg.startsWith('-Xmx') && !arg.startsWith('-Xms');
+          if (arg && typeof arg === 'object' && arg.value) {
+            if (typeof arg.value === 'string') return !arg.value.startsWith('-Xmx') && !arg.value.startsWith('-Xms');
+            if (Array.isArray(arg.value)) {
+              arg.value = arg.value.filter(val => typeof val !== 'string' || (!val.startsWith('-Xmx') && !val.startsWith('-Xms')));
+              return arg.value.length > 0;
+            }
+          }
+          return true;
+        });
+        if (vData.arguments['default-user-jvm'].length !== prevLen) {
+          jsonModified = true;
+        }
       }
 
       if (jsonModified) {

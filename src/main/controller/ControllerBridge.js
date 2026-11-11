@@ -37,7 +37,7 @@ class ControllerBridge extends EventEmitter {
    */
   start(instanceDir = null, targetPid = 0) {
     if (this.isRunning && this.workerProcess) {
-      if (instanceDir) this.updateInstance(instanceDir, targetPid);
+      if (instanceDir || targetPid) this.updateInstance(instanceDir, targetPid);
       return true;
     }
 

@@ -44,16 +44,46 @@ Handler.prototype.parseRule = function(lib) {
   return origParseRule.call(this, lib);
 };
 
-// Interceptar getVersion de MCLC para depurar las librerías cargadas desde el JSON de versión
+// Función auxiliar para descartar banderas de memoria por defecto (-Xmx y -Xms) del manifiesto
+function stripMemoryFlags(argsArray) {
+  if (!Array.isArray(argsArray)) return argsArray;
+  return argsArray.filter((arg) => {
+    if (typeof arg === 'string') {
+      return !arg.startsWith('-Xmx') && !arg.startsWith('-Xms');
+    }
+    if (arg && typeof arg === 'object' && arg.value) {
+      if (typeof arg.value === 'string') {
+        return !arg.value.startsWith('-Xmx') && !arg.value.startsWith('-Xms');
+      }
+      if (Array.isArray(arg.value)) {
+        arg.value = arg.value.filter((v) => typeof v !== 'string' || (!v.startsWith('-Xmx') && !v.startsWith('-Xms')));
+        return arg.value.length > 0;
+      }
+    }
+    return true;
+  });
+}
+
+// Interceptar getVersion de MCLC para depurar las librerías cargadas desde el JSON de versión y eliminar -Xmx/-Xms por defecto
 const origGetVersion = Handler.prototype.getVersion;
 Handler.prototype.getVersion = async function() {
   const ver = await origGetVersion.call(this);
-  if (ver && Array.isArray(ver.libraries)) {
-    ver.libraries = ver.libraries.filter((lib) => {
-      const libName = lib.name || '';
-      const libPath = lib.downloads?.artifact?.path || '';
-      return !isLibraryIncompatible(libName, libPath);
-    });
+  if (ver) {
+    if (Array.isArray(ver.libraries)) {
+      ver.libraries = ver.libraries.filter((lib) => {
+        const libName = lib.name || '';
+        const libPath = lib.downloads?.artifact?.path || '';
+        return !isLibraryIncompatible(libName, libPath);
+      });
+    }
+    if (ver.arguments) {
+      if (Array.isArray(ver.arguments.jvm)) {
+        ver.arguments.jvm = stripMemoryFlags(ver.arguments.jvm);
+      }
+      if (Array.isArray(ver.arguments['default-user-jvm'])) {
+        ver.arguments['default-user-jvm'] = stripMemoryFlags(ver.arguments['default-user-jvm']);
+      }
+    }
   }
   return ver;
 };
@@ -276,12 +306,41 @@ class LaunchManager {
       const customVersionName = loaderPrep.customVersionName;
       let parsedLoaderJvmArgs = [];
 
+      // Saneamiento proactivo del version.json en disco para eliminar -Xmx/-Xms duplicados antes de MCLC
+      try {
+        const targetVersionName = customVersionName || mcVersion;
+        const versionJsonPath = path.join(sharedRoot, 'versions', targetVersionName, `${targetVersionName}.json`);
+        if (fs.existsSync(versionJsonPath)) {
+          const vJson = JSON.parse(fs.readFileSync(versionJsonPath, 'utf8'));
+          let vModified = false;
+          if (vJson.arguments) {
+            if (Array.isArray(vJson.arguments.jvm)) {
+              const beforeLen = vJson.arguments.jvm.length;
+              vJson.arguments.jvm = stripMemoryFlags(vJson.arguments.jvm);
+              if (vJson.arguments.jvm.length !== beforeLen) vModified = true;
+            }
+            if (Array.isArray(vJson.arguments['default-user-jvm'])) {
+              const beforeLen = vJson.arguments['default-user-jvm'].length;
+              vJson.arguments['default-user-jvm'] = stripMemoryFlags(vJson.arguments['default-user-jvm']);
+              if (vJson.arguments['default-user-jvm'].length !== beforeLen) vModified = true;
+            }
+          }
+          if (vModified) {
+            fs.writeFileSync(versionJsonPath, JSON.stringify(vJson, null, 2), 'utf8');
+            logger.info(`[LaunchManager] Version JSON ${targetVersionName}.json saneado en disco (eliminadas flags -Xmx/-Xms del manifiesto).`);
+          }
+        }
+      } catch (cleanErr) {
+        logger.warn(`[LaunchManager] Aviso al sanear version JSON en disco: ${cleanErr.message}`);
+      }
+
       if (customVersionName) {
         // REQUISITOS 1 y 2: Unificar pares de flags JVM y vaciar arguments.jvm en disco para MCLC
         parsedLoaderJvmArgs = ModloaderResolver.sanitizeAndUnifyJvmArgs({
           mcRoot: sharedRoot,
           customVersionName
         });
+        parsedLoaderJvmArgs = parsedLoaderJvmArgs.filter((a) => typeof a === 'string' && !a.startsWith('-Xmx') && !a.startsWith('-Xms'));
         logger.info(`[NeoForge JVM] Inyectados ${parsedLoaderJvmArgs.length} argumentos JVM unificados desde ${customVersionName}.json`);
       }
 
@@ -297,15 +356,21 @@ class LaunchManager {
         '--enable-native-access=ALL-UNNAMED'
       ];
 
-      // Combinar todas las flags evitando duplicados
+      // Combinar todas las flags evitando duplicados y preservando estrictamente la RAM de ShubaCore
       const finalJvmArgs = [];
       const seenArgs = new Set();
       const allArgsToInject = [...jvmFlags, ...parsedLoaderJvmArgs, ...mandatoryReflectionFlags];
 
       for (const a of allArgsToInject) {
-        if (a && typeof a === 'string' && !seenArgs.has(a)) {
-          seenArgs.add(a);
-          finalJvmArgs.push(a);
+        if (a && typeof a === 'string') {
+          // Descartar flags de memoria que no provengan directamente de jvmFlags de ShubaCore
+          if ((a.startsWith('-Xmx') || a.startsWith('-Xms')) && !jvmFlags.includes(a)) {
+            continue;
+          }
+          if (!seenArgs.has(a)) {
+            seenArgs.add(a);
+            finalJvmArgs.push(a);
+          }
         }
       }
 
@@ -467,6 +532,7 @@ class LaunchManager {
         child: gameProcess,
         instanceId: activeProfile.id,
         instanceName: activeProfile.name,
+        instancePath,
         username: auth.name,
         accountMode: currentAccount?.type || (this.authManager?.isPremium?.() ? 'microsoft' : 'offline'),
         startTime: Date.now()
@@ -485,15 +551,12 @@ class LaunchManager {
       // Registrar timestamp de último juego en el perfil
       this.profileManager.updateProfile(activeProfile.id, { lastPlayed: new Date().toISOString() });
 
-      // Iniciar puente nativo de mandos Win32 activo por defecto (0 mods, directo en Vanilla)
-      const isCtrlActive = process.platform === 'win32' &&
-        overrideOptions.controllerSupport !== false &&
-        activeProfile.controllerSupport !== false &&
-        this.configManager.get('performance.controllerSupport', true) !== false;
-      if (isCtrlActive) {
+      // Iniciar puente nativo de mandos Win32 automáticamente al lanzar Minecraft
+      if (process.platform === 'win32') {
         try {
           const { getControllerBridge } = require('../controller/ControllerBridge');
           getControllerBridge().start(instancePath, gameProcess.pid);
+          logger.info(`[Mando] Puente XInput/Gamepad activo para Minecraft (PID: ${gameProcess.pid})`);
         } catch (bridgeErr) {
           logger.warn(`[LaunchManager] Aviso al iniciar puente de mandos Win32: ${bridgeErr.message}`);
         }
@@ -603,6 +666,20 @@ class LaunchManager {
     logger.info(`¡La ventana de Minecraft (${profileName || 'Sesión'}) se ha creado y el juego está listo!`);
     logger.info('===========================================================');
 
+    // Asegurar que ControllerBridge esté activo con el PID de la ventana de Minecraft
+    if (process.platform === 'win32') {
+      try {
+        const { getControllerBridge } = require('../controller/ControllerBridge');
+        const session = this.runningProcesses.get(sessionId);
+        const pid = session?.pid;
+        const instPath = session?.instancePath || this.lastInstancePath;
+        getControllerBridge().start(instPath, pid);
+        logger.info(`[Mando] Puente XInput/Gamepad activo para Minecraft (PID: ${pid || 'auto'})`);
+      } catch (bridgeErr) {
+        logger.warn(`[LaunchManager] Aviso al verificar puente de mandos Win32: ${bridgeErr.message}`);
+      }
+    }
+
     // Emitir evento para que ipcHandlers / main.js oculte la ventana y congele interfaz
     this._emit('launch:game-ready', {
       sessionId,
@@ -640,6 +717,7 @@ class LaunchManager {
         try {
           const { getControllerBridge } = require('../controller/ControllerBridge');
           getControllerBridge().stop();
+          logger.info('[Mando] Puente de mando detenido');
         } catch (_) {}
       }
 

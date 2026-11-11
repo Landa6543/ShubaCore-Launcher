@@ -70,7 +70,7 @@ assert.ok(indexHtml.includes('id="btn-test-controller-injection"'), 'Debe existi
 console.log('   ✔ Barra lateral y botón [⚡ Probar Inyección (5 seg)] verificados.');
 
 // 4. Verificar switches de fondo en main.js y background polling en renderer.js
-console.log('\n▶ [4/5] Verificando Chromium background switches y polling continuo en renderer.js...');
+console.log('\n▶ [4/6] Verificando Chromium background switches y polling continuo en renderer.js...');
 const mainJs = fs.readFileSync(path.join(__dirname, '../main.js'), 'utf8');
 assert.ok(mainJs.includes('disable-renderer-backgrounding'), 'main.js debe incluir disable-renderer-backgrounding');
 assert.ok(mainJs.includes('disable-background-timer-throttling'), 'main.js debe incluir disable-background-timer-throttling');
@@ -86,8 +86,55 @@ assert.ok(workerPs1.includes('KEYEVENTF_SCANCODE = 0x0008'), 'controller-worker.
 assert.ok(workerPs1.includes('HARDWARE_SCAN_CODES'), 'controller-worker.ps1 debe mapear Hardware Scan Codes para GLFW');
 console.log('   ✔ Backgrounding switches, Hardware Scan Codes y polling continuo validados al 100%.');
 
-// 5. Limpieza de directorio temporal
-console.log('\n▶ [5/5] Limpiando archivos temporales...');
+// 5. Verificar auto-arranque/parada de ControllerBridge y eliminación de -Xmx2G duplicado
+console.log('\n▶ [5/6] Verificando auto-arranque de ControllerBridge y filtrado de -Xmx/-Xms duplicados...');
+const launchManagerJs = fs.readFileSync(path.join(__dirname, '../src/main/launcher/LaunchManager.js'), 'utf8');
+assert.ok(launchManagerJs.includes('[Mando] Puente XInput/Gamepad activo para Minecraft'), 'LaunchManager debe loguear auto-arranque con PID');
+assert.ok(launchManagerJs.includes('[Mando] Puente de mando detenido'), 'LaunchManager debe loguear detención limpia del mando');
+assert.ok(launchManagerJs.includes('stripMemoryFlags'), 'LaunchManager debe definir stripMemoryFlags para filtrar -Xmx/-Xms de version.json');
+
+const modloaderResolver = require('../src/main/launcher/ModloaderResolver').ModloaderResolver;
+const testCustomDir = path.join(tempDir, 'versions', 'test-loader');
+fs.mkdirSync(testCustomDir, { recursive: true });
+const testCustomJson = path.join(testCustomDir, 'test-loader.json');
+fs.writeFileSync(testCustomJson, JSON.stringify({
+  arguments: {
+    jvm: [
+      '-Xmx2G',
+      '-Xms1G',
+      '--add-opens',
+      'java.base/java.lang=ALL-UNNAMED',
+      {
+        value: ['-Xmx4G', '-XX:+UseG1GC']
+      }
+    ],
+    'default-user-jvm': [
+      {
+        value: ['-Xms2G', '-Xmx2G', '-XX:+UseCompactObjectHeaders']
+      }
+    ]
+  }
+}, null, 2), 'utf8');
+
+const unified = modloaderResolver.sanitizeAndUnifyJvmArgs({
+  mcRoot: tempDir,
+  customVersionName: 'test-loader'
+});
+
+assert.strictEqual(unified.some(a => a.startsWith('-Xmx') || a.startsWith('-Xms')), false, 'unifiedArgs no debe contener ningún -Xmx ni -Xms');
+assert.ok(unified.includes('--add-opens=java.base/java.lang=ALL-UNNAMED'), 'Debe conservar flags no relacionadas con memoria');
+assert.ok(unified.includes('-XX:+UseG1GC'), 'Debe conservar flags de GC');
+
+const diskJson = JSON.parse(fs.readFileSync(testCustomJson, 'utf8'));
+assert.strictEqual(diskJson.arguments.jvm.length, 0, 'arguments.jvm en disco debe quedar vacío');
+const defaultUserJvm = diskJson.arguments['default-user-jvm'];
+if (defaultUserJvm) {
+  assert.strictEqual(defaultUserJvm[0].value.some(v => v.startsWith('-Xmx') || v.startsWith('-Xms')), false, 'default-user-jvm no debe conservar -Xmx ni -Xms');
+}
+console.log('   ✔ Auto-arranque de ControllerBridge y eliminación de -Xmx/-Xms verificados con éxito.');
+
+// 6. Limpieza de directorio temporal
+console.log('\n▶ [6/6] Limpiando archivos temporales...');
 try {
   fs.rmSync(tempDir, { recursive: true, force: true });
 } catch (_) {}
