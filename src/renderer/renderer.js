@@ -37,7 +37,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const accountStatus = document.getElementById('account-status');
   const sidebarAvatarCanvas = document.getElementById('sidebar-avatar-canvas');
   const playerName = document.getElementById('player-name');
-  const playerType = document.getElementById('player-type');
+  const playerType = document.getElementById('sidebar-account-badge') || document.getElementById('player-type');
+  const sidebarAccountBadge = playerType;
   const playerUuid = document.getElementById('player-uuid');
   const playerAvatar = document.getElementById('player-avatar');
 
@@ -702,20 +703,44 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function updatePlayerBadge(account) {
     if (!account) return;
     const accName = account.name || account.username || 'Steve';
-    playerName.textContent = accName;
+    if (playerName) playerName.textContent = accName;
     if (playerUuid) playerUuid.textContent = `UUID: ${account.uuid || '-'}`;
     if (skinModalUsername) skinModalUsername.textContent = accName;
 
     let skinToRender = account.skinUrl || `https://mc-heads.net/skin/${accName}`;
-    const isPremium = account.type === 'premium' || account.type === 'microsoft';
+    const isPremium = (account.type === 'offline')
+      ? false
+      : Boolean(
+          account.type === 'premium' ||
+          account.type === 'microsoft' ||
+          account.isPremium === true ||
+          account.activeMode === 'microsoft' ||
+          account.mcAccessToken ||
+          account.tokens?.mcAccessToken
+        );
+
+    const badge = document.getElementById('sidebar-account-badge') || playerType;
+    if (badge) {
+      if (isPremium) {
+        badge.textContent = 'MICROSOFT';
+        badge.className = 'badge badge-premium badge-microsoft';
+        badge.style.setProperty('background-color', 'rgba(16, 185, 129, 0.15)', 'important');
+        badge.style.setProperty('color', '#10b981', 'important');
+        badge.style.setProperty('border', '1px solid rgba(16, 185, 129, 0.35)', 'important');
+        badge.style.display = 'inline-block';
+      } else {
+        badge.textContent = 'OFFLINE';
+        badge.className = 'badge badge-offline';
+        badge.style.removeProperty('background-color');
+        badge.style.removeProperty('color');
+        badge.style.removeProperty('border');
+        badge.style.display = 'inline-block';
+      }
+    }
 
     if (isPremium) {
-      playerType.textContent = 'MICROSOFT';
-      playerType.className = 'badge badge-premium';
       switchAccountModalTab('premium');
     } else {
-      playerType.textContent = 'OFFLINE';
-      playerType.className = 'badge badge-offline';
       if (inputOfflineUser) inputOfflineUser.value = accName;
       if (previewOfflineUuid) previewOfflineUuid.textContent = account.uuid || '-';
       switchAccountModalTab('offline');
@@ -1669,16 +1694,25 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (savedSession && savedSession.success) {
           const msUser = savedSession.microsoftAccount?.username || savedSession.microsoftAccount?.name;
           const offUser = savedSession.offlineAccount?.username || savedSession.offlineAccount?.name;
+          const hasValidMs = isValidUser(msUser);
+          const hasValidOff = isValidUser(offUser);
 
-          if (savedSession.activeMode === 'microsoft' && isValidUser(msUser)) {
+          // Si en auth-session.json hay una cuenta Microsoft activa o el modo es microsoft, restaurar Microsoft directamente
+          const preferMs = hasValidMs && (savedSession.activeMode === 'microsoft' || !hasValidOff);
+
+          if (preferMs) {
             const cleanMs = msUser.trim();
             const msAcc = savedSession.account || {
               name: cleanMs,
               username: cleanMs,
               uuid: savedSession.microsoftAccount.uuid,
               type: 'premium',
+              isPremium: true,
+              activeMode: 'microsoft',
               skinUrl: savedSession.microsoftAccount.skinUrl
             };
+            msAcc.type = 'premium';
+            msAcc.isPremium = true;
             if (tabPremium && tabOffline && formPremium && formOffline) {
               tabPremium.classList.add('active');
               tabOffline.classList.remove('active');
@@ -1688,14 +1722,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             await updatePlayerBadge(msAcc);
             await refreshMicrosoftAccountState();
             appendLog(`[Auth] Sesión Microsoft restaurada automáticamente: "${cleanMs}" (Premium)`, 'info');
-          } else if (isValidUser(offUser)) {
+          } else if (hasValidOff && savedSession.activeMode === 'offline') {
             const cleanOff = offUser.trim();
             const offAcc = savedSession.account || {
               name: cleanOff,
               username: cleanOff,
-              uuid: savedSession.offlineAccount.uuid,
-              type: 'offline'
+              uuid: savedSession.offlineAccount?.uuid,
+              type: 'offline',
+              isPremium: false,
+              activeMode: 'offline'
             };
+            offAcc.type = 'offline';
+            offAcc.isPremium = false;
             if (inputOfflineUser) inputOfflineUser.value = cleanOff;
             if (tabPremium && tabOffline && formPremium && formOffline) {
               tabOffline.classList.add('active');
@@ -1705,15 +1743,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             await updatePlayerBadge(offAcc);
             appendLog(`[Auth] Sesión Offline restaurada: "${cleanOff}"`, 'info');
-          } else if (isValidUser(msUser)) {
+          } else if (hasValidMs) {
             const cleanMs = msUser.trim();
             const msAcc = savedSession.account || {
               name: cleanMs,
               username: cleanMs,
               uuid: savedSession.microsoftAccount.uuid,
               type: 'premium',
+              isPremium: true,
+              activeMode: 'microsoft',
               skinUrl: savedSession.microsoftAccount.skinUrl
             };
+            msAcc.type = 'premium';
+            msAcc.isPremium = true;
             if (tabPremium && tabOffline && formPremium && formOffline) {
               tabPremium.classList.add('active');
               tabOffline.classList.remove('active');
@@ -1723,6 +1765,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             await updatePlayerBadge(msAcc);
             await refreshMicrosoftAccountState();
             appendLog(`[Auth] Sesión Microsoft restaurada: "${cleanMs}" (Premium)`, 'info');
+          } else if (hasValidOff) {
+            const cleanOff = offUser.trim();
+            const offAcc = {
+              name: cleanOff,
+              username: cleanOff,
+              uuid: savedSession.offlineAccount?.uuid,
+              type: 'offline',
+              isPremium: false,
+              activeMode: 'offline'
+            };
+            if (inputOfflineUser) inputOfflineUser.value = cleanOff;
+            await updatePlayerBadge(offAcc);
+            appendLog(`[Auth] Sesión Offline restaurada: "${cleanOff}"`, 'info');
           } else if (config.auth?.currentUser && isValidUser(config.auth.currentUser.name)) {
             await updatePlayerBadge(config.auth.currentUser);
           } else {
@@ -3332,7 +3387,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       const ver = await api.updater.getVersion();
       if (launcherCurrentVersion && ver) {
-        launcherCurrentVersion.textContent = `v${ver} — Awakening Edition`;
+        launcherCurrentVersion.textContent = 'v' + ver;
       }
     } catch (_) {}
   }

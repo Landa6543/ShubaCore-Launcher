@@ -94,6 +94,8 @@ class AuthManager {
       username: cleanUser,
       uuid: msData.uuid,
       type: 'premium',
+      isPremium: true,
+      activeMode: 'microsoft',
       skinUrl: msData.skinUrl || `https://mc-heads.net/skin/${cleanUser}`,
       mclcAuth: {
         access_token: msData.mcAccessToken,
@@ -120,6 +122,9 @@ class AuthManager {
     const cleanUser = String(rawUser).trim();
 
     const profile = createOfflineProfile(cleanUser);
+    profile.type = 'offline';
+    profile.isPremium = false;
+    profile.activeMode = 'offline';
     if (offData.uuid) {
       profile.uuid = offData.uuid;
       if (profile.mclcAuth) profile.mclcAuth.uuid = offData.uuid;
@@ -208,7 +213,17 @@ class AuthManager {
 
     // Configurar la cuenta activa en configManager con fallback seguro
     let activeAccount = null;
-    if (session.activeMode === 'microsoft' && session.microsoftAccount) {
+    if (session.microsoftAccount && (session.activeMode === 'microsoft' || !session.offlineAccount)) {
+      session.activeMode = 'microsoft';
+      activeAccount = this._buildAccountFromSession(session.microsoftAccount);
+      this.configManager.set('auth.currentUser', activeAccount);
+      this.configManager.set('auth.mode', 'premium');
+    } else if (session.activeMode === 'offline' && session.offlineAccount) {
+      activeAccount = this._buildOfflineAccountFromSession(session.offlineAccount);
+      this.configManager.set('auth.currentUser', activeAccount);
+      this.configManager.set('auth.mode', 'offline');
+    } else if (session.microsoftAccount) {
+      session.activeMode = 'microsoft';
       activeAccount = this._buildAccountFromSession(session.microsoftAccount);
       this.configManager.set('auth.currentUser', activeAccount);
       this.configManager.set('auth.mode', 'premium');
@@ -216,11 +231,6 @@ class AuthManager {
       activeAccount = this._buildOfflineAccountFromSession(session.offlineAccount);
       this.configManager.set('auth.currentUser', activeAccount);
       this.configManager.set('auth.mode', 'offline');
-    } else if (session.microsoftAccount) {
-      activeAccount = this._buildAccountFromSession(session.microsoftAccount);
-      session.activeMode = 'microsoft';
-      this.configManager.set('auth.currentUser', activeAccount);
-      this.configManager.set('auth.mode', 'premium');
     }
 
     return {
