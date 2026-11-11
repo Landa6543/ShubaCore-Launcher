@@ -443,6 +443,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       renderJavaRuntimes();
     } else if (viewName === 'console') {
       refreshJvmFlags();
+      if (api.launcher && api.launcher.getRecentLogs) {
+        api.launcher.getRecentLogs().then((logs) => {
+          if (Array.isArray(logs) && logs.length > 0 && consoleLogBuffer.length === 0) {
+            appendLogBatch(logs, 'game');
+          }
+        }).catch(() => {});
+      }
+    }
+
+    // Informar al backend la visibilidad de la consola para encender/apagar IPC de logs
+    if (api.launcher && api.launcher.setConsoleVisibility) {
+      api.launcher.setConsoleVisibility(viewName === 'console');
     }
 
     if (api.discord && api.discord.updateView) {
@@ -851,7 +863,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       consoleLogBuffer.shift();
     }
 
-    if (!consoleLogFilterText || text.toLowerCase().includes(consoleLogFilterText)) {
+    if (consoleStream && (!consoleLogFilterText || text.toLowerCase().includes(consoleLogFilterText))) {
       const line = document.createElement('div');
       line.className = `log-line log-${type}`;
       line.textContent = text;
@@ -861,6 +873,41 @@ document.addEventListener('DOMContentLoaded', async () => {
         consoleStream.removeChild(consoleStream.firstChild);
       }
 
+      consoleStream.scrollTop = consoleStream.scrollHeight;
+    }
+  }
+
+  function appendLogBatch(messages, type = 'game') {
+    if (!messages || !Array.isArray(messages) || messages.length === 0) return;
+    const time = new Date().toLocaleTimeString();
+    const fragment = document.createDocumentFragment();
+    let hasVisibleLines = false;
+
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i];
+      if (!msg && msg !== 0) continue;
+      const text = typeof msg === 'string' ? msg : String(msg);
+      const item = { text, type, time };
+
+      consoleLogBuffer.push(item);
+      if (consoleLogBuffer.length > MAX_CONSOLE_LOG_LINES) {
+        consoleLogBuffer.shift();
+      }
+
+      if (consoleStream && (!consoleLogFilterText || text.toLowerCase().includes(consoleLogFilterText))) {
+        const line = document.createElement('div');
+        line.className = `log-line log-${type}`;
+        line.textContent = text;
+        fragment.appendChild(line);
+        hasVisibleLines = true;
+      }
+    }
+
+    if (hasVisibleLines && consoleStream) {
+      consoleStream.appendChild(fragment);
+      while (consoleStream.childElementCount > MAX_CONSOLE_LOG_LINES) {
+        consoleStream.removeChild(consoleStream.firstChild);
+      }
       consoleStream.scrollTop = consoleStream.scrollHeight;
     }
   }
@@ -3140,6 +3187,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   api.events.on('launch:log', (line) => {
     appendLog(line, 'game');
+  });
+
+  api.events.on('launch:log-batch', (batch) => {
+    appendLogBatch(batch, 'game');
+  });
+
+  api.events.on('app:freeze-ui', (freeze) => {
+    if (freeze) {
+      document.body.classList.add('app-frozen');
+    } else {
+      document.body.classList.remove('app-frozen');
+    }
   });
 
   api.events.on('launch:debug', (line) => {

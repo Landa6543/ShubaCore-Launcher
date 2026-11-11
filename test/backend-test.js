@@ -58,22 +58,25 @@ assert.ok(profile.mclcAuth.access_token.startsWith('offline_token_'), 'Token MCL
 console.log('  ✔ Generación de cuentas offline verificada con precisión del 100%.\n');
 
 // 3. Test JVMOptimizer
-console.log('▶ [3/5] Verificando JVMOptimizer (Detección y Banderas ZGC/G1GC)...');
+console.log('▶ [3/5] Verificando JVMOptimizer (Detección y Banderas Oficiales G1GC)...');
 const { JVMOptimizer } = require('../src/main/jvm/JVMOptimizer');
 
-// Test Flags para Java 21 (Generational ZGC)
+// Test Flags oficiales CurseForge/Mojang para Java 21
 const jvm21Flags = JVMOptimizer.buildJvmArguments({
   majorVersion: 21,
   memoryMin: '2G',
   memoryMax: '6G'
 });
 console.log('  Flags generadas para Java 21:', jvm21Flags.join(' '));
-assert.ok(jvm21Flags.includes('-XX:+UseZGC'), 'Java 21 debe incluir -XX:+UseZGC');
-assert.ok(jvm21Flags.includes('-XX:+ZGenerational'), 'Java 21 debe incluir -XX:+ZGenerational');
+assert.ok(jvm21Flags.includes('-XX:+UseG1GC'), 'Java 21 debe usar G1GC oficial de CurseForge');
+assert.ok(jvm21Flags.includes('-XX:MaxGCPauseMillis=50'), 'Debe incluir MaxGCPauseMillis=50');
+assert.ok(jvm21Flags.includes('-XX:G1HeapRegionSize=32M'), 'Debe incluir G1HeapRegionSize=32M');
+assert.ok(jvm21Flags.includes('--enable-native-access=ALL-UNNAMED'), 'Java 21 debe incluir --enable-native-access');
+assert.ok(!jvm21Flags.includes('-XX:+UseZGC'), 'Java 21 no debe incluir ZGC');
 assert.ok(jvm21Flags.includes('-Xms2G'), 'Debe incluir memoria mínima');
 assert.ok(jvm21Flags.includes('-Xmx6G'), 'Debe incluir memoria máxima');
 
-// Test Flags para Java 17 (G1GC Optimizado Aikar)
+// Test Flags oficiales CurseForge/Mojang para Java 17
 const jvm17Flags = JVMOptimizer.buildJvmArguments({
   majorVersion: 17,
   memoryMin: '4G',
@@ -81,8 +84,8 @@ const jvm17Flags = JVMOptimizer.buildJvmArguments({
 });
 console.log('  Flags generadas para Java 17:', jvm17Flags.join(' '));
 assert.ok(jvm17Flags.includes('-XX:+UseG1GC'), 'Java 17 debe incluir -XX:+UseG1GC');
-assert.ok(jvm17Flags.includes('-XX:+ParallelRefProcEnabled'), 'Java 17 debe incluir Aikar flags');
-assert.ok(!jvm17Flags.includes('-XX:+ZGenerational'), 'Java 17 no debe incluir ZGenerational');
+assert.ok(jvm17Flags.includes('-XX:+DisableExplicitGC'), 'Java 17 debe incluir -XX:+DisableExplicitGC');
+assert.ok(!jvm17Flags.includes('-XX:+UseZGC'), 'Java 17 no debe incluir ZGC');
 
 // Detección real del sistema
 const detectedJava = JVMOptimizer.detectJavaSync();

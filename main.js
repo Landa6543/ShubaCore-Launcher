@@ -78,9 +78,12 @@ function createMainWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: false,
-      devTools: true
+      devTools: true,
+      backgroundThrottling: true
     }
   });
+
+  mainWindow.webContents.setBackgroundThrottling(true);
 
   // Registrar todos los manejadores IPC con la ventana activa
   registerIpcHandlers(mainWindow);

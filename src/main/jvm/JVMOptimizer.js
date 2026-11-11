@@ -251,7 +251,7 @@ class JVMOptimizer {
           vendor: parsed.vendor,
           is64Bit: parsed.is64Bit,
           arch: parsed.arch,
-          recommendedGC: parsed.majorVersion >= 21 ? 'Generational ZGC' : 'Optimized G1GC (Aikar)',
+          recommendedGC: 'CurseForge / Mojang G1GC',
           rawOutput: output.trim()
         });
       });
@@ -317,65 +317,39 @@ class JVMOptimizer {
   }
 
   /**
-   * Construye argumentos JVM de alto rendimiento, incluyendo --enable-native-access=ALL-UNNAMED
+   * Construye argumentos JVM oficiales de CurseForge / Mojang basados en G1GC
+   * de alto rendimiento y máxima estabilidad para modpacks de 300+ mods.
    */
   static buildJvmArguments({ majorVersion = 21, ramMin, ramMax, memoryMin = '2G', memoryMax = '8G', customJvmArgs = '' } = {}) {
     const flags = [];
 
-    // 1. Memoria RAM
+    // 1. Memoria RAM (CurseForge / Mojang: -Xmx y -Xms)
     const minVal = ramMin || memoryMin || '2G';
     const maxVal = ramMax || memoryMax || '8G';
     const cleanMin = String(minVal).trim().toUpperCase();
     const cleanMax = String(maxVal).trim().toUpperCase();
-    flags.push(`-Xms${cleanMin.endsWith('G') || cleanMin.endsWith('M') ? cleanMin : cleanMin + 'G'}`);
-    flags.push(`-Xmx${cleanMax.endsWith('G') || cleanMax.endsWith('M') ? cleanMax : cleanMax + 'G'}`);
+    const xms = cleanMin.endsWith('G') || cleanMin.endsWith('M') ? cleanMin : cleanMin + 'G';
+    const xmx = cleanMax.endsWith('G') || cleanMax.endsWith('M') ? cleanMax : cleanMax + 'G';
 
-    // 2. Flags para Java 21+ (NeoForge 1.21+ exige --enable-native-access=ALL-UNNAMED)
-    if (majorVersion >= 21) {
-      logger.info(`[JVM Optimizer] Aplicando Generational ZGC y --enable-native-access para Java ${majorVersion}`);
-      flags.push(
-        '--enable-native-access=ALL-UNNAMED',
-        '-XX:+UnlockExperimentalVMOptions',
-        '-XX:+UseZGC'
-      );
-      // REQUISITO CRÍTICO: En Java 24+ ZGenerational ya es el comportamiento nativo y el flag fue eliminado
-      if (majorVersion < 24) {
-        flags.push('-XX:+ZGenerational');
-      }
-      flags.push(
-        '-XX:+AlwaysPreTouch',
-        '-XX:+PerfDisableSharedMem',
-        '-XX:+UseStringDeduplication',
-        '-XX:-OmitStackTraceInFastThrow'
-      );
-    } else {
-      // Flags para Java 17 (G1GC Aikar)
-      logger.info(`[JVM Optimizer] Aplicando G1GC optimizado (Aikar flags) para Java ${majorVersion}`);
-      flags.push(
-        '-XX:+UseG1GC',
-        '-XX:+ParallelRefProcEnabled',
-        '-XX:MaxGCPauseMillis=200',
-        '-XX:+UnlockExperimentalVMOptions',
-        '-XX:+DisableExplicitGC',
-        '-XX:+AlwaysPreTouch',
-        '-XX:G1NewSizePercent=30',
-        '-XX:G1MaxNewSizePercent=40',
-        '-XX:G1ReservePercent=20',
-        '-XX:G1HeapWastePercent=5',
-        '-XX:G1MixedGCCountTarget=4',
-        '-XX:InitiatingHeapOccupancyPercent=15',
-        '-XX:G1MixedGCLiveThresholdPercent=90',
-        '-XX:G1RSetUpdatingPauseTimePercent=5',
-        '-XX:SurvivorRatio=32',
-        '-XX:+PerfDisableSharedMem',
-        '-XX:+UseStringDeduplication'
-      );
-    }
+    // CurseForge / Mojang: -Xmx primero, -Xms segundo (sin forzar Xms = Xmx para evitar Allocation Stalls)
+    flags.push(`-Xmx${xmx}`);
+    flags.push(`-Xms${xms}`);
 
+    // 2. Argumentos JVM oficiales de CurseForge / Mojang para G1GC
     flags.push(
-      '-Dsun.rmi.dgc.server.gcInterval=2147483646',
-      '-Dsun.rmi.dgc.client.gcInterval=2147483646'
+      '-XX:+UnlockExperimentalVMOptions',
+      '-XX:+UseG1GC',
+      '-XX:G1NewSizePercent=20',
+      '-XX:G1ReservePercent=20',
+      '-XX:MaxGCPauseMillis=50',
+      '-XX:G1HeapRegionSize=32M',
+      '-XX:+DisableExplicitGC'
     );
+
+    // 3. Flags para Java 21+ (NeoForge 1.21+ exige --enable-native-access=ALL-UNNAMED)
+    if (majorVersion >= 21) {
+      flags.push('--enable-native-access=ALL-UNNAMED');
+    }
 
     if (customJvmArgs && typeof customJvmArgs === 'string') {
       const userArgs = customJvmArgs.trim().split(/\s+/).filter((a) => a.length > 0);

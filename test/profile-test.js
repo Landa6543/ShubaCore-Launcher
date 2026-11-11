@@ -140,8 +140,9 @@ async function runProfileTests() {
     majorVersion: 21
   });
   assert.ok(jvm21Flags.includes('--enable-native-access=ALL-UNNAMED'), 'Debe incluir --enable-native-access');
-  assert.ok(jvm21Flags.includes('-XX:+UseZGC'), 'Debe incluir ZGC');
-  assert.ok(jvm21Flags.includes('-XX:+ZGenerational'), 'Debe incluir Generational ZGC');
+  assert.ok(jvm21Flags.includes('-XX:+UseG1GC'), 'Debe incluir G1GC oficial de CurseForge');
+  assert.ok(jvm21Flags.includes('-XX:MaxGCPauseMillis=50'), 'Debe incluir MaxGCPauseMillis=50');
+  assert.ok(!jvm21Flags.includes('-XX:+UseZGC'), 'No debe incluir ZGC');
   assert.ok(jvm21Flags.includes('-Xms2G'), 'Debe incluir -Xms2G');
   assert.ok(jvm21Flags.includes('-Xmx8G'), 'Debe incluir -Xmx8G');
   console.log('  ✔ JVMOptimizer flags de Java 21 validadas.\n');

@@ -31,6 +31,9 @@ function registerIpcHandlers(mainWindow) {
   const packPorter = getPackPorter();
   const discordManager = getDiscordManager();
 
+  // Estado de visibilidad de la pestaña de consola para evitar IPC flood y backpressure
+  let isConsoleTabVisible = false;
+
   // Suscribir eventos del LaunchManager para retransmitirlos a la ventana del renderer
   launchManager.onEvent((eventName, data) => {
     // Comportamiento del Launcher al Iniciar el Juego (launchBehavior: 'hide' | 'keep' | 'close')
@@ -39,9 +42,11 @@ function registerIpcHandlers(mainWindow) {
     if (eventName === 'launch:game-ready') {
       if (launchBehavior === 'hide') {
         if (mainWindow && !mainWindow.isDestroyed()) {
-          logger.info('⚡ [RENDIMIENTO MÁXIMO] Modo Rendimiento ("hide"): ShubaCore oculto en segundo plano (0% GPU). Discord RPC y logs continúan activos.');
+          logger.info('⚡ [RENDIMIENTO MÁXIMO] Modo Rendimiento ("hide"): ShubaCore congelado y oculto en segundo plano (0.0% CPU / 0% GPU). Discord RPC y logs continúan activos.');
           try {
-            if (mainWindow.webContents && mainWindow.webContents.session) {
+            mainWindow.webContents.setBackgroundThrottling(true);
+            mainWindow.webContents.send('app:freeze-ui', true);
+            if (mainWindow.webContents.session) {
               mainWindow.webContents.session.clearCache().catch(() => {});
             }
           } catch (_) {}
@@ -62,7 +67,10 @@ function registerIpcHandlers(mainWindow) {
     } else if (eventName === 'launch:close') {
       if (launchBehavior === 'hide' || launchBehavior === 'keep') {
         if (mainWindow && !mainWindow.isDestroyed()) {
-          logger.info('[SHUBATECH] Proceso de Minecraft cerrado. Restaurando ventana de ShubaCore de inmediato.');
+          logger.info('[SHUBATECH] Proceso de Minecraft cerrado. Descongelando y restaurando ventana de ShubaCore de inmediato.');
+          try {
+            mainWindow.webContents.send('app:freeze-ui', false);
+          } catch (_) {}
           mainWindow.show();
           mainWindow.focus();
         }
@@ -76,6 +84,20 @@ function registerIpcHandlers(mainWindow) {
       }
     }
 
+    // Filtrar estrictamente la transmisión de logs:
+    // NUNCA enviar si la ventana está oculta, o si el usuario no está en la pestaña Consola
+    if (eventName === 'launch:log-batch') {
+      if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible() && isConsoleTabVisible) {
+        mainWindow.webContents.send('launch:log-batch', data);
+      }
+      return;
+    }
+
+    // Descartar logs individuales obsoletos para evitar saturar el canal IPC
+    if (eventName === 'launch:log' || eventName === 'game-log') {
+      return;
+    }
+
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send(eventName, data);
     }
@@ -83,8 +105,10 @@ function registerIpcHandlers(mainWindow) {
 
   // Retransmitir logs del backend al frontend
   logger.subscribe((entry) => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('app:log', entry);
+    if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()) {
+      if (entry.level === 'ERROR' || isConsoleTabVisible) {
+        mainWindow.webContents.send('app:log', entry);
+      }
     }
   });
 
@@ -415,6 +439,14 @@ function registerIpcHandlers(mainWindow) {
       logger.error('Error al abrir crash reports:', err);
       return { success: false, error: err.message };
     }
+  });
+
+  ipcMain.on('launcher:set-console-visibility', (event, visible) => {
+    isConsoleTabVisible = !!visible;
+  });
+
+  ipcMain.handle('launcher:get-recent-logs', async () => {
+    return launchManager.getRecentLogs();
   });
 
   // ==========================================

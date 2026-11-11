@@ -12,12 +12,14 @@ const VALID_RECEIVE_CHANNELS = [
   'launch:download-status',
   'launch:debug',
   'launch:log',
+  'launch:log-batch',
   'game-log',
   'launch:started',
   'launch:game-ready',
   'launch:closing-launcher',
   'launch:close',
   'launch:error',
+  'app:freeze-ui',
   'mods:performance-pack-progress',
   'mods:modpack-progress',
   'content:download-progress',
@@ -106,7 +108,9 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
     getStatus: () => ipcRenderer.invoke('launcher:get-status'),
     openLatestLog: (instancePath) => ipcRenderer.invoke('launcher:open-latest-log', instancePath),
     openLogsFolder: (instancePath) => ipcRenderer.invoke('launcher:open-logs-folder', instancePath),
-    openCrashReports: (instancePath) => ipcRenderer.invoke('launcher:open-crash-reports', instancePath)
+    openCrashReports: (instancePath) => ipcRenderer.invoke('launcher:open-crash-reports', instancePath),
+    setConsoleVisibility: (visible) => ipcRenderer.send('launcher:set-console-visibility', visible),
+    getRecentLogs: () => ipcRenderer.invoke('launcher:get-recent-logs')
   },
 
   // ==========================================

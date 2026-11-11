@@ -29,6 +29,13 @@ class LaunchManager {
     this.currentLogStream = null;
     this.lastLogPath = null;
     this.lastInstancePath = null;
+    this.recentLogsBuffer = [];
+    this.pendingLogBatch = [];
+    this.logFlushTimer = null;
+  }
+
+  getRecentLogs() {
+    return [...this.recentLogsBuffer];
   }
 
   onEvent(callback) {
@@ -264,25 +271,7 @@ class LaunchManager {
       this.lastLogPath = launcherLogFile;
       this.lastInstancePath = instancePath;
 
-      if (this.currentLogStream) {
-        try { this.currentLogStream.end(); } catch (_) {}
-      }
-
-      this.currentLogStream = fs.createWriteStream(launcherLogFile, { flags: 'a', encoding: 'utf8' });
-
-      const launchHeader = [
-        '\n=======================================================',
-        `[SHUBACORE ENGINE] SESIÓN DE JUEGO INICIADA: ${new Date().toISOString()}`,
-        `Perfil: "${activeProfile.name}" [ID: ${activeProfile.id}]`,
-        `Minecraft: ${mcVersion} | Loader: ${loader.toUpperCase()} (${loaderVersion || 'Auto'})`,
-        `Directorio de Instancia (gameDir): ${instancePath}`,
-        `Directorio de Trabajo (cwd): ${instancePath}`,
-        `Runtime Java: "${resolvedJavaPath}" (Java ${resolvedJavaMajor})`,
-        `Memoria Asignada: ${memoryMin} - ${memoryMax}`,
-        `Flags JVM: ${finalJvmArgs.join(' ')}`,
-        '=======================================================\n'
-      ].join('\n');
-      this.currentLogStream.write(launchHeader + '\n');
+      logger.info(`[SHUBACORE ENGINE] Iniciando sesión: Perfil "${activeProfile.name}", MC ${mcVersion} (${loader}), RAM: ${memoryMin}-${memoryMax}`);
 
       // REQUISITO 2: ShubaCore Engine - Inyección de variables de entorno de alto rendimiento para GPU
       process.env.SHIM_MCCOMPAT = '0x800000001';
@@ -330,10 +319,13 @@ class LaunchManager {
       this.activeProcess = gameProcess;
       this.isLaunching = false;
 
-      // REQUISITO 2: Asignar Prioridad Alta de CPU en Windows en tiempo real
-      if (process.platform === 'win32' && gameProcess.pid) {
-        this._setHighProcessPriority(gameProcess.pid);
-      }
+      // Garantizar Prioridad Normal para evitar que Java ahogue al driver de GPU (DWM/NVIDIA)
+      try {
+        const os = require('os');
+        if (os.constants?.priority?.PRIORITY_NORMAL !== undefined && gameProcess.pid) {
+          os.setPriority(gameProcess.pid, os.constants.priority.PRIORITY_NORMAL);
+        }
+      } catch (_) {}
 
       // Registrar timestamp de último juego en el perfil
       this.profileManager.updateProfile(activeProfile.id, { lastPlayed: new Date().toISOString() });
@@ -352,13 +344,6 @@ class LaunchManager {
       this.isLaunching = false;
       this.activeProcess = null;
       const errorMsg = err?.stack || err?.message || String(err);
-      if (this.currentLogStream) {
-        try {
-          this.currentLogStream.write(`\n[SHUBACORE CRITICAL ERROR] ${errorMsg}\n`);
-          this.currentLogStream.end();
-          this.currentLogStream = null;
-        } catch (_) {}
-      }
       logger.error('Error crítico durante el lanzamiento:\n' + errorMsg);
       this._emit('launch:error', { error: err?.message || errorMsg });
       throw err;
@@ -368,31 +353,41 @@ class LaunchManager {
   _bindMclcEvents() {
     this.launcher.removeAllListeners();
 
+    if (this.logFlushTimer) {
+      clearInterval(this.logFlushTimer);
+      this.logFlushTimer = null;
+    }
+
+    // Intervalo de emisión de logs por lotes (máximo 1 vez cada 500ms) para evitar saturación de IPC y backpressure
+    this.logFlushTimer = setInterval(() => {
+      if (this.pendingLogBatch.length > 0) {
+        const batch = this.pendingLogBatch.splice(0, this.pendingLogBatch.length);
+        this._emit('launch:log-batch', batch);
+      }
+    }, 500);
+
     this.launcher.on('debug', (e) => {
-      logger.debug(`[MCLC Debug] ${e}`);
       this._emit('launch:debug', e);
     });
 
     this.launcher.on('data', (e) => {
-      const rawText = e.toString();
-      if (this.currentLogStream) {
-        try {
-          this.currentLogStream.write(rawText.endsWith('\n') ? rawText : rawText + '\n');
-        } catch (_) {}
-      }
-
+      const rawText = typeof e === 'string' ? e : e.toString();
       const lines = rawText.split(/\r?\n/);
-      for (const line of lines) {
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
         if (!line.trim()) continue;
-        // Silenciar warnings esperados de telemetría / Realms 401 en modo offline
-        if (line.includes('MinecraftServicesUserApiService') || line.includes('RealmsClient') || (line.includes('401') && line.includes('Realms'))) {
-          logger.debug(`[Offline Telemetry / Realms Ignorado] ${line}`);
-        } else {
-          logger.game(line);
-        }
-        this._emit('launch:log', line);
-        this._emit('game-log', line);
+
+        // Comprobar si la ventana del juego ya está lista
         this._checkGameStartedLog(line);
+
+        // Almacenar en buffer circular en memoria (máximo 2000 líneas)
+        this.recentLogsBuffer.push(line);
+        if (this.recentLogsBuffer.length > 2000) {
+          this.recentLogsBuffer.shift();
+        }
+
+        // Acumular en el lote para emisión diferida
+        this.pendingLogBatch.push(line);
       }
     });
 
@@ -406,12 +401,13 @@ class LaunchManager {
 
     this.launcher.on('close', (code) => {
       logger.info(`El proceso de Minecraft finalizó con código: ${code}`);
-      if (this.currentLogStream) {
-        try {
-          this.currentLogStream.write(`\n[SHUBACORE] Proceso cerrado con código de salida: ${code} a las ${new Date().toISOString()}\n`);
-          this.currentLogStream.end();
-          this.currentLogStream = null;
-        } catch (_) {}
+      if (this.logFlushTimer) {
+        clearInterval(this.logFlushTimer);
+        this.logFlushTimer = null;
+      }
+      if (this.pendingLogBatch.length > 0) {
+        const batch = this.pendingLogBatch.splice(0, this.pendingLogBatch.length);
+        this._emit('launch:log-batch', batch);
       }
       this.activeProcess = null;
       this.isLaunching = false;
@@ -449,8 +445,7 @@ class LaunchManager {
     logger.info('¡La ventana de Minecraft se ha creado y el juego está listo!');
     logger.info('===========================================================');
 
-    // Emitir evento para que ipcHandlers / main.js oculte la ventana y libere caché
-    // sin ejecutar app.quit() mientras el proceso hijo de Java esté activo
+    // Emitir evento para que ipcHandlers / main.js oculte la ventana y congele interfaz
     this._emit('launch:game-ready', { timestamp: Date.now() });
   }
 
@@ -464,27 +459,20 @@ class LaunchManager {
 
     gameProcess.on('exit', () => {
       clearTimeout(fallbackTimer);
+      if (this.logFlushTimer) {
+        clearInterval(this.logFlushTimer);
+        this.logFlushTimer = null;
+      }
       this.activeProcess = null;
       this.isLaunching = false;
     });
   }
 
-  /**
-   * REQUISITO 2: Asigna Prioridad Alta de CPU al proceso Java de Minecraft en Windows
-   */
-  _setHighProcessPriority(pid) {
-    const { exec } = require('child_process');
-    const psCmd = `powershell -NoProfile -Command "Get-Process -Id ${pid} -ErrorAction SilentlyContinue | ForEach-Object { $_.PriorityClass = 'High' }"`;
-    exec(psCmd, (err) => {
-      if (!err) {
-        logger.info(`⚡ [SHUBACORE ENGINE] Prioridad Alta de CPU asignada al proceso PID ${pid} (Windows).`);
-      } else {
-        exec(`wmic process where processid="${pid}" CALL setpriority "high priority"`, () => {});
-      }
-    });
-  }
-
   abort() {
+    if (this.logFlushTimer) {
+      clearInterval(this.logFlushTimer);
+      this.logFlushTimer = null;
+    }
     if (this.activeProcess) {
       logger.warn('Interrumpiendo proceso activo de Minecraft...');
       try {

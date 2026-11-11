@@ -46,7 +46,7 @@ async function runTests() {
   assert(installed.length > 0, 'Debe encontrar al menos una versión de Java instalada');
   console.log('✅ TEST 2 PASADO');
 
-  console.log('\n--- TEST 3: JVM Flags para Java 25 vs Java 21 (Regla ZGC) ---');
+  console.log('\n--- TEST 3: JVM Flags Oficiales CurseForge/Mojang G1GC ---');
   // Java 25 flags
   const argsJava25 = JVMOptimizer.buildJvmArguments({
     majorVersion: 25,
@@ -55,8 +55,8 @@ async function runTests() {
   });
   const strJava25 = argsJava25.join(' ');
   console.log('Flags Java 25:', strJava25);
-  assert(strJava25.includes('-XX:+UseZGC'), 'Java 25 debe usar ZGC');
-  assert(!strJava25.includes('-XX:+ZGenerational'), 'CRÍTICO: Java 25 NO debe incluir -XX:+ZGenerational');
+  assert(strJava25.includes('-XX:+UseG1GC'), 'Java 25 debe usar G1GC');
+  assert(!strJava25.includes('-XX:+UseZGC'), 'Java 25 NO debe incluir ZGC');
 
   // Java 21 flags
   const argsJava21 = JVMOptimizer.buildJvmArguments({
@@ -66,8 +66,9 @@ async function runTests() {
   });
   const strJava21 = argsJava21.join(' ');
   console.log('Flags Java 21:', strJava21);
-  assert(strJava21.includes('-XX:+UseZGC'), 'Java 21 debe usar ZGC');
-  assert(strJava21.includes('-XX:+ZGenerational'), 'Java 21 DEBE incluir -XX:+ZGenerational');
+  assert(strJava21.includes('-XX:+UseG1GC'), 'Java 21 debe usar G1GC oficial');
+  assert(strJava21.includes('-XX:MaxGCPauseMillis=50'), 'Java 21 debe incluir MaxGCPauseMillis=50');
+  assert(!strJava21.includes('-XX:+UseZGC'), 'Java 21 NO debe incluir ZGC');
 
   console.log('✅ TEST 3 PASADO');
 
