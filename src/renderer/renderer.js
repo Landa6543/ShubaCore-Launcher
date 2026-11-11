@@ -466,109 +466,119 @@ document.addEventListener('DOMContentLoaded', async () => {
     { btn: tabViewConsole, view: viewConsole, name: 'console', id: 'view-console' }
   ];
 
-  function normalizeViewName(target) {
-    if (!target) return 'profiles';
-    let name = String(target).toLowerCase().trim();
-    if (name.startsWith('#')) name = name.slice(1);
-    if (name.startsWith('tab-view-')) name = name.replace('tab-view-', '');
-    if (name.startsWith('tab-')) name = name.replace('tab-', '');
-    if (name.startsWith('view-')) name = name.replace('view-', '');
-    if (name === 'instances' || name === 'instance') return 'profiles';
-    if (name === 'instance-content' || name === 'content' || name === 'installed-mods') return 'mods';
-    return name;
-  }
+  /**
+   * REESCRITURA A PRUEBA DE FALLOS DE NAVEGACIÓN (switchTab / navigateTo)
+   * Flujo estricto:
+   * 1. Ocultar TODAS las vistas primero (removiendo .active y forzando display: none).
+   * 2. Identificar el contenedor destino (ej. #view-console). Si no existe, console.error y salir sin fallar.
+   * 3. Añadir la clase .active y forzar display: flex / block al contenedor destino.
+   * 4. Ejecutar la lógica de inicialización en bloques try...catch independientes.
+   */
+  function switchTab(rawTarget) {
+    if (!rawTarget) rawTarget = 'view-profiles';
+    let targetId = String(rawTarget).trim();
+    if (targetId.startsWith('#')) targetId = targetId.slice(1);
 
-  function switchMainView(rawTarget) {
-    let viewName = normalizeViewName(rawTarget);
+    // Normalizar a formato id de vista: 'view-xxx'
+    if (targetId.startsWith('tab-view-')) targetId = targetId.replace('tab-view-', 'view-');
+    if (targetId.startsWith('tab-')) targetId = targetId.replace('tab-', 'view-');
+    if (targetId === 'instances' || targetId === 'profiles') targetId = 'view-profiles';
+    else if (targetId === 'instance-content' || targetId === 'mods') targetId = 'view-mods';
+    else if (!targetId.startsWith('view-')) targetId = 'view-' + targetId;
+
+    if (targetId === 'view-instances') targetId = 'view-profiles';
+    if (targetId === 'view-instance-content') targetId = 'view-mods';
+
+    let viewName = targetId.replace('view-', '');
     if (viewName === 'instances') viewName = 'profiles';
     if (viewName === 'instance-content') viewName = 'mods';
 
-    const viewMap = {
-      profiles: { btn: tabViewProfiles, view: viewProfiles, id: 'view-profiles' },
-      catalog: { btn: tabViewCatalog, view: viewCatalog, id: 'view-catalog' },
-      mods: { btn: tabViewMods, view: viewMods, id: 'view-mods' },
-      servers: { btn: tabViewServers, view: viewServers, id: 'view-servers' },
-      screenshots: { btn: tabViewScreenshots, view: viewScreenshots, id: 'view-screenshots' },
-      skins: { btn: tabViewSkins, view: viewSkins, id: 'view-skins' },
-      settings: { btn: tabViewSettings, view: viewSettings, id: 'view-settings' },
-      console: { btn: tabViewConsole, view: viewConsole, id: 'view-console' }
-    };
-
-    const targetConfig = viewMap[viewName] || viewMap['profiles'];
-    const activeViewEl = targetConfig.view || document.getElementById(targetConfig.id);
-    const activeBtnEl = targetConfig.btn || document.getElementById(`tab-${targetConfig.id}`);
-
-    // 1. Ocultar todas las vistas registradas y en el DOM
-    document.querySelectorAll('.view-panel, .view-container, [id^="view-"]').forEach((v) => {
-      v.classList.remove('active');
-      v.classList.add('hidden');
-      v.style.setProperty('display', 'none', 'important');
+    // 1. Ocultar TODAS las vistas primero (removiendo .active y forzando display: none)
+    const allViews = document.querySelectorAll('.view-panel, .view-container, [id^="view-"]');
+    allViews.forEach((viewEl) => {
+      viewEl.classList.remove('active');
+      viewEl.classList.add('hidden');
+      viewEl.style.setProperty('display', 'none', 'important');
     });
 
-    // 2. Deseleccionar todos los botones de la barra de navegación lateral
-    document.querySelectorAll('.sidebar-nav .nav-item').forEach((b) => {
-      b.classList.remove('active');
-    });
+    // Deseleccionar botones del sidebar
+    const allNavBtns = document.querySelectorAll('.sidebar-nav .nav-item');
+    allNavBtns.forEach((btn) => btn.classList.remove('active'));
 
-    // 3. Encender inmediatamente la vista y pestaña seleccionada (Garantía de Cero Pantalla Negra)
-    if (activeViewEl) {
-      activeViewEl.classList.remove('hidden');
-      activeViewEl.classList.add('active');
-      activeViewEl.style.setProperty('display', 'flex', 'important');
-    }
-    if (activeBtnEl) {
-      activeBtnEl.classList.add('active');
+    // 2. Identificar el contenedor destino en el DOM. Si no existe, console.error y salir sin arrojar excepción
+    const destContainer = document.getElementById(targetId);
+    if (!destContainer) {
+      console.error(`[switchTab] El contenedor destino "#${targetId}" no existe en el DOM.`);
+      return;
     }
 
-    // 4. Cargadores asíncronos secundarios envueltos en try/catch aislados
-    if (viewName === 'profiles') {
-      try { loadProfiles(); } catch (e) { console.warn('[switchMainView] Error en loadProfiles:', e); }
-    } else if (viewName === 'catalog') {
-      try {
-        if (!inputModSearch.value.trim() && modsSearchResults.children.length <= 1) {
-          performModSearch();
-        }
-      } catch (e) { console.warn('[switchMainView] Error en performModSearch:', e); }
-    } else if (viewName === 'mods') {
-      try { loadInstalledMods(); } catch (e) { console.warn('[switchMainView] Error en loadInstalledMods:', e); }
-    } else if (viewName === 'servers') {
-      try { loadDedicatedServers(); } catch (e) { console.warn('[switchMainView] Error en loadDedicatedServers:', e); }
-    } else if (viewName === 'screenshots') {
-      try { loadScreenshotsInstancesFilter(); } catch (e) { console.warn('[switchMainView] Error en loadScreenshotsInstancesFilter:', e); }
-      try { loadScreenshotsGallery(); } catch (e) { console.warn('[switchMainView] Error en loadScreenshotsGallery:', e); }
-    } else if (viewName === 'skins') {
-      try { initSkinViewer3D(); } catch (e) { console.warn('[switchMainView] Error en initSkinViewer3D:', e); }
-    } else if (viewName === 'settings') {
-      try { renderJavaRuntimes(); } catch (e) { console.warn('[switchMainView] Error en renderJavaRuntimes:', e); }
-    } else if (viewName === 'console') {
-      try { refreshJvmFlags(); } catch (e) { console.warn('[switchMainView] Error en refreshJvmFlags:', e); }
-      if (api.launcher && api.launcher.getRecentLogs) {
-        api.launcher.getRecentLogs().then((logs) => {
-          if (Array.isArray(logs) && logs.length > 0 && consoleLogBuffer.length === 0) {
-            appendLogBatch(logs, 'game');
+    // 3. Añadir la clase .active y forzar display: flex al contenedor destino
+    destContainer.classList.remove('hidden');
+    destContainer.classList.add('active');
+    destContainer.style.setProperty('display', 'flex', 'important');
+
+    // Iluminar botón correspondiente en el menú lateral
+    const matchingBtn = document.getElementById(`tab-${targetId}`) ||
+                        document.querySelector(`.sidebar-nav .nav-item[data-view="${viewName}"]`) ||
+                        document.querySelector(`.sidebar-nav .nav-item[data-view="${targetId}"]`);
+    if (matchingBtn) {
+      matchingBtn.classList.add('active');
+    }
+
+    // 4. Ejecutar la lógica de inicialización en bloques try...catch completamente aislados
+    try {
+      if (viewName === 'profiles') {
+        try { loadProfiles(); } catch (e) { console.warn('[switchTab] Error en loadProfiles:', e); }
+      } else if (viewName === 'catalog') {
+        try {
+          if (!inputModSearch.value.trim() && modsSearchResults.children.length <= 1) {
+            performModSearch();
           }
-        }).catch(() => {});
+        } catch (e) { console.warn('[switchTab] Error en performModSearch:', e); }
+      } else if (viewName === 'mods') {
+        try { loadInstalledMods(); } catch (e) { console.warn('[switchTab] Error en loadInstalledMods:', e); }
+      } else if (viewName === 'servers') {
+        try { loadDedicatedServers(); } catch (e) { console.warn('[switchTab] Error en loadDedicatedServers:', e); }
+      } else if (viewName === 'screenshots') {
+        try { loadScreenshotsInstancesFilter(); } catch (e) { console.warn('[switchTab] Error en filtro capturas:', e); }
+        try { loadScreenshotsGallery(); } catch (e) { console.warn('[switchTab] Error en loadScreenshotsGallery:', e); }
+      } else if (viewName === 'skins') {
+        try { initSkinViewer3D(); } catch (e) { console.warn('[switchTab] Error en initSkinViewer3D:', e); }
+      } else if (viewName === 'settings') {
+        try { renderJavaRuntimes(); } catch (e) { console.warn('[switchTab] Error en renderJavaRuntimes:', e); }
+      } else if (viewName === 'console') {
+        try { refreshJvmFlags(); } catch (e) { console.warn('[switchTab] Error en refreshJvmFlags:', e); }
+        if (api.launcher && api.launcher.getRecentLogs) {
+          api.launcher.getRecentLogs().then((logs) => {
+            if (Array.isArray(logs) && logs.length > 0 && consoleLogBuffer.length === 0) {
+              appendLogBatch(logs, 'game');
+            }
+          }).catch(() => {});
+        }
       }
+    } catch (tabInitErr) {
+      console.error(`[switchTab] Excepción aislada en la inicialización de "${targetId}":`, tabInitErr);
     }
 
-    // Informar al backend la visibilidad de la consola para encender/apagar IPC de logs
+    // Informar visibilidad de la consola al backend
     if (api.launcher && api.launcher.setConsoleVisibility) {
-      api.launcher.setConsoleVisibility(viewName === 'console');
+      try { api.launcher.setConsoleVisibility(viewName === 'console'); } catch (_) {}
     }
 
     if (api.discord && api.discord.updateView) {
-      api.discord.updateView(viewName).catch(() => {});
+      try { api.discord.updateView(viewName); } catch (_) {}
     }
   }
 
   // Compatibilidad universal con navegación por nombre o alias
+  const switchMainView = switchTab;
   window.switchTab = switchMainView;
   window.switchMainView = switchMainView;
   window.navigateTo = switchMainView;
 
   navItems.forEach(({ btn, name }) => {
     if (btn) {
-      btn.addEventListener('click', () => switchMainView(name));
+      btn.addEventListener('click', () => switchTab(name));
     }
   });
 
@@ -579,7 +589,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const itemBtn = e.target.closest('.nav-item');
       if (itemBtn) {
         const targetView = itemBtn.getAttribute('data-view') || itemBtn.id;
-        switchMainView(targetView);
+        switchTab(targetView);
       }
     });
   }
@@ -2589,6 +2599,22 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   async function loadInstalledMods() {
     try {
+      // 0. Limpieza preventiva de estados corruptos en la instancia activa (HUD antiguo)
+      if (currentActiveProfile) {
+        if (currentActiveProfile.hudMods) delete currentActiveProfile.hudMods;
+        if (currentActiveProfile.hudModsState) delete currentActiveProfile.hudModsState;
+        if (currentActiveProfile.hudOptions && typeof currentActiveProfile.hudOptions === 'object') {
+          const validKeys = ['fullbright', 'autoSprint', 'noClouds', 'entityShadows', 'noEntityShadows', 'noVsync', 'enableVsync'];
+          const cleanedOpts = {};
+          for (const k of validKeys) {
+            if (k in currentActiveProfile.hudOptions) {
+              cleanedOpts[k] = currentActiveProfile.hudOptions[k];
+            }
+          }
+          currentActiveProfile.hudOptions = cleanedOpts;
+        }
+      }
+
       // 1. Actualizar barra de contexto
       if (currentActiveProfile) {
         if (installedModsInstanceName) installedModsInstanceName.textContent = currentActiveProfile.name || 'Instancia Activa';
