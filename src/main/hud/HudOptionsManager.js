@@ -16,20 +16,35 @@ const { getProfileManager } = require('../profiles/ProfileManager');
 
 // Modrinth Project IDs recomendados para utilidades Vanilla+
 const HUD_MOD_PROJECTS = {
+  keystrokes: {
+    name: 'Keystrokes (Teclas en Pantalla)',
+    slug: 'keystrokes',
+    keywords: ['keystroke', 'keybinds', 'keys-hud', 'movement-hud', 'kronhud']
+  },
+  cps: {
+    name: 'Contador de CPS y FPS en Pantalla',
+    slug: 'simple-cps',
+    keywords: ['cps', 'clicks', 'fps-display', 'simple-cps', 'cpsdisplay']
+  },
   coords: {
     name: 'BetterF3 (Coordenadas y Días)',
     slug: 'betterf3',
     keywords: ['betterf3', 'minihud', 'simple-hud-enhanced', 'batty']
+  },
+  armor: {
+    name: 'Inventory HUD+ (Durabilidad y Armadura)',
+    slug: 'inventory-hud-plus',
+    keywords: ['inventory-hud', 'armor-statues', 'status-effect-hud', 'equipment-compare']
   },
   zoom: {
     name: 'Zoomify (Zoom Suave Tecla C)',
     slug: 'zoomify',
     keywords: ['zoomify', 'wi-zoom', 'logical-zoom', 'ok-zoomer']
   },
-  armor: {
-    name: 'Inventory HUD+ (Durabilidad y Armadura)',
-    slug: 'inventory-hud-plus',
-    keywords: ['inventory-hud', 'armor-statues', 'status-effect-hud', 'equipment-compare']
+  minimap: {
+    name: 'Minimapa y Marcadores (Xaeros Minimap)',
+    slug: 'xaeros-minimap',
+    keywords: ['xaero', 'minimap', 'journeymap', 'map']
   },
   fps: {
     name: 'Pack FPS Esencial (Sodium + Lithium + FerriteCore)',
@@ -117,7 +132,7 @@ class HudOptionsManager {
 
     const updates = {};
     if (optionKey === 'fullbright') {
-      updates['gamma'] = value ? '10.0' : '1.0';
+      updates['gamma'] = value ? '100.0' : '1.0';
     } else if (optionKey === 'autoSprint') {
       updates['toggleSprint'] = value ? 'true' : 'false';
     } else if (optionKey === 'noClouds') {
@@ -165,9 +180,12 @@ class HudOptionsManager {
   getHudModsState(instanceDir) {
     const modsDir = path.join(instanceDir, 'mods');
     const state = {
+      keystrokes: false,
+      cps: false,
       coords: false,
-      zoom: false,
       armor: false,
+      zoom: false,
+      minimap: false,
       fps: false
     };
 
@@ -197,12 +215,12 @@ class HudOptionsManager {
    * Alterna la instalación / activación de un módulo de mods HUD
    */
   async toggleHudMod({ profileId, modType, enable }) {
-    const profile = this.profileManager.getProfile(profileId) || this.profileManager.getActiveProfile();
+    const profile = (profileId ? this.profileManager.getById(profileId) : null) || this.profileManager.getActive();
     if (!profile) {
       throw new Error(`Perfil no encontrado.`);
     }
 
-    const instanceDir = profile.gameDirectory || this.profileManager.getDataDirectory();
+    const instanceDir = profile.instancePath || profile.gameDirectory || (profile.id ? this.profileManager.getInstancePath(profile.id) : null) || this.profileManager.getDataDirectory();
     const modsDir = path.join(instanceDir, 'mods');
     if (!fs.existsSync(modsDir)) {
       fs.mkdirSync(modsDir, { recursive: true });

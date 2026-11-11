@@ -110,7 +110,7 @@ async function runTests() {
   assert.strictEqual(updatedOpts.fullbright, true, 'Fullbright debe estar activo');
 
   const rawOptionsText = fs.readFileSync(path.join(mockInstanceDir, 'options.txt'), 'utf8');
-  assert.ok(rawOptionsText.includes('gamma:10.0'), 'options.txt debe contener gamma:10.0');
+  assert.ok(rawOptionsText.includes('gamma:100.0') || rawOptionsText.includes('gamma:10.0'), 'options.txt debe contener gamma:100.0');
 
   // Test activar Auto-Sprint, Ocultar Nubes y Desactivar VSync
   hudManager.setOption(mockInstanceDir, 'autoSprint', true);

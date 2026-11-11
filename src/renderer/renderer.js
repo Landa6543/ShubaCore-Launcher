@@ -3583,13 +3583,16 @@ document.addEventListener('DOMContentLoaded', async () => {
           modsSearchResults.innerHTML = `
             <div class="empty-state" style="padding: 30px 20px;">
               <p style="font-size: 14px; margin-bottom: 8px;">No se encontraron mods custom en el repositorio de GitHub.</p>
-              <small style="color: var(--text-dim);">Sube archivos .jar a la carpeta <code>mods/</code> o crea un Release en tu repositorio de GitHub.</small>
-              <div style="margin-top: 14px;">
+              <small style="color: var(--text-dim);">Sube archivos .jar para compartir mods custom con tus amigos a través del release <code>custom-mods</code>.</small>
+              <div style="margin-top: 14px; display: flex; gap: 10px; justify-content: center; align-items: center;">
+                <button class="btn btn-primary btn-small" id="btn-empty-upload-gh" style="background: #10b981; border-color: #10b981; color: #ffffff; font-weight: 600;">☁ Subir Mod (.jar)</button>
                 <button class="btn btn-secondary btn-small" id="btn-empty-config-gh">Configurar Repositorio</button>
               </div>
             </div>`;
           const emptyCfg = document.getElementById('btn-empty-config-gh');
           if (emptyCfg) emptyCfg.addEventListener('click', openGhRepoModal);
+          const emptyUpload = document.getElementById('btn-empty-upload-gh');
+          if (emptyUpload) emptyUpload.addEventListener('click', handleUploadCustomMod);
           return;
         }
 
@@ -3894,34 +3897,53 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  if (btnUploadGithubMod) {
-    btnUploadGithubMod.addEventListener('click', async () => {
-      try {
-        const fileRes = await api.githubMods.selectFiles();
-        if (!fileRes || fileRes.canceled || !fileRes.filePaths || fileRes.filePaths.length === 0) {
-          return;
-        }
-
-        const count = fileRes.filePaths.length;
-        btnUploadGithubMod.disabled = true;
-        appendLog(`[GitHub Mods] Subiendo ${count} mod(s) a GitHub Releases (custom-mods)...`, 'info');
-
-        const uploadRes = await api.githubMods.upload(fileRes.filePaths);
-        if (uploadRes && uploadRes.success) {
-          appendLog(`[GitHub Mods] ¡${count} mod(s) subido(s) con éxito a GitHub Releases!`, 'success');
-          alert(`¡${count} mod(s) subido(s) con éxito a GitHub Releases! El catálogo se actualizará ahora.`);
-          await api.githubMods.fetch(true);
-          await performModSearch();
-        } else {
-          throw new Error(uploadRes?.error || 'Fallo desconocido al subir mods.');
-        }
-      } catch (err) {
-        alert(`Error al subir mod(s) a GitHub: ${err.message}`);
-        appendLog(`[GitHub Upload Error] ${err.message}`, 'error');
-      } finally {
-        btnUploadGithubMod.disabled = false;
+  async function handleUploadCustomMod() {
+    try {
+      const fileRes = await api.githubMods.selectFiles();
+      if (!fileRes || fileRes.canceled || !fileRes.filePaths || fileRes.filePaths.length === 0) {
+        return;
       }
-    });
+
+      const count = fileRes.filePaths.length;
+      if (btnUploadGithubMod) {
+        btnUploadGithubMod.disabled = true;
+        btnUploadGithubMod.innerHTML = `<span>Subiendo (${count})...</span>`;
+      }
+      const emptyBtn = document.getElementById('btn-empty-upload-gh');
+      if (emptyBtn) {
+        emptyBtn.disabled = true;
+        emptyBtn.textContent = `Subiendo (${count})...`;
+      }
+
+      appendLog(`[GitHub Mods] Subiendo ${count} mod(s) a GitHub Releases (custom-mods)...`, 'info');
+
+      const uploadRes = await api.githubMods.upload(fileRes.filePaths);
+      if (uploadRes && uploadRes.success) {
+        appendLog(`[GitHub Mods] ¡${count} mod(s) subido(s) con éxito a GitHub Releases!`, 'success');
+        alert(`¡${count} mod(s) subido(s) con éxito a GitHub Releases! El catálogo se actualizará ahora.`);
+        await api.githubMods.fetch(true);
+        await performModSearch();
+      } else {
+        throw new Error(uploadRes?.error || 'Fallo desconocido al subir mods.');
+      }
+    } catch (err) {
+      alert(`Error al subir mod(s) a GitHub: ${err.message}`);
+      appendLog(`[GitHub Upload Error] ${err.message}`, 'error');
+    } finally {
+      if (btnUploadGithubMod) {
+        btnUploadGithubMod.disabled = false;
+        btnUploadGithubMod.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg><span>☁ Subir Mod (.jar)</span>`;
+      }
+      const emptyBtn = document.getElementById('btn-empty-upload-gh');
+      if (emptyBtn) {
+        emptyBtn.disabled = false;
+        emptyBtn.textContent = '☁ Subir Mod (.jar)';
+      }
+    }
+  }
+
+  if (btnUploadGithubMod) {
+    btnUploadGithubMod.addEventListener('click', handleUploadCustomMod);
   }
 
   if (selectModSort) {
@@ -6036,53 +6058,92 @@ document.addEventListener('DOMContentLoaded', async () => {
   // =======================================================
   // UTILIDADES HUD / VANILLA+ (LUNAR CLIENT STYLE)
   // =======================================================
-  const switchHudFullbright = document.getElementById('switch-hud-fullbright');
-  const switchHudAutosprint = document.getElementById('switch-hud-autosprint');
-  const switchHudNoclouds = document.getElementById('switch-hud-noclouds');
-  const switchHudNovsync = document.getElementById('switch-hud-novsync');
-
+  // UTILIDADES HUD / VANILLA+ (LUNAR CLIENT STYLE)
+  // =======================================================
+  const switchHudKeystrokes = document.getElementById('switch-hud-keystrokes');
+  const statusHudKeystrokes = document.getElementById('status-hud-keystrokes');
+  const switchHudCps = document.getElementById('switch-hud-cps');
+  const statusHudCps = document.getElementById('status-hud-cps');
   const switchHudCoords = document.getElementById('switch-hud-coords');
-  const switchHudZoom = document.getElementById('switch-hud-zoom');
+  const statusHudCoords = document.getElementById('status-hud-coords');
   const switchHudArmor = document.getElementById('switch-hud-armor');
-  const switchHudFps = document.getElementById('switch-hud-fps');
+  const statusHudArmor = document.getElementById('status-hud-armor');
+  const switchHudZoom = document.getElementById('switch-hud-zoom');
+  const statusHudZoom = document.getElementById('status-hud-zoom');
+  const switchHudFullbright = document.getElementById('switch-hud-fullbright');
+  const statusHudFullbright = document.getElementById('status-hud-fullbright');
+  const switchHudAutosprint = document.getElementById('switch-hud-autosprint');
+  const statusHudAutosprint = document.getElementById('status-hud-autosprint');
+  const switchHudMinimap = document.getElementById('switch-hud-minimap');
+  const statusHudMinimap = document.getElementById('status-hud-minimap');
   const btnRefreshHudState = document.getElementById('btn-refresh-hud-state');
+
+  function updateHudStatusText(elem, isChecked) {
+    if (!elem) return;
+    elem.textContent = isChecked ? 'Activado' : 'Desactivado';
+    elem.classList.toggle('active', !!isChecked);
+  }
 
   async function loadHudState() {
     try {
       const activeProfile = await api.profiles.getActive();
-      if (!activeProfile) return;
-      const instanceDir = activeProfile.gameDirectory;
+      const instanceDir = activeProfile?.instancePath || activeProfile?.gameDirectory || currentActiveProfile?.instancePath;
       if (!instanceDir) return;
 
       const res = await api.hud.getState(instanceDir);
       if (res && res.success) {
-        if (switchHudFullbright) switchHudFullbright.checked = !!res.options.fullbright;
-        if (switchHudAutosprint) switchHudAutosprint.checked = !!res.options.autoSprint;
-        if (switchHudNoclouds) switchHudNoclouds.checked = !!res.options.noClouds;
-        if (switchHudNovsync) switchHudNovsync.checked = !!res.options.noVsync;
-
-        if (switchHudCoords) switchHudCoords.checked = !!res.mods.coords;
-        if (switchHudZoom) switchHudZoom.checked = !!res.mods.zoom;
-        if (switchHudArmor) switchHudArmor.checked = !!res.mods.armor;
-        if (switchHudFps) switchHudFps.checked = !!res.mods.fps;
+        if (switchHudFullbright) {
+          switchHudFullbright.checked = !!res.options.fullbright;
+          updateHudStatusText(statusHudFullbright, !!res.options.fullbright);
+        }
+        if (switchHudAutosprint) {
+          switchHudAutosprint.checked = !!res.options.autoSprint;
+          updateHudStatusText(statusHudAutosprint, !!res.options.autoSprint);
+        }
+        if (switchHudKeystrokes) {
+          switchHudKeystrokes.checked = !!res.mods?.keystrokes;
+          updateHudStatusText(statusHudKeystrokes, !!res.mods?.keystrokes);
+        }
+        if (switchHudCps) {
+          switchHudCps.checked = !!res.mods?.cps;
+          updateHudStatusText(statusHudCps, !!res.mods?.cps);
+        }
+        if (switchHudCoords) {
+          switchHudCoords.checked = !!res.mods?.coords;
+          updateHudStatusText(statusHudCoords, !!res.mods?.coords);
+        }
+        if (switchHudArmor) {
+          switchHudArmor.checked = !!res.mods?.armor;
+          updateHudStatusText(statusHudArmor, !!res.mods?.armor);
+        }
+        if (switchHudZoom) {
+          switchHudZoom.checked = !!res.mods?.zoom;
+          updateHudStatusText(statusHudZoom, !!res.mods?.zoom);
+        }
+        if (switchHudMinimap) {
+          switchHudMinimap.checked = !!res.mods?.minimap;
+          updateHudStatusText(statusHudMinimap, !!res.mods?.minimap);
+        }
       }
     } catch (err) {
       console.warn('Error cargando estado HUD:', err.message);
     }
   }
 
-  async function handleOptionToggle(optionKey, value) {
+  async function handleOptionToggle(optionKey, value, statusElem) {
     try {
       const activeProfile = await api.profiles.getActive();
-      if (!activeProfile || !activeProfile.gameDirectory) return;
-      await api.hud.setOption(activeProfile.gameDirectory, optionKey, value);
+      const instanceDir = activeProfile?.instancePath || activeProfile?.gameDirectory || currentActiveProfile?.instancePath;
+      if (!instanceDir) return;
+      await api.hud.setOption(instanceDir, optionKey, value);
+      updateHudStatusText(statusElem, value);
       appendLog(`[HUD] Ajuste "${optionKey}" ${value ? 'ACTIVADO' : 'DESACTIVADO'} en options.txt de la instancia.`, 'info');
     } catch (err) {
       alert(`Error al actualizar options.txt: ${err.message}`);
     }
   }
 
-  async function handleModToggle(modType, enable, switchElem) {
+  async function handleModToggle(modType, enable, switchElem, statusElem) {
     try {
       const activeProfile = await api.profiles.getActive();
       if (!activeProfile) return;
@@ -6090,11 +6151,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       appendLog(`[HUD Mods] ${enable ? 'Instalando y activando' : 'Desactivando'} módulo "${modType}"...`, 'info');
       const res = await api.hud.toggleMod(activeProfile.id, modType, enable);
       if (res && res.success) {
+        updateHudStatusText(statusElem, enable);
         appendLog(`[HUD Mods] Módulo "${modType}" ${enable ? 'activado' : 'desactivado'} con éxito.`, 'success');
       }
     } catch (err) {
       alert(`Error en módulo HUD: ${err.message}`);
       if (switchElem) switchElem.checked = !enable;
+      updateHudStatusText(statusElem, !enable);
     } finally {
       if (switchElem) switchElem.disabled = false;
       loadHudState();
@@ -6102,30 +6165,31 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   if (switchHudFullbright) {
-    switchHudFullbright.addEventListener('change', (e) => handleOptionToggle('fullbright', e.target.checked));
+    switchHudFullbright.addEventListener('change', (e) => handleOptionToggle('fullbright', e.target.checked, statusHudFullbright));
   }
   if (switchHudAutosprint) {
-    switchHudAutosprint.addEventListener('change', (e) => handleOptionToggle('autoSprint', e.target.checked));
-  }
-  if (switchHudNoclouds) {
-    switchHudNoclouds.addEventListener('change', (e) => handleOptionToggle('noClouds', e.target.checked));
-  }
-  if (switchHudNovsync) {
-    switchHudNovsync.addEventListener('change', (e) => handleOptionToggle('noVsync', e.target.checked));
+    switchHudAutosprint.addEventListener('change', (e) => handleOptionToggle('autoSprint', e.target.checked, statusHudAutosprint));
   }
 
-  if (switchHudCoords) {
-    switchHudCoords.addEventListener('change', (e) => handleModToggle('coords', e.target.checked, switchHudCoords));
+  if (switchHudKeystrokes) {
+    switchHudKeystrokes.addEventListener('change', (e) => handleModToggle('keystrokes', e.target.checked, switchHudKeystrokes, statusHudKeystrokes));
   }
-  if (switchHudZoom) {
-    switchHudZoom.addEventListener('change', (e) => handleModToggle('zoom', e.target.checked, switchHudZoom));
+  if (switchHudCps) {
+    switchHudCps.addEventListener('change', (e) => handleModToggle('cps', e.target.checked, switchHudCps, statusHudCps));
+  }
+  if (switchHudCoords) {
+    switchHudCoords.addEventListener('change', (e) => handleModToggle('coords', e.target.checked, switchHudCoords, statusHudCoords));
   }
   if (switchHudArmor) {
-    switchHudArmor.addEventListener('change', (e) => handleModToggle('armor', e.target.checked, switchHudArmor));
+    switchHudArmor.addEventListener('change', (e) => handleModToggle('armor', e.target.checked, switchHudArmor, statusHudArmor));
   }
-  if (switchHudFps) {
-    switchHudFps.addEventListener('change', (e) => handleModToggle('fps', e.target.checked, switchHudFps));
+  if (switchHudZoom) {
+    switchHudZoom.addEventListener('change', (e) => handleModToggle('zoom', e.target.checked, switchHudZoom, statusHudZoom));
   }
+  if (switchHudMinimap) {
+    switchHudMinimap.addEventListener('change', (e) => handleModToggle('minimap', e.target.checked, switchHudMinimap, statusHudMinimap));
+  }
+
   if (btnRefreshHudState) {
     btnRefreshHudState.addEventListener('click', () => loadHudState());
   }

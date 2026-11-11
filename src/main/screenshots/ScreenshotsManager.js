@@ -23,10 +23,15 @@ class ScreenshotsManager {
   _getScreenshotDirectories() {
     const dirs = [];
     try {
-      const profiles = this.profileManager.getAllProfiles();
+      const all = typeof this.profileManager.getAll === 'function' ? this.profileManager.getAll() : null;
+      const profiles = (all && Array.isArray(all.profiles))
+        ? all.profiles
+        : (typeof this.profileManager.getAllProfiles === 'function' ? this.profileManager.getAllProfiles() : []);
+
       for (const p of profiles) {
-        if (p.gameDirectory) {
-          const scDir = path.join(p.gameDirectory, 'screenshots');
+        const instDir = p.instancePath || p.gameDirectory || (p.id ? this.profileManager.getInstancePath(p.id) : null);
+        if (instDir) {
+          const scDir = path.join(instDir, 'screenshots');
           dirs.push({
             instanceId: p.id,
             instanceName: p.name || 'Instancia',
@@ -39,15 +44,19 @@ class ScreenshotsManager {
     }
 
     // Agregar directorio por defecto de ShubaCore / .minecraft si existe
-    const defaultDataDir = this.profileManager.getDataDirectory();
-    const defaultSc = path.join(defaultDataDir, 'screenshots');
-    if (!dirs.some((d) => d.dirPath === defaultSc)) {
-      dirs.push({
-        instanceId: 'default',
-        instanceName: 'Instancia Principal',
-        dirPath: defaultSc
-      });
-    }
+    try {
+      const defaultDataDir = typeof this.profileManager.getDataDirectory === 'function'
+        ? this.profileManager.getDataDirectory()
+        : (this.profileManager.sharedRoot || path.join(process.env.APPDATA || '', '.shubacore'));
+      const defaultSc = path.join(defaultDataDir, 'screenshots');
+      if (!dirs.some((d) => d.dirPath === defaultSc)) {
+        dirs.push({
+          instanceId: 'default',
+          instanceName: 'Instancia Principal',
+          dirPath: defaultSc
+        });
+      }
+    } catch (_) {}
 
     return dirs;
   }

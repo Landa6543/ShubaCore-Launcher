@@ -385,6 +385,22 @@ class ProfileManager {
     };
   }
 
+  getDataDirectory() {
+    return this.sharedRoot;
+  }
+
+  getProfiles() {
+    return this.getAll().profiles;
+  }
+
+  getAllProfiles() {
+    return this.getAll().profiles;
+  }
+
+  getProfile(id) {
+    return this.getById(id);
+  }
+
   getActive() {
     const all = this.getAll();
     const found = all.profiles.find((p) => p.id === all.activeProfileId);
