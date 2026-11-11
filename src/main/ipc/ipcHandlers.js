@@ -1917,6 +1917,17 @@ function registerIpcHandlers(mainWindow) {
     } catch (_) {}
   });
 
+  ipcMain.handle('controller:test-injection', async (_event, params) => {
+    try {
+      const bridge = getControllerBridge();
+      const duration = params?.duration || 5000;
+      return await bridge.testInjection(duration);
+    } catch (err) {
+      logger.error('Error en controller:test-injection IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
   // ==========================================
   // LIMPIADOR DE BASURA Y LOGS (DISK CLEANER)
   // ==========================================

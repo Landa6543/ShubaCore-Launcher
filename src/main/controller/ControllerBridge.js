@@ -76,7 +76,8 @@ class ControllerBridge extends EventEmitter {
         '-File', this.scriptPath,
         '-ConfigJson', configPayload,
         '-MapPath', mapPath,
-        '-TargetPid', String(this.currentPid || 0)
+        '-TargetPid', String(this.currentPid || 0),
+        '-LauncherPid', String(process.pid)
       ], {
         stdio: ['pipe', 'pipe', 'pipe'],
         windowsHide: true
@@ -174,6 +175,27 @@ class ControllerBridge extends EventEmitter {
     } catch (_) {
       return false;
     }
+  }
+
+  /**
+   * Ejecuta una prueba de inyección de 5 segundos (movimiento de cursor circular y pulsación de Espacio)
+   */
+  async testInjection(durationMs = 5000) {
+    if (!this.isRunning || !this.workerProcess || this.workerProcess.killed) {
+      this.start(this.currentInstanceDir, this.currentPid);
+      await new Promise((r) => setTimeout(r, 600));
+    }
+
+    try {
+      if (this.workerProcess && this.workerProcess.stdin && this.workerProcess.stdin.writable) {
+        this.workerProcess.stdin.write(`TEST_INJECTION:${durationMs}\n`, () => {});
+        logger.info(`[ControllerBridge] Inyección de prueba iniciada (${durationMs}ms)...`);
+        return { success: true, message: `Inyección de prueba de ${durationMs / 1000}s en curso.` };
+      }
+    } catch (err) {
+      logger.warn(`[ControllerBridge] Error al enviar comando de inyección de prueba: ${err.message}`);
+    }
+    return { success: false, error: 'No se pudo comunicar con el proceso worker de Windows.' };
   }
 
   /**

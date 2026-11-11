@@ -1,17 +1,19 @@
 param(
     [string]$ConfigJson = "",
     [string]$MapPath = "",
-    [uint32]$TargetPid = 0
+    [uint32]$TargetPid = 0,
+    [uint32]$LauncherPid = 0
 )
 
 $ErrorActionPreference = "SilentlyContinue"
 
-# Motor de Mando Nativo C# (XInput a 10ms + Win32 SendInput / mouse_event)
+# Motor de Mando Nativo C# (XInput a 10ms + Hardware Scan Codes + mouse_event Win32)
 $csharpCode = @"
 using System;
 using System.IO;
 using System.Text;
 using System.Threading;
+using System.Diagnostics;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
@@ -21,6 +23,9 @@ public class ShubaNativeBridge {
 
     [DllImport("user32.dll")]
     public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+
+    [DllImport("user32.dll")]
+    public static extern uint MapVirtualKey(uint uCode, uint uMapType);
 
     [DllImport("user32.dll")]
     public static extern IntPtr GetForegroundWindow();
@@ -38,8 +43,10 @@ public class ShubaNativeBridge {
     public const uint MOUSEEVENTF_RIGHTDOWN = 0x0008;
     public const uint MOUSEEVENTF_RIGHTUP = 0x0010;
     public const uint MOUSEEVENTF_WHEEL = 0x0800;
+
+    // Flags para keybd_event (Hardware Scan Codes para GLFW/Minecraft)
     public const uint KEYEVENTF_KEYUP = 0x0002;
-    public const uint KEYEVENTF_EXTENDEDKEY = 0x0001;
+    public const uint KEYEVENTF_SCANCODE = 0x0008;
 
     // XInput structs y funciones
     [StructLayout(LayoutKind.Sequential)]
@@ -98,17 +105,19 @@ public class ShubaNativeBridge {
 
     // Configuración activa
     public static uint TargetPid = 0;
+    public static uint LauncherPid = 0;
     public static double Deadzone = 0.15;
     public static double SensitivityX = 2.5;
     public static double SensitivityY = 2.5;
     public static bool InvertY = false;
     public static volatile bool Running = true;
+    public static volatile bool TestInjectionActive = false;
 
-    // Diccionario de Virtual Key Codes
+    // Tabla de Virtual Keys y Hardware Scan Codes exactos para Minecraft (GLFW)
     public static readonly Dictionary<string, byte> VK_MAP = new Dictionary<string, byte>(StringComparer.OrdinalIgnoreCase) {
         { "Space", 0x20 },
-        { "Shift", 0x10 },
-        { "Control", 0x11 },
+        { "Shift", 0xA0 }, // Left Shift
+        { "Control", 0xA2 }, // Left Control
         { "E", 0x45 },
         { "Q", 0x51 },
         { "F", 0x46 },
@@ -125,10 +134,41 @@ public class ShubaNativeBridge {
         { "D", 0x44 }
     };
 
+    public static readonly Dictionary<byte, byte> HARDWARE_SCAN_CODES = new Dictionary<byte, byte> {
+        { 0x57, 0x11 }, // W -> 0x11
+        { 0x41, 0x1E }, // A -> 0x1E
+        { 0x53, 0x1F }, // S -> 0x1F
+        { 0x44, 0x20 }, // D -> 0x20
+        { 0x20, 0x39 }, // Espacio -> 0x39
+        { 0xA0, 0x2A }, // Shift Izq -> 0x2A
+        { 0x10, 0x2A }, // Shift genérico -> 0x2A
+        { 0xA2, 0x1D }, // Ctrl Izq -> 0x1D
+        { 0x11, 0x1D }, // Ctrl genérico -> 0x1D
+        { 0x45, 0x12 }, // E -> 0x12
+        { 0x51, 0x10 }, // Q -> 0x10
+        { 0x46, 0x21 }, // F -> 0x21
+        { 0x1B, 0x01 }, // Escape -> 0x01
+        { 0x09, 0x0F }, // Tab -> 0x0F
+        { 0x54, 0x14 }, // T -> 0x14
+        { 0x74, 0x3F }, // F5 -> 0x3F
+        { 0x72, 0x3D }, // F3 -> 0x3D
+        { 0x4C, 0x26 }, // L -> 0x26
+        { 0x43, 0x2E }  // C -> 0x2E
+    };
+
+    public static byte GetScanCode(byte vk) {
+        if (HARDWARE_SCAN_CODES.ContainsKey(vk)) {
+            return HARDWARE_SCAN_CODES[vk];
+        }
+        uint sc = MapVirtualKey((uint)vk, 0);
+        return (byte)(sc & 0xFF);
+    }
+
     public class ActionBinding {
         public string Action;
         public string Key;
         public byte Vk;
+        public byte ScanCode;
     }
 
     public static Dictionary<int, ActionBinding> ButtonMap = new Dictionary<int, ActionBinding>();
@@ -144,22 +184,22 @@ public class ShubaNativeBridge {
     }
 
     public static void InitDefaultBindings() {
-        ButtonMap[0] = new ActionBinding { Action = "jump", Key = "Space", Vk = 0x20 };
-        ButtonMap[1] = new ActionBinding { Action = "drop", Key = "Q", Vk = 0x51 };
-        ButtonMap[2] = new ActionBinding { Action = "swap_hand", Key = "F", Vk = 0x46 };
-        ButtonMap[3] = new ActionBinding { Action = "inventory", Key = "E", Vk = 0x45 };
-        ButtonMap[4] = new ActionBinding { Action = "prev_item", Key = "WheelUp", Vk = 0 };
-        ButtonMap[5] = new ActionBinding { Action = "next_item", Key = "WheelDown", Vk = 0 };
-        ButtonMap[6] = new ActionBinding { Action = "use", Key = "Mouse2", Vk = 0 };
-        ButtonMap[7] = new ActionBinding { Action = "attack", Key = "Mouse1", Vk = 0 };
-        ButtonMap[8] = new ActionBinding { Action = "player_list", Key = "Tab", Vk = 0x09 };
-        ButtonMap[9] = new ActionBinding { Action = "pause", Key = "Escape", Vk = 0x1B };
-        ButtonMap[10] = new ActionBinding { Action = "sprint", Key = "Control", Vk = 0x11 };
-        ButtonMap[11] = new ActionBinding { Action = "sneak", Key = "Shift", Vk = 0x10 };
-        ButtonMap[12] = new ActionBinding { Action = "chat", Key = "T", Vk = 0x54 };
-        ButtonMap[13] = new ActionBinding { Action = "f5", Key = "F5", Vk = 0x74 };
-        ButtonMap[14] = new ActionBinding { Action = "f3", Key = "F3", Vk = 0x72 };
-        ButtonMap[15] = new ActionBinding { Action = "advancements", Key = "L", Vk = 0x4C };
+        SetButtonBinding(0, "jump", "Space");
+        SetButtonBinding(1, "drop", "Q");
+        SetButtonBinding(2, "swap_hand", "F");
+        SetButtonBinding(3, "inventory", "E");
+        SetButtonBinding(4, "prev_item", "WheelUp");
+        SetButtonBinding(5, "next_item", "WheelDown");
+        SetButtonBinding(6, "use", "Mouse2");
+        SetButtonBinding(7, "attack", "Mouse1");
+        SetButtonBinding(8, "player_list", "Tab");
+        SetButtonBinding(9, "pause", "Escape");
+        SetButtonBinding(10, "sprint", "Control");
+        SetButtonBinding(11, "sneak", "Shift");
+        SetButtonBinding(12, "chat", "T");
+        SetButtonBinding(13, "f5", "F5");
+        SetButtonBinding(14, "f3", "F3");
+        SetButtonBinding(15, "advancements", "L");
     }
 
     public static void SetButtonBinding(int index, string action, string key) {
@@ -167,22 +207,27 @@ public class ShubaNativeBridge {
         if (!string.IsNullOrEmpty(key) && VK_MAP.ContainsKey(key)) {
             vk = VK_MAP[key];
         }
-        ButtonMap[index] = new ActionBinding { Action = action ?? "", Key = key ?? "", Vk = vk };
+        byte scan = (vk != 0) ? GetScanCode(vk) : (byte)0;
+        ButtonMap[index] = new ActionBinding { Action = action ?? "", Key = key ?? "", Vk = vk, ScanCode = scan };
     }
 
     public static bool IsMinecraftFocused() {
+        if (TestInjectionActive) return true;
+
         IntPtr hwnd = GetForegroundWindow();
         if (hwnd == IntPtr.Zero) return false;
 
-        if (TargetPid > 0) {
-            uint activePid = 0;
-            GetWindowThreadProcessId(hwnd, out activePid);
-            if (activePid == TargetPid) return true;
-        }
+        uint fgPid = 0;
+        GetWindowThreadProcessId(hwnd, out fgPid);
 
+        // Si es el proceso exacto
+        if (TargetPid > 0 && fgPid == TargetPid) return true;
+
+        // Verificar por título de ventana activa
         StringBuilder sb = new StringBuilder(256);
         GetWindowText(hwnd, sb, 256);
         string title = sb.ToString();
+
         if (title.IndexOf("Minecraft", StringComparison.OrdinalIgnoreCase) >= 0 ||
             title.IndexOf("LWJGL", StringComparison.OrdinalIgnoreCase) >= 0 ||
             title.IndexOf("GLFW", StringComparison.OrdinalIgnoreCase) >= 0 ||
@@ -190,12 +235,35 @@ public class ShubaNativeBridge {
             title.IndexOf("Lunar", StringComparison.OrdinalIgnoreCase) >= 0) {
             return true;
         }
-        return false;
+
+        // Si pertenece a javaw.exe / java.exe
+        if (fgPid > 0) {
+            try {
+                using (Process p = Process.GetProcessById((int)fgPid)) {
+                    string pName = p.ProcessName.ToLower();
+                    if (pName.Contains("java") || pName.Contains("minecraft")) {
+                        return true;
+                    }
+                }
+            } catch {}
+        }
+
+        // Condición flexible: Si la ventana activa NO es el launcher de ShubaCore
+        if (LauncherPid > 0 && fgPid == LauncherPid) {
+            return false;
+        }
+        if (title.IndexOf("ShubaCore", StringComparison.OrdinalIgnoreCase) >= 0) {
+            return false;
+        }
+
+        // Si hay una instancia corriendo y el usuario está en otra ventana que no sea el launcher
+        return (TargetPid > 0);
     }
 
     public static void ReleaseAll() {
         foreach (byte vk in _pressedKeys) {
-            keybd_event(vk, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+            byte scan = GetScanCode(vk);
+            keybd_event(vk, scan, KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP, UIntPtr.Zero);
         }
         _pressedKeys.Clear();
 
@@ -211,14 +279,15 @@ public class ShubaNativeBridge {
 
     public static void SetKey(byte vk, bool down) {
         if (vk == 0) return;
+        byte scan = GetScanCode(vk);
         if (down) {
             if (!_pressedKeys.Contains(vk)) {
-                keybd_event(vk, 0, 0, UIntPtr.Zero);
+                keybd_event(vk, scan, KEYEVENTF_SCANCODE, UIntPtr.Zero);
                 _pressedKeys.Add(vk);
             }
         } else {
             if (_pressedKeys.Contains(vk)) {
-                keybd_event(vk, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+                keybd_event(vk, scan, KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP, UIntPtr.Zero);
                 _pressedKeys.Remove(vk);
             }
         }
@@ -268,8 +337,8 @@ public class ShubaNativeBridge {
             vk = VK_MAP[keyStr];
         } else if (action == "jump") vk = 0x20;
         else if (action == "inventory") vk = 0x45;
-        else if (action == "sneak") vk = 0x10;
-        else if (action == "sprint") vk = 0x11;
+        else if (action == "sneak") vk = 0xA0;
+        else if (action == "sprint") vk = 0xA2;
         else if (action == "drop") vk = 0x51;
         else if (action == "swap_hand") vk = 0x46;
         else if (action == "chat") vk = 0x54;
@@ -277,6 +346,7 @@ public class ShubaNativeBridge {
         else if (action == "player_list") vk = 0x09;
         else if (action == "f5") vk = 0x74;
         else if (action == "f3") vk = 0x72;
+        else if (action == "zoom") vk = 0x43;
 
         if (vk != 0) {
             SetKey(vk, pressed);
@@ -289,19 +359,21 @@ public class ShubaNativeBridge {
             return;
         }
 
-        // 1. Movimiento Stick Izquierdo (WASD)
+        // 1. Movimiento Stick Izquierdo (WASD con Hardware Scan Codes)
         SetKey(VK_MAP["W"], ly > Deadzone);
         SetKey(VK_MAP["S"], ly < -Deadzone);
         SetKey(VK_MAP["A"], lx < -Deadzone);
         SetKey(VK_MAP["D"], lx > Deadzone);
 
-        // 2. Control de Cámara Stick Derecho
+        // 2. Control de Cámara Stick Derecho (mouse_event MOUSEEVENTF_MOVE con sensibilidad x18.0)
         double absRx = Math.Abs(rx);
         double absRy = Math.Abs(ry);
         if (absRx > Deadzone || absRy > Deadzone) {
-            int dx = (int)(rx * SensitivityX * 12.0);
+            double sensX = (SensitivityX > 0) ? SensitivityX : 2.5;
+            double sensY = (SensitivityY > 0) ? SensitivityY : 2.5;
+            int dx = (int)(rx * sensX * 18.0);
             double factorY = InvertY ? 1.0 : -1.0;
-            int dy = (int)(ry * SensitivityY * 12.0 * factorY);
+            int dy = (int)(ry * sensY * 18.0 * factorY);
             if (dx != 0 || dy != 0) {
                 mouse_event(MOUSEEVENTF_MOVE, dx, dy, 0, UIntPtr.Zero);
             }
@@ -329,7 +401,7 @@ public class ShubaNativeBridge {
             return;
         }
 
-        // Leer XInput directamente del sistema operativo (Slots 0 a 3)
+        // 1. Leer XInput directamente del sistema operativo (Slots 0 a 3)
         XINPUT_STATE state = new XINPUT_STATE();
         bool found = false;
         for (int i = 0; i < 4; i++) {
@@ -384,6 +456,39 @@ public class ShubaNativeBridge {
         }
         ReleaseAll();
     }
+
+    public static void ExecuteTestInjection(int durationMs) {
+        Thread t = new Thread(() => {
+            TestInjectionActive = true;
+            int elapsed = 0;
+            double angle = 0.0;
+            byte spaceScan = GetScanCode(0x20);
+
+            while (elapsed < durationMs && Running) {
+                // Mover cursor suavemente en un círculo
+                int dx = (int)(Math.Cos(angle) * 12.0);
+                int dy = (int)(Math.Sin(angle) * 12.0);
+                mouse_event(MOUSEEVENTF_MOVE, dx, dy, 0, UIntPtr.Zero);
+                angle += 0.2;
+
+                // Pulsar y soltar Espacio cada 1.2 segundos
+                if (elapsed % 1200 < 60) {
+                    keybd_event(0x20, spaceScan, KEYEVENTF_SCANCODE, UIntPtr.Zero);
+                    Thread.Sleep(40);
+                    keybd_event(0x20, spaceScan, KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP, UIntPtr.Zero);
+                    elapsed += 40;
+                }
+
+                Thread.Sleep(20);
+                elapsed += 20;
+            }
+
+            keybd_event(0x20, spaceScan, KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP, UIntPtr.Zero);
+            TestInjectionActive = false;
+        });
+        t.IsBackground = true;
+        t.Start();
+    }
 }
 "@
 
@@ -398,6 +503,7 @@ function ParseAndApplyConfig([string]$jsonStr) {
         if ($cfg.sensitivityY) { [ShubaNativeBridge]::SensitivityY = [double]$cfg.sensitivityY }
         if ($cfg.invertY -ne $null) { [ShubaNativeBridge]::InvertY = [bool]$cfg.invertY }
         if ($cfg.targetPid) { [ShubaNativeBridge]::TargetPid = [uint32]$cfg.targetPid }
+        if ($cfg.launcherPid) { [ShubaNativeBridge]::LauncherPid = [uint32]$cfg.launcherPid }
         if ($cfg.buttons) {
             foreach ($prop in $cfg.buttons.PSObject.Properties) {
                 $idx = [int]$prop.Name
@@ -412,6 +518,9 @@ function ParseAndApplyConfig([string]$jsonStr) {
 if ($TargetPid -gt 0) {
     [ShubaNativeBridge]::TargetPid = [uint32]$TargetPid
 }
+if ($LauncherPid -gt 0) {
+    [ShubaNativeBridge]::LauncherPid = [uint32]$LauncherPid
+}
 
 if ($ConfigJson) {
     ParseAndApplyConfig $ConfigJson
@@ -424,7 +533,7 @@ if ($MapPath -and (Test-Path $MapPath)) {
     } catch {}
 }
 
-# Hilo en segundo plano para leer comandos stdin sin romper la consola redirigida
+# Hilo en segundo plano para procesar comandos stdin (CONFIG, PID, FRAME e INYECCION DE PRUEBA)
 $stdinThread = [System.Threading.Thread]::new([System.Threading.ThreadStart]{
     try {
         while ([ShubaNativeBridge]::Running) {
@@ -443,8 +552,33 @@ $stdinThread = [System.Threading.Thread]::new([System.Threading.ThreadStart]{
                 if ([uint32]::TryParse($pStr, [ref]$p)) {
                     [ShubaNativeBridge]::TargetPid = $p
                 }
+            } elseif ($line.StartsWith("TEST_INJECTION:")) {
+                $dStr = $line.Substring(15).Trim()
+                $d = 5000
+                if ([int]::TryParse($dStr, [ref]$d)) {
+                    [ShubaNativeBridge]::ExecuteTestInjection($d)
+                }
             } elseif ($line.StartsWith("CONFIG:")) {
                 ParseAndApplyConfig $line.Substring(7)
+            } elseif ($line.StartsWith("FRAME:")) {
+                try {
+                    $f = $line.Substring(6) | ConvertFrom-Json
+                    $axes = $f.axes
+                    $btns = $f.buttons
+                    $lx = if ($axes.Count -gt 0) { [double]$axes[0] } else { 0.0 }
+                    $ly = if ($axes.Count -gt 1) { -[double]$axes[1] } else { 0.0 }
+                    $rx = if ($axes.Count -gt 2) { [double]$axes[2] } else { 0.0 }
+                    $ry = if ($axes.Count -gt 3) { -[double]$axes[3] } else { 0.0 }
+                    $lt = if ($btns.Count -gt 6) { [double]$btns[6] } else { 0.0 }
+                    $rt = if ($btns.Count -gt 7) { [double]$btns[7] } else { 0.0 }
+
+                    $boolBtns = @()
+                    for ($b = 0; $b -lt $btns.Count; $b++) {
+                        $boolBtns += ([double]$btns[$b] -gt 0.3)
+                    }
+
+                    [ShubaNativeBridge]::ProcessFrame($lx, $ly, $rx, $ry, $lt, $rt, $boolBtns)
+                } catch {}
             }
         }
     } catch {}

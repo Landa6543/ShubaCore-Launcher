@@ -61,20 +61,38 @@ assert.ok(updatedContent.includes('gamma:100.0'), 'Debe preservar gamma:100.0');
 assert.ok(updatedContent.includes('key_key.jump:key.keyboard.space'), 'Debe preservar teclas personalizadas');
 console.log('   ✔ Reemplazo de lang:en_us por lang:es_es preservando ajustes validado.');
 
-// 3. Verificar UI sin emoji duplicado en la barra lateral
-console.log('\n▶ [3/4] Verificando texto limpio de "Configurar Mando" en la barra lateral...');
+// 3. Verificar UI sin emoji duplicado en la barra lateral y botón de prueba de inyección
+console.log('\n▶ [3/5] Verificando UI (sin emoji duplicado y botón de prueba de inyección)...');
 const indexHtml = fs.readFileSync(path.join(__dirname, '../src/renderer/index.html'), 'utf8');
 assert.ok(indexHtml.includes('<span>Configurar Mando</span>'), 'La barra lateral debe decir <span>Configurar Mando</span>');
 assert.ok(!indexHtml.includes('<span>🎮 Configurar Mando</span>'), 'La barra lateral NO debe tener emoji duplicado');
-console.log('   ✔ Barra lateral verificada (sin emoji duplicado 🎮).');
+assert.ok(indexHtml.includes('id="btn-test-controller-injection"'), 'Debe existir el botón de prueba de inyección de 5 seg');
+console.log('   ✔ Barra lateral y botón [⚡ Probar Inyección (5 seg)] verificados.');
 
-// 4. Limpieza de directorio temporal
-console.log('\n▶ [4/4] Limpiando archivos temporales...');
+// 4. Verificar switches de fondo en main.js y background polling en renderer.js
+console.log('\n▶ [4/5] Verificando Chromium background switches y polling continuo en renderer.js...');
+const mainJs = fs.readFileSync(path.join(__dirname, '../main.js'), 'utf8');
+assert.ok(mainJs.includes('disable-renderer-backgrounding'), 'main.js debe incluir disable-renderer-backgrounding');
+assert.ok(mainJs.includes('disable-background-timer-throttling'), 'main.js debe incluir disable-background-timer-throttling');
+assert.ok(mainJs.includes('disable-backgrounding-occluded-windows'), 'main.js debe incluir disable-backgrounding-occluded-windows');
+assert.ok(mainJs.includes('backgroundThrottling: false'), 'main.js debe tener backgroundThrottling: false');
+
+const rendererJs = fs.readFileSync(path.join(__dirname, '../src/renderer/renderer.js'), 'utf8');
+assert.ok(rendererJs.includes('gamepadPollIntervalId = setInterval(poll, 16)'), 'renderer.js debe usar setInterval continuo');
+assert.ok(rendererJs.includes('btn-test-controller-injection'), 'renderer.js debe enlazar el botón de prueba de inyección');
+
+const workerPs1 = fs.readFileSync(path.join(__dirname, '../src/main/controller/controller-worker.ps1'), 'utf8');
+assert.ok(workerPs1.includes('KEYEVENTF_SCANCODE = 0x0008'), 'controller-worker.ps1 debe definir KEYEVENTF_SCANCODE');
+assert.ok(workerPs1.includes('HARDWARE_SCAN_CODES'), 'controller-worker.ps1 debe mapear Hardware Scan Codes para GLFW');
+console.log('   ✔ Backgrounding switches, Hardware Scan Codes y polling continuo validados al 100%.');
+
+// 5. Limpieza de directorio temporal
+console.log('\n▶ [5/5] Limpiando archivos temporales...');
 try {
   fs.rmSync(tempDir, { recursive: true, force: true });
 } catch (_) {}
 console.log('   ✔ Archivos temporales limpiados.');
 
 console.log('\n====================================================');
-console.log('🎉 TODAS LAS PRUEBAS DE NATIVOS, IDIOMA Y UI PASARON');
+console.log('🎉 TODAS LAS PRUEBAS DE NATIVOS, IDIOMA Y MANDO PASARON');
 console.log('====================================================\n');

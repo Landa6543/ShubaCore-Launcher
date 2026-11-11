@@ -13,6 +13,11 @@ const { getAuthManager } = require('./src/main/auth/AuthManager');
 const { registerIpcHandlers } = require('./src/main/ipc/ipcHandlers');
 const { defaultLogger: logger } = require('./src/main/utils/logger');
 
+// Configurar Chromium para evitar congelamiento de Gamepad API y timers en segundo plano
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+app.commandLine.appendSwitch('disable-background-timer-throttling');
+app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
+
 // Asegurar instancia única de la aplicación
 const gotTheLock = app.requestSingleInstanceLock();
 
@@ -80,11 +85,11 @@ function createMainWindow() {
       contextIsolation: true,
       sandbox: false,
       devTools: true,
-      backgroundThrottling: true
+      backgroundThrottling: false
     }
   });
 
-  mainWindow.webContents.setBackgroundThrottling(true);
+  mainWindow.webContents.setBackgroundThrottling(false);
 
   // Registrar todos los manejadores IPC con la ventana activa
   registerIpcHandlers(mainWindow);

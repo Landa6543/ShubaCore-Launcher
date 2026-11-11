@@ -6659,7 +6659,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   let currentControllerMap = null;
   let availableControllerActions = [];
   let selectedButtonIndexToRebind = null;
-  let gamepadPollRafId = null;
+  let gamepadPollIntervalId = null;
 
   const gamepadBadge = document.getElementById('gamepad-connection-badge');
   const gamepadBadgeText = document.getElementById('gamepad-connection-text');
@@ -6981,11 +6981,10 @@ document.addEventListener('DOMContentLoaded', async () => {
           if (stickRightDot) stickRightDot.style.transform = 'translate(0px, 0px)';
         }
       } catch (_) {}
-
-      gamepadPollRafId = requestAnimationFrame(poll);
     }
 
-    gamepadPollRafId = requestAnimationFrame(poll);
+    if (gamepadPollIntervalId) clearInterval(gamepadPollIntervalId);
+    gamepadPollIntervalId = setInterval(poll, 16);
   }
 
   // Sincronización del interruptor maestro de mando
@@ -7071,6 +7070,34 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (btnViewResetController) btnViewResetController.addEventListener('click', executeResetControllerMapping);
   if (btnSaveControllerMapping) btnSaveControllerMapping.addEventListener('click', executeSaveControllerMapping);
   if (btnViewSaveController) btnViewSaveController.addEventListener('click', executeSaveControllerMapping);
+
+  const btnTestControllerInjection = document.getElementById('btn-test-controller-injection');
+  if (btnTestControllerInjection) {
+    btnTestControllerInjection.addEventListener('click', async () => {
+      const origHtml = btnTestControllerInjection.innerHTML;
+      btnTestControllerInjection.disabled = true;
+      btnTestControllerInjection.innerHTML = '<span>⏳ Inyectando (5s)...</span>';
+      appendLog('[Mando] Iniciando prueba de inyección Win32 (círculo de cursor + Espacio)...', 'info');
+
+      try {
+        if (api.controller?.testInjection) {
+          const res = await api.controller.testInjection({ duration: 5000 });
+          if (res.success) {
+            appendLog('[Mando] ✅ Prueba de inyección de 5s iniciada en segundo plano.', 'info');
+          } else {
+            appendLog(`[Mando] ⚠️ Aviso en prueba de inyección: ${res.error || res.message}`, 'warn');
+          }
+        }
+      } catch (err) {
+        appendLog(`[Mando] ❌ Error en prueba de inyección: ${err.message}`, 'error');
+      } finally {
+        setTimeout(() => {
+          btnTestControllerInjection.disabled = false;
+          btnTestControllerInjection.innerHTML = origHtml;
+        }, 5000);
+      }
+    });
+  }
 
   if (btnCloseBindGamepadModal) btnCloseBindGamepadModal.addEventListener('click', closeRebindModal);
   if (btnCancelBindGamepad) btnCancelBindGamepad.addEventListener('click', closeRebindModal);

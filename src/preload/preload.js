@@ -398,7 +398,8 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
     getBridgeStatus: () => ipcRenderer.invoke('controller:bridge-status'),
     startBridge: (params) => ipcRenderer.invoke('controller:bridge-start', params),
     stopBridge: () => ipcRenderer.invoke('controller:bridge-stop'),
-    sendGamepadFrame: (frameData) => ipcRenderer.send('controller:send-gamepad-frame', frameData)
+    sendGamepadFrame: (frameData) => ipcRenderer.send('controller:send-gamepad-frame', frameData),
+    testInjection: (params) => ipcRenderer.invoke('controller:test-injection', params)
   },
 
   // ==========================================
