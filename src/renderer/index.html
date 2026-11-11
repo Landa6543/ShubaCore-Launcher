@@ -291,6 +291,32 @@
           </div>
         </div>
 
+        <!-- Barra de Sub-Pestañas de la Instancia -->
+        <div class="instance-subtabs-nav">
+          <button id="subtab-instance-mods" class="instance-subtab-btn active" data-subtab="mods">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19.439 7.85c-.049-.955-.595-1.81-1.494-2.147-.946-.356-2.02.046-2.528.851A3.5 3.5 0 0 1 12 8a3.5 3.5 0 0 1-3.417-1.446c-.508-.805-1.582-1.207-2.528-.851-.899.337-1.445 1.192-1.494 2.147-.05 1.01.42 2.02 1.194 2.658A3.5 3.5 0 0 1 7 14c0 1.258-.655 2.364-1.637 2.992-.774.638-1.244 1.648-1.194 2.658.049.955.595 1.81 1.494 2.147.946.356 2.02-.046 2.528-.851A3.5 3.5 0 0 1 12 19.5a3.5 3.5 0 0 1 3.417 1.446c.508.805 1.582 1.207 2.528.851.899-.337 1.445-1.192 1.494-2.147.05-1.01-.42-2.02-1.194-2.658A3.5 3.5 0 0 1 17 14c0-1.258.655-2.364 1.637-2.992.774-.638 1.244-1.648 1.194-2.658Z"/></svg>
+            <span>🧩 Mods</span>
+            <span id="badge-subtab-mods" class="badge-count">0</span>
+          </button>
+          <button id="subtab-instance-shaders" class="instance-subtab-btn" data-subtab="shaders">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+            <span>✨ Shaders</span>
+            <span id="badge-subtab-shaders" class="badge-count">0</span>
+          </button>
+          <button id="subtab-instance-resourcepacks" class="instance-subtab-btn" data-subtab="resourcepacks">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m19 11-8-8-8.6 8.6a2 2 0 0 0 0 2.8l5.2 5.2c.8.8 2 .8 2.8 0L19 11Z"/><path d="m5 2 5 5"/><path d="M2 13h15"/><path d="M22 20a2 2 0 1 1-4 0c0-1.6 1.7-2.4 2-4 .3 1.6 2 2.4 2 4Z"/></svg>
+            <span>🎨 Resource Packs</span>
+            <span id="badge-subtab-resourcepacks" class="badge-count">0</span>
+          </button>
+          <button id="subtab-instance-worlds" class="instance-subtab-btn" data-subtab="worlds">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            <span>🌍 Mundos & Backups</span>
+            <span id="badge-subtab-worlds" class="badge-count">0</span>
+          </button>
+        </div>
+
+        <!-- SUB-PANEL 1: MODS -->
+        <div id="subpanel-instance-mods" class="instance-subpanel active">
         <!-- 2. Barra de Control, Búsqueda y Filtros -->
         <div class="installed-mods-control-bar">
           <div class="control-bar-search">
@@ -324,7 +350,7 @@
 
         <!-- 3. Barra de Acciones Globales (Actualizaciones, FPS, Modpacks, Sincronización) -->
         <div class="installed-mods-actions-bar">
-          <div class="toolbar-actions">
+          <div class="toolbar-actions" style="flex-wrap: wrap; gap: 8px;">
             <button id="btn-publish-profile-mods" class="btn btn-secondary btn-small" title="Publicar este perfil para amigos en GitHub (.shubasync.json)">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/><polyline points="12 13 12 7 9 10"/><polyline points="12 7 15 10"/></svg>
               <span>☁ Publicar Perfil</span>
@@ -341,6 +367,10 @@
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
               <span>Actualizar Todos (<span id="updates-available-count">0</span>)</span>
             </button>
+            <label class="check-backup-before-update" style="display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--text-secondary); cursor: pointer; padding: 4px 8px; border-radius: var(--radius-sm); background: rgba(255,255,255,0.03); border: 1px solid var(--border);">
+              <input type="checkbox" id="check-backup-before-update" checked style="cursor: pointer; accent-color: var(--accent-emerald);">
+              <span>Crear backup rápido de mundos antes de actualizar</span>
+            </label>
             <button id="btn-refresh-installed-mods" class="btn btn-secondary btn-small">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
               <span>Sincronizar</span>
@@ -374,6 +404,88 @@
         <div class="installed-mods-container">
           <div id="mods-installed-list" class="installed-mods-list view-list">
             <div class="empty-state">No hay mods instalados en este perfil todavía.</div>
+          </div>
+        </div>
+        </div>
+
+        <!-- SUB-PANEL 2: SHADERS -->
+        <div id="subpanel-instance-shaders" class="instance-subpanel" style="display: none; padding: 18px 24px; flex-direction: column; gap: 14px;">
+          <div class="installed-mods-actions-bar" style="border: none; padding: 0; background: transparent;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-weight: 600; color: var(--text-primary); font-size: 14px;">Paquetes de Shaders Instalados</span>
+              <span id="installed-shaders-count-badge" class="badge badge-secondary">0 shaders</span>
+            </div>
+            <div class="toolbar-actions">
+              <button id="btn-add-shaders-catalog" class="btn btn-primary btn-small" title="Explorar shaders en el catálogo">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                <span>➕ Buscar Shaders en Catálogo</span>
+              </button>
+              <button id="btn-open-shaders-folder" class="btn btn-secondary btn-small" title="Abrir carpeta shaderpacks en el explorador">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                <span>Abrir Carpeta</span>
+              </button>
+              <button id="btn-refresh-shaders" class="btn btn-secondary btn-small" title="Refrescar lista de shaders">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+                <span>Refrescar</span>
+              </button>
+            </div>
+          </div>
+          <div id="shaders-installed-list" class="installed-mods-list view-list">
+            <div class="empty-state">No hay shaders instalados en esta instancia todavía.</div>
+          </div>
+        </div>
+
+        <!-- SUB-PANEL 3: RESOURCE PACKS -->
+        <div id="subpanel-instance-resourcepacks" class="instance-subpanel" style="display: none; padding: 18px 24px; flex-direction: column; gap: 14px;">
+          <div class="installed-mods-actions-bar" style="border: none; padding: 0; background: transparent;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-weight: 600; color: var(--text-primary); font-size: 14px;">Paquetes de Texturas Instalados</span>
+              <span id="installed-resourcepacks-count-badge" class="badge badge-secondary">0 texturas</span>
+            </div>
+            <div class="toolbar-actions">
+              <button id="btn-add-resourcepacks-catalog" class="btn btn-primary btn-small" title="Explorar texturas en el catálogo">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                <span>➕ Buscar Texturas en Catálogo</span>
+              </button>
+              <button id="btn-open-resourcepacks-folder" class="btn btn-secondary btn-small" title="Abrir carpeta resourcepacks en el explorador">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                <span>Abrir Carpeta</span>
+              </button>
+              <button id="btn-refresh-resourcepacks" class="btn btn-secondary btn-small" title="Refrescar lista de texturas">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+                <span>Refrescar</span>
+              </button>
+            </div>
+          </div>
+          <div id="resourcepacks-installed-list" class="installed-mods-list view-list">
+            <div class="empty-state">No hay resource packs instalados en esta instancia todavía.</div>
+          </div>
+        </div>
+
+        <!-- SUB-PANEL 4: MUNDOS & BACKUPS -->
+        <div id="subpanel-instance-worlds" class="instance-subpanel" style="display: none; padding: 18px 24px; flex-direction: column; gap: 14px;">
+          <div class="installed-mods-actions-bar" style="border: none; padding: 0; background: transparent;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-weight: 600; color: var(--text-primary); font-size: 14px;">Partidas Guardadas (Saves)</span>
+              <span id="installed-worlds-count-badge" class="badge badge-secondary">0 mundos</span>
+            </div>
+            <div class="toolbar-actions">
+              <button id="btn-backup-all-worlds-top" class="btn btn-secondary btn-small" title="Crea un backup .zip de todas las partidas de esta instancia">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                <span>💾 Backup de Todos los Mundos</span>
+              </button>
+              <button id="btn-open-worlds-folder" class="btn btn-secondary btn-small" title="Abrir carpeta saves en el explorador">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                <span>Abrir Carpeta saves/</span>
+              </button>
+              <button id="btn-refresh-worlds" class="btn btn-secondary btn-small" title="Refrescar lista de mundos">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+                <span>Refrescar</span>
+              </button>
+            </div>
+          </div>
+          <div id="worlds-installed-list" class="installed-mods-list view-list">
+            <div class="empty-state">No se encontraron mundos en esta instancia todavía.</div>
           </div>
         </div>
       </section>
@@ -1147,6 +1259,37 @@
       </div>
       <div class="modal-footer" style="display: flex; justify-content: flex-end;">
         <button id="btn-dismiss-sync-modal" class="btn btn-secondary">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: GESTOR DE BACKUPS DE UN MUNDO -->
+  <div id="modal-world-backups" class="modal-overlay" style="display: none;">
+    <div class="modal-content card" style="max-width: 580px; max-height: 85vh;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          <h3 id="modal-world-backups-title">Backups del Mundo</h3>
+        </div>
+        <button id="btn-close-world-backups-modal" class="btn btn-small close-btn">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto;">
+        <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.03); padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border);">
+          <div>
+            <span style="font-weight: 600; color: var(--text-primary); font-size: 13.5px;" id="modal-backup-world-name">Mundo</span>
+            <small style="color: var(--text-dim); display: block;" id="modal-backup-world-meta">Carpeta: world</small>
+          </div>
+          <button id="btn-create-single-backup" class="btn btn-primary btn-compact">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span>Crear Backup Ahora</span>
+          </button>
+        </div>
+        <div id="world-backups-list" style="display: flex; flex-direction: column; gap: 10px; max-height: 380px; overflow-y: auto;">
+          <div class="empty-state">No hay backups guardados para este mundo todavía.</div>
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end;">
+        <button id="btn-dismiss-world-backups-modal" class="btn btn-secondary">Cerrar</button>
       </div>
     </div>
   </div>

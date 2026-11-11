@@ -21,6 +21,8 @@ const { LoaderVersionResolver } = require('../launcher/LoaderVersionResolver');
 const { getDiscordManager } = require('../discord/DiscordManager');
 const { getGitHubModsManager } = require('../github/GitHubModsManager');
 const { getProfileSyncManager } = require('../sync/ProfileSyncManager');
+const { getInstancePacksManager } = require('../packs/InstancePacksManager');
+const { getWorldManager } = require('../worlds/WorldManager');
 const { defaultLogger: logger } = require('../utils/logger');
 
 function registerIpcHandlers(mainWindow) {
@@ -34,6 +36,8 @@ function registerIpcHandlers(mainWindow) {
   const discordManager = getDiscordManager();
   const githubModsManager = getGitHubModsManager();
   const profileSyncManager = getProfileSyncManager();
+  const instancePacksManager = getInstancePacksManager();
+  const worldManager = getWorldManager();
 
   // Estado de visibilidad de la pestaña de consola para evitar IPC flood y backpressure
   let isConsoleTabVisible = false;
@@ -1077,6 +1081,112 @@ function registerIpcHandlers(mainWindow) {
       });
     } catch (err) {
       logger.error('Error en sync:apply IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  // ==========================================
+  // GESTOR DE SHADERS Y RESOURCE PACKS INSTALADOS
+  // ==========================================
+  ipcMain.handle('packs:list', async (event, { instancePath, type }) => {
+    try {
+      const inst = instancePath || profileManager.getActiveInstancePath();
+      return await instancePacksManager.listPacks(inst, type);
+    } catch (err) {
+      logger.error('Error en packs:list IPC:', err);
+      return [];
+    }
+  });
+
+  ipcMain.handle('packs:delete', async (event, { instancePath, type, fileName }) => {
+    try {
+      const inst = instancePath || profileManager.getActiveInstancePath();
+      return await instancePacksManager.deletePack(inst, type, fileName);
+    } catch (err) {
+      logger.error('Error en packs:delete IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('packs:open-folder', async (event, { instancePath, type }) => {
+    try {
+      const inst = instancePath || profileManager.getActiveInstancePath();
+      return await instancePacksManager.openPacksFolder(inst, type);
+    } catch (err) {
+      logger.error('Error en packs:open-folder IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  // ==========================================
+  // GESTOR DE MUNDOS (SAVES), BACKUPS Y QUICKPLAY
+  // ==========================================
+  ipcMain.handle('worlds:list', async (event, instancePath) => {
+    try {
+      const inst = instancePath || profileManager.getActiveInstancePath();
+      return await worldManager.listWorlds(inst);
+    } catch (err) {
+      logger.error('Error en worlds:list IPC:', err);
+      return [];
+    }
+  });
+
+  ipcMain.handle('worlds:backup', async (event, { instancePath, folderName }) => {
+    try {
+      const inst = instancePath || profileManager.getActiveInstancePath();
+      return await worldManager.createBackup(inst, folderName);
+    } catch (err) {
+      logger.error('Error en worlds:backup IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('worlds:list-backups', async (event, { instancePath, folderName }) => {
+    try {
+      const inst = instancePath || profileManager.getActiveInstancePath();
+      return await worldManager.listBackups(inst, folderName);
+    } catch (err) {
+      logger.error('Error en worlds:list-backups IPC:', err);
+      return [];
+    }
+  });
+
+  ipcMain.handle('worlds:restore-backup', async (event, { instancePath, backupFileName, targetFolderName }) => {
+    try {
+      const inst = instancePath || profileManager.getActiveInstancePath();
+      return await worldManager.restoreBackup(inst, backupFileName, targetFolderName);
+    } catch (err) {
+      logger.error('Error en worlds:restore-backup IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('worlds:delete-backup', async (event, { instancePath, backupFileName }) => {
+    try {
+      const inst = instancePath || profileManager.getActiveInstancePath();
+      return await worldManager.deleteBackup(inst, backupFileName);
+    } catch (err) {
+      logger.error('Error en worlds:delete-backup IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('worlds:backup-all', async (event, instancePath) => {
+    try {
+      const inst = instancePath || profileManager.getActiveInstancePath();
+      return await worldManager.backupAllWorlds(inst);
+    } catch (err) {
+      logger.error('Error en worlds:backup-all IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('worlds:open-folder', async (event, { instancePath, folderName }) => {
+    try {
+      const inst = instancePath || profileManager.getActiveInstancePath();
+      return await worldManager.openWorldFolder(inst, folderName);
+    } catch (err) {
+      logger.error('Error en worlds:open-folder IPC:', err);
       return { success: false, error: err.message };
     }
   });

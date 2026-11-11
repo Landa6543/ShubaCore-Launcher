@@ -2126,6 +2126,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     if (installedModsCount) installedModsCount.textContent = filtered.length;
+    const badgeSubtabMods = document.getElementById('badge-subtab-mods');
+    if (badgeSubtabMods) badgeSubtabMods.textContent = currentInstalledModsList.length;
 
     if (filtered.length === 0) {
       const msg = searchTerm ? 'No se encontraron mods que coincidan con la búsqueda.' : 'No hay mods instalados en esta instancia todavía.';
@@ -2392,6 +2394,24 @@ document.addEventListener('DOMContentLoaded', async () => {
       currentInstalledModsList = Array.isArray(mods) ? mods : [];
       renderFilteredInstalledMods();
 
+      // Actualizar contadores de sub-pestañas en segundo plano
+      if (api.instancePacks) {
+        api.instancePacks.list({ instancePath: targetInstance, type: 'shaders' }).then((sh) => {
+          const badge = document.getElementById('badge-subtab-shaders');
+          if (badge) badge.textContent = Array.isArray(sh) ? sh.length : 0;
+        }).catch(() => {});
+        api.instancePacks.list({ instancePath: targetInstance, type: 'resourcepacks' }).then((rp) => {
+          const badge = document.getElementById('badge-subtab-resourcepacks');
+          if (badge) badge.textContent = Array.isArray(rp) ? rp.length : 0;
+        }).catch(() => {});
+      }
+      if (api.worlds) {
+        api.worlds.list(targetInstance).then((w) => {
+          const badge = document.getElementById('badge-subtab-worlds');
+          if (badge) badge.textContent = Array.isArray(w) ? w.length : 0;
+        }).catch(() => {});
+      }
+
       // 2. Resolver iconos faltantes en segundo plano
       api.mods.resolveIcons(targetInstance).then((res) => {
         if (res && res.updatedCount > 0) {
@@ -2417,6 +2437,591 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnOpenModsFolder.addEventListener('click', async () => {
       const targetInstance = currentActiveProfile?.instancePath || null;
       await api.mods.openFolder(targetInstance);
+    });
+  }
+
+  // =======================================================
+  // SUB-PESTAÑAS DE INSTANCIA (MODS | SHADERS | TEXTURAS | MUNDOS)
+  // =======================================================
+  let currentInstanceSubtab = 'mods';
+  let currentManagingWorldFolderName = null;
+  let currentManagingWorldName = null;
+
+  function switchInstanceSubtab(tabName) {
+    currentInstanceSubtab = tabName;
+    document.querySelectorAll('.instance-subtab-btn').forEach((btn) => {
+      btn.classList.toggle('active', btn.getAttribute('data-subtab') === tabName);
+    });
+
+    const subpanels = {
+      mods: document.getElementById('subpanel-instance-mods'),
+      shaders: document.getElementById('subpanel-instance-shaders'),
+      resourcepacks: document.getElementById('subpanel-instance-resourcepacks'),
+      worlds: document.getElementById('subpanel-instance-worlds')
+    };
+
+    Object.keys(subpanels).forEach((k) => {
+      if (subpanels[k]) {
+        subpanels[k].style.display = (k === tabName) ? (k === 'mods' ? 'block' : 'flex') : 'none';
+      }
+    });
+
+    if (tabName === 'mods') {
+      loadInstalledMods();
+    } else if (tabName === 'shaders') {
+      loadInstalledShaders();
+    } else if (tabName === 'resourcepacks') {
+      loadInstalledResourcePacks();
+    } else if (tabName === 'worlds') {
+      loadInstalledWorlds();
+    }
+  }
+
+  document.querySelectorAll('.instance-subtab-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const target = btn.getAttribute('data-subtab');
+      if (target) switchInstanceSubtab(target);
+    });
+  });
+
+  // --- GESTOR DE SHADERS INSTALADOS ---
+  async function loadInstalledShaders() {
+    const targetInstance = currentActiveProfile?.instancePath || null;
+    const container = document.getElementById('shaders-installed-list');
+    const badgeCount = document.getElementById('badge-subtab-shaders');
+    const headerBadge = document.getElementById('installed-shaders-count-badge');
+    if (!container) return;
+
+    container.innerHTML = '<div class="empty-state">Buscando shaders instalados en shaderpacks/...</div>';
+
+    try {
+      const shaders = await api.instancePacks.list({ instancePath: targetInstance, type: 'shaders' });
+      const list = Array.isArray(shaders) ? shaders : [];
+      if (badgeCount) badgeCount.textContent = list.length;
+      if (headerBadge) headerBadge.textContent = `${list.length} shader${list.length === 1 ? '' : 's'}`;
+
+      if (list.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state" style="padding: 30px 20px;">
+            <p style="font-size: 14px; margin-bottom: 6px;">No hay shaders instalados en esta instancia todavía.</p>
+            <small style="color: var(--text-dim);">Haz clic en "➕ Buscar Shaders en Catálogo" para explorar e instalar shaders compatibles.</small>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = '';
+      list.forEach((pack) => {
+        const card = document.createElement('div');
+        card.className = 'pack-card';
+
+        const iconSrc = pack.icon || 'assets/logo.png';
+        const formattedDate = new Date(pack.modifiedAt).toLocaleDateString();
+
+        card.innerHTML = `
+          <div class="pack-card-left">
+            <img src="${escapeHtml(iconSrc)}" class="pack-card-icon" alt="Pack Icon" onerror="this.src='assets/logo.png'">
+            <div class="pack-card-info">
+              <div class="pack-card-title-row">
+                <span class="pack-card-title" title="${escapeHtml(pack.fileName)}">${escapeHtml(pack.name)}</span>
+                <span class="badge badge-secondary" style="font-size: 10px;">${pack.isZip ? 'ZIP' : 'CARPETA'}</span>
+              </div>
+              <div class="pack-card-desc" title="${escapeHtml(pack.description)}">${escapeHtml(pack.description)}</div>
+              <div class="pack-card-meta">
+                <span>📁 ${escapeHtml(pack.fileName)}</span>
+                <span>·</span>
+                <span>📦 ${escapeHtml(pack.formattedSize)}</span>
+                <span>·</span>
+                <span>📅 ${formattedDate}</span>
+              </div>
+            </div>
+          </div>
+          <div class="pack-card-actions">
+            <button class="btn btn-small btn-danger btn-icon-square btn-delete-pack" data-filename="${escapeHtml(pack.fileName)}" data-type="shaders" title="Eliminar shader">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            </button>
+          </div>
+        `;
+
+        container.appendChild(card);
+      });
+
+      container.querySelectorAll('.btn-delete-pack').forEach((btn) => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const fn = e.currentTarget.getAttribute('data-filename');
+          if (confirm(`¿Deseas eliminar el shader "${fn}" de esta instancia?`)) {
+            await api.instancePacks.delete({ instancePath: targetInstance, type: 'shaders', fileName: fn });
+            appendLog(`[Shaders] Shader "${fn}" eliminado.`, 'info');
+            await loadInstalledShaders();
+          }
+        });
+      });
+
+    } catch (err) {
+      container.innerHTML = `<div class="empty-state">Error al cargar shaders: ${escapeHtml(err.message)}</div>`;
+      appendLog(`[Shaders Error] ${err.message}`, 'error');
+    }
+  }
+
+  // --- GESTOR DE RESOURCE PACKS INSTALADOS ---
+  async function loadInstalledResourcePacks() {
+    const targetInstance = currentActiveProfile?.instancePath || null;
+    const container = document.getElementById('resourcepacks-installed-list');
+    const badgeCount = document.getElementById('badge-subtab-resourcepacks');
+    const headerBadge = document.getElementById('installed-resourcepacks-count-badge');
+    if (!container) return;
+
+    container.innerHTML = '<div class="empty-state">Buscando texturas instaladas en resourcepacks/...</div>';
+
+    try {
+      const packs = await api.instancePacks.list({ instancePath: targetInstance, type: 'resourcepacks' });
+      const list = Array.isArray(packs) ? packs : [];
+      if (badgeCount) badgeCount.textContent = list.length;
+      if (headerBadge) headerBadge.textContent = `${list.length} textura${list.length === 1 ? '' : 's'}`;
+
+      if (list.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state" style="padding: 30px 20px;">
+            <p style="font-size: 14px; margin-bottom: 6px;">No hay resource packs instalados en esta instancia todavía.</p>
+            <small style="color: var(--text-dim);">Haz clic en "➕ Buscar Texturas en Catálogo" para explorar e instalar paquetes de texturas.</small>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = '';
+      list.forEach((pack) => {
+        const card = document.createElement('div');
+        card.className = 'pack-card';
+
+        const iconSrc = pack.icon || 'assets/logo.png';
+        const formattedDate = new Date(pack.modifiedAt).toLocaleDateString();
+
+        card.innerHTML = `
+          <div class="pack-card-left">
+            <img src="${escapeHtml(iconSrc)}" class="pack-card-icon" alt="Pack Icon" onerror="this.src='assets/logo.png'">
+            <div class="pack-card-info">
+              <div class="pack-card-title-row">
+                <span class="pack-card-title" title="${escapeHtml(pack.fileName)}">${escapeHtml(pack.name)}</span>
+                ${pack.packFormat ? `<span class="badge badge-secondary" style="font-size: 10px;">Format ${pack.packFormat}</span>` : ''}
+              </div>
+              <div class="pack-card-desc" title="${escapeHtml(pack.description)}">${escapeHtml(pack.description)}</div>
+              <div class="pack-card-meta">
+                <span>📁 ${escapeHtml(pack.fileName)}</span>
+                <span>·</span>
+                <span>📦 ${escapeHtml(pack.formattedSize)}</span>
+                <span>·</span>
+                <span>📅 ${formattedDate}</span>
+              </div>
+            </div>
+          </div>
+          <div class="pack-card-actions">
+            <button class="btn btn-small btn-danger btn-icon-square btn-delete-pack" data-filename="${escapeHtml(pack.fileName)}" data-type="resourcepacks" title="Eliminar paquete de texturas">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            </button>
+          </div>
+        `;
+
+        container.appendChild(card);
+      });
+
+      container.querySelectorAll('.btn-delete-pack').forEach((btn) => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const fn = e.currentTarget.getAttribute('data-filename');
+          if (confirm(`¿Deseas eliminar el resource pack "${fn}" de esta instancia?`)) {
+            await api.instancePacks.delete({ instancePath: targetInstance, type: 'resourcepacks', fileName: fn });
+            appendLog(`[ResourcePacks] Textura "${fn}" eliminada.`, 'info');
+            await loadInstalledResourcePacks();
+          }
+        });
+      });
+
+    } catch (err) {
+      container.innerHTML = `<div class="empty-state">Error al cargar texturas: ${escapeHtml(err.message)}</div>`;
+      appendLog(`[ResourcePacks Error] ${err.message}`, 'error');
+    }
+  }
+
+  // --- GESTOR DE MUNDOS Y BACKUPS (SAVES) ---
+  async function loadInstalledWorlds() {
+    const targetInstance = currentActiveProfile?.instancePath || null;
+    const container = document.getElementById('worlds-installed-list');
+    const badgeCount = document.getElementById('badge-subtab-worlds');
+    const headerBadge = document.getElementById('installed-worlds-count-badge');
+    if (!container) return;
+
+    container.innerHTML = '<div class="empty-state">Buscando mundos guardados en saves/...</div>';
+
+    try {
+      const worlds = await api.worlds.list(targetInstance);
+      const list = Array.isArray(worlds) ? worlds : [];
+      if (badgeCount) badgeCount.textContent = list.length;
+      if (headerBadge) headerBadge.textContent = `${list.length} mundo${list.length === 1 ? '' : 's'}`;
+
+      if (list.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state" style="padding: 30px 20px;">
+            <p style="font-size: 14px; margin-bottom: 6px;">No hay partidas guardadas en esta instancia todavía.</p>
+            <small style="color: var(--text-dim);">Crea un nuevo mundo en el juego o copia una carpeta de mundo en <code>saves/</code>.</small>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = '';
+      list.forEach((world) => {
+        const card = document.createElement('div');
+        card.className = 'world-card';
+
+        const iconSrc = world.icon || 'assets/logo.png';
+
+        card.innerHTML = `
+          <div class="world-card-left">
+            <img src="${escapeHtml(iconSrc)}" class="world-card-icon" alt="World Icon" onerror="this.src='assets/logo.png'">
+            <div class="world-card-info">
+              <div class="world-card-title-row">
+                <span class="world-card-title" title="${escapeHtml(world.worldName)}">${escapeHtml(world.worldName)}</span>
+                <span class="badge badge-secondary" style="font-size: 10.5px;">📁 ${escapeHtml(world.folderName)}</span>
+                ${world.backupsCount > 0 ? `<span class="badge badge-success" style="font-size: 10px;">💾 ${world.backupsCount} backup${world.backupsCount === 1 ? '' : 's'}</span>` : ''}
+              </div>
+              <div class="world-card-meta">
+                <span>⏱ Última partida: <strong>${escapeHtml(world.lastPlayedFormatted)}</strong></span>
+                <span>·</span>
+                <span>📦 Tamaño: <strong>${escapeHtml(world.formattedSize)}</strong></span>
+              </div>
+            </div>
+          </div>
+          <div class="world-card-actions">
+            <button class="btn btn-small btn-primary btn-quickplay-world" data-folder="${escapeHtml(world.folderName)}" data-name="${escapeHtml(world.worldName)}" title="Cargar y entrar directamente a este mundo sin pasar por el menú">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              <span>▶ Entrar Directo</span>
+            </button>
+            <button class="btn btn-small btn-secondary btn-backup-world" data-folder="${escapeHtml(world.folderName)}" data-name="${escapeHtml(world.worldName)}" title="Crear backup .zip inmediato de este mundo">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              <span>💾 Backup</span>
+            </button>
+            <button class="btn btn-small btn-secondary btn-restore-world-backups" data-folder="${escapeHtml(world.folderName)}" data-name="${escapeHtml(world.worldName)}" title="Ver y restaurar backups de este mundo">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+              <span>♻ Backups (${world.backupsCount})</span>
+            </button>
+            <button class="btn btn-small btn-secondary btn-icon-square btn-open-world-folder" data-folder="${escapeHtml(world.folderName)}" title="Abrir carpeta del mundo en Windows">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            </button>
+          </div>
+        `;
+
+        container.appendChild(card);
+      });
+
+      // Listeners de mundos
+      container.querySelectorAll('.btn-quickplay-world').forEach((btn) => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const folder = e.currentTarget.getAttribute('data-folder');
+          const name = e.currentTarget.getAttribute('data-name');
+          if (!folder) return;
+
+          appendLog(`[QuickPlay] Iniciando entrada directa al mundo "${name}" (${folder})...`, 'info');
+          try {
+            await api.launcher.launch({
+              profileId: currentActiveProfile?.id,
+              quickPlaySingleplayer: folder
+            });
+          } catch (err) {
+            appendLog(`[QuickPlay Error] ${err.message}`, 'error');
+            alert(`Error al iniciar con QuickPlay: ${err.message}`);
+          }
+        });
+      });
+
+      container.querySelectorAll('.btn-backup-world').forEach((btn) => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const folder = e.currentTarget.getAttribute('data-folder');
+          const name = e.currentTarget.getAttribute('data-name');
+          if (!folder) return;
+
+          btn.disabled = true;
+          btn.innerHTML = '<span>Comprimiendo...</span>';
+          appendLog(`[Backups] Creando backup para "${name}"...`, 'info');
+
+          try {
+            const res = await api.worlds.backup({ instancePath: targetInstance, folderName: folder });
+            if (res.success) {
+              appendLog(`[Backups] ¡Backup creado con éxito! Archivo: ${res.backupFileName} (${res.formattedSize})`, 'success');
+              await loadInstalledWorlds();
+            } else {
+              throw new Error(res.error || 'Error al crear backup.');
+            }
+          } catch (err) {
+            appendLog(`[Backups Error] ${err.message}`, 'error');
+            alert(`Error al crear backup: ${err.message}`);
+          } finally {
+            btn.disabled = false;
+          }
+        });
+      });
+
+      container.querySelectorAll('.btn-restore-world-backups').forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const folder = e.currentTarget.getAttribute('data-folder');
+          const name = e.currentTarget.getAttribute('data-name');
+          openWorldBackupsModal(folder, name);
+        });
+      });
+
+      container.querySelectorAll('.btn-open-world-folder').forEach((btn) => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const folder = e.currentTarget.getAttribute('data-folder');
+          await api.worlds.openFolder({ instancePath: targetInstance, folderName: folder });
+        });
+      });
+
+    } catch (err) {
+      container.innerHTML = `<div class="empty-state">Error al cargar mundos: ${escapeHtml(err.message)}</div>`;
+      appendLog(`[Worlds Error] ${err.message}`, 'error');
+    }
+  }
+
+  // --- BOTONES DE TOOLBAR DE SHADERS, RESOURCE PACKS Y MUNDOS ---
+  const btnAddShadersCatalog = document.getElementById('btn-add-shaders-catalog');
+  const btnOpenShadersFolder = document.getElementById('btn-open-shaders-folder');
+  const btnRefreshShaders = document.getElementById('btn-refresh-shaders');
+
+  if (btnAddShadersCatalog) {
+    btnAddShadersCatalog.addEventListener('click', () => {
+      switchMainView('catalog');
+      catPills.forEach((p) => p.classList.remove('active'));
+      const shaderPill = document.querySelector('.cat-pill[data-cat="shaders"]');
+      if (shaderPill) shaderPill.classList.add('active');
+      currentContentType = 'shaders';
+      if (selectModSource && selectModSource.value === 'github') selectModSource.value = 'both';
+      currentContentPage = 1;
+      performModSearch();
+    });
+  }
+
+  if (btnOpenShadersFolder) {
+    btnOpenShadersFolder.addEventListener('click', async () => {
+      const targetInstance = currentActiveProfile?.instancePath || null;
+      await api.instancePacks.openFolder({ instancePath: targetInstance, type: 'shaders' });
+    });
+  }
+
+  if (btnRefreshShaders) {
+    btnRefreshShaders.addEventListener('click', () => loadInstalledShaders());
+  }
+
+  const btnAddResourcepacksCatalog = document.getElementById('btn-add-resourcepacks-catalog');
+  const btnOpenResourcepacksFolder = document.getElementById('btn-open-resourcepacks-folder');
+  const btnRefreshResourcepacks = document.getElementById('btn-refresh-resourcepacks');
+
+  if (btnAddResourcepacksCatalog) {
+    btnAddResourcepacksCatalog.addEventListener('click', () => {
+      switchMainView('catalog');
+      catPills.forEach((p) => p.classList.remove('active'));
+      const rpPill = document.querySelector('.cat-pill[data-cat="resourcepacks"]');
+      if (rpPill) rpPill.classList.add('active');
+      currentContentType = 'resourcepacks';
+      if (selectModSource && selectModSource.value === 'github') selectModSource.value = 'both';
+      currentContentPage = 1;
+      performModSearch();
+    });
+  }
+
+  if (btnOpenResourcepacksFolder) {
+    btnOpenResourcepacksFolder.addEventListener('click', async () => {
+      const targetInstance = currentActiveProfile?.instancePath || null;
+      await api.instancePacks.openFolder({ instancePath: targetInstance, type: 'resourcepacks' });
+    });
+  }
+
+  if (btnRefreshResourcepacks) {
+    btnRefreshResourcepacks.addEventListener('click', () => loadInstalledResourcePacks());
+  }
+
+  const btnBackupAllWorldsTop = document.getElementById('btn-backup-all-worlds-top');
+  const btnOpenWorldsFolder = document.getElementById('btn-open-worlds-folder');
+  const btnRefreshWorlds = document.getElementById('btn-refresh-worlds');
+
+  if (btnBackupAllWorldsTop) {
+    btnBackupAllWorldsTop.addEventListener('click', async () => {
+      const targetInstance = currentActiveProfile?.instancePath || null;
+      btnBackupAllWorldsTop.disabled = true;
+      btnBackupAllWorldsTop.innerHTML = '<span>Comprimiendo mundos...</span>';
+      try {
+        const res = await api.worlds.backupAll(targetInstance);
+        if (res.success) {
+          appendLog(`[Backups] ¡${res.backedUpCount} mundo(s) respaldados correctamente en backups/!`, 'success');
+          alert(`¡${res.backedUpCount} mundo(s) respaldados exitosamente en la carpeta backups/!`);
+          await loadInstalledWorlds();
+        }
+      } catch (err) {
+        alert(`Error al realizar backup: ${err.message}`);
+      } finally {
+        btnBackupAllWorldsTop.disabled = false;
+        btnBackupAllWorldsTop.innerHTML = `
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          <span>💾 Backup de Todos los Mundos</span>
+        `;
+      }
+    });
+  }
+
+  if (btnOpenWorldsFolder) {
+    btnOpenWorldsFolder.addEventListener('click', async () => {
+      const targetInstance = currentActiveProfile?.instancePath || null;
+      await api.worlds.openFolder({ instancePath: targetInstance });
+    });
+  }
+
+  if (btnRefreshWorlds) {
+    btnRefreshWorlds.addEventListener('click', () => loadInstalledWorlds());
+  }
+
+  // --- MODAL DE BACKUPS DE UN MUNDO ---
+  const modalWorldBackups = document.getElementById('modal-world-backups');
+  const btnCloseWorldBackupsModal = document.getElementById('btn-close-world-backups-modal');
+  const btnDismissWorldBackupsModal = document.getElementById('btn-dismiss-world-backups-modal');
+  const modalBackupWorldName = document.getElementById('modal-backup-world-name');
+  const modalBackupWorldMeta = document.getElementById('modal-backup-world-meta');
+  const btnCreateSingleBackup = document.getElementById('btn-create-single-backup');
+  const worldBackupsList = document.getElementById('world-backups-list');
+
+  async function openWorldBackupsModal(folderName, worldName) {
+    if (!modalWorldBackups) return;
+    currentManagingWorldFolderName = folderName;
+    currentManagingWorldName = worldName || folderName;
+
+    if (modalBackupWorldName) modalBackupWorldName.textContent = currentManagingWorldName;
+    if (modalBackupWorldMeta) modalBackupWorldMeta.textContent = `Carpeta interna: ${folderName}`;
+
+    modalWorldBackups.style.display = 'flex';
+    await loadModalBackupsList();
+  }
+
+  function closeWorldBackupsModal() {
+    if (modalWorldBackups) modalWorldBackups.style.display = 'none';
+    currentManagingWorldFolderName = null;
+    currentManagingWorldName = null;
+  }
+
+  if (btnCloseWorldBackupsModal) btnCloseWorldBackupsModal.addEventListener('click', closeWorldBackupsModal);
+  if (btnDismissWorldBackupsModal) btnDismissWorldBackupsModal.addEventListener('click', closeWorldBackupsModal);
+
+  async function loadModalBackupsList() {
+    if (!worldBackupsList || !currentManagingWorldFolderName) return;
+    const targetInstance = currentActiveProfile?.instancePath || null;
+    worldBackupsList.innerHTML = '<div class="empty-state">Consultando backups disponibles...</div>';
+
+    try {
+      const backups = await api.worlds.listBackups({ instancePath: targetInstance, folderName: currentManagingWorldFolderName });
+      const list = Array.isArray(backups) ? backups : [];
+
+      if (list.length === 0) {
+        worldBackupsList.innerHTML = `
+          <div class="empty-state" style="padding: 24px;">
+            <p style="font-size: 13.5px; margin-bottom: 4px;">No hay backups guardados para este mundo.</p>
+            <small style="color: var(--text-dim);">Haz clic en "Crear Backup Ahora" arriba para generar una copia de seguridad .zip.</small>
+          </div>
+        `;
+        return;
+      }
+
+      worldBackupsList.innerHTML = '';
+      list.forEach((b) => {
+        const card = document.createElement('div');
+        card.className = 'backup-item-card';
+
+        card.innerHTML = `
+          <div style="min-width: 0; flex: 1;">
+            <div style="font-weight: 600; color: var(--text-primary); font-size: 13px; font-family: var(--font-mono);">${escapeHtml(b.fileName)}</div>
+            <div style="font-size: 11.5px; color: var(--text-secondary); margin-top: 2px;">
+              <span>📅 ${escapeHtml(b.createdAtFormatted)}</span> · <span>📦 ${escapeHtml(b.formattedSize)}</span>
+            </div>
+          </div>
+          <div style="display: flex; gap: 6px; flex-shrink: 0;">
+            <button class="btn btn-small btn-primary btn-restore-single-backup" data-filename="${escapeHtml(b.fileName)}" title="Restaurar este backup sobre la partida actual">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+              <span>Restaurar</span>
+            </button>
+            <button class="btn btn-small btn-danger btn-icon-square btn-delete-single-backup" data-filename="${escapeHtml(b.fileName)}" title="Eliminar este archivo de backup">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            </button>
+          </div>
+        `;
+
+        worldBackupsList.appendChild(card);
+      });
+
+      worldBackupsList.querySelectorAll('.btn-restore-single-backup').forEach((btn) => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const fn = e.currentTarget.getAttribute('data-filename');
+          if (confirm(`¿Estás seguro de restaurar el backup "${fn}"?\nSe sobreescribirá la partida actual del mundo "${currentManagingWorldName}".`)) {
+            try {
+              const res = await api.worlds.restoreBackup({
+                instancePath: targetInstance,
+                backupFileName: fn,
+                targetFolderName: currentManagingWorldFolderName
+              });
+              if (res.success) {
+                appendLog(`[Backups] ¡Mundo "${currentManagingWorldName}" restaurado exitosamente desde "${fn}"!`, 'success');
+                alert(`¡Mundo restaurado con éxito desde el backup!`);
+                await loadInstalledWorlds();
+                await loadModalBackupsList();
+              }
+            } catch (err) {
+              alert(`Error al restaurar backup: ${err.message}`);
+            }
+          }
+        });
+      });
+
+      worldBackupsList.querySelectorAll('.btn-delete-single-backup').forEach((btn) => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const fn = e.currentTarget.getAttribute('data-filename');
+          if (confirm(`¿Eliminar permanentemente el archivo de backup "${fn}"?`)) {
+            await api.worlds.deleteBackup({ instancePath: targetInstance, backupFileName: fn });
+            appendLog(`[Backups] Archivo de backup "${fn}" eliminado.`, 'info');
+            await loadModalBackupsList();
+            await loadInstalledWorlds();
+          }
+        });
+      });
+
+    } catch (err) {
+      worldBackupsList.innerHTML = `<div class="empty-state">Error al cargar backups: ${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  if (btnCreateSingleBackup) {
+    btnCreateSingleBackup.addEventListener('click', async () => {
+      if (!currentManagingWorldFolderName) return;
+      const targetInstance = currentActiveProfile?.instancePath || null;
+      btnCreateSingleBackup.disabled = true;
+      btnCreateSingleBackup.textContent = 'Creando...';
+      try {
+        const res = await api.worlds.backup({ instancePath: targetInstance, folderName: currentManagingWorldFolderName });
+        if (res.success) {
+          appendLog(`[Backups] Backup creado: ${res.backupFileName} (${res.formattedSize})`, 'success');
+          await loadModalBackupsList();
+          await loadInstalledWorlds();
+        }
+      } catch (err) {
+        alert(`Error al crear backup: ${err.message}`);
+      } finally {
+        btnCreateSingleBackup.disabled = false;
+        btnCreateSingleBackup.innerHTML = `
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <span>Crear Backup Ahora</span>
+        `;
+      }
     });
   }
 
@@ -2605,6 +3210,20 @@ document.addEventListener('DOMContentLoaded', async () => {
       btnUpdateAllMods.disabled = true;
       btnUpdateAllMods.innerHTML = '<span>Actualizando todos...</span>';
       appendLog(`[Mods] Iniciando actualización en lote de ${activeAvailableUpdates.length} mods...`, 'info');
+
+      // Checkbox preventivo: Crear backup rápido de mundos antes de actualizar mods
+      const checkBackup = document.getElementById('check-backup-before-update');
+      if (checkBackup && checkBackup.checked && api.worlds) {
+        appendLog(`[Backups] Creando copia de seguridad preventiva de los mundos antes de actualizar...`, 'info');
+        try {
+          const bRes = await api.worlds.backupAll(targetInstance);
+          if (bRes.success && bRes.backedUpCount > 0) {
+            appendLog(`[Backups] ¡${bRes.backedUpCount} mundo(s) respaldados preventivamente en backups/!`, 'success');
+          }
+        } catch (bErr) {
+          appendLog(`[Backups Aviso] No se pudo completar el backup preventivo: ${bErr.message}`, 'warn');
+        }
+      }
 
       // Barra de progreso visual
       const progressContainer = document.getElementById('mods-update-progress-container');

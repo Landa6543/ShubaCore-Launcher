@@ -208,6 +208,28 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
   },
 
   // ==========================================
+  // SHADERS Y RESOURCE PACKS INSTALADOS
+  // ==========================================
+  instancePacks: {
+    list: (params) => ipcRenderer.invoke('packs:list', params),
+    delete: (params) => ipcRenderer.invoke('packs:delete', params),
+    openFolder: (params) => ipcRenderer.invoke('packs:open-folder', params)
+  },
+
+  // ==========================================
+  // GESTOR DE MUNDOS (SAVES), BACKUPS Y QUICKPLAY
+  // ==========================================
+  worlds: {
+    list: (instancePath) => ipcRenderer.invoke('worlds:list', instancePath),
+    backup: (params) => ipcRenderer.invoke('worlds:backup', params),
+    listBackups: (params) => ipcRenderer.invoke('worlds:list-backups', params),
+    restoreBackup: (params) => ipcRenderer.invoke('worlds:restore-backup', params),
+    deleteBackup: (params) => ipcRenderer.invoke('worlds:delete-backup', params),
+    backupAll: (instancePath) => ipcRenderer.invoke('worlds:backup-all', instancePath),
+    openFolder: (params) => ipcRenderer.invoke('worlds:open-folder', params)
+  },
+
+  // ==========================================
   // SISTEMA Y VENTANA
   // ==========================================
   system: {

@@ -248,6 +248,13 @@ class LaunchManager {
 
       // 6. Configurar opciones completas de MCLC
       const customLaunchArgs = [...(overrideOptions.customLaunchArgs || [])];
+
+      // Entrada directa al mundo con QuickPlay de Mojang si se especificó
+      if (overrideOptions.quickPlaySingleplayer) {
+        customLaunchArgs.push('--quickPlaySingleplayer', overrideOptions.quickPlaySingleplayer);
+        logger.info(`⚡ [QuickPlay] Lanzando con entrada directa al mundo: "${overrideOptions.quickPlaySingleplayer}"`);
+      }
+
       // Silenciar telemetría y llamadas de cuenta en modo offline pasando --userProperties {}
       const isOfflineAccount = !currentAccount || currentAccount.type === 'offline';
       if (isOfflineAccount) {
