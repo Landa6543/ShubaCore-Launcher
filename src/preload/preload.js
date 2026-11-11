@@ -24,6 +24,8 @@ const VALID_RECEIVE_CHANNELS = [
   'mods:performance-pack-progress',
   'mods:modpack-progress',
   'content:download-progress',
+  'github-mods:download-progress',
+  'sync:progress',
   'packs:export-progress',
   'packs:import-progress',
   'jvm:download-progress',
@@ -183,6 +185,26 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
     getStatus: () => ipcRenderer.invoke('discord:get-status'),
     setEnabled: (enabled) => ipcRenderer.invoke('discord:set-enabled', enabled),
     updateView: (viewName) => ipcRenderer.invoke('discord:update-view', viewName)
+  },
+
+  // ==========================================
+  // CATÁLOGO PRIVADO DE MODS CUSTOM (GITHUB)
+  // ==========================================
+  githubMods: {
+    fetch: (force) => ipcRenderer.invoke('github-mods:fetch', force),
+    install: (options) => ipcRenderer.invoke('github-mods:install', options),
+    getRepo: () => ipcRenderer.invoke('github-mods:get-repo'),
+    setRepo: (repo) => ipcRenderer.invoke('github-mods:set-repo', repo)
+  },
+
+  // ==========================================
+  // SINCRONIZADOR DE PERFILES Y MODPACKS (1-CLIC)
+  // ==========================================
+  sync: {
+    publish: (options) => ipcRenderer.invoke('sync:publish-profile', options),
+    listShared: () => ipcRenderer.invoke('sync:list-shared'),
+    getShared: (slug) => ipcRenderer.invoke('sync:get-shared', slug),
+    apply: (options) => ipcRenderer.invoke('sync:apply', options)
   },
 
   // ==========================================

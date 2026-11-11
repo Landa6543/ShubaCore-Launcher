@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ShubaCore Launcher - SHUBATECH</title>
+  <title>ShubaCore Launcher v1.1.0 - SHUBATECH</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body id="app">
@@ -12,7 +12,7 @@
     <div class="titlebar-drag">
       <div class="brand">
         <img src="assets/logo.png" class="brand-logo-img" alt="Logo" style="width: 18px; height: 18px; border-radius: 4px; object-fit: contain;">
-        <span class="app-title">ShubaCore v1.0.0</span>
+        <span class="app-title">ShubaCore v1.1.0</span>
         <span class="brand-badge">SHUBATECH</span>
       </div>
     </div>
@@ -162,6 +162,10 @@
             <p class="view-subtitle">Perfiles independientes con sus propios mods, configuraciones y mundos.</p>
           </div>
           <div class="toolbar-actions">
+            <button id="btn-sync-cloud-instances" class="btn btn-secondary" title="Sincronizar instancia con perfil de amigos en GitHub">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+              <span>🔄 Sincronizar con Amigo</span>
+            </button>
             <button id="btn-import-modpack-instances" class="btn btn-secondary" title="Importar Modpack CurseForge (.zip) o Modrinth (.mrpack)">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
               <span>Importar Modpack</span>
@@ -193,6 +197,7 @@
               <button class="cat-pill" data-cat="modpacks">Modpacks</button>
               <button class="cat-pill" data-cat="resourcepacks">Texturas</button>
               <button class="cat-pill" data-cat="shaders">Shaders</button>
+              <button id="pill-cat-github" class="cat-pill pill-github" data-cat="github" title="Ver mods custom de GitHub">🔥 Mods Custom (GitHub)</button>
             </div>
             <div class="catalog-select-filters">
               <select id="select-mod-sort" class="select-input select-filter" title="Ordenar catálogo">
@@ -213,14 +218,23 @@
             <div class="catalog-search-group">
               <div class="search-input-box">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-                <input type="text" id="input-mod-search" placeholder="Buscar en CurseForge y Modrinth...">
+                <input type="text" id="input-mod-search" placeholder="Buscar en CurseForge, Modrinth o GitHub...">
                 <button id="btn-search-mods" class="btn btn-compact">Buscar</button>
               </div>
               <select id="select-mod-source" class="select-input select-source">
                 <option value="both" selected>CurseForge + Modrinth</option>
                 <option value="modrinth">Modrinth</option>
                 <option value="curseforge">CurseForge</option>
+                <option value="github">🔥 Mods Custom (GitHub)</option>
               </select>
+              <button id="btn-refresh-github-mods" class="btn btn-secondary btn-compact" title="Refrescar mods desde GitHub" style="display: none;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+                <span>Refrescar</span>
+              </button>
+              <button id="btn-config-github-repo" class="btn btn-secondary btn-compact" title="Configurar repositorio de GitHub" style="display: none;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                <span>Configurar Repo</span>
+              </button>
             </div>
           </div>
         </div>
@@ -308,9 +322,17 @@
           </div>
         </div>
 
-        <!-- 3. Barra de Acciones Globales (Actualizaciones, FPS, Modpacks) -->
+        <!-- 3. Barra de Acciones Globales (Actualizaciones, FPS, Modpacks, Sincronización) -->
         <div class="installed-mods-actions-bar">
           <div class="toolbar-actions">
+            <button id="btn-publish-profile-mods" class="btn btn-secondary btn-small" title="Publicar este perfil para amigos en GitHub (.shubasync.json)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/><polyline points="12 13 12 7 9 10"/><polyline points="12 7 15 10"/></svg>
+              <span>☁ Publicar Perfil</span>
+            </button>
+            <button id="btn-sync-profile-mods" class="btn btn-secondary btn-small" title="Sincronizar esta instancia con perfil de un amigo en GitHub">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+              <span>🔄 Sincronizar</span>
+            </button>
             <button id="btn-check-mod-updates" class="btn btn-secondary btn-small" title="Buscar versiones más recientes para los mods instalados">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               <span>Buscar Actualizaciones</span>
@@ -986,6 +1008,145 @@
 
       <div class="modal-footer mod-detail-footer">
         <button type="button" id="btn-dismiss-mod-detail" class="btn btn-secondary">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CONFIGURAR REPOSITORIO GITHUB -->
+  <div id="modal-github-repo" class="modal-overlay" style="display: none;">
+    <div class="modal-content card" style="max-width: 480px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+          <h3>Configurar Repositorio de Mods Custom</h3>
+        </div>
+        <button id="btn-close-gh-repo-modal" class="btn btn-small close-btn">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 14px;">
+        <p style="font-size: 12.5px; color: var(--text-secondary); margin: 0;">
+          Configura el repositorio de GitHub donde se almacenan tus mods custom (.jar) y perfiles sincronizados para tus amigos.
+        </p>
+        <div class="form-group">
+          <label for="input-gh-repo-owner">Usuario u Organización de GitHub:</label>
+          <input type="text" id="input-gh-repo-owner" class="text-input" placeholder="Landa6543">
+        </div>
+        <div class="form-group">
+          <label for="input-gh-repo-name">Nombre del Repositorio:</label>
+          <input type="text" id="input-gh-repo-name" class="text-input" placeholder="ShubaCore-Mods">
+        </div>
+        <div class="form-group">
+          <label for="input-gh-custom-token">Token Personal de GitHub (PAT) <small style="color: var(--text-dim);">(Opcional, para publicar)</small>:</label>
+          <input type="password" id="input-gh-custom-token" class="text-input" placeholder="ghp_... (Detectado automáticamente vía Git Credential Manager si ya estás autenticado)">
+          <small class="hint">Si dejas el token vacío, ShubaCore utilizará la sesión de Git de Windows o acceso de lectura público.</small>
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
+        <button id="btn-cancel-gh-repo" class="btn btn-secondary">Cancelar</button>
+        <button id="btn-save-gh-repo" class="btn btn-primary">Guardar Configuración</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: PUBLICAR PERFIL PARA AMIGOS (.shubasync.json) -->
+  <div id="modal-publish-profile" class="modal-overlay" style="display: none;">
+    <div class="modal-content card" style="max-width: 500px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/><polyline points="12 13 12 7 9 10"/><polyline points="12 7 15 10"/></svg>
+          <h3>Publicar Perfil en la Nube para Amigos</h3>
+        </div>
+        <button id="btn-close-publish-modal" class="btn btn-small close-btn">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 18px 20px; display: flex; flex-direction: column; gap: 14px;">
+        <p style="font-size: 12.5px; color: var(--text-secondary); margin: 0;">
+          Genera un manifiesto ultraligero que permite a tus amigos clonar y sincronizar exactamente tu misma lista de mods en 1 clic sin tener que enviarles archivos .zip pesados.
+        </p>
+        <div class="settings-card" style="margin: 0; padding: 12px 14px; background: rgba(255,255,255,0.03);">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-weight: 600; color: var(--text-primary);" id="publish-profile-target-name">Mi Aventura</span>
+            <span id="publish-profile-mod-count" class="badge badge-success">0 mods</span>
+          </div>
+          <small id="publish-profile-target-meta" style="color: var(--text-dim); display: block; margin-top: 4px;">Minecraft 1.21.1 · NeoForge</small>
+        </div>
+
+        <div style="display: flex; align-items: flex-start; gap: 10px; margin-top: 4px;">
+          <input type="checkbox" id="check-publish-include-configs" checked style="margin-top: 3px; cursor: pointer;">
+          <label for="check-publish-include-configs" style="font-size: 12.5px; color: var(--text-primary); cursor: pointer;">
+            <strong>Incluir configuraciones personalizadas (carpeta <code>config/</code>)</strong>
+            <small style="display: block; color: var(--text-dim); margin-top: 2px;">Comprime automáticamente las configs de tus mods en un paquete ligero para que tus amigos jueguen con tus mismas configuraciones.</small>
+          </label>
+        </div>
+
+        <!-- Caja de Resultado Exitoso -->
+        <div id="publish-success-box" style="display: none; padding: 14px; background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.3); border-radius: 8px;">
+          <div style="display: flex; align-items: center; gap: 8px; color: #10b981; font-weight: 600; font-size: 13.5px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            <span>¡Perfil publicado exitosamente en GitHub!</span>
+          </div>
+          <p style="font-size: 12px; color: var(--text-secondary); margin: 6px 0 10px 0;">
+            Pasa este identificador a tus amigos para que sincronicen su launcher en 1 clic:
+          </p>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="input-publish-share-code" class="text-input" readonly style="font-family: var(--font-mono); font-weight: 700; color: #10b981;">
+            <button id="btn-copy-share-code" class="btn btn-secondary btn-compact">Copiar</button>
+          </div>
+        </div>
+
+        <div id="publish-status-text" style="font-size: 12px; color: var(--text-secondary); display: none;"></div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
+        <button id="btn-cancel-publish-profile" class="btn btn-secondary">Cerrar</button>
+        <button id="btn-confirm-publish-profile" class="btn btn-primary">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/><polyline points="12 13 12 7 9 10"/><polyline points="12 7 15 10"/></svg>
+          <span>☁ Publicar para Amigos</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: SINCRONIZAR CON PERFIL DE AMIGO / SERVIDOR -->
+  <div id="modal-sync-profile" class="modal-overlay" style="display: none;">
+    <div class="modal-content card" style="max-width: 620px; max-height: 85vh;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+          <h3>Sincronizador de Modpacks en 1 Clic</h3>
+        </div>
+        <button id="btn-close-sync-modal" class="btn btn-small close-btn">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto;">
+        <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.03); padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border);">
+          <div>
+            <small style="color: var(--text-dim); display: block;">Instancia de destino:</small>
+            <strong id="sync-target-instance-name" style="color: var(--text-primary); font-size: 13.5px;">Mi Aventura</strong>
+          </div>
+          <button id="btn-refresh-shared-list" class="btn btn-secondary btn-compact" title="Refrescar lista desde GitHub">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+            <span>Refrescar</span>
+          </button>
+        </div>
+
+        <p style="font-size: 12.5px; color: var(--text-secondary); margin: 0;">
+          Selecciona un perfil publicado por tus amigos para sincronizarlo automáticamente. Se descargarán solo los mods faltantes y se actualizarán las configs.
+        </p>
+
+        <!-- Progreso de sincronización -->
+        <div id="sync-progress-box" style="display: none; padding: 12px; background: rgba(0,0,0,0.3); border-radius: 8px; border: 1px solid var(--border);">
+          <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px;">
+            <span id="sync-progress-label" style="color: var(--text-primary); font-weight: 600;">Sincronizando mods...</span>
+            <span id="sync-progress-pct" style="color: var(--accent-emerald); font-weight: 700;">0%</span>
+          </div>
+          <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;">
+            <div id="sync-progress-bar" style="width: 0%; height: 100%; background: var(--accent-emerald); transition: width 0.2s ease;"></div>
+          </div>
+        </div>
+
+        <div id="shared-profiles-list" style="display: flex; flex-direction: column; gap: 10px; max-height: 380px; overflow-y: auto;">
+          <div class="empty-state">Consultando perfiles en GitHub...</div>
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end;">
+        <button id="btn-dismiss-sync-modal" class="btn btn-secondary">Cerrar</button>
       </div>
     </div>
   </div>

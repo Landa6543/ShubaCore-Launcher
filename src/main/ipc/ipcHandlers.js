@@ -19,6 +19,8 @@ const { JVMOptimizer } = require('../jvm/JVMOptimizer');
 const { JavaManager } = require('../jvm/JavaManager');
 const { LoaderVersionResolver } = require('../launcher/LoaderVersionResolver');
 const { getDiscordManager } = require('../discord/DiscordManager');
+const { getGitHubModsManager } = require('../github/GitHubModsManager');
+const { getProfileSyncManager } = require('../sync/ProfileSyncManager');
 const { defaultLogger: logger } = require('../utils/logger');
 
 function registerIpcHandlers(mainWindow) {
@@ -30,6 +32,8 @@ function registerIpcHandlers(mainWindow) {
   const skinManager = getSkinManager();
   const packPorter = getPackPorter();
   const discordManager = getDiscordManager();
+  const githubModsManager = getGitHubModsManager();
+  const profileSyncManager = getProfileSyncManager();
 
   // Estado de visibilidad de la pestaña de consola para evitar IPC flood y backpressure
   let isConsoleTabVisible = false;
@@ -990,6 +994,91 @@ function registerIpcHandlers(mainWindow) {
   ipcMain.handle('discord:update-view', async (event, viewName) => {
     discordManager.setMenuActivity(viewName);
     return { success: true };
+  });
+
+  // ==========================================
+  // CATÁLOGO PRIVADO DE MODS CUSTOM (GITHUB)
+  // ==========================================
+  ipcMain.handle('github-mods:fetch', async (event, force) => {
+    try {
+      return await githubModsManager.fetchCustomMods(force);
+    } catch (err) {
+      logger.error('Error en github-mods:fetch IPC:', err);
+      return [];
+    }
+  });
+
+  ipcMain.handle('github-mods:install', async (event, options) => {
+    try {
+      const targetInstance = options.instancePath || profileManager.getActiveInstancePath();
+      return await githubModsManager.downloadCustomMod({
+        ...options,
+        instancePath: targetInstance,
+        onProgress: (progress) => {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('github-mods:download-progress', progress);
+          }
+        }
+      });
+    } catch (err) {
+      logger.error('Error en github-mods:install IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('github-mods:get-repo', async () => {
+    return githubModsManager.getRepoInfo();
+  });
+
+  ipcMain.handle('github-mods:set-repo', async (event, { owner, repo, token }) => {
+    return githubModsManager.setRepoInfo(owner, repo, token);
+  });
+
+  // ==========================================
+  // SINCRONIZADOR DE MODPACKS / PERFILES (1-CLIC SYNC)
+  // ==========================================
+  ipcMain.handle('sync:publish-profile', async (event, args) => {
+    try {
+      const profileId = args?.profileId || args?.id || null;
+      const options = args?.options || args || {};
+      return await profileSyncManager.publishProfile(profileId, options);
+    } catch (err) {
+      logger.error('Error en sync:publish-profile IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('sync:list-shared', async () => {
+    try {
+      return await profileSyncManager.listSharedProfiles();
+    } catch (err) {
+      logger.error('Error en sync:list-shared IPC:', err);
+      return [];
+    }
+  });
+
+  ipcMain.handle('sync:get-shared', async (event, slug) => {
+    try {
+      return await profileSyncManager.getSharedProfile(slug);
+    } catch (err) {
+      logger.error('Error en sync:get-shared IPC:', err);
+      return { error: err.message };
+    }
+  });
+
+  ipcMain.handle('sync:apply', async (event, args) => {
+    try {
+      const profileId = args?.profileId || null;
+      const slugOrManifest = args?.slugOrManifest || args?.slug || args?.manifest;
+      return await profileSyncManager.syncProfileToInstance(profileId, slugOrManifest, (progress) => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('sync:progress', progress);
+        }
+      });
+    } catch (err) {
+      logger.error('Error en sync:apply IPC:', err);
+      return { success: false, error: err.message };
+    }
   });
 
   ipcMain.on('window:minimize', () => {

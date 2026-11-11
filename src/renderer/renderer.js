@@ -11,6 +11,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
+  // Sincronización dinámica de versión desde package.json vía IPC
+  try {
+    api.updater.getVersion().then((realVer) => {
+      if (realVer) {
+        document.title = `ShubaCore Launcher v${realVer} - SHUBATECH`;
+        const appTitleEl = document.querySelector('.app-title');
+        if (appTitleEl) appTitleEl.textContent = `ShubaCore v${realVer}`;
+        const sidebarBadgeEl = document.querySelector('.sidebar-brand-title-row .brand-badge');
+        if (sidebarBadgeEl) sidebarBadgeEl.textContent = `v${realVer}`;
+        const launcherVerEl = document.getElementById('launcher-current-version');
+        if (launcherVerEl) launcherVerEl.textContent = `v${realVer}`;
+      }
+    }).catch(() => {});
+  } catch (_) {}
+
   // =======================================================
   // REFERENCIAS DOM: VENTANA Y NAVEGACIÓN
   // =======================================================
@@ -149,6 +164,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnPrevPage = document.getElementById('btn-prev-page');
   const btnNextPage = document.getElementById('btn-next-page');
   const spanPageIndicator = document.getElementById('span-page-indicator');
+  const pillCatGithub = document.getElementById('pill-cat-github');
+  const btnRefreshGithubMods = document.getElementById('btn-refresh-github-mods');
+  const btnConfigGithubRepo = document.getElementById('btn-config-github-repo');
 
   // Gestor de Mods de Instancia & Actualizaciones
   const installedModsTitle = document.getElementById('installed-mods-title');
@@ -168,6 +186,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const updatesAvailableCount = document.getElementById('updates-available-count');
   const btnInstallPerformancePack = document.getElementById('btn-install-performance-pack');
   const btnInstallModpack = document.getElementById('btn-install-modpack');
+  const btnSyncCloudInstances = document.getElementById('btn-sync-cloud-instances');
+  const btnPublishProfileMods = document.getElementById('btn-publish-profile-mods');
+  const btnSyncProfileMods = document.getElementById('btn-sync-profile-mods');
   const modsInstalledList = document.getElementById('mods-installed-list');
   let activeAvailableUpdates = [];
   let currentInstalledModsList = [];
@@ -200,6 +221,41 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnDismissModDetail = document.getElementById('btn-dismiss-mod-detail');
   const btnOpenModWeb = document.getElementById('btn-open-mod-web');
   let currentProjectDetail = null;
+
+  // Modales de GitHub Mods y Sincronización en la Nube
+  const modalGithubRepo = document.getElementById('modal-github-repo');
+  const btnCloseGhRepoModal = document.getElementById('btn-close-gh-repo-modal');
+  const btnCancelGhRepo = document.getElementById('btn-cancel-gh-repo');
+  const btnSaveGhRepo = document.getElementById('btn-save-gh-repo');
+  const inputGhRepoOwner = document.getElementById('input-gh-repo-owner');
+  const inputGhRepoName = document.getElementById('input-gh-repo-name');
+  const inputGhCustomToken = document.getElementById('input-gh-custom-token');
+
+  const modalPublishProfile = document.getElementById('modal-publish-profile');
+  const btnClosePublishModal = document.getElementById('btn-close-publish-modal');
+  const btnCancelPublishProfile = document.getElementById('btn-cancel-publish-profile');
+  const btnConfirmPublishProfile = document.getElementById('btn-confirm-publish-profile');
+  const publishProfileTargetName = document.getElementById('publish-profile-target-name');
+  const publishProfileModCount = document.getElementById('publish-profile-mod-count');
+  const publishProfileTargetMeta = document.getElementById('publish-profile-target-meta');
+  const checkPublishIncludeConfigs = document.getElementById('check-publish-include-configs');
+  const publishSuccessBox = document.getElementById('publish-success-box');
+  const inputPublishShareCode = document.getElementById('input-publish-share-code');
+  const btnCopyShareCode = document.getElementById('btn-copy-share-code');
+  const publishStatusText = document.getElementById('publish-status-text');
+  let currentPublishTargetProfileId = null;
+
+  const modalSyncProfile = document.getElementById('modal-sync-profile');
+  const btnCloseSyncModal = document.getElementById('btn-close-sync-modal');
+  const btnDismissSyncModal = document.getElementById('btn-dismiss-sync-modal');
+  const syncTargetInstanceName = document.getElementById('sync-target-instance-name');
+  const btnRefreshSharedList = document.getElementById('btn-refresh-shared-list');
+  const sharedProfilesList = document.getElementById('shared-profiles-list');
+  const syncProgressBox = document.getElementById('sync-progress-box');
+  const syncProgressLabel = document.getElementById('sync-progress-label');
+  const syncProgressPct = document.getElementById('sync-progress-pct');
+  const syncProgressBar = document.getElementById('sync-progress-bar');
+  let currentSyncTargetProfileId = null;
 
   // Vestidor de Skins 2D
   const vestidorFaceCanvas = document.getElementById('vestidor-face-canvas');
@@ -1158,6 +1214,9 @@ document.addEventListener('DOMContentLoaded', async () => {
               <button class="btn btn-small btn-secondary btn-icon-square btn-export-pack" data-id="${p.id}" data-name="${escapeHtml(p.name || 'perfil')}" title="Exportar como .shubapack">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
               </button>
+              <button class="btn btn-small btn-secondary btn-icon-square btn-publish-cloud" data-id="${p.id}" data-name="${escapeHtml(p.name || 'perfil')}" title="☁ Publicar en la nube para amigos (.shubasync.json)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/><polyline points="12 13 12 7 9 10"/><polyline points="12 7 15 10"/></svg>
+              </button>
               ${profiles.length > 1 ? `
                 <button class="btn btn-small btn-danger btn-icon-square btn-delete-profile" data-id="${p.id}" title="Eliminar instancia">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
@@ -1265,6 +1324,14 @@ document.addEventListener('DOMContentLoaded', async () => {
               btn.disabled = false;
             }
           }
+        });
+      });
+
+      document.querySelectorAll('.btn-publish-cloud').forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const id = e.currentTarget.getAttribute('data-id');
+          openPublishProfileModal(id);
         });
       });
     } catch (err) {
@@ -2658,6 +2725,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       catPills.forEach((b) => b.classList.remove('active'));
       btn.classList.add('active');
       currentContentType = btn.getAttribute('data-cat') || 'mods';
+      if (currentContentType === 'github') {
+        if (selectModSource) selectModSource.value = 'github';
+      } else if (selectModSource && selectModSource.value === 'github') {
+        selectModSource.value = 'both';
+      }
       currentContentPage = 1;
       performModSearch();
     });
@@ -2686,6 +2758,177 @@ document.addEventListener('DOMContentLoaded', async () => {
     const loader = (currentActiveProfile?.loader || 'neoforge').toLowerCase();
 
     btnSearchMods.disabled = true;
+
+    const isGithub = (source === 'github' || currentContentType === 'github');
+    if (btnRefreshGithubMods) btnRefreshGithubMods.style.display = isGithub ? 'inline-flex' : 'none';
+    if (btnConfigGithubRepo) btnConfigGithubRepo.style.display = isGithub ? 'inline-flex' : 'none';
+
+    if (isGithub) {
+      if (query) {
+        resultsHeadline.textContent = `Resultados para "${query}" (Mods Custom GitHub)`;
+        resultsSubhint.textContent = `Filtrando en repositorio de GitHub`;
+      } else {
+        resultsHeadline.textContent = `🔥 Mods Custom (GitHub Repository)`;
+        resultsSubhint.textContent = `Directos desde el repositorio comunitario de GitHub`;
+      }
+      modsSearchResults.innerHTML = '<div class="empty-state">Consultando mods custom en GitHub...</div>';
+
+      try {
+        const ghMods = await api.githubMods.fetch();
+        const targetInstance = currentActiveProfile?.instancePath || null;
+        let installedMods = [];
+        try {
+          if (targetInstance) {
+            installedMods = await api.mods.listInstalled(targetInstance);
+          }
+        } catch (_) {}
+        const installedFileMap = new Map((installedMods || []).map(m => [m.fileName?.toLowerCase(), m]));
+
+        let filtered = Array.isArray(ghMods) ? ghMods : [];
+        if (query) {
+          const q = query.toLowerCase();
+          filtered = filtered.filter(m =>
+            (m.title || m.name || '').toLowerCase().includes(q) ||
+            (m.fileName || '').toLowerCase().includes(q) ||
+            (m.summary || m.description || '').toLowerCase().includes(q)
+          );
+        }
+
+        totalContentCount = filtered.length;
+        totalContentPages = 1;
+        spanPageIndicator.textContent = `Página 1 de 1 (${totalContentCount} mods)`;
+
+        if (filtered.length === 0) {
+          modsSearchResults.innerHTML = `
+            <div class="empty-state" style="padding: 30px 20px;">
+              <p style="font-size: 14px; margin-bottom: 8px;">No se encontraron mods custom en el repositorio de GitHub.</p>
+              <small style="color: var(--text-dim);">Sube archivos .jar a la carpeta <code>mods/</code> o crea un Release en tu repositorio de GitHub.</small>
+              <div style="margin-top: 14px;">
+                <button class="btn btn-secondary btn-small" id="btn-empty-config-gh">Configurar Repositorio</button>
+              </div>
+            </div>`;
+          const emptyCfg = document.getElementById('btn-empty-config-gh');
+          if (emptyCfg) emptyCfg.addEventListener('click', openGhRepoModal);
+          return;
+        }
+
+        modsSearchResults.innerHTML = '';
+        filtered.forEach((item) => {
+          const card = document.createElement('div');
+          card.className = 'mod-card';
+
+          const isInstalled = installedFileMap.has(item.fileName?.toLowerCase());
+          const installedMod = isInstalled ? installedFileMap.get(item.fileName?.toLowerCase()) : null;
+          const isOutdated = isInstalled && installedMod && (installedMod.version && item.version && installedMod.version !== item.version);
+
+          let actionBtnHtml = '';
+          if (!isInstalled) {
+            actionBtnHtml = `
+              <button class="btn btn-small btn-secondary btn-download-gh-mod" data-filename="${escapeHtml(item.fileName)}" data-url="${escapeHtml(item.downloadUrl || '')}">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+                <span>Instalar</span>
+              </button>
+            `;
+          } else if (isOutdated) {
+            actionBtnHtml = `
+              <button class="btn btn-small btn-primary btn-download-gh-mod" data-filename="${escapeHtml(item.fileName)}" data-url="${escapeHtml(item.downloadUrl || '')}" style="background: var(--accent-emerald);">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 11 12 6 7 11"/><line x1="12" y1="6" x2="12" y2="18"/></svg>
+                <span>Actualizar Custom</span>
+              </button>
+            `;
+          } else {
+            actionBtnHtml = `
+              <button class="btn btn-small btn-secondary btn-download-gh-mod" disabled style="opacity: 0.7; cursor: default;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                <span>Instalado</span>
+              </button>
+            `;
+          }
+
+          const formattedSize = item.size ? (item.size > 1048576 ? `${(item.size / (1024 * 1024)).toFixed(1)} MB` : `${(item.size / 1024).toFixed(0)} KB`) : '';
+
+          card.innerHTML = `
+            <div class="mod-card-top">
+              <img src="assets/logo.png" class="mod-card-icon" alt="Icon" onerror="this.src='assets/logo.png'">
+              <div class="mod-card-body">
+                <div class="mod-card-title-row">
+                  <span class="mod-card-title" title="${escapeHtml(item.title || item.name)}">${escapeHtml(item.title || item.name)}</span>
+                  <span class="badge badge-github">GITHUB CUSTOM</span>
+                </div>
+                <div class="mod-card-author">por ${escapeHtml(item.author || 'Landa6543')} · v${escapeHtml(item.version || '1.0.0')}</div>
+                <div class="mod-card-desc" title="${escapeHtml(item.summary || item.description)}">${escapeHtml(item.summary || item.description || 'Mod custom de la comunidad.')}</div>
+              </div>
+            </div>
+            <div class="mod-card-footer">
+              <span class="hint" style="font-family: var(--font-mono); font-size: 11px;">${escapeHtml(item.fileName)} ${formattedSize ? '· ' + formattedSize : ''}</span>
+              ${actionBtnHtml}
+            </div>
+          `;
+
+          card.addEventListener('click', (e) => {
+            if (e.target.closest('.btn-download-gh-mod')) return;
+            openModDetailModal({
+              ...item,
+              title: item.title || item.name,
+              summary: item.summary || item.description,
+              author: item.author || 'Landa6543',
+              source: 'github',
+              iconUrl: 'assets/logo.png',
+              downloads: item.downloads || 1,
+              websiteUrl: item.htmlUrl || 'https://github.com/Landa6543/ShubaCore-Mods'
+            });
+          });
+
+          modsSearchResults.appendChild(card);
+        });
+
+        document.querySelectorAll('.btn-download-gh-mod').forEach((btn) => {
+          btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const btnEl = e.currentTarget;
+            const fName = btnEl.getAttribute('data-filename');
+            const dUrl = btnEl.getAttribute('data-url');
+            if (!fName || !dUrl) return;
+
+            btnEl.disabled = true;
+            btnEl.innerHTML = `<span>Descargando...</span>`;
+            appendLog(`[GitHub Mods] Descargando mod custom "${fName}"...`, 'info');
+
+            try {
+              const res = await api.githubMods.install({
+                downloadUrl: dUrl,
+                fileName: fName,
+                instancePath: currentActiveProfile?.instancePath || null
+              });
+
+              if (res.success) {
+                appendLog(`[GitHub Mods] ¡Mod "${fName}" instalado correctamente!`, 'success');
+                btnEl.className = 'btn btn-small btn-secondary btn-download-gh-mod';
+                btnEl.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg><span>Instalado</span>`;
+                btnEl.disabled = true;
+                await loadInstalledMods();
+              } else {
+                throw new Error(res.error || 'Error al descargar mod custom.');
+              }
+            } catch (dlErr) {
+              btnEl.disabled = false;
+              btnEl.innerHTML = `<span>Reintentar</span>`;
+              appendLog(`[GitHub Mods Error] ${dlErr.message}`, 'error');
+              alert(`Error al descargar mod custom: ${dlErr.message}`);
+            }
+          });
+        });
+
+      } catch (err) {
+        modsSearchResults.innerHTML = `<div class="empty-state">Error al consultar GitHub: ${escapeHtml(err.message)}</div>`;
+        appendLog(`[GitHub Mods Error] ${err.message}`, 'error');
+      } finally {
+        btnSearchMods.disabled = false;
+        if (btnPrevPage) btnPrevPage.disabled = true;
+        if (btnNextPage) btnNextPage.disabled = true;
+      }
+      return;
+    }
 
     const catLabels = {
       mods: 'Mods',
@@ -2842,8 +3085,33 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   selectModSource.addEventListener('change', () => {
     currentContentPage = 1;
+    if (selectModSource.value === 'github') {
+      catPills.forEach((b) => b.classList.remove('active'));
+      if (pillCatGithub) pillCatGithub.classList.add('active');
+      currentContentType = 'github';
+    } else {
+      if (pillCatGithub) pillCatGithub.classList.remove('active');
+      if (currentContentType === 'github') {
+        currentContentType = 'mods';
+        const modPill = document.querySelector('.cat-pill[data-cat="mods"]');
+        if (modPill) modPill.classList.add('active');
+      }
+    }
     performModSearch();
   });
+
+  if (btnRefreshGithubMods) {
+    btnRefreshGithubMods.addEventListener('click', async () => {
+      btnRefreshGithubMods.disabled = true;
+      appendLog('[GitHub Mods] Refrescando catálogo de mods desde GitHub...', 'info');
+      try {
+        await api.githubMods.fetch(true);
+        await performModSearch();
+      } finally {
+        btnRefreshGithubMods.disabled = false;
+      }
+    });
+  }
 
   if (selectModSort) {
     selectModSort.addEventListener('change', () => {
@@ -2924,6 +3192,37 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (detailVersionsList) detailVersionsList.innerHTML = '<div class="empty-state">Consultando versiones disponibles...</div>';
     if (detailVersionsCount) detailVersionsCount.textContent = '...';
     if (detailCompatBadge) detailCompatBadge.textContent = `Minecraft ${mcVersion} (${loader.toUpperCase()})`;
+
+    // Si es un mod local o personalizado de GitHub sin API de versiones de terceros
+    if (item.source === 'github') {
+      if (detailModBadge) {
+        detailModBadge.textContent = 'GITHUB CUSTOM';
+        detailModBadge.className = 'badge badge-github';
+      }
+      if (detailModBody) {
+        detailModBody.innerHTML = `
+          <div class="empty-state" style="padding: 24px; text-align: left;">
+            <h4 style="margin-bottom: 8px; color: var(--text-primary); font-size: 15px;">Mod Custom de GitHub</h4>
+            <p style="color: var(--text-secondary); font-size: 13px; line-height: 1.5; margin-bottom: 12px;">
+              ${escapeHtml(item.summary || item.description || 'Mod personalizado distribuido a través del repositorio privado de GitHub.')}
+            </p>
+            <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 12px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px;">
+              <span><strong>Archivo:</strong> ${escapeHtml(item.fileName || 'custom.jar')}</span>
+              <span><strong>Versión:</strong> ${escapeHtml(item.version || '1.0.0')}</span>
+              <span><strong>Autor:</strong> ${escapeHtml(item.author || 'Landa6543')}</span>
+              ${item.size ? `<span><strong>Tamaño:</strong> ${item.size > 1048576 ? (item.size / 1048576).toFixed(1) + ' MB' : (item.size / 1024).toFixed(0) + ' KB'}</span>` : ''}
+              ${item.downloadUrl ? `<span style="word-break: break-all;"><strong>Origen:</strong> <a href="#" style="color: var(--accent-emerald);" onclick="window.shubaCoreAPI.system.openExternal('${escapeHtml(item.downloadUrl)}'); return false;">Enlace directo GitHub</a></span>` : ''}
+            </div>
+          </div>
+        `;
+      }
+      if (detailGalleryContainer) detailGalleryContainer.style.display = 'none';
+      if (detailVersionsList) {
+        detailVersionsList.innerHTML = '<div class="empty-state">Este mod custom se distribuye directamente como archivo .jar único desde el repositorio de GitHub.</div>';
+      }
+      if (detailVersionsCount) detailVersionsCount.textContent = '1';
+      return;
+    }
 
     // Si es un mod local o personalizado sin ID público en CurseForge o Modrinth
     const targetProjId = item.id || item.projectId || item.slug;
@@ -3470,7 +3769,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   api.events.on('updater:update-not-available', (info) => {
-    const msg = info?.message || `El launcher está en la versión más reciente (${info?.version ? 'v' + info.version : 'v1.0.0'}).`;
+    const msg = info?.message || `El launcher está en la versión más reciente (${info?.version ? 'v' + info.version : 'v1.1.0'}).`;
     appendLog(`[AutoUpdater] ${msg}`, 'info');
     if (launcherUpdateStatus) launcherUpdateStatus.style.display = 'flex';
     if (launcherUpdateStatusText) launcherUpdateStatusText.textContent = msg;
@@ -3508,6 +3807,312 @@ document.addEventListener('DOMContentLoaded', async () => {
       appendLog(`[AutoUpdater Error] ${errorMsg}`, 'warn');
       if (launcherUpdateStatus) launcherUpdateStatus.style.display = 'flex';
       if (launcherUpdateStatusText) launcherUpdateStatusText.textContent = `Aviso del actualizador: ${errorMsg}`;
+    }
+  });
+
+  // =======================================================
+  // CONFIGURACIÓN DE REPOSITORIO DE GITHUB
+  // =======================================================
+  async function openGhRepoModal() {
+    if (!modalGithubRepo) return;
+    try {
+      const repoInfo = await api.githubMods.getRepo();
+      if (inputGhRepoOwner) inputGhRepoOwner.value = repoInfo?.owner || 'Landa6543';
+      if (inputGhRepoName) inputGhRepoName.value = repoInfo?.repo || 'ShubaCore-Mods';
+      if (inputGhCustomToken) inputGhCustomToken.value = '';
+    } catch (_) {}
+    modalGithubRepo.style.display = 'flex';
+  }
+
+  function closeGhRepoModal() {
+    if (modalGithubRepo) modalGithubRepo.style.display = 'none';
+  }
+
+  if (btnConfigGithubRepo) btnConfigGithubRepo.addEventListener('click', openGhRepoModal);
+  if (btnCloseGhRepoModal) btnCloseGhRepoModal.addEventListener('click', closeGhRepoModal);
+  if (btnCancelGhRepo) btnCancelGhRepo.addEventListener('click', closeGhRepoModal);
+
+  if (btnSaveGhRepo) {
+    btnSaveGhRepo.addEventListener('click', async () => {
+      const owner = (inputGhRepoOwner?.value || 'Landa6543').trim();
+      const repo = (inputGhRepoName?.value || 'ShubaCore-Mods').trim();
+      const token = inputGhCustomToken?.value?.trim() || undefined;
+
+      btnSaveGhRepo.disabled = true;
+      btnSaveGhRepo.textContent = 'Guardando...';
+      try {
+        await api.githubMods.setRepo({ owner, repo, token });
+        appendLog(`[GitHub] Repositorio configurado: https://github.com/${owner}/${repo}`, 'success');
+        closeGhRepoModal();
+        if (selectModSource.value === 'github' || currentContentType === 'github') {
+          await api.githubMods.fetch(true);
+          performModSearch();
+        }
+      } catch (err) {
+        alert(`Error al guardar configuración: ${err.message}`);
+      } finally {
+        btnSaveGhRepo.disabled = false;
+        btnSaveGhRepo.textContent = 'Guardar Configuración';
+      }
+    });
+  }
+
+  // =======================================================
+  // PUBLICAR PERFIL PARA AMIGOS (.shubasync.json)
+  // =======================================================
+  async function openPublishProfileModal(profileId) {
+    if (!modalPublishProfile) return;
+    const allProfiles = await api.profiles.getAll();
+    const targetId = profileId || currentActiveProfile?.id;
+    const targetProfile = targetId ? allProfiles.find(p => p.id === targetId) : currentActiveProfile;
+    if (!targetProfile) {
+      alert('Selecciona una instancia antes de publicar.');
+      return;
+    }
+
+    currentPublishTargetProfileId = targetProfile.id;
+    if (publishProfileTargetName) publishProfileTargetName.textContent = targetProfile.name || 'Mi Instancia';
+
+    let count = 0;
+    try {
+      const mods = await api.mods.listInstalled(targetProfile.instancePath);
+      count = Array.isArray(mods) ? mods.length : 0;
+    } catch (_) {}
+
+    if (publishProfileModCount) publishProfileModCount.textContent = `${count} mods`;
+    if (publishProfileTargetMeta) {
+      const loaderCap = (targetProfile.loader || 'NeoForge').toUpperCase();
+      publishProfileTargetMeta.textContent = `Minecraft ${targetProfile.mcVersion || '1.21.1'} · ${loaderCap}`;
+    }
+
+    if (publishSuccessBox) publishSuccessBox.style.display = 'none';
+    if (publishStatusText) publishStatusText.style.display = 'none';
+    if (btnConfirmPublishProfile) {
+      btnConfirmPublishProfile.disabled = false;
+      btnConfirmPublishProfile.innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/><polyline points="12 13 12 7 9 10"/><polyline points="12 7 15 10"/></svg>
+        <span>☁ Publicar para Amigos</span>
+      `;
+    }
+
+    modalPublishProfile.style.display = 'flex';
+  }
+
+  function closePublishProfileModal() {
+    if (modalPublishProfile) modalPublishProfile.style.display = 'none';
+  }
+
+  if (btnPublishProfileMods) {
+    btnPublishProfileMods.addEventListener('click', () => openPublishProfileModal(currentActiveProfile?.id));
+  }
+  if (btnClosePublishModal) btnClosePublishModal.addEventListener('click', closePublishProfileModal);
+  if (btnCancelPublishProfile) btnCancelPublishProfile.addEventListener('click', closePublishProfileModal);
+
+  if (btnConfirmPublishProfile) {
+    btnConfirmPublishProfile.addEventListener('click', async () => {
+      if (!currentPublishTargetProfileId) return;
+      btnConfirmPublishProfile.disabled = true;
+      btnConfirmPublishProfile.innerHTML = `<span>Publicando en GitHub...</span>`;
+      if (publishStatusText) {
+        publishStatusText.style.display = 'block';
+        publishStatusText.style.color = 'var(--text-secondary)';
+        publishStatusText.textContent = 'Analizando mods y empaquetando configuraciones...';
+      }
+
+      const includeConfigs = checkPublishIncludeConfigs ? checkPublishIncludeConfigs.checked : true;
+
+      try {
+        const res = await api.sync.publish({
+          profileId: currentPublishTargetProfileId,
+          includeConfigs
+        });
+
+        if (res.success) {
+          appendLog(`[ProfileSync] ¡Perfil "${res.profileName}" publicado exitosamente con ${res.modCount} mods!`, 'success');
+          if (publishStatusText) publishStatusText.style.display = 'none';
+          if (publishSuccessBox) {
+            publishSuccessBox.style.display = 'block';
+            if (inputPublishShareCode) inputPublishShareCode.value = res.shareCode;
+          }
+          btnConfirmPublishProfile.innerHTML = `<span>✓ Publicado</span>`;
+        } else {
+          throw new Error(res.error || 'Error al publicar el perfil en GitHub.');
+        }
+      } catch (pubErr) {
+        btnConfirmPublishProfile.disabled = false;
+        btnConfirmPublishProfile.innerHTML = `<span>Reintentar</span>`;
+        if (publishStatusText) {
+          publishStatusText.textContent = `Error: ${pubErr.message}`;
+          publishStatusText.style.color = 'var(--accent-red)';
+        }
+        appendLog(`[ProfileSync Error] ${pubErr.message}`, 'error');
+        alert(`Error al publicar perfil: ${pubErr.message}`);
+      }
+    });
+  }
+
+  if (btnCopyShareCode && inputPublishShareCode) {
+    btnCopyShareCode.addEventListener('click', () => {
+      inputPublishShareCode.select();
+      navigator.clipboard.writeText(inputPublishShareCode.value);
+      btnCopyShareCode.textContent = '¡Copiado!';
+      setTimeout(() => { btnCopyShareCode.textContent = 'Copiar'; }, 2000);
+    });
+  }
+
+  // =======================================================
+  // SINCRONIZADOR DE PERFILES EN 1 CLIC (MODPACK SYNC)
+  // =======================================================
+  async function openSyncProfileModal(targetProfileId) {
+    if (!modalSyncProfile) return;
+    const allProfiles = await api.profiles.getAll();
+    const targetId = targetProfileId || currentActiveProfile?.id;
+    const targetProfile = targetId ? allProfiles.find(p => p.id === targetId) : currentActiveProfile;
+    if (!targetProfile) {
+      alert('Selecciona una instancia antes de sincronizar.');
+      return;
+    }
+
+    currentSyncTargetProfileId = targetProfile.id;
+    if (syncTargetInstanceName) syncTargetInstanceName.textContent = targetProfile.name || 'Mi Instancia';
+    if (syncProgressBox) syncProgressBox.style.display = 'none';
+
+    modalSyncProfile.style.display = 'flex';
+    await loadSharedProfilesList();
+  }
+
+  function closeSyncProfileModal() {
+    if (modalSyncProfile) modalSyncProfile.style.display = 'none';
+  }
+
+  if (btnSyncCloudInstances) {
+    btnSyncCloudInstances.addEventListener('click', () => openSyncProfileModal(currentActiveProfile?.id));
+  }
+  if (btnSyncProfileMods) {
+    btnSyncProfileMods.addEventListener('click', () => openSyncProfileModal(currentActiveProfile?.id));
+  }
+  if (btnCloseSyncModal) btnCloseSyncModal.addEventListener('click', closeSyncProfileModal);
+  if (btnDismissSyncModal) btnDismissSyncModal.addEventListener('click', closeSyncProfileModal);
+  if (btnRefreshSharedList) btnRefreshSharedList.addEventListener('click', () => loadSharedProfilesList());
+
+  async function loadSharedProfilesList() {
+    if (!sharedProfilesList) return;
+    sharedProfilesList.innerHTML = '<div class="empty-state">Consultando perfiles compartidos en GitHub...</div>';
+
+    try {
+      const list = await api.sync.listShared();
+      if (!list || list.length === 0) {
+        sharedProfilesList.innerHTML = `
+          <div class="empty-state" style="padding: 24px;">
+            <p style="font-size: 13.5px; margin-bottom: 6px;">No hay perfiles compartidos publicados aún.</p>
+            <small style="color: var(--text-dim);">Usa el botón "☁ Publicar Perfil" para ser el primero en compartir tu configuración con amigos.</small>
+          </div>
+        `;
+        return;
+      }
+
+      sharedProfilesList.innerHTML = '';
+      list.forEach((item) => {
+        const card = document.createElement('div');
+        card.className = 'shared-profile-card';
+
+        const pubDate = new Date(item.publishedAt).toLocaleDateString();
+        const loaderUpper = (item.loader || 'neoforge').toUpperCase();
+
+        card.innerHTML = `
+          <div class="shared-profile-left">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <strong style="color: var(--text-primary); font-size: 14px;">${escapeHtml(item.name)}</strong>
+              <span class="badge badge-success">${item.modCount} mods</span>
+              <span class="badge badge-secondary">${escapeHtml(loaderUpper)} ${escapeHtml(item.mcVersion)}</span>
+            </div>
+            <div style="font-size: 11.5px; color: var(--text-secondary); margin-top: 4px;">
+              Por <strong>${escapeHtml(item.author)}</strong> · Publicado el ${pubDate}
+              ${item.hasConfigs ? ' · <span style="color: var(--accent-emerald);">Incluye configs</span>' : ''}
+            </div>
+          </div>
+          <div class="shared-profile-right">
+            <button class="btn btn-small btn-primary btn-apply-sync" data-slug="${escapeHtml(item.slug)}" data-name="${escapeHtml(item.name)}">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 15 16 10 5 21"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/></svg>
+              <span>Sincronizar</span>
+            </button>
+          </div>
+        `;
+
+        sharedProfilesList.appendChild(card);
+      });
+
+      document.querySelectorAll('.btn-apply-sync').forEach((btn) => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const targetSlug = e.currentTarget.getAttribute('data-slug');
+          const targetName = e.currentTarget.getAttribute('data-name');
+          if (!targetSlug || !currentSyncTargetProfileId) return;
+
+          if (!confirm(`¿Deseas sincronizar tu instancia con "${targetName}"?\nSe descargarán los mods faltantes y se actualizarán las configs.`)) {
+            return;
+          }
+
+          if (syncProgressBox) syncProgressBox.style.display = 'block';
+          if (syncProgressLabel) syncProgressLabel.textContent = `Iniciando sincronización con "${targetName}"...`;
+          if (syncProgressBar) syncProgressBar.style.width = '0%';
+          if (syncProgressPct) syncProgressPct.textContent = '0%';
+
+          document.querySelectorAll('.btn-apply-sync').forEach(b => b.disabled = true);
+
+          try {
+            const res = await api.sync.apply({
+              profileId: currentSyncTargetProfileId,
+              slugOrManifest: targetSlug
+            });
+
+            if (res.success) {
+              if (syncProgressLabel) syncProgressLabel.textContent = `¡Sincronización completada! (${res.downloadedCount || 0} mods descargados)`;
+              if (syncProgressBar) syncProgressBar.style.width = '100%';
+              if (syncProgressPct) syncProgressPct.textContent = '100%';
+              appendLog(`[ProfileSync] ¡Instancia sincronizada exitosamente con "${targetName}"!`, 'success');
+
+              await loadProfiles();
+              await loadInstalledMods();
+
+              setTimeout(() => {
+                closeSyncProfileModal();
+              }, 1500);
+            } else {
+              throw new Error(res.error || 'Error al aplicar sincronización.');
+            }
+          } catch (syncErr) {
+            if (syncProgressLabel) syncProgressLabel.textContent = `Error: ${syncErr.message}`;
+            appendLog(`[ProfileSync Error] ${syncErr.message}`, 'error');
+            alert(`Error durante la sincronización: ${syncErr.message}`);
+          } finally {
+            document.querySelectorAll('.btn-apply-sync').forEach(b => b.disabled = false);
+          }
+        });
+      });
+
+    } catch (err) {
+      sharedProfilesList.innerHTML = `<div class="empty-state">Error al cargar perfiles: ${escapeHtml(err.message)}</div>`;
+      appendLog(`[ProfileSync Error] ${err.message}`, 'error');
+    }
+  }
+
+  // Listener de eventos de sincronización y descarga
+  api.events.on('sync:progress', (progress) => {
+    if (!syncProgressBox || syncProgressBox.style.display === 'none') return;
+    if (progress.message && syncProgressLabel) {
+      syncProgressLabel.textContent = progress.message;
+    }
+    if (progress.pct !== undefined) {
+      const pctVal = Math.min(100, Math.max(0, Math.round(progress.pct)));
+      if (syncProgressBar) syncProgressBar.style.width = `${pctVal}%`;
+      if (syncProgressPct) syncProgressPct.textContent = `${pctVal}%`;
+    }
+  });
+
+  api.events.on('github-mods:download-progress', (progress) => {
+    if (progress.message) {
+      appendLog(`[GitHub Mods] ${progress.message}`, 'info');
     }
   });
 

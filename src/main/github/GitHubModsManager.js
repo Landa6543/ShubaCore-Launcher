@@ -1,0 +1,414 @@
+/**
+ * ShubaCore - GitHub Custom Mods Manager
+ * Developed by SHUBATECH
+ * Fetches and manages custom .jar mods from GitHub repository (Landa6543/ShubaCore-Mods)
+ * Supports GitHub Contents API, Releases Assets, and automated local installation
+ */
+
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+const { execSync } = require('child_process');
+const AdmZip = require('adm-zip');
+const { getConfigManager } = require('../config/ConfigManager');
+const { defaultLogger: logger } = require('../utils/logger');
+
+class GitHubModsManager {
+  constructor() {
+    this.configManager = getConfigManager();
+    this.cachedMods = null;
+    this.lastFetched = 0;
+    this.cacheTtlMs = 60000; // 1 minuto de caché para evitar rate-limits innecesarios
+  }
+
+  getRepoInfo() {
+    const owner = this.configManager.get('github.repoOwner', 'Landa6543');
+    const repo = this.configManager.get('github.repoName', 'ShubaCore-Mods');
+    return { owner, repo };
+  }
+
+  setRepoInfo(owner, repo, token) {
+    if (owner) this.configManager.set('github.repoOwner', owner.trim());
+    if (repo) this.configManager.set('github.repoName', repo.trim());
+    if (token !== undefined) this.configManager.set('github.customToken', (token || '').trim());
+    this.cachedMods = null;
+    return this.getRepoInfo();
+  }
+
+  /**
+   * Resuelve token de GitHub desde Config, Variables de Entorno, .env o Git Credential Manager
+   */
+  resolveToken() {
+    // 1. Token personalizado guardado en config
+    const custom = this.configManager.get('github.customToken', '');
+    if (custom && custom.trim()) return custom.trim();
+
+    // 2. Variables de entorno estándar
+    if (process.env.GH_TOKEN && process.env.GH_TOKEN.trim()) return process.env.GH_TOKEN.trim();
+    if (process.env.GITHUB_TOKEN && process.env.GITHUB_TOKEN.trim()) return process.env.GITHUB_TOKEN.trim();
+
+    // 3. Archivo .env en la raíz
+    try {
+      const rootEnv = path.resolve(__dirname, '..', '..', '..', '.env');
+      if (fs.existsSync(rootEnv)) {
+        const text = fs.readFileSync(rootEnv, 'utf8');
+        const match = text.match(/(?:GH_TOKEN|GITHUB_TOKEN)\s*=\s*([^\r\n#]+)/);
+        if (match && match[1]) return match[1].trim();
+      }
+    } catch (_) {}
+
+    // 4. Git Credential Manager de Windows
+    try {
+      const stdout = execSync('git credential fill', {
+        input: 'protocol=https\nhost=github.com\n',
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'ignore']
+      });
+      const match = stdout.match(/^password=(.+)$/m);
+      if (match && match[1]) return match[1].trim();
+    } catch (_) {}
+
+    return null;
+  }
+
+  _getAuthHeaders() {
+    const headers = {
+      'User-Agent': 'SHUBATECH-ShubaCore-Launcher/1.1.0',
+      'Accept': 'application/vnd.github.v3+json'
+    };
+    const token = this.resolveToken();
+    if (token) {
+      headers['Authorization'] = `token ${token}`;
+    }
+    return headers;
+  }
+
+  /**
+   * Consulta los mods custom desde GitHub (Contents y Releases)
+   */
+  async fetchCustomMods(force = false) {
+    const now = Date.now();
+    if (!force && this.cachedMods && (now - this.lastFetched < this.cacheTtlMs)) {
+      return this.cachedMods;
+    }
+
+    const { owner, repo } = this.getRepoInfo();
+    const headers = this._getAuthHeaders();
+    const modsMap = new Map();
+
+    logger.info(`[GitHubMods] Consultando mods custom desde https://github.com/${owner}/${repo}...`);
+
+    // 1. Consultar archivos .jar en /mods
+    try {
+      const modsUrl = `https://api.github.com/repos/${owner}/${repo}/contents/mods`;
+      const res = await fetch(modsUrl, { headers });
+      if (res.ok) {
+        const items = await res.json();
+        if (Array.isArray(items)) {
+          for (const item of items) {
+            if (item.type === 'file' && item.name.toLowerCase().endsWith('.jar')) {
+              const modObj = this._formatJarItem(item, owner, repo, 'direct_mods_folder');
+              modsMap.set(item.name.toLowerCase(), modObj);
+            }
+          }
+        }
+      } else if (res.status === 404) {
+        logger.debug(`[GitHubMods] La carpeta /mods no existe aún en ${owner}/${repo}`);
+      } else {
+        logger.warn(`[GitHubMods] Aviso al consultar /mods (status ${res.status})`);
+      }
+    } catch (err) {
+      logger.warn(`[GitHubMods] Error al consultar /mods: ${err.message}`);
+    }
+
+    // 2. Consultar archivos .jar en la raíz
+    try {
+      const rootUrl = `https://api.github.com/repos/${owner}/${repo}/contents`;
+      const res = await fetch(rootUrl, { headers });
+      if (res.ok) {
+        const items = await res.json();
+        if (Array.isArray(items)) {
+          for (const item of items) {
+            if (item.type === 'file' && item.name.toLowerCase().endsWith('.jar')) {
+              if (!modsMap.has(item.name.toLowerCase())) {
+                const modObj = this._formatJarItem(item, owner, repo, 'root_folder');
+                modsMap.set(item.name.toLowerCase(), modObj);
+              }
+            }
+          }
+        }
+      }
+    } catch (err) {
+      logger.warn(`[GitHubMods] Error al consultar raíz: ${err.message}`);
+    }
+
+    // 3. Consultar assets en GitHub Releases
+    try {
+      const relUrl = `https://api.github.com/repos/${owner}/${repo}/releases`;
+      const res = await fetch(relUrl, { headers });
+      if (res.ok) {
+        const releases = await res.json();
+        if (Array.isArray(releases)) {
+          for (const release of releases) {
+            if (Array.isArray(release.assets)) {
+              for (const asset of release.assets) {
+                if (asset.name.toLowerCase().endsWith('.jar')) {
+                  const key = asset.name.toLowerCase();
+                  const existing = modsMap.get(key);
+                  const releaseMod = {
+                    id: `gh_${asset.name.replace(/[^a-zA-Z0-9_-]/g, '_')}`,
+                    projectId: `gh_${asset.name.replace(/[^a-zA-Z0-9_-]/g, '_')}`,
+                    name: this._formatDisplayName(asset.name),
+                    title: this._formatDisplayName(asset.name),
+                    slug: asset.name.replace(/\.jar$/i, ''),
+                    fileName: asset.name,
+                    author: release.author?.login || owner,
+                    description: release.body || release.name || `Mod custom distribuido en GitHub Release ${release.tag_name} (${owner}/${repo})`,
+                    summary: release.body || release.name || `Mod custom distribuido en GitHub Release ${release.tag_name} (${owner}/${repo})`,
+                    version: release.tag_name || this._extractVersion(asset.name),
+                    downloadUrl: asset.browser_download_url,
+                    size: asset.size || 0,
+                    downloads: asset.download_count || (existing ? existing.downloads : 1),
+                    updatedAt: asset.updated_at || release.published_at || new Date().toISOString(),
+                    iconUrl: 'assets/logo.png',
+                    source: 'github',
+                    categories: ['custom', 'github'],
+                    isCustom: true,
+                    releaseTag: release.tag_name,
+                    htmlUrl: release.html_url
+                  };
+                  modsMap.set(key, releaseMod);
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch (err) {
+      logger.warn(`[GitHubMods] Error al consultar releases: ${err.message}`);
+    }
+
+    const modsList = Array.from(modsMap.values());
+    this.cachedMods = modsList;
+    this.lastFetched = Date.now();
+    logger.info(`⚡ [GitHubMods] ${modsList.length} mods custom obtenidos desde https://github.com/${owner}/${repo}`);
+    return modsList;
+  }
+
+  _formatJarItem(item, owner, repo, locationTag) {
+    const cleanName = this._formatDisplayName(item.name);
+    const ver = this._extractVersion(item.name);
+    const desc = `Mod custom provisto directamente desde el repositorio de GitHub (${owner}/${repo})`;
+    return {
+      id: `gh_${item.name.replace(/[^a-zA-Z0-9_-]/g, '_')}`,
+      projectId: `gh_${item.name.replace(/[^a-zA-Z0-9_-]/g, '_')}`,
+      name: cleanName,
+      title: cleanName,
+      slug: item.name.replace(/\.jar$/i, ''),
+      fileName: item.name,
+      author: owner,
+      description: desc,
+      summary: desc,
+      version: ver,
+      downloadUrl: item.download_url,
+      size: item.size || 0,
+      downloads: 1,
+      updatedAt: new Date().toISOString(),
+      iconUrl: 'assets/logo.png',
+      source: 'github',
+      categories: ['custom', 'github'],
+      isCustom: true,
+      htmlUrl: item.html_url || `https://github.com/${owner}/${repo}`
+    };
+  }
+
+  _formatDisplayName(fileName) {
+    const base = fileName.replace(/\.jar$/i, '');
+    // Quitar patrones de versiones y loaders comunes al final
+    const cleaned = base
+      .replace(/[-_]?(?:mc)?1\.\d+(?:\.\d+)?/gi, '')
+      .replace(/[-_]?(?:neoforge|forge|fabric|quilt)/gi, '')
+      .replace(/[-_]v?\d+(?:\.\d+)+(?:[-_][a-zA-Z0-9]+)?$/gi, '')
+      .replace(/[-_]+/g, ' ')
+      .trim();
+
+    if (!cleaned) return base;
+    return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+  }
+
+  _extractVersion(fileName) {
+    const match = fileName.match(/[-_]v?(\d+\.\d+(?:\.\d+)?(?:[-_][a-zA-Z0-9]+)?)\.jar$/i) ||
+                  fileName.match(/(\d+\.\d+(?:\.\d+)?)/);
+    return match ? match[1] : '1.0.0';
+  }
+
+  /**
+   * Descarga un mod custom en la carpeta /mods de la instancia
+   */
+  async downloadCustomMod({ downloadUrl, fileName, instancePath, onProgress }) {
+    if (!downloadUrl) throw new Error('Falta la URL de descarga del mod custom.');
+    if (!fileName) throw new Error('Falta el nombre de archivo del mod custom.');
+
+    const targetModsDir = path.join(instancePath, 'mods');
+    if (!fs.existsSync(targetModsDir)) {
+      fs.mkdirSync(targetModsDir, { recursive: true });
+    }
+
+    const targetFilePath = path.join(targetModsDir, fileName);
+    const tempFilePath = `${targetFilePath}.download_${Date.now()}`;
+
+    logger.info(`[GitHubMods] Descargando mod custom "${fileName}" desde: ${downloadUrl}`);
+    if (onProgress) onProgress({ type: 'start', message: `Descargando ${fileName}...`, percent: 5 });
+
+    const headers = this._getAuthHeaders();
+    const response = await fetch(downloadUrl, { headers });
+    if (!response.ok) {
+      throw new Error(`Fallo al descargar mod custom desde GitHub (HTTP ${response.status}: ${response.statusText})`);
+    }
+
+    const totalBytes = Number(response.headers.get('content-length') || 0);
+    let downloadedBytes = 0;
+
+    const fileStream = fs.createWriteStream(tempFilePath);
+
+    // Leer respuesta por chunks para progreso
+    const reader = response.body.getReader();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      fileStream.write(Buffer.from(value));
+      downloadedBytes += value.length;
+      if (totalBytes > 0 && onProgress) {
+        const pct = Math.min(95, Math.round((downloadedBytes / totalBytes) * 90) + 5);
+        onProgress({ type: 'progress', percent: pct, current: downloadedBytes, total: totalBytes, message: `Descargando ${fileName} (${pct}%)` });
+      }
+    }
+
+    await new Promise((resolve, reject) => {
+      fileStream.end(() => resolve());
+      fileStream.on('error', reject);
+    });
+
+    // Mover archivo completado
+    if (fs.existsSync(targetFilePath)) {
+      try { fs.unlinkSync(targetFilePath); } catch (_) {}
+    }
+    fs.renameSync(tempFilePath, targetFilePath);
+
+    // Calcular hash SHA1
+    const fileBuf = fs.readFileSync(targetFilePath);
+    const sha1 = crypto.createHash('sha1').update(fileBuf).digest('hex');
+
+    // Intentar extraer metadatos e icono del .jar
+    let extractedMeta = null;
+    try {
+      extractedMeta = this._extractJarMetadata(targetFilePath);
+    } catch (_) {}
+
+    // Registrar en mods-lock.json de la instancia
+    this._recordInLockFile(instancePath, {
+      fileName,
+      sha1,
+      downloadUrl,
+      source: 'github',
+      installedAt: new Date().toISOString(),
+      size: fileBuf.length,
+      modName: extractedMeta?.name || this._formatDisplayName(fileName),
+      version: extractedMeta?.version || this._extractVersion(fileName)
+    });
+
+    if (onProgress) onProgress({ type: 'complete', percent: 100, message: `¡${fileName} instalado con éxito!` });
+    logger.info(`⚡ [GitHubMods] Mod "${fileName}" instalado con éxito en "${targetFilePath}".`);
+
+    return {
+      success: true,
+      fileName,
+      path: targetFilePath,
+      sha1,
+      size: fileBuf.length,
+      extractedMeta
+    };
+  }
+
+  _extractJarMetadata(jarPath) {
+    const zip = new AdmZip(jarPath);
+    const entries = zip.getEntries();
+    let name = null;
+    let version = null;
+    let description = null;
+    let iconBase64 = null;
+
+    // Buscar iconos
+    for (const entry of entries) {
+      const eName = entry.entryName.toLowerCase();
+      if (eName === 'icon.png' || eName === 'logo.png' || eName.endsWith('/icon.png') || eName.endsWith('/logo.png')) {
+        try {
+          const buf = zip.readFile(entry);
+          if (buf && buf.length > 0) {
+            iconBase64 = `data:image/png;base64,${buf.toString('base64')}`;
+            break;
+          }
+        } catch (_) {}
+      }
+    }
+
+    // Buscar toml o json
+    for (const entry of entries) {
+      const eName = entry.entryName.toLowerCase();
+      if (eName.includes('mods.toml')) {
+        try {
+          const text = zip.readAsText(entry);
+          const nameMatch = text.match(/displayName\s*=\s*["']([^"']+)["']/i);
+          const verMatch = text.match(/version\s*=\s*["']([^"']+)["']/i);
+          const descMatch = text.match(/description\s*=\s*'''([\s\S]*?)'''/i) || text.match(/description\s*=\s*["']([^"']+)["']/i);
+          if (nameMatch) name = nameMatch[1];
+          if (verMatch) version = verMatch[1];
+          if (descMatch) description = descMatch[1].trim();
+        } catch (_) {}
+      } else if (eName.includes('fabric.mod.json')) {
+        try {
+          const text = zip.readAsText(entry);
+          const json = JSON.parse(text);
+          if (json.name) name = json.name;
+          if (json.version) version = json.version;
+          if (json.description) description = json.description;
+        } catch (_) {}
+      }
+    }
+
+    return { name, version, description, iconBase64 };
+  }
+
+  _recordInLockFile(instancePath, lockEntry) {
+    try {
+      const lockPath = path.join(instancePath, 'mods-lock.json');
+      let data = {};
+      if (fs.existsSync(lockPath)) {
+        try { data = JSON.parse(fs.readFileSync(lockPath, 'utf8')); } catch (_) {}
+      }
+      if (!Array.isArray(data.mods)) data.mods = [];
+
+      // Quitar si ya existía entrada previa con el mismo fileName
+      data.mods = data.mods.filter((m) => m.fileName !== lockEntry.fileName);
+      data.mods.push(lockEntry);
+      data.lastUpdated = new Date().toISOString();
+
+      fs.writeFileSync(lockPath, JSON.stringify(data, null, 2), 'utf8');
+    } catch (err) {
+      logger.warn('[GitHubMods] Aviso al actualizar mods-lock.json:', err.message);
+    }
+  }
+}
+
+let githubModsManagerInstance = null;
+function getGitHubModsManager() {
+  if (!githubModsManagerInstance) {
+    githubModsManagerInstance = new GitHubModsManager();
+  }
+  return githubModsManagerInstance;
+}
+
+module.exports = {
+  GitHubModsManager,
+  getGitHubModsManager
+};

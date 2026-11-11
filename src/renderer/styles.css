@@ -664,6 +664,70 @@ body {
 
 .badge-modrinth { background-color: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
 .badge-curseforge { background-color: rgba(249, 115, 22, 0.15); color: #fb923c; border: 1px solid rgba(249, 115, 22, 0.3); }
+.badge-github { background-color: rgba(234, 88, 12, 0.15); color: #fb923c; border: 1px solid rgba(234, 88, 12, 0.35); font-weight: 700; }
+.badge-custom { background-color: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); }
+
+.cat-pill.pill-github {
+  background: linear-gradient(135deg, rgba(234, 88, 12, 0.12), rgba(245, 158, 11, 0.12));
+  color: #fb923c;
+  border: 1px solid rgba(249, 115, 22, 0.3);
+  font-weight: 600;
+}
+.cat-pill.pill-github:hover, .cat-pill.pill-github.active {
+  background: linear-gradient(135deg, #ea580c, #f59e0b) !important;
+  color: #ffffff !important;
+  border-color: transparent !important;
+  box-shadow: 0 0 10px rgba(249, 115, 22, 0.4) !important;
+}
+
+/* Tarjetas de Sincronización de Perfiles Compartidos */
+.shared-profile-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: all 0.15s ease;
+  gap: 12px;
+}
+
+.shared-profile-card:hover {
+  background-color: var(--bg-surface-hover);
+  border-color: var(--border-hover);
+  transform: translateY(-1px);
+}
+
+.shared-profile-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.shared-profile-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.shared-profile-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.shared-profile-meta {
+  font-size: 11.5px;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
 
 /* Inputs y Selects */
 .text-input {
