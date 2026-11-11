@@ -61,24 +61,38 @@ class ServerInstaller {
   }
 
   /**
-   * Obtiene la lista completa de versiones oficiales release de Minecraft desde Mojang
+   * Obtiene la lista completa de versiones oficiales de Minecraft desde Mojang
+   * Ordenadas estrictamente de forma cronológica por releaseTime (incluyendo 26.x y snapshots opcionales)
+   *
+   * @param {Object} [options]
+   * @param {boolean} [options.includeSnapshots=false]
    */
-  static async getAvailableMinecraftVersions() {
+  static async getAvailableMinecraftVersions(options = {}) {
+    const includeSnapshots = !!options.includeSnapshots;
     try {
       const res = await fetch('https://piston-meta.mojang.com/mc/game/version_manifest_v2.json', {
         headers: { 'User-Agent': 'SHUBATECH/ShubaCore/1.1.0' }
       });
       if (res.ok) {
         const data = await res.json();
-        const releases = (data.versions || [])
-          .filter((v) => v.type === 'release' && typeof v.id === 'string' && /^1\.\d+(\.\d+)?$/.test(v.id))
+        const versions = (data.versions || [])
+          .filter((v) => {
+            if (typeof v.id !== 'string') return false;
+            if (includeSnapshots) {
+              return v.type === 'release' || v.type === 'snapshot';
+            }
+            return v.type === 'release';
+          })
           .sort((a, b) => new Date(b.releaseTime) - new Date(a.releaseTime))
           .map((v) => v.id);
-        if (releases.length > 0) return releases;
+
+        if (versions.length > 0) return versions;
       }
     } catch (_) {}
 
-    return [
+    const defaults = [
+      '26.3', '26.2', '26.1.2', '26.1.1', '26.1',
+      '1.21.11', '1.21.10', '1.21.9', '1.21.8', '1.21.7', '1.21.6', '1.21.5',
       '1.21.4', '1.21.3', '1.21.2', '1.21.1', '1.21',
       '1.20.6', '1.20.5', '1.20.4', '1.20.3', '1.20.2', '1.20.1', '1.20',
       '1.19.4', '1.19.3', '1.19.2', '1.19.1', '1.19',
@@ -95,6 +109,10 @@ class ServerInstaller {
       '1.8.9', '1.8.8', '1.8',
       '1.7.10'
     ];
+    if (includeSnapshots) {
+      return ['26.4-snapshot-8', ...defaults];
+    }
+    return defaults;
   }
 
   /**

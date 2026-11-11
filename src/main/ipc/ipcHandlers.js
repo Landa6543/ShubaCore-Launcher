@@ -39,6 +39,7 @@ const { getSplashScreen } = require('../splash/SplashScreen');
 const { getControllerAgentManager } = require('../controller/ControllerAgentManager');
 const { getControllerMapManager } = require('../controller/ControllerMapManager');
 const { getControllerBridge } = require('../controller/ControllerBridge');
+const { getDiskCleanerManager } = require('../system/DiskCleanerManager');
 const { defaultLogger: logger } = require('../utils/logger');
 
 function registerIpcHandlers(mainWindow) {
@@ -962,9 +963,11 @@ function registerIpcHandlers(mainWindow) {
   });
 
   // ==========================================
-  // INFORMACIÓN DEL SISTEMA Y VERSIONES DE MC
+  // INFORMACIÓN DEL SISTEMA Y VERSIONES DE MC (CRONOLÓGICO: 26.X HASTA 1.0 + SNAPSHOTS)
   // ==========================================
-  ipcMain.handle('system:get-versions', async () => {
+  ipcMain.handle('system:get-versions', async (event, opts = {}) => {
+    const includeSnapshots = !!opts?.includeSnapshots;
+    const detailed = !!opts?.detailed;
     const list = [];
 
     try {
@@ -973,12 +976,26 @@ function registerIpcHandlers(mainWindow) {
       });
       if (response.ok) {
         const data = await response.json();
-        const releases = (data.versions || [])
-          .filter((v) => v.type === 'release' && typeof v.id === 'string' && /^1\.\d+(\.\d+)?$/.test(v.id))
-          .sort((a, b) => new Date(b.releaseTime) - new Date(a.releaseTime))
-          .map((v) => v.id);
+        const rawVersions = (data.versions || [])
+          .filter((v) => {
+            if (typeof v.id !== 'string') return false;
+            if (includeSnapshots) {
+              return v.type === 'release' || v.type === 'snapshot';
+            }
+            return v.type === 'release';
+          })
+          .sort((a, b) => new Date(b.releaseTime) - new Date(a.releaseTime));
 
-        for (const r of releases) {
+        if (detailed) {
+          return rawVersions.map((v) => ({
+            id: v.id,
+            type: v.type,
+            releaseTime: v.releaseTime
+          }));
+        }
+
+        const ids = rawVersions.map((v) => v.id);
+        for (const r of ids) {
           if (!list.includes(r)) list.push(r);
         }
         if (list.length > 0) return list;
@@ -987,14 +1004,14 @@ function registerIpcHandlers(mainWindow) {
       logger.warn('No se pudo obtener el manifiesto de Mojang online. Usando lista predeterminada:', err.message);
     }
 
-    // 2. Incluir versiones ya instaladas físicamente en <sharedRoot>/versions/ si cumplen el formato
+    // 2. Incluir versiones ya instaladas físicamente en <sharedRoot>/versions/
     try {
       const sharedRoot = configManager.get('launcher.gameDirectory', path.join(process.env.APPDATA || '', '.shubacore'));
       const versDir = path.join(sharedRoot, 'versions');
       if (fs.existsSync(versDir)) {
         const dirs = fs.readdirSync(versDir, { withFileTypes: true });
         for (const d of dirs) {
-          if (d.isDirectory() && /^1\.\d+(\.\d+)?$/.test(d.name)) {
+          if (d.isDirectory()) {
             const jsonFile = path.join(versDir, d.name, `${d.name}.json`);
             if (fs.existsSync(jsonFile) && !list.includes(d.name)) {
               list.push(d.name);
@@ -1005,6 +1022,8 @@ function registerIpcHandlers(mainWindow) {
     } catch (_) {}
 
     const defaults = [
+      '26.3', '26.2', '26.1.2', '26.1.1', '26.1',
+      '1.21.11', '1.21.10', '1.21.9', '1.21.8', '1.21.7', '1.21.6', '1.21.5',
       '1.21.4', '1.21.3', '1.21.2', '1.21.1', '1.21',
       '1.20.6', '1.20.5', '1.20.4', '1.20.3', '1.20.2', '1.20.1', '1.20',
       '1.19.4', '1.19.3', '1.19.2', '1.19.1', '1.19',
@@ -1021,8 +1040,18 @@ function registerIpcHandlers(mainWindow) {
       '1.8.9', '1.8.8', '1.8',
       '1.7.10'
     ];
+    if (includeSnapshots) {
+      defaults.unshift('26.4-snapshot-8');
+    }
     for (const d of defaults) {
       if (!list.includes(d)) list.push(d);
+    }
+    if (detailed) {
+      return list.map((id) => ({
+        id,
+        type: id.includes('snapshot') ? 'snapshot' : 'release',
+        releaseTime: new Date().toISOString()
+      }));
     }
     return list;
   });
@@ -1406,13 +1435,13 @@ function registerIpcHandlers(mainWindow) {
     }
   });
 
-  ipcMain.handle('servers:get-mc-versions', async () => {
+  ipcMain.handle('servers:get-mc-versions', async (event, opts = {}) => {
     try {
       const { ServerInstaller } = require('../servers/ServerInstaller');
-      return await ServerInstaller.getAvailableMinecraftVersions();
+      return await ServerInstaller.getAvailableMinecraftVersions(opts);
     } catch (err) {
       logger.error('Error en servers:get-mc-versions IPC:', err);
-      return ['1.21.1', '1.20.4', '1.20.1', '1.19.2', '1.18.2', '1.16.5', '1.12.2', '1.7.10'];
+      return ['26.3', '1.21.4', '1.21.1', '1.20.4', '1.20.1', '1.19.2', '1.18.2', '1.16.5', '1.12.2', '1.7.10'];
     }
   });
 
@@ -1886,6 +1915,68 @@ function registerIpcHandlers(mainWindow) {
       const bridge = getControllerBridge();
       bridge.sendGamepadFrame(frameData);
     } catch (_) {}
+  });
+
+  // ==========================================
+  // LIMPIADOR DE BASURA Y LOGS (DISK CLEANER)
+  // ==========================================
+  ipcMain.handle('cleaner:scan', async (_event, instancePath) => {
+    try {
+      const cleaner = getDiskCleanerManager();
+      return cleaner.scan(instancePath || null);
+    } catch (err) {
+      logger.error('Error en cleaner:scan IPC:', err);
+      return { success: false, error: err.message, totalFiles: 0, totalBytes: 0, totalFormatted: '0 MB', items: [] };
+    }
+  });
+
+  ipcMain.handle('cleaner:clean', async (_event, instancePath) => {
+    try {
+      const cleaner = getDiskCleanerManager();
+      return cleaner.clean(instancePath || null);
+    } catch (err) {
+      logger.error('Error en cleaner:clean IPC:', err);
+      return { success: false, error: err.message, cleanedFiles: 0, freedBytes: 0, freedFormatted: '0 MB' };
+    }
+  });
+
+  // ==========================================
+  // CAPTURADOR DE CLIPS REPLAY (F9)
+  // ==========================================
+  ipcMain.handle('clips:save', async (_event, instancePath, bufferData, extension) => {
+    try {
+      const scManager = getScreenshotsManager();
+      const buf = Buffer.isBuffer(bufferData) ? bufferData : Buffer.from(bufferData);
+      return scManager.saveClip(instancePath, buf, extension || 'webm');
+    } catch (err) {
+      logger.error('Error en clips:save IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('clips:set-shortcut-active', async (_event, active) => {
+    try {
+      const { globalShortcut } = require('electron');
+      if (active) {
+        if (!globalShortcut.isRegistered('F9')) {
+          const registered = globalShortcut.register('F9', () => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('clips:shortcut-triggered');
+            }
+          });
+          logger.info(`[Clips] Registro de atajo global F9: ${registered ? 'Activo' : 'Fallo'}`);
+        }
+      } else {
+        if (globalShortcut.isRegistered('F9')) {
+          globalShortcut.unregister('F9');
+          logger.info('[Clips] Atajo global F9 desactivado.');
+        }
+      }
+      return { success: true };
+    } catch (err) {
+      logger.warn('[Clips] Advertencia al configurar atajo F9:', err.message);
+      return { success: false, error: err.message };
+    }
   });
 
   ipcMain.on('window:minimize', () => {

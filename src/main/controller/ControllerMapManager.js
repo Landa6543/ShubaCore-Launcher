@@ -34,22 +34,22 @@ const AVAILABLE_ACTIONS = [
 ];
 
 const DEFAULT_BUTTON_MAP = {
-  '0': { name: 'A', label: 'Botón A (Cruz)', action: 'jump', key: 'Space' },
-  '1': { name: 'B', label: 'Botón B (Círculo)', action: 'drop', key: 'Q' },
-  '2': { name: 'X', label: 'Botón X (Cuadrado)', action: 'inventory', key: 'E' },
-  '3': { name: 'Y', label: 'Botón Y (Triángulo)', action: 'swap_hand', key: 'F' },
-  '4': { name: 'LB', label: 'Bumper Izquierdo (LB/L1)', action: 'prev_item', key: 'WheelUp' },
-  '5': { name: 'RB', label: 'Bumper Derecho (RB/R1)', action: 'next_item', key: 'WheelDown' },
-  '6': { name: 'LT', label: 'Gatillo Izquierdo (LT/L2)', action: 'use', key: 'Mouse2' },
-  '7': { name: 'RT', label: 'Gatillo Derecho (RT/R2)', action: 'attack', key: 'Mouse1' },
-  '8': { name: 'Select', label: 'Select / View / Share', action: 'chat', key: 'T' },
-  '9': { name: 'Start', label: 'Start / Menu / Options', action: 'pause', key: 'Escape' },
-  '10': { name: 'LS', label: 'Click Stick Izquierdo (LS/L3)', action: 'sprint', key: 'Control' },
-  '11': { name: 'RS', label: 'Click Stick Derecho (RS/R3)', action: 'sneak', key: 'Shift' },
-  '12': { name: 'DPad_Up', label: 'D-Pad Arriba', action: 'f5', key: 'F5' },
-  '13': { name: 'DPad_Down', label: 'D-Pad Abajo', action: 'f3', key: 'F3' },
-  '14': { name: 'DPad_Left', label: 'D-Pad Izquierda', action: 'advancements', key: 'L' },
-  '15': { name: 'DPad_Right', label: 'D-Pad Derecha', action: 'player_list', key: 'Tab' }
+  '0': { name: 'A', label: 'Botón A (Verde)', action: 'jump', key: 'Space' },
+  '1': { name: 'B', label: 'Botón B (Rojo)', action: 'drop', key: 'Q' },
+  '2': { name: 'X', label: 'Botón X (Azul)', action: 'swap_hand', key: 'F' },
+  '3': { name: 'Y', label: 'Botón Y (Amarillo)', action: 'inventory', key: 'E' },
+  '4': { name: 'LB', label: 'Bumper Izquierdo (LB)', action: 'prev_item', key: 'WheelUp' },
+  '5': { name: 'RB', label: 'Bumper Derecho (RB)', action: 'next_item', key: 'WheelDown' },
+  '6': { name: 'LT', label: 'Gatillo Izquierdo (LT)', action: 'use', key: 'Mouse2' },
+  '7': { name: 'RT', label: 'Gatillo Derecho (RT)', action: 'attack', key: 'Mouse1' },
+  '8': { name: 'Select', label: 'Botón View (⧉) / Select', action: 'player_list', key: 'Tab' },
+  '9': { name: 'Start', label: 'Botón Menu (≡) / Start', action: 'pause', key: 'Escape' },
+  '10': { name: 'LS', label: 'Click Stick Izq (LS/L3) Correr', action: 'sprint', key: 'Control' },
+  '11': { name: 'RS', label: 'Click Stick Der (RS/R3) Agacharse', action: 'sneak', key: 'Shift' },
+  '12': { name: 'DPad_Up', label: 'D-Pad Arriba (Chat)', action: 'chat', key: 'T' },
+  '13': { name: 'DPad_Down', label: 'D-Pad Abajo (Perspectiva F5)', action: 'f5', key: 'F5' },
+  '14': { name: 'DPad_Left', label: 'D-Pad Izquierda (Info F3)', action: 'f3', key: 'F3' },
+  '15': { name: 'DPad_Right', label: 'D-Pad Derecha (Logros L)', action: 'advancements', key: 'L' }
 };
 
 class ControllerMapManager {

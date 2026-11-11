@@ -590,6 +590,10 @@
               <p style="margin: 4px 0 0 0; color: var(--text-secondary); font-size: 13px;">Ajustes directos de rendimiento y comodidad visual aplicados nativamente en options.txt sin mods externos ni descargas automáticas.</p>
             </div>
             <div class="toolbar-actions" style="display: flex; gap: 8px;">
+              <button id="btn-clean-instance-garbage" class="btn btn-secondary btn-small" title="Limpia logs antiguos (.log.gz), crash-reports y caché de esta instancia">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                <span>🧹 Limpiar Basura</span>
+              </button>
               <button id="btn-auto-optimize-hardware" class="btn btn-primary btn-small" title="Auto-detecta CPU y RAM y aplica el perfil ideal en options.txt">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
                 <span>⚡ Auto-Optimizar para mi PC</span>
@@ -1279,24 +1283,57 @@
         </div>
       </section>
 
-      <!-- VISTA: GALERÍA DE CAPTURAS DE PANTALLA -->
+      <!-- VISTA: GALERÍA DE CAPTURAS DE PANTALLA Y CLIPS DE VIDEO -->
       <section id="view-screenshots" class="view-panel view-container hidden">
         <div class="view-toolbar">
           <div>
-            <h2 class="view-title">Galería de Capturas</h2>
-            <p class="view-subtitle">Explora, comparte y copia al portapapeles todas las capturas (F2) tomadas en tus mundos y servidores.</p>
+            <h2 class="view-title">Galería de Capturas y Clips</h2>
+            <p class="view-subtitle">Explora fotos (F2) y clips de video automáticos (F9) de tus mundos y servidores.</p>
           </div>
-          <div class="toolbar-actions">
-            <select id="select-screenshots-instance-filter" class="catalog-select" style="min-width: 180px;">
+          <div class="toolbar-actions" style="display: flex; align-items: center; gap: 8px;">
+            <div class="media-filter-btn-group" style="display: flex; gap: 4px; background: rgba(255,255,255,0.03); padding: 3px; border-radius: 8px; border: 1px solid var(--border-subtle);">
+              <button id="btn-filter-media-all" class="btn btn-small media-filter-btn active" data-media-filter="all">Todo</button>
+              <button id="btn-filter-media-photos" class="btn btn-small media-filter-btn" data-media-filter="photos">🖼 Fotos</button>
+              <button id="btn-filter-media-clips" class="btn btn-small media-filter-btn" data-media-filter="clips">🎬 Clips</button>
+            </div>
+            <select id="select-screenshots-instance-filter" class="catalog-select" style="min-width: 170px;">
               <option value="all">Todas las instancias</option>
             </select>
-            <button id="btn-open-active-screenshots-folder" class="btn btn-secondary" title="Abrir carpeta de capturas en el explorador">
+            <button id="btn-open-active-screenshots-folder" class="btn btn-secondary" title="Abrir carpeta en el explorador">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
               <span>Abrir Carpeta</span>
             </button>
             <button id="btn-refresh-screenshots" class="btn btn-secondary">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
               <span>Refrescar</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- BARRA DE REPLAY INSTANTÁNEO (BUFFER CIRCULAR CON F9) -->
+        <div class="clips-replay-bar" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 18px; background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border-subtle); flex-wrap: wrap; gap: 10px;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <label class="switch-container" style="margin: 0;">
+              <input type="checkbox" id="check-enable-clip-replay">
+              <span class="switch-slider"></span>
+            </label>
+            <div>
+              <strong style="font-size: 13px; color: var(--text-primary); display: block;">🎬 Activar Captura de Clips (Atajo en juego: F9)</strong>
+              <small style="font-size: 11px; color: var(--text-secondary);">Graba en búfer circular continuo mientras juegas Minecraft. Al pulsar F9 guarda los últimos segundos épicos.</small>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <label for="select-clip-duration" style="font-size: 12px; color: var(--text-secondary);">Duración:</label>
+              <select id="select-clip-duration" class="catalog-select" style="padding: 4px 10px; font-size: 12px;">
+                <option value="15">15s</option>
+                <option value="30" selected>30s</option>
+                <option value="60">60s</option>
+              </select>
+            </div>
+            <span id="clip-replay-live-badge" class="badge badge-idle" style="font-size: 11px;">⏸ Replay inactivo</span>
+            <button id="btn-manual-trigger-clip" class="btn btn-primary btn-small" style="display: none;" title="Guarda inmediatamente el búfer actual">
+              🔴 Guardar Clip
             </button>
           </div>
         </div>
@@ -1503,99 +1540,149 @@
                 <span>💡 Presiona botones en tu mando físico para iluminarlos en verde esmeralda, o haz clic en cualquier botón del diagrama para cambiar su acción de Minecraft.</span>
               </div>
               <div class="controller-svg-wrapper">
-                <svg id="svg-gamepad-main-visualizer" viewBox="0 0 460 300" class="controller-svg" xmlns="http://www.w3.org/2000/svg">
+                <svg id="svg-gamepad-main-visualizer" viewBox="0 0 500 340" class="controller-svg" xmlns="http://www.w3.org/2000/svg">
                   <defs>
                     <filter id="pad-glow-main" x="-20%" y="-20%" width="140%" height="140%">
-                      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.4"/>
+                      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000" flood-opacity="0.6"/>
                     </filter>
                     <linearGradient id="body-grad-main" x1="0%" y1="0%" x2="0%" y2="100%">
-                      <stop offset="0%" stop-color="#2a2e39" />
-                      <stop offset="100%" stop-color="#181b22" />
+                      <stop offset="0%" stop-color="#2c313d" />
+                      <stop offset="50%" stop-color="#1d212b" />
+                      <stop offset="100%" stop-color="#12151c" />
+                    </linearGradient>
+                    <linearGradient id="grip-bevel-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stop-color="#101319" />
+                      <stop offset="100%" stop-color="#2a303d" />
                     </linearGradient>
                   </defs>
 
-                  <path class="pad-body" filter="url(#pad-glow-main)" d="M 140 45 C 90 45, 50 85, 40 160 C 30 230, 75 285, 115 285 C 135 285, 155 260, 185 240 C 215 225, 245 225, 275 240 C 305 260, 325 285, 345 285 C 385 285, 430 230, 420 160 C 410 85, 370 45, 320 45 Z" fill="url(#body-grad-main)" stroke="#374151" stroke-width="2"/>
+                  <!-- CUERPO ERGONÓMICO REAL DE XBOX SERIES X|S -->
+                  <path class="pad-body" filter="url(#pad-glow-main)" d="M 155 42 C 210 38, 290 38, 345 42 C 390 44, 435 68, 452 110 C 470 152, 478 220, 450 285 C 438 312, 412 328, 388 322 C 362 315, 345 285, 335 252 C 310 226, 280 216, 250 216 C 220 216, 190 226, 165 252 C 155 285, 138 315, 112 322 C 88 328, 62 312, 50 285 C 22 220, 30 152, 48 110 C 65 68, 110 44, 155 42 Z" fill="url(#body-grad-main)" stroke="#3b4252" stroke-width="2"/>
 
+                  <!-- GATILLOS SUPERIORES (LT & RT) -->
                   <!-- LT (6) -->
                   <g class="gamepad-interactive-btn" data-btn-index="6" data-btn-name="LT">
-                    <rect x="80" y="10" width="60" height="25" rx="6" class="btn-shape trigger" />
-                    <text x="110" y="27" class="btn-label" text-anchor="middle">LT</text>
+                    <rect x="95" y="4" width="65" height="22" rx="6" class="btn-shape trigger" />
+                    <text x="127" y="19" class="btn-label" text-anchor="middle">LT</text>
                   </g>
                   <!-- RT (7) -->
                   <g class="gamepad-interactive-btn" data-btn-index="7" data-btn-name="RT">
-                    <rect x="320" y="10" width="60" height="25" rx="6" class="btn-shape trigger" />
-                    <text x="350" y="27" class="btn-label" text-anchor="middle">RT</text>
+                    <rect x="340" y="4" width="65" height="22" rx="6" class="btn-shape trigger" />
+                    <text x="372" y="19" class="btn-label" text-anchor="middle">RT</text>
                   </g>
+
+                  <!-- BUMPERS SUPERIORES (LB & RB) -->
                   <!-- LB (4) -->
                   <g class="gamepad-interactive-btn" data-btn-index="4" data-btn-name="LB">
-                    <rect x="95" y="38" width="70" height="18" rx="4" class="btn-shape bumper" />
-                    <text x="130" y="52" class="btn-label" text-anchor="middle">LB</text>
+                    <rect x="110" y="24" width="76" height="22" rx="6" class="btn-shape bumper" />
+                    <text x="148" y="39" class="btn-label" text-anchor="middle">LB</text>
                   </g>
                   <!-- RB (5) -->
                   <g class="gamepad-interactive-btn" data-btn-index="5" data-btn-name="RB">
-                    <rect x="295" y="38" width="70" height="18" rx="4" class="btn-shape bumper" />
-                    <text x="330" y="52" class="btn-label" text-anchor="middle">RB</text>
+                    <rect x="314" y="24" width="76" height="22" rx="6" class="btn-shape bumper" />
+                    <text x="352" y="39" class="btn-label" text-anchor="middle">RB</text>
                   </g>
-                  <!-- Stick Izq (LS/L3 - 10) -->
-                  <g class="gamepad-interactive-btn stick-group" data-btn-index="10" data-btn-name="LS">
-                    <circle cx="140" cy="115" r="28" class="btn-shape stick-base" />
-                    <circle id="main-stick-left-knob" cx="140" cy="115" r="18" class="btn-shape stick-top" />
-                    <text x="140" y="120" class="btn-label small" text-anchor="middle">L3</text>
+
+                  <!-- BOTÓN CENTRAL XBOX GUIDE CON LOGO OFICIAL -->
+                  <g class="xbox-guide-btn">
+                    <circle cx="250" cy="74" r="16" fill="#1b202a" stroke="#4b5563" stroke-width="1.8" />
+                    <circle cx="250" cy="74" r="13" fill="#11141c" />
+                    <!-- Stylized Xbox "X" logo -->
+                    <path d="M 244 68 C 247 71, 248 73, 246 76 C 243 78, 240 76, 242 72 Z" fill="#ffffff" opacity="0.9" />
+                    <path d="M 256 68 C 253 71, 252 73, 254 76 C 257 78, 260 76, 258 72 Z" fill="#ffffff" opacity="0.9" />
+                    <path d="M 246 78 C 248 76, 250 75, 250 78 C 248 81, 246 81, 246 78 Z" fill="#ffffff" opacity="0.85" />
+                    <path d="M 254 78 C 252 76, 250 75, 250 78 C 252 81, 254 81, 254 78 Z" fill="#ffffff" opacity="0.85" />
                   </g>
-                  <!-- Stick Der (RS/R3 - 11) -->
-                  <g class="gamepad-interactive-btn stick-group" data-btn-index="11" data-btn-name="RS">
-                    <circle cx="275" cy="180" r="28" class="btn-shape stick-base" />
-                    <circle id="main-stick-right-knob" cx="275" cy="180" r="18" class="btn-shape stick-top" />
-                    <text x="275" y="185" class="btn-label small" text-anchor="middle">R3</text>
-                  </g>
-                  <!-- D-Pad -->
-                  <g class="dpad-group">
-                    <path d="M 170 165 h 20 v -20 h 20 v 20 h 20 v 20 h -20 v 20 h -20 v -20 h -20 z" fill="#1b1e24" stroke="#2e3440" stroke-width="1.5" />
-                    <g class="gamepad-interactive-btn" data-btn-index="12" data-btn-name="DPad_Up">
-                      <path d="M 191 164 h 18 v -18 h -18 z" class="btn-shape dpad" />
-                      <path d="M 200 150 L 195 157 L 205 157 Z" fill="#9ca3af" pointer-events="none" />
-                    </g>
-                    <g class="gamepad-interactive-btn" data-btn-index="13" data-btn-name="DPad_Down">
-                      <path d="M 191 186 h 18 v 18 h -18 z" class="btn-shape dpad" />
-                      <path d="M 200 199 L 195 192 L 205 192 Z" fill="#9ca3af" pointer-events="none" />
-                    </g>
-                    <g class="gamepad-interactive-btn" data-btn-index="14" data-btn-name="DPad_Left">
-                      <path d="M 171 166 h 18 v 18 h -18 z" class="btn-shape dpad" />
-                      <path d="M 176 175 L 183 170 L 183 180 Z" fill="#9ca3af" pointer-events="none" />
-                    </g>
-                    <g class="gamepad-interactive-btn" data-btn-index="15" data-btn-name="DPad_Right">
-                      <path d="M 211 166 h 18 v 18 h -18 z" class="btn-shape dpad" />
-                      <path d="M 224 175 L 217 170 L 217 180 Z" fill="#9ca3af" pointer-events="none" />
-                    </g>
-                  </g>
-                  <!-- Botones A, B, X, Y -->
-                  <g class="gamepad-interactive-btn" data-btn-index="0" data-btn-name="A">
-                    <circle cx="335" cy="150" r="14" class="btn-shape action-btn action-a" />
-                    <text x="335" y="155" class="btn-label font-bold text-a" text-anchor="middle">A</text>
-                  </g>
-                  <g class="gamepad-interactive-btn" data-btn-index="1" data-btn-name="B">
-                    <circle cx="365" cy="120" r="14" class="btn-shape action-btn action-b" />
-                    <text x="365" y="125" class="btn-label font-bold text-b" text-anchor="middle">B</text>
-                  </g>
-                  <g class="gamepad-interactive-btn" data-btn-index="2" data-btn-name="X">
-                    <circle cx="305" cy="120" r="14" class="btn-shape action-btn action-x" />
-                    <text x="305" y="125" class="btn-label font-bold text-x" text-anchor="middle">X</text>
-                  </g>
-                  <g class="gamepad-interactive-btn" data-btn-index="3" data-btn-name="Y">
-                    <circle cx="335" cy="90" r="14" class="btn-shape action-btn action-y" />
-                    <text x="335" y="95" class="btn-label font-bold text-y" text-anchor="middle">Y</text>
-                  </g>
-                  <!-- Select / Start -->
+
+                  <!-- BOTONES VIEW (⧉) & MENU (≡) & SHARE -->
+                  <!-- View / Select (8) -->
                   <g class="gamepad-interactive-btn" data-btn-index="8" data-btn-name="Select">
-                    <circle cx="205" cy="105" r="9" class="btn-shape center-btn" />
-                    <text x="205" y="108" class="btn-label small" text-anchor="middle">⧉</text>
+                    <circle cx="206" cy="116" r="9" class="btn-shape center-btn" />
+                    <text x="206" y="119" class="btn-label small" text-anchor="middle">⧉</text>
                   </g>
+                  <!-- Menu / Start (9) -->
                   <g class="gamepad-interactive-btn" data-btn-index="9" data-btn-name="Start">
-                    <circle cx="255" cy="105" r="9" class="btn-shape center-btn" />
-                    <text x="255" y="108" class="btn-label small" text-anchor="middle">≡</text>
+                    <circle cx="294" cy="116" r="9" class="btn-shape center-btn" />
+                    <text x="294" y="119" class="btn-label small" text-anchor="middle">≡</text>
                   </g>
-                  <circle cx="230" cy="75" r="14" fill="#1e293b" stroke="#3b82f6" stroke-width="2" opacity="0.9" />
-                  <text x="230" y="80" fill="#60a5fa" font-size="11" font-weight="bold" text-anchor="middle">S</text>
+                  <!-- Share button central de Xbox Series -->
+                  <g class="xbox-share-btn">
+                    <rect x="245" y="128" width="10" height="7" rx="3.5" fill="#2d3340" stroke="#4b5563" stroke-width="1" />
+                  </g>
+
+                  <!-- STICK IZQUIERDO (LS/L3 - 10) - ARRIBA A LA IZQUIERDA -->
+                  <g class="gamepad-interactive-btn stick-group" data-btn-index="10" data-btn-name="LS">
+                    <circle cx="140" cy="118" r="30" class="btn-shape stick-base" />
+                    <circle cx="140" cy="118" r="23" fill="#1c202a" stroke="#2e3440" stroke-width="1" />
+                    <circle id="main-stick-left-knob" cx="140" cy="118" r="18" class="btn-shape stick-top" />
+                    <!-- Marcas de agarre del joystick -->
+                    <circle cx="140" cy="106" r="2" fill="#4b5563" opacity="0.6" pointer-events="none" />
+                    <circle cx="140" cy="130" r="2" fill="#4b5563" opacity="0.6" pointer-events="none" />
+                    <circle cx="128" cy="118" r="2" fill="#4b5563" opacity="0.6" pointer-events="none" />
+                    <circle cx="152" cy="118" r="2" fill="#4b5563" opacity="0.6" pointer-events="none" />
+                    <text x="140" y="122" class="btn-label small font-bold" text-anchor="middle">L3</text>
+                  </g>
+
+                  <!-- STICK DERECHO (RS/R3 - 11) - ABAJO A LA DERECHA -->
+                  <g class="gamepad-interactive-btn stick-group" data-btn-index="11" data-btn-name="RS">
+                    <circle cx="310" cy="188" r="30" class="btn-shape stick-base" />
+                    <circle cx="310" cy="188" r="23" fill="#1c202a" stroke="#2e3440" stroke-width="1" />
+                    <circle id="main-stick-right-knob" cx="310" cy="188" r="18" class="btn-shape stick-top" />
+                    <!-- Marcas de agarre del joystick -->
+                    <circle cx="310" cy="176" r="2" fill="#4b5563" opacity="0.6" pointer-events="none" />
+                    <circle cx="310" cy="200" r="2" fill="#4b5563" opacity="0.6" pointer-events="none" />
+                    <circle cx="298" cy="188" r="2" fill="#4b5563" opacity="0.6" pointer-events="none" />
+                    <circle cx="322" cy="188" r="2" fill="#4b5563" opacity="0.6" pointer-events="none" />
+                    <text x="310" y="192" class="btn-label small font-bold" text-anchor="middle">R3</text>
+                  </g>
+
+                  <!-- D-PAD EN CRUZ REAL DE XBOX SERIES - ABAJO A LA IZQUIERDA -->
+                  <g class="dpad-group">
+                    <!-- Plato circular de fondo (Dish) -->
+                    <circle cx="185" cy="188" r="26" fill="#171a22" stroke="#2a303d" stroke-width="1.5" />
+                    <!-- D-Pad Arriba (12) -->
+                    <g class="gamepad-interactive-btn" data-btn-index="12" data-btn-name="DPad_Up">
+                      <path d="M 178 174 h 14 v -14 h -14 z" class="btn-shape dpad" />
+                      <path d="M 185 163 L 181 169 L 189 169 Z" fill="#9ca3af" pointer-events="none" />
+                    </g>
+                    <!-- D-Pad Abajo (13) -->
+                    <g class="gamepad-interactive-btn" data-btn-index="13" data-btn-name="DPad_Down">
+                      <path d="M 178 188 h 14 v 14 h -14 z" class="btn-shape dpad" />
+                      <path d="M 185 199 L 181 193 L 189 193 Z" fill="#9ca3af" pointer-events="none" />
+                    </g>
+                    <!-- D-Pad Izquierda (14) -->
+                    <g class="gamepad-interactive-btn" data-btn-index="14" data-btn-name="DPad_Left">
+                      <path d="M 164 181 h 14 v 14 h -14 z" class="btn-shape dpad" />
+                      <path d="M 167 188 L 173 184 L 173 192 Z" fill="#9ca3af" pointer-events="none" />
+                    </g>
+                    <!-- D-Pad Derecha (15) -->
+                    <g class="gamepad-interactive-btn" data-btn-index="15" data-btn-name="DPad_Right">
+                      <path d="M 192 181 h 14 v 14 h -14 z" class="btn-shape dpad" />
+                      <path d="M 203 188 L 197 184 L 197 192 Z" fill="#9ca3af" pointer-events="none" />
+                    </g>
+                  </g>
+
+                  <!-- BOTONES EN DIAMANTE PERFECTO (Y AMARILLO, B ROJO, A VERDE, X AZUL) -->
+                  <!-- Botón Y (3 - Amarillo) -->
+                  <g class="gamepad-interactive-btn" data-btn-index="3" data-btn-name="Y">
+                    <circle cx="365" cy="88" r="14" class="btn-shape action-btn action-y" />
+                    <text x="365" y="93" class="btn-label font-bold text-y" text-anchor="middle" style="fill: #facc15;">Y</text>
+                  </g>
+                  <!-- Botón X (2 - Azul) -->
+                  <g class="gamepad-interactive-btn" data-btn-index="2" data-btn-name="X">
+                    <circle cx="332" cy="118" r="14" class="btn-shape action-btn action-x" />
+                    <text x="332" y="123" class="btn-label font-bold text-x" text-anchor="middle" style="fill: #60a5fa;">X</text>
+                  </g>
+                  <!-- Botón B (1 - Rojo) -->
+                  <g class="gamepad-interactive-btn" data-btn-index="1" data-btn-name="B">
+                    <circle cx="398" cy="118" r="14" class="btn-shape action-btn action-b" />
+                    <text x="398" y="123" class="btn-label font-bold text-b" text-anchor="middle" style="fill: #f87171;">B</text>
+                  </g>
+                  <!-- Botón A (0 - Verde) -->
+                  <g class="gamepad-interactive-btn" data-btn-index="0" data-btn-name="A">
+                    <circle cx="365" cy="148" r="14" class="btn-shape action-btn action-a" />
+                    <text x="365" y="153" class="btn-label font-bold text-a" text-anchor="middle" style="fill: #4ade80;">A</text>
+                  </g>
                 </svg>
               </div>
             </div>
@@ -1729,6 +1816,17 @@
               </div>
             </div>
 
+            <div class="toggle-row" style="margin-top: 14px;">
+              <label class="switch-container">
+                <input type="checkbox" id="check-force-spanish-instances" checked>
+                <span class="switch-slider"></span>
+              </label>
+              <div class="toggle-info">
+                <strong>🌍 Forzar Español (España - es_es) en instancias nuevas</strong>
+                <small>Garantiza que cualquier instancia creada o ejecutada por primera vez inicie en Español de España (lang:es_es) y con autoJump:false en options.txt.</small>
+              </div>
+            </div>
+
             <!-- Optimización del Sistema Operativo & Memoria Standby -->
             <div style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
               <div>
@@ -1751,6 +1849,27 @@
             <div class="input-group">
               <input type="text" id="input-instance-path" class="text-input" readonly>
               <button id="btn-browse-instance" class="btn btn-secondary">Examinar</button>
+            </div>
+          </div>
+
+          <!-- Limpiador Inteligente de Basura y Caché -->
+          <div class="settings-card" id="card-disk-cleaner">
+            <div class="settings-card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+              <div>
+                <h3 class="settings-card-title">🧹 Limpiador de Basura y Logs Antiguos</h3>
+                <p class="settings-card-desc">Libera espacio en disco eliminando logs comprimidos (.log.gz), crash-reports antiguos y caché temporal sin tocar mundos, mods ni capturas.</p>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <button id="btn-scan-garbage-settings" class="btn btn-secondary">
+                  🔍 Escanear
+                </button>
+                <button id="btn-clean-garbage-settings" class="btn btn-primary">
+                  🧹 Limpiar Ahora
+                </button>
+              </div>
+            </div>
+            <div id="cleaner-status-box-settings" style="margin-top: 12px; font-size: 12.5px; padding: 10px 14px; background: rgba(255,255,255,0.02); border-radius: 8px; border: 1px solid var(--border-subtle); display: none;">
+              <span id="cleaner-status-text-settings">Listo para escanear.</span>
             </div>
           </div>
 
@@ -1976,7 +2095,13 @@
 
         <div class="form-row">
           <div class="form-group flex-1">
-            <label for="select-profile-mc">Versión de Minecraft:</label>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+              <label for="select-profile-mc" style="margin-bottom: 0;">Versión de Minecraft:</label>
+              <label style="display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-secondary); cursor: pointer;" title="Muestra versiones de prueba y snapshots de Mojang">
+                <input type="checkbox" id="check-include-snapshots-profile" style="cursor: pointer;" />
+                <span>🧪 Incluir Snapshots</span>
+              </label>
+            </div>
             <select id="select-profile-mc" class="select-input">
               <option value="26.3">26.3 (Java 25 - Snapshot Reciente)</option>
               <option value="1.21.1" selected>1.21.1</option>
@@ -2389,7 +2514,13 @@
 
         <div class="form-row">
           <div class="form-group flex-1">
-            <label for="select-server-create-mc" style="font-weight: 600;">Versión de Minecraft:</label>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+              <label for="select-server-create-mc" style="font-weight: 600; margin-bottom: 0;">Versión de Minecraft:</label>
+              <label style="display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-secondary); cursor: pointer;" title="Muestra versiones de prueba y snapshots de Mojang">
+                <input type="checkbox" id="check-include-snapshots-server" style="cursor: pointer;" />
+                <span>🧪 Incluir Snapshots</span>
+              </label>
+            </div>
             <select id="select-server-create-mc" class="select-input">
               <option value="1.21.1" selected>Minecraft 1.21.1 (Recomendado)</option>
               <option value="1.20.4">Minecraft 1.20.4</option>
@@ -2793,6 +2924,28 @@
           <span>⚡ Reiniciar e Instalar Actualización</span>
         </button>
         <button id="btn-dismiss-update-banner" class="btn btn-small close-btn" title="Descartar">✕</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: REPRODUCTOR INTEGRADO DE CLIPS DE VIDEO (REPLAY) -->
+  <div id="modal-clip-player" class="modal-overlay" style="display: none;">
+    <div class="modal-content card" style="max-width: 760px; width: 90%;">
+      <div class="modal-header">
+        <h3 id="clip-player-modal-title" class="modal-title">🎬 Reproductor de Clip</h3>
+        <button id="btn-close-clip-player-modal" class="btn btn-small close-btn">✕</button>
+      </div>
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: 12px;">
+        <div style="width: 100%; aspect-ratio: 16/9; background: #000; border-radius: var(--radius-md); overflow: hidden; display: flex; align-items: center; justify-content: center;">
+          <video id="clip-player-video" controls autoplay style="width: 100%; height: 100%; object-fit: contain;"></video>
+        </div>
+        <div style="display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--text-secondary); flex-wrap: wrap; gap: 8px;">
+          <span id="clip-player-meta-info"></span>
+          <div style="display: flex; gap: 8px;">
+            <button id="btn-open-clip-in-folder" class="btn btn-secondary btn-small">📁 Abrir en Carpeta</button>
+            <button id="btn-delete-clip-modal" class="btn btn-danger btn-small">🗑 Eliminar Clip</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>

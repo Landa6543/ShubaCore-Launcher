@@ -27,25 +27,23 @@ async function runCriticalFixesTests() {
   fs.mkdirSync(testDir, { recursive: true });
 
   // --------------------------------------------------------------------------
-  // TEST 1: Catálogo de versiones ordenado cronológicamente y sin '26.3'
+  // TEST 1: Catálogo de versiones ordenado cronológicamente con 26.x y snapshots opcionales
   // --------------------------------------------------------------------------
-  console.log('▶ [1/4] Verificando filtro y orden cronológico de versiones de Minecraft...');
+  console.log('▶ [1/4] Verificando filtro y orden cronológico de versiones de Minecraft (26.x hasta 1.0)...');
   const versions = await ServerInstaller.getAvailableMinecraftVersions();
   assert(Array.isArray(versions) && versions.length > 0, 'Debe devolver un arreglo de versiones');
-  assert(!versions.includes('26.3'), 'PROHIBIDO: No debe incluir "26.3" ni snapshots experimentales');
-  
-  // Todos deben cumplir formato oficial 1.x o 1.x.x
-  const invalidFormat = versions.filter((v) => !/^1\.\d+(\.\d+)?$/.test(v));
-  assert.strictEqual(invalidFormat.length, 0, `Ninguna versión debe tener formato inválido: ${invalidFormat.join(', ')}`);
-
-  // Debe incluir versiones clave
+  assert(versions.includes('26.3'), 'Debe incluir "26.3" como versión oficial reciente');
   assert(versions.includes('1.21.1'), 'Debe incluir 1.21.1');
   assert(versions.includes('1.20.1'), 'Debe incluir 1.20.1');
   assert(versions.includes('1.7.10'), 'Debe incluir 1.7.10');
 
-  // Primer elemento debe ser la versión release más reciente (ej. 1.21.4 o 1.21.x)
-  assert(versions[0].startsWith('1.21'), `La primera versión debe ser reciente de la rama 1.21.x (obtenido: ${versions[0]})`);
-  console.log(`   ✔ Versiones filtradas y ordenadas de forma cronológica (${versions.length} releases, más reciente: ${versions[0]}).`);
+  // Primer elemento debe ser la versión release más reciente de Mojang (ej. 26.3)
+  assert(versions[0] === '26.3' || versions[0].startsWith('26.'), `La primera versión debe ser la más reciente (obtenido: ${versions[0]})`);
+
+  // Con includeSnapshots activado, debe incluir snapshots
+  const withSnapshots = await ServerInstaller.getAvailableMinecraftVersions({ includeSnapshots: true });
+  assert(withSnapshots.some((v) => v.includes('snapshot') || v.includes('26.4')), 'Debe incluir snapshots cuando includeSnapshots: true');
+  console.log(`   ✔ Versiones ordenadas cronológicamente con 26.x (${versions.length} releases, más reciente: ${versions[0]}).`);
 
   // --------------------------------------------------------------------------
   // TEST 2: Instancias Vanilla NO deben forzar Fabric al interactuar con HUD

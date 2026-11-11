@@ -50,7 +50,8 @@ const VALID_RECEIVE_CHANNELS = [
   'playit:claim-url',
   'playit:tunnel-ready',
   'playit:progress',
-  'server-monitor:update'
+  'server-monitor:update',
+  'clips:shortcut-triggered'
 ];
 
 contextBridge.exposeInMainWorld('shubaCoreAPI', {
@@ -259,7 +260,7 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
   servers: {
     list: () => ipcRenderer.invoke('servers:list'),
     get: (id) => ipcRenderer.invoke('servers:get', id),
-    getMcVersions: () => ipcRenderer.invoke('servers:get-mc-versions'),
+    getMcVersions: (options) => ipcRenderer.invoke('servers:get-mc-versions', options),
     create: (options) => ipcRenderer.invoke('servers:create', options),
     importDialog: () => ipcRenderer.invoke('servers:import-dialog'),
     import: (sourceDir) => ipcRenderer.invoke('servers:import', sourceDir),
@@ -300,12 +301,28 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
   // ==========================================
   system: {
     getInfo: () => ipcRenderer.invoke('system:get-info'),
-    getVersions: () => ipcRenderer.invoke('system:get-versions'),
+    getVersions: (options) => ipcRenderer.invoke('system:get-versions', options),
     openExternal: (url) => ipcRenderer.invoke('system:open-external', url),
     cleanMemory: () => ipcRenderer.invoke('system:clean-memory'),
     minimize: () => ipcRenderer.send('window:minimize'),
     maximize: () => ipcRenderer.send('window:maximize'),
     close: () => ipcRenderer.send('window:close')
+  },
+
+  // ==========================================
+  // LIMPIADOR INTELIGENTE DE BASURA Y LOGS
+  // ==========================================
+  cleaner: {
+    scan: (instancePath) => ipcRenderer.invoke('cleaner:scan', instancePath),
+    clean: (instancePath) => ipcRenderer.invoke('cleaner:clean', instancePath)
+  },
+
+  // ==========================================
+  // CAPTURADOR DE CLIPS REPLAY (F9)
+  // ==========================================
+  clips: {
+    saveClip: (instancePath, buffer, ext) => ipcRenderer.invoke('clips:save', instancePath, buffer, ext),
+    setShortcutActive: (active) => ipcRenderer.invoke('clips:set-shortcut-active', active)
   },
 
   // ==========================================

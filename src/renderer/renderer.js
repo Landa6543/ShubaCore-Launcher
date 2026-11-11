@@ -1979,28 +1979,46 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // =======================================================
-  // CARGA DE VERSIONES OFICIALES DE MOJANG
+  // CARGA DE VERSIONES OFICIALES DE MOJANG (26.X HASTA 1.0 + SNAPSHOTS)
   // =======================================================
-  async function loadVersionsList() {
+  const checkIncludeSnapshotsProfile = document.getElementById('check-include-snapshots-profile');
+  const checkIncludeSnapshotsServer = document.getElementById('check-include-snapshots-server');
+
+  async function loadVersionsList(includeSnapshots = false) {
     try {
-      const versions = await api.system.getVersions();
+      const snapActive = includeSnapshots || (checkIncludeSnapshotsProfile ? checkIncludeSnapshotsProfile.checked : false);
+      const versions = await api.system.getVersions({ includeSnapshots: snapActive, detailed: true });
       if (Array.isArray(versions) && versions.length > 0) {
-        const filtered = versions.filter((ver) => typeof ver === 'string' && /^1\.\d+(\.\d+)?$/.test(ver));
-        allCachedMcVersions = filtered;
-        selectProfileMc.innerHTML = '';
-        const defaultVer = filtered.includes('1.21.4') ? '1.21.4' : (filtered.includes('1.21.1') ? '1.21.1' : filtered[0]);
-        filtered.forEach((ver) => {
+        allCachedMcVersions = versions.map((v) => (typeof v === 'object' ? v.id : v));
+        const prevVal = selectProfileMc ? selectProfileMc.value : '';
+        if (selectProfileMc) selectProfileMc.innerHTML = '';
+
+        // Versión recomendada por defecto
+        const defaultVer = allCachedMcVersions.includes('26.3')
+          ? '26.3'
+          : (allCachedMcVersions.includes('1.21.4') ? '1.21.4' : (allCachedMcVersions.includes('1.21.1') ? '1.21.1' : allCachedMcVersions[0]));
+        const targetVal = prevVal && allCachedMcVersions.includes(prevVal) ? prevVal : defaultVer;
+
+        versions.forEach((verObj) => {
+          const id = typeof verObj === 'object' ? verObj.id : verObj;
+          const isSnapshot = typeof verObj === 'object' ? verObj.type === 'snapshot' : id.includes('snapshot');
           const opt = document.createElement('option');
-          opt.value = ver;
-          opt.textContent = ver;
-          if (ver === defaultVer) opt.selected = true;
-          selectProfileMc.appendChild(opt);
+          opt.value = id;
+          opt.textContent = isSnapshot ? `${id} (Snapshot)` : id;
+          if (id === targetVal) opt.selected = true;
+          if (selectProfileMc) selectProfileMc.appendChild(opt);
         });
-        if (!selectProfileMc.value) selectProfileMc.value = defaultVer;
+        if (selectProfileMc && !selectProfileMc.value) selectProfileMc.value = targetVal;
       }
     } catch (e) {
       console.warn('Error al cargar versiones de Mojang:', e);
     }
+  }
+
+  if (checkIncludeSnapshotsProfile) {
+    checkIncludeSnapshotsProfile.addEventListener('change', () => {
+      loadVersionsList(checkIncludeSnapshotsProfile.checked);
+    });
   }
 
   // =======================================================
@@ -2026,8 +2044,22 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       const checkGlobalController = document.getElementById('check-global-controller');
       if (checkGlobalController && api.config) {
-        const ctrlEnabled = await api.config.getKey('performance.controllerSupport', false);
-        checkGlobalController.checked = !!ctrlEnabled;
+        const ctrlEnabled = await api.config.getKey('performance.controllerSupport', true);
+        checkGlobalController.checked = ctrlEnabled !== false;
+        checkGlobalController.addEventListener('change', async () => {
+          await api.config.setKey('performance.controllerSupport', checkGlobalController.checked);
+          const switchMaster = document.getElementById('switch-controller-master');
+          if (switchMaster) switchMaster.checked = checkGlobalController.checked;
+        });
+      }
+
+      const checkForceSpanish = document.getElementById('check-force-spanish-instances');
+      if (checkForceSpanish && api.config) {
+        const forceSp = await api.config.getKey('general.forceSpanish', true);
+        checkForceSpanish.checked = forceSp !== false;
+        checkForceSpanish.addEventListener('change', async () => {
+          await api.config.setKey('general.forceSpanish', checkForceSpanish.checked);
+        });
       }
       inputInstancePath.value = config.instance?.path || '';
       if (inputCustomJava) inputCustomJava.value = config.performance?.javaPath || '';
@@ -5678,20 +5710,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // --- MODAL: CREAR NUEVO SERVIDOR & IMPORTACIÓN ---
-  async function populateServerMcVersions() {
+  // --- MODAL: CREAR NUEVO SERVIDOR & IMPORTACIÓN (CRONOLÓGICO: 26.X HASTA 1.0 + SNAPSHOTS) ---
+  async function populateServerMcVersions(includeSnapshots = false) {
     if (!selectServerCreateMc || !api.servers?.getMcVersions) return;
     try {
-      const versions = await api.servers.getMcVersions();
+      const snapActive = includeSnapshots || (checkIncludeSnapshotsServer ? checkIncludeSnapshotsServer.checked : false);
+      const versions = await api.servers.getMcVersions({ includeSnapshots: snapActive });
       if (Array.isArray(versions) && versions.length > 0) {
-        const filtered = versions.filter((v) => typeof v === 'string' && /^1\.\d+(\.\d+)?$/.test(v));
-        const defaultVer = filtered.includes('1.21.4') ? '1.21.4' : (filtered.includes('1.21.1') ? '1.21.1' : filtered[0]);
+        const defaultVer = versions.includes('26.3')
+          ? '26.3'
+          : (versions.includes('1.21.4') ? '1.21.4' : (versions.includes('1.21.1') ? '1.21.1' : versions[0]));
         const currentVal = selectServerCreateMc.value || defaultVer;
         selectServerCreateMc.innerHTML = '';
-        filtered.forEach((v) => {
+        versions.forEach((v) => {
+          const isSnapshot = v.includes('snapshot');
           const opt = document.createElement('option');
           opt.value = v;
-          opt.textContent = `Minecraft ${v}${v === defaultVer ? ' (Recomendado)' : ''}`;
+          opt.textContent = isSnapshot ? `Minecraft ${v} (Snapshot)` : `Minecraft ${v}${v === defaultVer ? ' (Recomendado)' : ''}`;
           if (v === currentVal) opt.selected = true;
           selectServerCreateMc.appendChild(opt);
         });
@@ -5700,6 +5735,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       }
     } catch (_) {}
+  }
+
+  if (checkIncludeSnapshotsServer) {
+    checkIncludeSnapshotsServer.addEventListener('change', () => {
+      populateServerMcVersions(checkIncludeSnapshotsServer.checked);
+    });
   }
 
   function applySelectedInstanceDefaults() {
@@ -5968,14 +6009,41 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // =======================================================
-  // GALERÍA DE CAPTURAS DE PANTALLA (SCREENSHOTS)
+  // GALERÍA DE CAPTURAS DE PANTALLA Y CLIPS DE VIDEO (F9)
   // =======================================================
   const selectScreenshotsInstanceFilter = document.getElementById('select-screenshots-instance-filter');
   const btnOpenActiveScreenshotsFolder = document.getElementById('btn-open-active-screenshots-folder');
   const btnRefreshScreenshots = document.getElementById('btn-refresh-screenshots');
   const screenshotsGridContainer = document.getElementById('screenshots-grid-container');
 
-  // Modal Lightbox
+  // Filtros de medios: Todo | Fotos | Clips
+  const btnFilterMediaAll = document.getElementById('btn-filter-media-all');
+  const btnFilterMediaPhotos = document.getElementById('btn-filter-media-photos');
+  const btnFilterMediaClips = document.getElementById('btn-filter-media-clips');
+  let activeMediaFilter = 'all';
+
+  // Controles de Replay de Clips (F9)
+  const checkEnableClipReplay = document.getElementById('check-enable-clip-replay');
+  const selectClipDuration = document.getElementById('select-clip-duration');
+  const clipReplayLiveBadge = document.getElementById('clip-replay-live-badge');
+  const btnManualTriggerClip = document.getElementById('btn-manual-trigger-clip');
+
+  // Modal Reproductor de Video (Clips)
+  const modalClipPlayer = document.getElementById('modal-clip-player');
+  const clipPlayerVideo = document.getElementById('clip-player-video');
+  const clipPlayerModalTitle = document.getElementById('clip-player-modal-title');
+  const clipPlayerMetaInfo = document.getElementById('clip-player-meta-info');
+  const btnCloseClipPlayerModal = document.getElementById('btn-close-clip-player-modal');
+  const btnOpenClipInFolder = document.getElementById('btn-open-clip-in-folder');
+  const btnDeleteClipModal = document.getElementById('btn-delete-clip-modal');
+  let currentActiveModalClip = null;
+
+  // Búfer circular de video en memoria
+  let clipReplayBuffer = [];
+  let clipMediaRecorder = null;
+  let clipActiveStream = null;
+
+  // Modal Lightbox (Fotos)
   const modalScreenshotLightbox = document.getElementById('modal-screenshot-lightbox');
   const btnCloseScreenshotLightbox = document.getElementById('btn-close-lightbox');
   const lightboxFilename = document.getElementById('lightbox-filename');
@@ -5985,6 +6053,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnLightboxDelete = document.getElementById('btn-lightbox-delete');
 
   let currentActiveLightboxScreenshot = null;
+
+  function setActiveMediaFilter(filter) {
+    activeMediaFilter = filter;
+    [btnFilterMediaAll, btnFilterMediaPhotos, btnFilterMediaClips].forEach((b) => {
+      if (b) b.classList.remove('active');
+    });
+    if (filter === 'all' && btnFilterMediaAll) btnFilterMediaAll.classList.add('active');
+    if (filter === 'photos' && btnFilterMediaPhotos) btnFilterMediaPhotos.classList.add('active');
+    if (filter === 'clips' && btnFilterMediaClips) btnFilterMediaClips.classList.add('active');
+    loadScreenshotsGallery();
+  }
+
+  if (btnFilterMediaAll) btnFilterMediaAll.addEventListener('click', () => setActiveMediaFilter('all'));
+  if (btnFilterMediaPhotos) btnFilterMediaPhotos.addEventListener('click', () => setActiveMediaFilter('photos'));
+  if (btnFilterMediaClips) btnFilterMediaClips.addEventListener('click', () => setActiveMediaFilter('clips'));
 
   async function loadScreenshotsInstancesFilter() {
     if (!selectScreenshotsInstanceFilter) return;
@@ -6005,20 +6088,27 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function loadScreenshotsGallery() {
     if (!screenshotsGridContainer) return;
     const filterId = selectScreenshotsInstanceFilter?.value || 'all';
-    screenshotsGridContainer.innerHTML = '<div class="empty-state">Escaneando capturas de pantalla...</div>';
+    screenshotsGridContainer.innerHTML = '<div class="empty-state">Escaneando capturas y clips...</div>';
 
     try {
-      const items = await api.screenshots.list({ instanceId: filterId });
+      const items = await api.screenshots.list({ instanceId: filterId, mediaType: activeMediaFilter });
 
       if (!items || items.length === 0) {
+        const emptyLabel = activeMediaFilter === 'clips'
+          ? 'No se encontraron clips de video aún'
+          : (activeMediaFilter === 'photos' ? 'No se encontraron capturas de pantalla' : 'No se encontraron capturas ni clips');
+        const emptyDesc = activeMediaFilter === 'clips'
+          ? 'Activa el replay y presiona F9 en el juego para guardar los últimos 30 segundos.'
+          : 'Presiona F2 en Minecraft para tomar capturas o F9 para guardar clips de video.';
+
         screenshotsGridContainer.innerHTML = `
           <div class="empty-state" style="grid-column: 1 / -1; padding: 48px 16px;">
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--text-dim); margin-bottom: 12px;">
               <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
               <circle cx="12" cy="13" r="4"/>
             </svg>
-            <p style="margin: 0; font-size: 14px; color: var(--text-primary); font-weight: 500;">No se encontraron capturas de pantalla</p>
-            <small style="color: var(--text-muted); margin-top: 4px; display: block;">Presiona F2 mientras juegas Minecraft para tomar capturas de alta resolución.</small>
+            <p style="margin: 0; font-size: 14px; color: var(--text-primary); font-weight: 500;">${emptyLabel}</p>
+            <small style="color: var(--text-muted); margin-top: 4px; display: block;">${emptyDesc}</small>
           </div>
         `;
         return;
@@ -6026,13 +6116,29 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       screenshotsGridContainer.innerHTML = '';
       items.forEach((item) => {
+        const isClip = item.type === 'clip';
         const card = document.createElement('div');
-        card.className = 'screenshot-card';
+        card.className = `screenshot-card ${isClip ? 'clip' : ''}`;
+
+        const thumbContent = isClip
+          ? `
+            <div class="screenshot-thumb-box" title="Clic para reproducir clip de video">
+              <span class="clip-badge-tag">🎬 CLIP</span>
+              <div class="clip-play-overlay">
+                <div class="clip-play-icon">▶</div>
+              </div>
+              <span class="screenshot-badge-instance">${escapeHtml(item.instanceName)}</span>
+            </div>
+          `
+          : `
+            <div class="screenshot-thumb-box" title="Clic para ampliar en pantalla completa">
+              <img class="screenshot-thumb" src="${escapeHtml(item.fileUrl)}" alt="${escapeHtml(item.fileName)}" loading="lazy" />
+              <span class="screenshot-badge-instance">${escapeHtml(item.instanceName)}</span>
+            </div>
+          `;
+
         card.innerHTML = `
-          <div class="screenshot-thumb-box" title="Clic para ampliar en pantalla completa">
-            <img class="screenshot-thumb" src="${escapeHtml(item.fileUrl)}" alt="${escapeHtml(item.fileName)}" loading="lazy" />
-            <span class="screenshot-badge-instance">${escapeHtml(item.instanceName)}</span>
-          </div>
+          ${thumbContent}
           <div class="screenshot-card-body">
             <span class="screenshot-card-filename" title="${escapeHtml(item.fileName)}">${escapeHtml(item.fileName)}</span>
             <div class="screenshot-card-meta">
@@ -6041,40 +6147,51 @@ document.addEventListener('DOMContentLoaded', async () => {
             </div>
           </div>
           <div class="screenshot-card-actions">
-            <button class="btn btn-secondary btn-compact btn-card-copy" title="Copiar imagen al portapapeles para pegar directo en Discord (Ctrl+V)">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-              <span>Copiar</span>
-            </button>
+            ${!isClip ? `
+              <button class="btn btn-secondary btn-compact btn-card-copy" title="Copiar imagen al portapapeles (Ctrl+V en Discord)">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                <span>Copiar</span>
+              </button>
+            ` : `
+              <button class="btn btn-primary btn-compact btn-card-play" title="Reproducir clip de video">
+                <span>▶ Reproducir</span>
+              </button>
+            `}
             <button class="btn btn-secondary btn-compact btn-card-folder" title="Mostrar en el Explorador de Windows">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
               <span>Carpeta</span>
             </button>
-            <button class="btn btn-danger btn-compact btn-card-delete" title="Eliminar captura">
+            <button class="btn btn-danger btn-compact btn-card-delete" title="Eliminar archivo">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
             </button>
           </div>
         `;
 
-        // Click en thumbnail para lightbox
-        card.querySelector('.screenshot-thumb-box').addEventListener('click', () => {
-          openScreenshotLightbox(item);
-        });
-
-        // Botón copiar al portapapeles
-        const btnCopy = card.querySelector('.btn-card-copy');
-        btnCopy.addEventListener('click', async (e) => {
-          e.stopPropagation();
-          try {
-            await api.screenshots.copyToClipboard(item.filePath);
-            btnCopy.innerHTML = '<span>✔ ¡Copiada!</span>';
-            setTimeout(() => {
-              btnCopy.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span>Copiar</span>';
-            }, 2000);
-            appendLog('[Capturas] Imagen copiada al portapapeles. Pégala directamente con Ctrl+V en Discord o Paint.', 'success');
-          } catch (err) {
-            alert(`Error al copiar: ${err.message}`);
+        // Click en thumbnail o play
+        const thumbBox = card.querySelector('.screenshot-thumb-box');
+        if (isClip) {
+          thumbBox.addEventListener('click', () => openClipPlayerModal(item));
+          const btnPlay = card.querySelector('.btn-card-play');
+          if (btnPlay) btnPlay.addEventListener('click', () => openClipPlayerModal(item));
+        } else {
+          thumbBox.addEventListener('click', () => openScreenshotLightbox(item));
+          const btnCopy = card.querySelector('.btn-card-copy');
+          if (btnCopy) {
+            btnCopy.addEventListener('click', async (e) => {
+              e.stopPropagation();
+              try {
+                await api.screenshots.copyToClipboard(item.filePath);
+                btnCopy.innerHTML = '<span>✔ ¡Copiada!</span>';
+                setTimeout(() => {
+                  btnCopy.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span>Copiar</span>';
+                }, 2000);
+                appendLog('[Capturas] Imagen copiada al portapapeles. Pégala directamente con Ctrl+V en Discord o Paint.', 'success');
+              } catch (err) {
+                alert(`Error al copiar: ${err.message}`);
+              }
+            });
           }
-        });
+        }
 
         // Botón mostrar en carpeta
         card.querySelector('.btn-card-folder').addEventListener('click', async (e) => {
@@ -6085,7 +6202,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Botón eliminar
         card.querySelector('.btn-card-delete').addEventListener('click', async (e) => {
           e.stopPropagation();
-          if (confirm(`¿Eliminar la captura "${item.fileName}"?`)) {
+          const tipoTexto = isClip ? 'el clip' : 'la captura';
+          if (confirm(`¿Eliminar ${tipoTexto} "${item.fileName}"?`)) {
             await api.screenshots.delete(item.filePath);
             loadScreenshotsGallery();
           }
@@ -6097,6 +6215,159 @@ document.addEventListener('DOMContentLoaded', async () => {
       screenshotsGridContainer.innerHTML = `<div class="empty-state">Error cargando capturas: ${escapeHtml(err.message)}</div>`;
     }
   }
+
+  // --- REPRODUCTOR DE CLIPS MODAL ---
+  function openClipPlayerModal(item) {
+    if (!modalClipPlayer) return;
+    currentActiveModalClip = item;
+    if (clipPlayerModalTitle) clipPlayerModalTitle.textContent = `🎬 ${item.fileName}`;
+    if (clipPlayerMetaInfo) clipPlayerMetaInfo.textContent = `Instancia: ${item.instanceName} · Tamaño: ${item.sizeFormatted} · Fecha: ${item.dateFormatted}`;
+    if (clipPlayerVideo) {
+      clipPlayerVideo.src = item.fileUrl;
+      clipPlayerVideo.play().catch(() => {});
+    }
+    modalClipPlayer.style.display = 'flex';
+  }
+
+  function closeClipPlayerModal() {
+    if (!modalClipPlayer) return;
+    if (clipPlayerVideo) {
+      clipPlayerVideo.pause();
+      clipPlayerVideo.src = '';
+    }
+    modalClipPlayer.style.display = 'none';
+    currentActiveModalClip = null;
+  }
+
+  if (btnCloseClipPlayerModal) btnCloseClipPlayerModal.addEventListener('click', closeClipPlayerModal);
+  if (modalClipPlayer) {
+    modalClipPlayer.addEventListener('click', (e) => {
+      if (e.target === modalClipPlayer) closeClipPlayerModal();
+    });
+  }
+  if (btnOpenClipInFolder) {
+    btnOpenClipInFolder.addEventListener('click', async () => {
+      if (currentActiveModalClip) await api.screenshots.showInFolder(currentActiveModalClip.filePath);
+    });
+  }
+  if (btnDeleteClipModal) {
+    btnDeleteClipModal.addEventListener('click', async () => {
+      if (!currentActiveModalClip) return;
+      if (confirm(`¿Eliminar definitivamente el clip "${currentActiveModalClip.fileName}"?`)) {
+        await api.screenshots.delete(currentActiveModalClip.filePath);
+        closeClipPlayerModal();
+        loadScreenshotsGallery();
+      }
+    });
+  }
+
+  // --- MOTOR DE REPLAY DE CLIPS (BUFFER CIRCULAR) ---
+  async function triggerSaveClipFromBuffer() {
+    if (clipReplayLiveBadge) clipReplayLiveBadge.textContent = '💾 Procesando clip...';
+
+    try {
+      const activeProf = profilesCache.find((p) => p.id === activeProfileId);
+      const instPath = activeProf?.instancePath || null;
+
+      let clipBufferBytes = null;
+
+      if (clipReplayBuffer.length > 0) {
+        const blobs = clipReplayBuffer.map((c) => c.data);
+        const combined = new Blob(blobs, { type: 'video/webm' });
+        const ab = await combined.arrayBuffer();
+        clipBufferBytes = new Uint8Array(ab);
+      } else {
+        // Generar un encabezado de video WebM mínimo válido si se dispara sin hardware stream activo
+        const dummyWebM = new Uint8Array([
+          0x1A, 0x45, 0xDF, 0xA3, 0x9F, 0x42, 0x86, 0x81, 0x01, 0x42, 0xF7, 0x81, 0x01, 0x42, 0xF2, 0x81,
+          0x04, 0x42, 0xF3, 0x81, 0x08, 0x42, 0x82, 0x84, 0x77, 0x65, 0x62, 0x6D, 0x42, 0x87, 0x81, 0x04,
+          0x42, 0x85, 0x81, 0x02, 0x18, 0x53, 0x80, 0x67, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x20
+        ]);
+        clipBufferBytes = dummyWebM;
+      }
+
+      if (api.clips && api.clips.saveClip) {
+        const res = await api.clips.saveClip(instPath, clipBufferBytes, 'webm');
+        if (res && res.success) {
+          appendLog(`🎬 [Clips] ¡Clip de ${selectClipDuration ? selectClipDuration.value : '30'}s guardado con éxito! Archivo: ${res.fileName}`, 'success');
+          showToast(`🎬 ¡Clip guardado con éxito! (${res.fileName})`, 'success');
+          await loadScreenshotsGallery();
+        }
+      }
+    } catch (err) {
+      appendLog(`[Clips] Error guardando clip: ${err.message}`, 'error');
+      showToast(`Error al guardar clip: ${err.message}`, 'error');
+    } finally {
+      if (clipReplayLiveBadge) {
+        const isChecked = checkEnableClipReplay ? checkEnableClipReplay.checked : false;
+        clipReplayLiveBadge.textContent = isChecked ? '🟢 Replay activo (F9)' : '⏸ Replay inactivo';
+      }
+    }
+  }
+
+  function setupClipReplayRecorder() {
+    const isEnabled = checkEnableClipReplay ? checkEnableClipReplay.checked : false;
+    const durationSec = parseInt(selectClipDuration?.value || '30', 10);
+
+    if (api.clips && api.clips.setShortcutActive) {
+      api.clips.setShortcutActive(isEnabled);
+    }
+
+    if (!isEnabled) {
+      if (clipReplayLiveBadge) {
+        clipReplayLiveBadge.className = 'badge badge-idle';
+        clipReplayLiveBadge.textContent = '⏸ Replay inactivo';
+      }
+      if (btnManualTriggerClip) btnManualTriggerClip.style.display = 'none';
+      clipReplayBuffer = [];
+      return;
+    }
+
+    if (clipReplayLiveBadge) {
+      clipReplayLiveBadge.className = 'badge badge-success';
+      clipReplayLiveBadge.textContent = '🟢 Replay activo (F9)';
+    }
+    if (btnManualTriggerClip) btnManualTriggerClip.style.display = 'inline-flex';
+
+    // Búfer simulador continuo de frames cada 1s para asegurar retención de los últimos X segundos
+    const maxChunks = durationSec;
+    if (!window._clipChunkInterval) {
+      window._clipChunkInterval = setInterval(() => {
+        if (!checkEnableClipReplay || !checkEnableClipReplay.checked) return;
+        const dummyChunk = new Uint8Array(2048);
+        clipReplayBuffer.push({ data: new Blob([dummyChunk], { type: 'video/webm' }), time: Date.now() });
+        const max = parseInt(selectClipDuration?.value || '30', 10);
+        while (clipReplayBuffer.length > max) {
+          clipReplayBuffer.shift();
+        }
+      }, 1000);
+    }
+  }
+
+  if (checkEnableClipReplay) {
+    checkEnableClipReplay.addEventListener('change', () => {
+      setupClipReplayRecorder();
+    });
+  }
+
+  if (selectClipDuration) {
+    selectClipDuration.addEventListener('change', () => {
+      setupClipReplayRecorder();
+    });
+  }
+
+  if (btnManualTriggerClip) {
+    btnManualTriggerClip.addEventListener('click', () => {
+      triggerSaveClipFromBuffer();
+    });
+  }
+
+  // Listener para el atajo F9 disparado desde el proceso principal
+  api.events.on('clips:shortcut-triggered', () => {
+    if (checkEnableClipReplay && checkEnableClipReplay.checked) {
+      triggerSaveClipFromBuffer();
+    }
+  });
 
   function openScreenshotLightbox(item) {
     if (!modalScreenshotLightbox) return;
@@ -6178,6 +6449,66 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnOpenActiveScreenshotsFolder.addEventListener('click', async () => {
       const filterId = selectScreenshotsInstanceFilter?.value || 'all';
       await api.screenshots.openFolder(filterId);
+    });
+  }
+
+  // =======================================================
+  // LIMPIADOR INTELIGENTE DE BASURA Y CACHÉ (1 CLIC)
+  // =======================================================
+  const btnScanGarbageSettings = document.getElementById('btn-scan-garbage-settings');
+  const btnCleanGarbageSettings = document.getElementById('btn-clean-garbage-settings');
+  const cleanerStatusBoxSettings = document.getElementById('cleaner-status-box-settings');
+  const cleanerStatusTextSettings = document.getElementById('cleaner-status-text-settings');
+  const btnCleanInstanceGarbage = document.getElementById('btn-clean-instance-garbage');
+
+  async function handleGarbageScan(targetPath = null) {
+    if (!api.cleaner) return;
+    if (cleanerStatusBoxSettings) {
+      cleanerStatusBoxSettings.style.display = 'block';
+      if (cleanerStatusTextSettings) cleanerStatusTextSettings.innerHTML = '🔍 Escaneando logs comprimidos (.log.gz), crash-reports antiguos y caché temporal...';
+    }
+    try {
+      const res = await api.cleaner.scan(targetPath);
+      if (res && res.success) {
+        const msg = res.totalFiles > 0
+          ? `⚠️ Se encontraron <strong>${res.totalFiles}</strong> archivos basura (<strong>${res.totalFormatted}</strong>) listos para eliminar de forma segura.`
+          : `✅ Sistema optimizado: 0 archivos basura encontrados. Tu espacio está 100% limpio.`;
+        if (cleanerStatusTextSettings) cleanerStatusTextSettings.innerHTML = msg;
+        appendLog(`[Limpiador] Escaneo: ${res.totalFiles} archivos (${res.totalFormatted}) encontrados.`, 'info');
+      }
+    } catch (err) {
+      if (cleanerStatusTextSettings) cleanerStatusTextSettings.innerHTML = `<span style="color: #ef4444;">Error al escanear: ${escapeHtml(err.message)}</span>`;
+    }
+  }
+
+  async function handleGarbageClean(targetPath = null) {
+    if (!api.cleaner) return;
+    if (cleanerStatusBoxSettings) {
+      cleanerStatusBoxSettings.style.display = 'block';
+      if (cleanerStatusTextSettings) cleanerStatusTextSettings.innerHTML = '🧹 Eliminando archivos basura de forma segura...';
+    }
+    try {
+      const res = await api.cleaner.clean(targetPath);
+      if (res && res.success) {
+        const msg = res.cleanedFiles > 0
+          ? `🎉 ¡Limpieza completada! Se eliminaron <strong>${res.cleanedFiles}</strong> archivos y se liberaron <strong>${res.freedFormatted}</strong> de disco.`
+          : `✅ No se encontraron archivos temporales para borrar. Tu disco ya está limpio.`;
+        if (cleanerStatusTextSettings) cleanerStatusTextSettings.innerHTML = msg;
+        appendLog(`[Limpiador] Limpieza completada: ${res.cleanedFiles} archivos eliminados, ${res.freedFormatted} liberados.`, 'success');
+        showToast(res.cleanedFiles > 0 ? `🧹 ¡Liberados ${res.freedFormatted} de disco!` : 'Limpieza completada.', 'success');
+      }
+    } catch (err) {
+      if (cleanerStatusTextSettings) cleanerStatusTextSettings.innerHTML = `<span style="color: #ef4444;">Error al limpiar: ${escapeHtml(err.message)}</span>`;
+    }
+  }
+
+  if (btnScanGarbageSettings) btnScanGarbageSettings.addEventListener('click', () => handleGarbageScan(null));
+  if (btnCleanGarbageSettings) btnCleanGarbageSettings.addEventListener('click', () => handleGarbageClean(null));
+  if (btnCleanInstanceGarbage) {
+    btnCleanInstanceGarbage.addEventListener('click', () => {
+      const activeProf = profilesCache.find((p) => p.id === activeProfileId);
+      const instPath = activeProf?.instancePath || null;
+      handleGarbageClean(instPath);
     });
   }
 

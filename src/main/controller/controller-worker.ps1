@@ -150,7 +150,24 @@ $script:SensitivityX = 2.5
 $script:SensitivityY = 2.5
 $script:InvertY = $false
 $script:TargetPid = 0
-$script:ButtonBindings = @{}
+$script:ButtonBindings = @{
+    "0" = @{ action = "jump"; key = "Space" }
+    "1" = @{ action = "drop"; key = "Q" }
+    "2" = @{ action = "swap_hand"; key = "F" }
+    "3" = @{ action = "inventory"; key = "E" }
+    "4" = @{ action = "prev_item"; key = "WheelUp" }
+    "5" = @{ action = "next_item"; key = "WheelDown" }
+    "6" = @{ action = "use"; key = "Mouse2" }
+    "7" = @{ action = "attack"; key = "Mouse1" }
+    "8" = @{ action = "player_list"; key = "Tab" }
+    "9" = @{ action = "pause"; key = "Escape" }
+    "10" = @{ action = "sprint"; key = "Control" }
+    "11" = @{ action = "sneak"; key = "Shift" }
+    "12" = @{ action = "chat"; key = "T" }
+    "13" = @{ action = "f5"; key = "F5" }
+    "14" = @{ action = "f3"; key = "F3" }
+    "15" = @{ action = "advancements"; key = "L" }
+}
 $script:PressedKeys = [System.Collections.Generic.HashSet[byte]]::new()
 $script:IsLeftMouseDown = $false
 $script:IsRightMouseDown = $false
@@ -167,7 +184,24 @@ function ApplyConfig([string]$jsonStr) {
         if ($cfg.invertY -ne $null) { $script:InvertY = [bool]$cfg.invertY }
         if ($cfg.targetPid) { $script:TargetPid = [uint32]$cfg.targetPid }
         if ($cfg.buttons) {
-            $script:ButtonBindings = @{}
+            $script:ButtonBindings = @{
+    "0" = @{ action = "jump"; key = "Space" }
+    "1" = @{ action = "drop"; key = "Q" }
+    "2" = @{ action = "swap_hand"; key = "F" }
+    "3" = @{ action = "inventory"; key = "E" }
+    "4" = @{ action = "prev_item"; key = "WheelUp" }
+    "5" = @{ action = "next_item"; key = "WheelDown" }
+    "6" = @{ action = "use"; key = "Mouse2" }
+    "7" = @{ action = "attack"; key = "Mouse1" }
+    "8" = @{ action = "player_list"; key = "Tab" }
+    "9" = @{ action = "pause"; key = "Escape" }
+    "10" = @{ action = "sprint"; key = "Control" }
+    "11" = @{ action = "sneak"; key = "Shift" }
+    "12" = @{ action = "chat"; key = "T" }
+    "13" = @{ action = "f5"; key = "F5" }
+    "14" = @{ action = "f3"; key = "F3" }
+    "15" = @{ action = "advancements"; key = "L" }
+}
             foreach ($prop in $cfg.buttons.PSObject.Properties) {
                 $btnIdx = $prop.Name
                 $action = $prop.Value.action
@@ -250,16 +284,18 @@ function ProcessAction([string]$action, [string]$keyStr, [bool]$pressed) {
     }
 
     if ($action -eq "prev_item") {
-        if ($pressed) {
+        if ($pressed -and -not $script:LastWheelLb) {
             [ShubaNativeBridge]::SendMouseWheel(120)
         }
+        $script:LastWheelLb = $pressed
         return
     }
 
     if ($action -eq "next_item") {
-        if ($pressed) {
+        if ($pressed -and -not $script:LastWheelRb) {
             [ShubaNativeBridge]::SendMouseWheel(-120)
         }
+        $script:LastWheelRb = $pressed
         return
     }
 

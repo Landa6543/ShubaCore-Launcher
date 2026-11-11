@@ -17,6 +17,7 @@ const fs = require('fs');
 const path = require('path');
 const { defaultLogger: logger } = require('../utils/logger');
 const { getProfileManager } = require('../profiles/ProfileManager');
+const { getConfigManager } = require('../config/ConfigManager');
 
 // Palabras clave de detección en modo solo lectura (para mods instalados manualmente por el usuario)
 const HUD_MOD_KEYWORDS = {
@@ -111,7 +112,7 @@ class HudOptionsManager {
   /**
    * Prepara options.txt de forma no destructiva asegurando que no se pierdan
    * configuraciones del usuario (idioma español, controles, volumen, etc.).
-   * Si es una instancia nueva, inicializa con lang:es_es.
+   * Si es una instancia nueva, inicializa con lang:es_es y autoJump:false.
    */
   prepareInstanceOptions(instanceDir) {
     if (!instanceDir || typeof instanceDir !== 'string') return;
@@ -120,10 +121,17 @@ class HudOptionsManager {
       try { fs.mkdirSync(instanceDir, { recursive: true }); } catch (_) {}
     }
 
+    let forceSpanish = true;
+    try {
+      const cfgMgr = getConfigManager();
+      forceSpanish = cfgMgr.get('general.forceSpanish', true);
+    } catch (_) {}
+
     if (!fs.existsSync(optsFile)) {
       try {
-        fs.writeFileSync(optsFile, 'lang:es_es\ngamma:1.0\n', 'utf8');
-        logger.info(`[HudOptions] options.txt inicializado con idioma español por defecto en: ${optsFile}`);
+        const initialLang = forceSpanish ? 'lang:es_es\n' : '';
+        fs.writeFileSync(optsFile, `${initialLang}autoJump:false\ngamma:1.0\n`, 'utf8');
+        logger.info(`[HudOptions] options.txt inicializado con idioma español (es_es) y autoJump:false en: ${optsFile}`);
       } catch (err) {
         logger.warn(`[HudOptions] No se pudo inicializar options.txt: ${err.message}`);
       }
@@ -134,17 +142,27 @@ class HudOptionsManager {
       const content = fs.readFileSync(optsFile, 'utf8');
       const lines = content.split(/\r?\n/);
       let hasLang = false;
+      let hasAutoJump = false;
+
       for (const line of lines) {
-        if (line.trim().startsWith('lang:')) {
-          hasLang = true;
-          break;
-        }
+        const trimmed = line.trim();
+        if (trimmed.startsWith('lang:')) hasLang = true;
+        if (trimmed.startsWith('autoJump:')) hasAutoJump = true;
       }
 
-      if (!hasLang) {
+      let modified = false;
+      if (!hasLang && forceSpanish) {
         lines.push('lang:es_es');
+        modified = true;
+      }
+      if (!hasAutoJump) {
+        lines.push('autoJump:false');
+        modified = true;
+      }
+
+      if (modified) {
         fs.writeFileSync(optsFile, lines.join('\n') + '\n', 'utf8');
-        logger.info(`[HudOptions] Clave lang:es_es agregada a options.txt existente en: ${optsFile}`);
+        logger.info(`[HudOptions] options.txt actualizado (lang:es_es/autoJump:false) preservando todas las demás opciones en: ${optsFile}`);
       }
     } catch (err) {
       logger.warn(`[HudOptions] Error verificando options.txt: ${err.message}`);

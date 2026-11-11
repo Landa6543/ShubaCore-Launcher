@@ -427,8 +427,11 @@ class LaunchManager {
       // Registrar timestamp de último juego en el perfil
       this.profileManager.updateProfile(activeProfile.id, { lastPlayed: new Date().toISOString() });
 
-      // Iniciar puente nativo de mandos Win32 si está activo
-      const isCtrlActive = !!(overrideOptions.controllerSupport ?? activeProfile.controllerSupport ?? this.configManager.get('performance.controllerSupport', false));
+      // Iniciar puente nativo de mandos Win32 activo por defecto (0 mods, directo en Vanilla)
+      const isCtrlActive = process.platform === 'win32' &&
+        overrideOptions.controllerSupport !== false &&
+        activeProfile.controllerSupport !== false &&
+        this.configManager.get('performance.controllerSupport', true) !== false;
       if (isCtrlActive) {
         try {
           const { getControllerBridge } = require('../controller/ControllerBridge');
