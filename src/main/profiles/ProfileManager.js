@@ -391,6 +391,10 @@ class ProfileManager {
     return found || all.profiles[0] || null;
   }
 
+  getActiveProfile() {
+    return this.getActive();
+  }
+
   getById(id) {
     if (!id) return this.getActive();
     const all = this.getAll();

@@ -613,8 +613,8 @@ function registerIpcHandlers(mainWindow) {
 
   ipcMain.handle('mods:check-updates', async (event, options = {}) => {
     try {
-      const targetInstance = options.instancePath || profileManager.getActiveInstancePath();
-      const activeProf = profileManager.getActiveProfile();
+      const activeProf = profileManager.getActiveProfile ? profileManager.getActiveProfile() : (profileManager.getActive ? profileManager.getActive() : null);
+      const targetInstance = options.instancePath || (activeProf ? activeProf.instancePath : profileManager.getActiveInstancePath());
       const mcVer = options.mcVersion || (activeProf ? activeProf.mcVersion : '1.21.1');
       const loader = options.loader || (activeProf ? activeProf.loader : 'neoforge');
       return await modManager.checkForModUpdates(targetInstance, mcVer, loader);
@@ -626,8 +626,8 @@ function registerIpcHandlers(mainWindow) {
 
   ipcMain.handle('mods:update-all', async (event, options = {}) => {
     try {
-      const targetInstance = options.instancePath || profileManager.getActiveInstancePath();
-      const activeProf = profileManager.getActiveProfile();
+      const activeProf = profileManager.getActiveProfile ? profileManager.getActiveProfile() : (profileManager.getActive ? profileManager.getActive() : null);
+      const targetInstance = options.instancePath || (activeProf ? activeProf.instancePath : profileManager.getActiveInstancePath());
       const mcVer = options.mcVersion || (activeProf ? activeProf.mcVersion : '1.21.1');
       const loader = options.loader || (activeProf ? activeProf.loader : 'neoforge');
       return await modManager.updateAllMods({

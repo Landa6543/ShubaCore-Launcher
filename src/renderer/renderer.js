@@ -1609,10 +1609,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Restauración de sesión persistente desde auth-session.json (<userData>)
       try {
         const savedSession = await api.auth.getSavedSession();
+        const isValidUser = (u) => Boolean(u && typeof u === 'string' && u.trim() !== '' && u.trim() !== 'undefined');
+
         if (savedSession && savedSession.success) {
-          if (savedSession.activeMode === 'microsoft' && savedSession.microsoftAccount) {
+          const msUser = savedSession.microsoftAccount?.username || savedSession.microsoftAccount?.name;
+          const offUser = savedSession.offlineAccount?.username || savedSession.offlineAccount?.name;
+
+          if (savedSession.activeMode === 'microsoft' && isValidUser(msUser)) {
+            const cleanMs = msUser.trim();
             const msAcc = savedSession.account || {
-              name: savedSession.microsoftAccount.username,
+              name: cleanMs,
+              username: cleanMs,
               uuid: savedSession.microsoftAccount.uuid,
               type: 'premium',
               skinUrl: savedSession.microsoftAccount.skinUrl
@@ -1625,14 +1632,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             await updatePlayerBadge(msAcc);
             await refreshMicrosoftAccountState();
-            appendLog(`[Auth] Sesión Microsoft restaurada automáticamente: "${msAcc.name}" (Premium)`, 'info');
-          } else if (savedSession.offlineAccount) {
+            appendLog(`[Auth] Sesión Microsoft restaurada automáticamente: "${cleanMs}" (Premium)`, 'info');
+          } else if (isValidUser(offUser)) {
+            const cleanOff = offUser.trim();
             const offAcc = savedSession.account || {
-              name: savedSession.offlineAccount.username,
+              name: cleanOff,
+              username: cleanOff,
               uuid: savedSession.offlineAccount.uuid,
               type: 'offline'
             };
-            if (inputOfflineUser) inputOfflineUser.value = offAcc.name;
+            if (inputOfflineUser) inputOfflineUser.value = cleanOff;
             if (tabPremium && tabOffline && formPremium && formOffline) {
               tabOffline.classList.add('active');
               tabPremium.classList.remove('active');
@@ -1640,23 +1649,47 @@ document.addEventListener('DOMContentLoaded', async () => {
               formPremium.classList.remove('active');
             }
             await updatePlayerBadge(offAcc);
-            appendLog(`[Auth] Sesión Offline restaurada: "${offAcc.name}"`, 'info');
-          } else if (config.auth?.currentUser) {
+            appendLog(`[Auth] Sesión Offline restaurada: "${cleanOff}"`, 'info');
+          } else if (isValidUser(msUser)) {
+            const cleanMs = msUser.trim();
+            const msAcc = savedSession.account || {
+              name: cleanMs,
+              username: cleanMs,
+              uuid: savedSession.microsoftAccount.uuid,
+              type: 'premium',
+              skinUrl: savedSession.microsoftAccount.skinUrl
+            };
+            if (tabPremium && tabOffline && formPremium && formOffline) {
+              tabPremium.classList.add('active');
+              tabOffline.classList.remove('active');
+              formPremium.classList.add('active');
+              formOffline.classList.remove('active');
+            }
+            await updatePlayerBadge(msAcc);
+            await refreshMicrosoftAccountState();
+            appendLog(`[Auth] Sesión Microsoft restaurada: "${cleanMs}" (Premium)`, 'info');
+          } else if (config.auth?.currentUser && isValidUser(config.auth.currentUser.name)) {
             await updatePlayerBadge(config.auth.currentUser);
           } else {
-            await handleOfflineLogin(inputOfflineUser.value.trim() || 'LanderAlo');
+            const fallbackNick = (inputOfflineUser && isValidUser(inputOfflineUser.value))
+              ? inputOfflineUser.value.trim()
+              : 'LanderAlo';
+            await handleOfflineLogin(fallbackNick);
           }
-        } else if (config.auth?.currentUser) {
+        } else if (config.auth?.currentUser && isValidUser(config.auth.currentUser.name)) {
           await updatePlayerBadge(config.auth.currentUser);
         } else {
-          await handleOfflineLogin(inputOfflineUser.value.trim() || 'LanderAlo');
+          const fallbackNick = (inputOfflineUser && isValidUser(inputOfflineUser.value))
+            ? inputOfflineUser.value.trim()
+            : 'LanderAlo';
+          await handleOfflineLogin(fallbackNick);
         }
       } catch (authInitErr) {
         console.warn('Error al cargar sesión persistente:', authInitErr);
-        if (config.auth?.currentUser) {
+        if (config.auth?.currentUser && config.auth.currentUser.name && config.auth.currentUser.name !== 'undefined') {
           await updatePlayerBadge(config.auth.currentUser);
         } else {
-          await handleOfflineLogin(inputOfflineUser.value.trim() || 'LanderAlo');
+          await handleOfflineLogin('LanderAlo');
         }
       }
 

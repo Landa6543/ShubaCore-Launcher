@@ -84,17 +84,22 @@ class AuthManager {
    * Reconstruye un objeto de cuenta completo a partir de la sesión de Microsoft
    */
   _buildAccountFromSession(msData) {
-    if (!msData || !msData.username) return null;
+    if (!msData) return null;
+    const rawUser = msData.username || msData.name;
+    if (!rawUser || rawUser === 'undefined' || String(rawUser).trim() === '') return null;
+    const cleanUser = String(rawUser).trim();
+
     return {
-      name: msData.username,
+      name: cleanUser,
+      username: cleanUser,
       uuid: msData.uuid,
       type: 'premium',
-      skinUrl: msData.skinUrl || `https://mc-heads.net/skin/${msData.username}`,
+      skinUrl: msData.skinUrl || `https://mc-heads.net/skin/${cleanUser}`,
       mclcAuth: {
         access_token: msData.mcAccessToken,
         client_token: msData.uuid,
         uuid: msData.uuid,
-        name: msData.username,
+        name: cleanUser,
         user_properties: '{}'
       },
       tokens: {
@@ -109,8 +114,12 @@ class AuthManager {
    * Reconstruye un objeto de cuenta offline
    */
   _buildOfflineAccountFromSession(offData) {
-    if (!offData || !offData.username) return null;
-    const profile = createOfflineProfile(offData.username);
+    if (!offData) return null;
+    const rawUser = offData.username || offData.name;
+    if (!rawUser || rawUser === 'undefined' || String(rawUser).trim() === '') return null;
+    const cleanUser = String(rawUser).trim();
+
+    const profile = createOfflineProfile(cleanUser);
     if (offData.uuid) {
       profile.uuid = offData.uuid;
       if (profile.mclcAuth) profile.mclcAuth.uuid = offData.uuid;
@@ -124,14 +133,41 @@ class AuthManager {
   async getSavedSession() {
     let session = this._readSessionFile();
 
-    // Migración inicial: si auth-session.json no existe pero sí configManager
+    // Sanear session.offlineAccount para asegurar username y name válidos (evitar "undefined")
+    if (session.offlineAccount) {
+      const u = session.offlineAccount.username || session.offlineAccount.name;
+      if (!u || u === 'undefined' || String(u).trim() === '') {
+        session.offlineAccount = null;
+      } else {
+        const clean = String(u).trim();
+        session.offlineAccount.username = clean;
+        session.offlineAccount.name = clean;
+      }
+    }
+
+    // Sanear session.microsoftAccount
+    if (session.microsoftAccount) {
+      const u = session.microsoftAccount.username || session.microsoftAccount.name;
+      if (!u || u === 'undefined' || String(u).trim() === '') {
+        session.microsoftAccount = null;
+      } else {
+        const clean = String(u).trim();
+        session.microsoftAccount.username = clean;
+        session.microsoftAccount.name = clean;
+      }
+    }
+
+    // Migración o recuperación inicial si no hay cuentas válidas en auth-session.json
     if (!session.offlineAccount && !session.microsoftAccount) {
       const configCurrent = this.configManager.get('auth.currentUser', null);
-      if (configCurrent) {
+      const confName = configCurrent ? (configCurrent.name || configCurrent.username) : null;
+      if (confName && confName !== 'undefined' && String(confName).trim() !== '') {
+        const clean = String(confName).trim();
         if (configCurrent.type === 'premium') {
           session.activeMode = 'microsoft';
           session.microsoftAccount = {
-            username: configCurrent.name,
+            username: clean,
+            name: clean,
             uuid: configCurrent.uuid,
             mcAccessToken: configCurrent.tokens?.mcAccessToken || configCurrent.mclcAuth?.access_token || '',
             msRefreshToken: configCurrent.tokens?.msRefreshToken || '',
@@ -141,12 +177,19 @@ class AuthManager {
         } else {
           session.activeMode = 'offline';
           session.offlineAccount = {
-            username: configCurrent.name,
+            username: clean,
+            name: clean,
             uuid: configCurrent.uuid
           };
         }
-        this._writeSessionFile(session);
+      } else {
+        session.activeMode = 'offline';
+        session.offlineAccount = {
+          username: 'LanderAlo',
+          name: 'LanderAlo'
+        };
       }
+      this._writeSessionFile(session);
     }
 
     // Auto-renovación silenciosa de token Microsoft si expiró o está por expirar
@@ -163,7 +206,7 @@ class AuthManager {
       }
     }
 
-    // Configurar la cuenta activa en configManager
+    // Configurar la cuenta activa en configManager con fallback seguro
     let activeAccount = null;
     if (session.activeMode === 'microsoft' && session.microsoftAccount) {
       activeAccount = this._buildAccountFromSession(session.microsoftAccount);
@@ -173,6 +216,11 @@ class AuthManager {
       activeAccount = this._buildOfflineAccountFromSession(session.offlineAccount);
       this.configManager.set('auth.currentUser', activeAccount);
       this.configManager.set('auth.mode', 'offline');
+    } else if (session.microsoftAccount) {
+      activeAccount = this._buildAccountFromSession(session.microsoftAccount);
+      session.activeMode = 'microsoft';
+      this.configManager.set('auth.currentUser', activeAccount);
+      this.configManager.set('auth.mode', 'premium');
     }
 
     return {
