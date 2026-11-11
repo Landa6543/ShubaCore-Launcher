@@ -187,6 +187,10 @@ class ConfigManager {
     }
     return instancePath;
   }
+
+  getRootPath() {
+    return this.configDir;
+  }
 }
 
 // Singleton instance

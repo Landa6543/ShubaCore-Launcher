@@ -26,6 +26,13 @@ const { getWorldManager } = require('../worlds/WorldManager');
 const { getServerManager } = require('../servers/ServerManager');
 const { getScreenshotsManager } = require('../screenshots/ScreenshotsManager');
 const { getHudOptionsManager } = require('../hud/HudOptionsManager');
+const { getCustomModIconExtractor } = require('../github/CustomModIconExtractor');
+const { getProfileCodeSharer } = require('../sync/ProfileCodeSharer');
+const { getDiscordPresence } = require('../discord/DiscordPresence');
+const { getSmartJVM } = require('../jvm/SmartJVM');
+const { getNewsManager } = require('../news/NewsManager');
+const { getHardwareOptimizer } = require('../hardware/HardwareOptimizer');
+const { getMemoryCleaner } = require('../system/MemoryCleaner');
 const { defaultLogger: logger } = require('../utils/logger');
 
 function registerIpcHandlers(mainWindow) {
@@ -45,6 +52,13 @@ function registerIpcHandlers(mainWindow) {
   serverManager.setMainWindow(mainWindow);
   const screenshotsManager = getScreenshotsManager();
   const hudOptionsManager = getHudOptionsManager();
+  const customModIconExtractor = getCustomModIconExtractor();
+  const profileCodeSharer = getProfileCodeSharer();
+  const discordPresence = getDiscordPresence();
+  const smartJvm = getSmartJVM();
+  const newsManager = getNewsManager();
+  const hardwareOptimizer = getHardwareOptimizer();
+  const memoryCleaner = getMemoryCleaner();
 
   // Estado de visibilidad de la pestaña de consola para evitar IPC flood y backpressure
   let isConsoleTabVisible = false;
@@ -1476,6 +1490,170 @@ function registerIpcHandlers(mainWindow) {
       success: false,
       error: 'Las descargas automáticas de mods han sido desactivadas para proteger la estabilidad de la instancia.'
     };
+  });
+
+  // ==========================================
+  // SHUBACORE PRO: 1. EXTRACTOR DE ÍCONOS DE MODS (JAR / GITHUB)
+  // ==========================================
+  ipcMain.handle('github-mods:extract-icon', async (event, params = {}) => {
+    try {
+      const { jarPath, fileName, url, token } = typeof params === 'string' ? { fileName: params } : params;
+      if (url) {
+        return await customModIconExtractor.extractFromRemoteUrl(url, fileName, token);
+      }
+      return customModIconExtractor.extractIcon(jarPath, fileName);
+    } catch (err) {
+      logger.error('Error en github-mods:extract-icon IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('github-mods:get-icon', async (event, fileName) => {
+    try {
+      const iconBase64 = customModIconExtractor.getIconDataUrl(fileName);
+      return { success: true, iconBase64 };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // ==========================================
+  // SHUBACORE PRO: 2. COMPARTIR E IMPORTAR POR CÓDIGO CORTO
+  // ==========================================
+  ipcMain.handle('profile:export-code', async (event, profileId) => {
+    try {
+      return await profileCodeSharer.exportProfileToCode(profileId);
+    } catch (err) {
+      logger.error('Error en profile:export-code IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('profile:import-code', async (event, { code, customName }) => {
+    try {
+      const onProgress = (prog) => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('sync:code-progress', prog);
+        }
+      };
+      return await profileCodeSharer.importProfileFromCode({ code, customName, onProgress });
+    } catch (err) {
+      logger.error('Error en profile:import-code IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('profile:get-manifest', async (event, code) => {
+    try {
+      const manifest = await profileCodeSharer.fetchManifestByCode(code);
+      return { success: true, manifest };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // ==========================================
+  // SHUBACORE PRO: 3. DISCORD RICH PRESENCE AVANZADO (PARTY / JOIN)
+  // ==========================================
+  ipcMain.handle('discord:set-party', async (event, options) => {
+    try {
+      return await discordPresence.setPartyActivity(options || {});
+    } catch (err) {
+      logger.error('Error en discord:set-party IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('discord:clear-party', async () => {
+    try {
+      return await discordPresence.clearPartyActivity();
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('discord:get-party', async () => {
+    try {
+      return { success: true, party: discordPresence.getPartyState() };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // ==========================================
+  // SHUBACORE PRO: 4. SMART JVM (DESCARGA SILENCIOSA & AUTO-TUNING)
+  // ==========================================
+  ipcMain.handle('jvm:smart-ensure-java', async (event, { gameVersion }) => {
+    try {
+      const onProgress = (prog) => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('jvm:smart-progress', prog);
+        }
+      };
+      return await smartJvm.ensureJavaForInstance({ gameVersion, onProgress });
+    } catch (err) {
+      logger.error('Error en jvm:smart-ensure-java IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('jvm:smart-auto-tune', async (event, options = {}) => {
+    try {
+      return smartJvm.getAutoTunedJVMFlags(options);
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // ==========================================
+  // SHUBACORE PRO: 5. TABLÓN DE ANUNCIOS Y CHANGELOGS EN VIVO
+  // ==========================================
+  ipcMain.handle('news:get-feed', async (event, force = false) => {
+    try {
+      const items = await newsManager.fetchNews(force);
+      return { success: true, news: items };
+    } catch (err) {
+      logger.error('Error en news:get-feed IPC:', err);
+      return { success: false, error: err.message, news: [] };
+    }
+  });
+
+  // ==========================================
+  // SHUBACORE PRO: 6. AUTO-OPTIMIZADOR DE HARDWARE
+  // ==========================================
+  ipcMain.handle('hardware:get-specs', async () => {
+    try {
+      const specs = hardwareOptimizer.getSpecs();
+      return { success: true, specs };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('hardware:auto-optimize', async (event, { instanceDir, forceTier } = {}) => {
+    try {
+      let targetDir = instanceDir;
+      if (!targetDir) {
+        const active = profileManager.getActive();
+        if (active) targetDir = profileManager.getInstancePath(active.id);
+      }
+      return hardwareOptimizer.optimizeInstanceOptions(targetDir, forceTier);
+    } catch (err) {
+      logger.error('Error en hardware:auto-optimize IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  // ==========================================
+  // SHUBACORE PRO: 7. LIMPIEZA DE MEMORIA STANDBY
+  // ==========================================
+  ipcMain.handle('system:clean-memory', async () => {
+    try {
+      return await memoryCleaner.cleanStandbyMemory();
+    } catch (err) {
+      logger.error('Error en system:clean-memory IPC:', err);
+      return { success: false, error: err.message };
+    }
   });
 
   ipcMain.on('window:minimize', () => {

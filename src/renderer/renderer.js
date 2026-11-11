@@ -3716,7 +3716,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
           const formattedSize = item.size ? (item.size > 1048576 ? `${(item.size / (1024 * 1024)).toFixed(1)} MB` : `${(item.size / 1024).toFixed(0)} KB`) : '';
 
-          const modIcon = item.iconUrl || 'assets/logo.png';
+          const modIcon = item.iconDataUrl || item.iconUrl || 'assets/logo.png';
 
           card.innerHTML = `
             <div class="mod-card-top">
@@ -3735,6 +3735,16 @@ document.addEventListener('DOMContentLoaded', async () => {
               ${actionBtnHtml}
             </div>
           `;
+
+          // ShubaCore Pro: Extracción en segundo plano del icono real desde el JAR en GitHub
+          if (api.githubMods?.extractIcon && item.downloadUrl && !item.iconDataUrl) {
+            api.githubMods.extractIcon({ url: item.downloadUrl, fileName: item.fileName }).then((extRes) => {
+              if (extRes && extRes.iconBase64) {
+                const imgElem = card.querySelector('.mod-card-icon');
+                if (imgElem) imgElem.src = extRes.iconBase64;
+              }
+            }).catch(() => {});
+          }
 
           card.addEventListener('click', (e) => {
             if (e.target.closest('.btn-download-gh-mod')) return;
@@ -6243,10 +6253,368 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnRefreshHudState.addEventListener('click', () => loadHudState());
   }
 
+  // ==========================================
+  // SHUBACORE PRO: 1. COMPARTIR E IMPORTAR POR CÓDIGO CORTO
+  // ==========================================
+  const btnExportProfileCode = document.getElementById('btn-export-profile-code');
+  const btnImportProfileCode = document.getElementById('btn-import-profile-code');
+  const modalExportCode = document.getElementById('modal-export-code');
+  const modalImportCode = document.getElementById('modal-import-code');
+  const btnCloseExportCodeModal = document.getElementById('btn-close-export-code-modal');
+  const btnCancelExportCode = document.getElementById('btn-cancel-export-code');
+  const btnExecuteExportCode = document.getElementById('btn-execute-export-code');
+  const selectExportCodeProfile = document.getElementById('select-export-code-profile');
+  const exportCodeResultBox = document.getElementById('export-code-result-box');
+  const exportCodeLoading = document.getElementById('export-code-loading');
+  const displayGeneratedCode = document.getElementById('display-generated-code');
+  const btnCopyGeneratedCode = document.getElementById('btn-copy-generated-code');
+  const exportCodeDetails = document.getElementById('export-code-details');
+
+  const btnCloseImportCodeModal = document.getElementById('btn-close-import-code-modal');
+  const btnCancelImportCode = document.getElementById('btn-cancel-import-code');
+  const btnExecuteImportCode = document.getElementById('btn-execute-import-code');
+  const inputImportShortcode = document.getElementById('input-import-shortcode');
+  const inputImportCodeName = document.getElementById('input-import-code-name');
+  const importCodeProgressBox = document.getElementById('import-code-progress-box');
+  const importCodeProgressStatus = document.getElementById('import-code-progress-status');
+  const importCodeProgressPct = document.getElementById('import-code-progress-pct');
+  const importCodeProgressFill = document.getElementById('import-code-progress-fill');
+  const importCodeErrorBox = document.getElementById('import-code-error-box');
+
+  function openExportCodeModal() {
+    if (!modalExportCode) return;
+    try {
+      if (selectExportCodeProfile) {
+        selectExportCodeProfile.innerHTML = '';
+        (profilesCache || []).forEach((p) => {
+          const opt = document.createElement('option');
+          opt.value = p.id;
+          opt.textContent = `${p.name} (MC ${p.mcVersion} · ${p.loader})`;
+          if (currentActiveProfile && p.id === currentActiveProfile.id) {
+            opt.selected = true;
+          }
+          selectExportCodeProfile.appendChild(opt);
+        });
+      }
+      if (exportCodeResultBox) exportCodeResultBox.style.display = 'none';
+      if (exportCodeLoading) exportCodeLoading.style.display = 'none';
+      if (btnExecuteExportCode) {
+        btnExecuteExportCode.disabled = false;
+        btnExecuteExportCode.innerHTML = '<span>🚀 Generar Código</span>';
+      }
+      modalExportCode.style.display = 'flex';
+    } catch (err) {
+      console.warn('[ExportCode] Error abriendo modal:', err);
+    }
+  }
+
+  function closeExportCodeModal() {
+    if (modalExportCode) modalExportCode.style.display = 'none';
+  }
+
+  if (btnExportProfileCode) {
+    btnExportProfileCode.addEventListener('click', openExportCodeModal);
+  }
+  if (btnCloseExportCodeModal) {
+    btnCloseExportCodeModal.addEventListener('click', closeExportCodeModal);
+  }
+  if (btnCancelExportCode) {
+    btnCancelExportCode.addEventListener('click', closeExportCodeModal);
+  }
+
+  if (btnExecuteExportCode) {
+    btnExecuteExportCode.addEventListener('click', async () => {
+      const selectedId = selectExportCodeProfile?.value || currentActiveProfile?.id;
+      if (!selectedId) {
+        alert('Por favor selecciona una instancia.');
+        return;
+      }
+      btnExecuteExportCode.disabled = true;
+      if (exportCodeLoading) exportCodeLoading.style.display = 'block';
+      if (exportCodeResultBox) exportCodeResultBox.style.display = 'none';
+
+      try {
+        const res = await api.codeSharer.exportCode(selectedId);
+        if (exportCodeLoading) exportCodeLoading.style.display = 'none';
+        if (res && res.success) {
+          if (exportCodeResultBox) exportCodeResultBox.style.display = 'flex';
+          if (displayGeneratedCode) displayGeneratedCode.textContent = res.code;
+          if (exportCodeDetails) {
+            exportCodeDetails.textContent = `Instancia "${res.profileName}" · MC ${res.mcVersion} (${res.loader}) · ${res.modsCount} mods listados.`;
+          }
+          btnExecuteExportCode.innerHTML = '<span>✔ Generado</span>';
+          appendLog(`[Compartir Código] Instancia exportada con éxito. Código corto: ${res.code}`, 'success');
+        } else {
+          alert(`Error al generar código: ${res?.error || 'Desconocido'}`);
+          btnExecuteExportCode.disabled = false;
+          btnExecuteExportCode.innerHTML = '<span>🚀 Reintentar</span>';
+        }
+      } catch (err) {
+        if (exportCodeLoading) exportCodeLoading.style.display = 'none';
+        btnExecuteExportCode.disabled = false;
+        btnExecuteExportCode.innerHTML = '<span>🚀 Reintentar</span>';
+        alert(`Error al compartir instancia: ${err.message}`);
+      }
+    });
+  }
+
+  if (btnCopyGeneratedCode) {
+    btnCopyGeneratedCode.addEventListener('click', () => {
+      const code = displayGeneratedCode?.textContent;
+      if (code && navigator.clipboard) {
+        navigator.clipboard.writeText(code).then(() => {
+          btnCopyGeneratedCode.textContent = '¡Copiado!';
+          setTimeout(() => {
+            btnCopyGeneratedCode.textContent = '📋 Copiar';
+          }, 2000);
+        }).catch(() => {});
+      }
+    });
+  }
+
+  function openImportCodeModal() {
+    if (!modalImportCode) return;
+    if (inputImportShortcode) inputImportShortcode.value = '';
+    if (inputImportCodeName) inputImportCodeName.value = '';
+    if (importCodeProgressBox) importCodeProgressBox.style.display = 'none';
+    if (importCodeErrorBox) importCodeErrorBox.style.display = 'none';
+    if (btnExecuteImportCode) {
+      btnExecuteImportCode.disabled = false;
+      btnExecuteImportCode.innerHTML = '<span>⚡ Descargar e Instalar</span>';
+    }
+    modalImportCode.style.display = 'flex';
+  }
+
+  function closeImportCodeModal() {
+    if (modalImportCode) modalImportCode.style.display = 'none';
+  }
+
+  if (btnImportProfileCode) {
+    btnImportProfileCode.addEventListener('click', openImportCodeModal);
+  }
+  if (btnCloseImportCodeModal) {
+    btnCloseImportCodeModal.addEventListener('click', closeImportCodeModal);
+  }
+  if (btnCancelImportCode) {
+    btnCancelImportCode.addEventListener('click', closeImportCodeModal);
+  }
+
+  if (btnExecuteImportCode) {
+    btnExecuteImportCode.addEventListener('click', async () => {
+      const rawCode = inputImportShortcode?.value?.trim();
+      if (!rawCode) {
+        alert('Por favor introduce un código corto (ej. SHUBA-9F2A).');
+        return;
+      }
+      const customName = inputImportCodeName?.value?.trim() || null;
+
+      btnExecuteImportCode.disabled = true;
+      if (importCodeProgressBox) importCodeProgressBox.style.display = 'flex';
+      if (importCodeErrorBox) importCodeErrorBox.style.display = 'none';
+      if (importCodeProgressFill) importCodeProgressFill.style.width = '5%';
+      if (importCodeProgressPct) importCodeProgressPct.textContent = '5%';
+      if (importCodeProgressStatus) importCodeProgressStatus.textContent = 'Descargando manifiesto de la instancia...';
+
+      // Listener de progreso
+      const unsubProgress = api.events.on('sync:code-progress', (prog) => {
+        if (!prog) return;
+        if (prog.percent !== undefined && importCodeProgressFill) {
+          importCodeProgressFill.style.width = `${Math.min(100, Math.max(0, prog.percent))}%`;
+        }
+        if (prog.percent !== undefined && importCodeProgressPct) {
+          importCodeProgressPct.textContent = `${Math.round(prog.percent)}%`;
+        }
+        if (prog.message && importCodeProgressStatus) {
+          importCodeProgressStatus.textContent = prog.message;
+        }
+      });
+
+      try {
+        const res = await api.codeSharer.importCode({ code: rawCode, customName });
+        if (typeof unsubProgress === 'function') unsubProgress();
+
+        if (res && res.success) {
+          if (importCodeProgressFill) importCodeProgressFill.style.width = '100%';
+          if (importCodeProgressPct) importCodeProgressPct.textContent = '100%';
+          if (importCodeProgressStatus) importCodeProgressStatus.textContent = `¡Instancia "${res.profile?.name}" lista! (${res.installedCount} mods instalados).`;
+
+          appendLog(`[Importar Código] Instancia "${res.profile?.name}" importada exitosamente con ${res.installedCount} mods.`, 'success');
+
+          setTimeout(async () => {
+            closeImportCodeModal();
+            await loadProfiles();
+            if (res.profile?.id) {
+              await setActiveProfile(res.profile.id);
+            }
+          }, 1200);
+        } else {
+          btnExecuteImportCode.disabled = false;
+          if (importCodeErrorBox) {
+            importCodeErrorBox.textContent = res?.error || 'No se pudo importar la instancia.';
+            importCodeErrorBox.style.display = 'block';
+          }
+        }
+      } catch (err) {
+        if (typeof unsubProgress === 'function') unsubProgress();
+        btnExecuteImportCode.disabled = false;
+        if (importCodeErrorBox) {
+          importCodeErrorBox.textContent = `Error: ${err.message}`;
+          importCodeErrorBox.style.display = 'block';
+        }
+      }
+    });
+  }
+
+  // ==========================================
+  // SHUBACORE PRO: 2. TABLÓN DE ANUNCIOS Y CHANGELOGS EN VIVO
+  // ==========================================
+  const newsFeedBanner = document.getElementById('news-feed-banner');
+  const newsFeedList = document.getElementById('news-feed-list');
+  const btnRefreshNews = document.getElementById('btn-refresh-news');
+
+  async function loadNewsFeed(force = false) {
+    if (!newsFeedList) return;
+    try {
+      const res = await api.news.getFeed(force);
+      const items = (res && res.news) ? res.news : [];
+      if (!items || items.length === 0) {
+        if (newsFeedBanner) newsFeedBanner.style.display = 'none';
+        return;
+      }
+      if (newsFeedBanner) newsFeedBanner.style.display = 'block';
+      newsFeedList.innerHTML = '';
+
+      items.forEach((item) => {
+        const card = document.createElement('div');
+        card.className = 'news-card';
+        card.style.cssText = 'padding: 12px 14px; border-radius: var(--radius-md); background: var(--bg-surface); border: 1px solid var(--border-subtle); display: flex; flex-direction: column; gap: 6px; transition: border-color 0.2s ease;';
+
+        card.innerHTML = `
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <span class="badge ${escapeHtml(item.badgeClass || 'badge-primary')}" style="font-size: 10px; font-weight: 700; padding: 2px 6px;">${escapeHtml(item.tag || 'NOVEDAD')}</span>
+            <span style="font-size: 11px; color: var(--text-dim);">${escapeHtml(item.date || '')}</span>
+          </div>
+          <strong style="font-size: 13.5px; color: var(--text-primary); line-height: 1.3;">${escapeHtml(item.title || '')}</strong>
+          <p style="font-size: 12px; color: var(--text-secondary); margin: 0; line-height: 1.45;">${escapeHtml(item.summary || '')}</p>
+          ${item.link ? `<a href="#" class="news-link-action" data-url="${escapeHtml(item.link)}" style="font-size: 11.5px; color: var(--primary); text-decoration: none; margin-top: 2px; font-weight: 600;">Leer detalles &rarr;</a>` : ''}
+        `;
+
+        const linkAction = card.querySelector('.news-link-action');
+        if (linkAction) {
+          linkAction.addEventListener('click', (e) => {
+            e.preventDefault();
+            const url = linkAction.getAttribute('data-url');
+            if (url && api.system) api.system.openExternal(url);
+          });
+        }
+
+        newsFeedList.appendChild(card);
+      });
+    } catch (err) {
+      console.warn('[NewsFeed] Error cargando noticias:', err);
+    }
+  }
+
+  if (btnRefreshNews) {
+    btnRefreshNews.addEventListener('click', () => loadNewsFeed(true));
+  }
+
+  // ==========================================
+  // SHUBACORE PRO: 3. AUTO-OPTIMIZADOR DE HARDWARE
+  // ==========================================
+  const btnAutoOptimizeHardware = document.getElementById('btn-auto-optimize-hardware');
+  const hardwareOptBanner = document.getElementById('hardware-opt-banner');
+  const hardwareOptText = document.getElementById('hardware-opt-text');
+  const hardwareOptBadge = document.getElementById('hardware-opt-badge');
+  const hardwareOptDetails = document.getElementById('hardware-opt-details');
+
+  if (btnAutoOptimizeHardware) {
+    btnAutoOptimizeHardware.addEventListener('click', async () => {
+      btnAutoOptimizeHardware.disabled = true;
+      btnAutoOptimizeHardware.innerHTML = '<span>⚡ Analizando equipo...</span>';
+
+      try {
+        const targetDir = currentActiveProfile?.instancePath || null;
+        const res = await api.hardware.autoOptimize({ instanceDir: targetDir });
+
+        if (res && res.success) {
+          if (hardwareOptBanner) hardwareOptBanner.style.display = 'block';
+          if (hardwareOptBadge) {
+            hardwareOptBadge.textContent = res.specs.tierLabel;
+            if (res.tier === 'low') hardwareOptBadge.className = 'badge badge-warning';
+            else if (res.tier === 'high') hardwareOptBadge.className = 'badge badge-success';
+            else hardwareOptBadge.className = 'badge badge-primary';
+          }
+          if (hardwareOptText) {
+            hardwareOptText.textContent = `¡Configuración auto-optimizada para tu PC! (${res.specs.cpuModel}, ${res.specs.cores} Núcleos, ${res.specs.totalRamGb} GB RAM)`;
+          }
+          if (hardwareOptDetails) {
+            hardwareOptDetails.textContent = `Ajustes aplicados en options.txt: Render Distance: ${res.appliedPreset.renderDistance} chunks, Gráficos: ${res.appliedPreset.graphicsMode}, Nubes: ${res.appliedPreset.renderClouds}, Sombras de entidades: ${res.appliedPreset.entityShadows}, VSync: ${res.appliedPreset.enableVsync}`;
+          }
+
+          // Refrescar el estado de los toggles de HUD / options
+          await loadHudState();
+          appendLog(`[Auto-Optimizador] Perfil ${res.specs.tierLabel} aplicado exitosamente a options.txt.`, 'success');
+        } else {
+          alert(`Error al optimizar: ${res?.error || 'Desconocido'}`);
+        }
+      } catch (err) {
+        alert(`Error en el optimizador de hardware: ${err.message}`);
+      } finally {
+        btnAutoOptimizeHardware.disabled = false;
+        btnAutoOptimizeHardware.innerHTML = '<span>⚡ Auto-Optimizar para mi PC</span>';
+      }
+    });
+  }
+
+  // ==========================================
+  // SHUBACORE PRO: 4. LIMPIEZA DE MEMORIA STANDBY
+  // ==========================================
+  const btnCleanStandbyMemory = document.getElementById('btn-clean-standby-memory');
+  const standbyMemoryStatus = document.getElementById('standby-memory-status');
+
+  if (btnCleanStandbyMemory) {
+    btnCleanStandbyMemory.addEventListener('click', async () => {
+      btnCleanStandbyMemory.disabled = true;
+      if (standbyMemoryStatus) {
+        standbyMemoryStatus.textContent = 'Limpiando memoria Standby...';
+        standbyMemoryStatus.style.color = 'var(--text-secondary)';
+      }
+
+      try {
+        const res = await api.system.cleanMemory();
+        if (res && res.success) {
+          const freed = res.freedMb || 0;
+          if (standbyMemoryStatus) {
+            standbyMemoryStatus.textContent = `✔ ¡Liberados ~${freed} MB de memoria Standby!`;
+            standbyMemoryStatus.style.color = '#10b981';
+          }
+          appendLog(`[Memoria Standby] Limpieza completada con éxito. Liberados ~${freed} MB.`, 'success');
+        } else {
+          if (standbyMemoryStatus) {
+            standbyMemoryStatus.textContent = 'Aviso: ' + (res?.error || 'No se pudo limpiar.');
+            standbyMemoryStatus.style.color = 'var(--accent-warning)';
+          }
+        }
+      } catch (err) {
+        if (standbyMemoryStatus) {
+          standbyMemoryStatus.textContent = 'Error: ' + err.message;
+        }
+      } finally {
+        setTimeout(() => {
+          btnCleanStandbyMemory.disabled = false;
+        }, 2000);
+      }
+    });
+  }
+
   // Inicialización
   await initLauncherUpdater();
   await loadConfig();
   await detectJava();
+  try {
+    loadNewsFeed().catch(() => {});
+  } catch (_) {}
   try {
     const running = await api.launcher.getRunning();
     updateLaunchUIState(running ? running.length : 0);

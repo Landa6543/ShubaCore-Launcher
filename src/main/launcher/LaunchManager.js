@@ -338,7 +338,15 @@ class LaunchManager {
         logger.warn(`[LaunchManager] Aviso al inyectar Resource Pack ShubaSkinOverride: ${skinErr.message}`);
       }
 
-      // 7. Enlazar eventos de logs y lanzamiento para este proceso
+      // 7. ShubaCore Pro - Limpieza de memoria Standby (Anti-Stuttering) antes del despegue
+      try {
+        const { getMemoryCleaner } = require('../system/MemoryCleaner');
+        await getMemoryCleaner().cleanStandbyMemory();
+      } catch (cleanerErr) {
+        logger.debug(`[LaunchManager] Limpieza de memoria Standby omitida con seguridad: ${cleanerErr.message}`);
+      }
+
+      // 8. Enlazar eventos de logs y lanzamiento para este proceso
       const sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
       const clientLauncher = new Client();
 

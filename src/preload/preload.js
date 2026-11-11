@@ -41,7 +41,11 @@ const VALID_RECEIVE_CHANNELS = [
   'server:status',
   'server:players',
   'server:stats',
-  'server:install-progress'
+  'server:install-progress',
+  'sync:code-progress',
+  'jvm:smart-progress',
+  'discord:join-game',
+  'discord:join-request'
 ];
 
 contextBridge.exposeInMainWorld('shubaCoreAPI', {
@@ -105,7 +109,9 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
     getRecommendedArgs: (options) => ipcRenderer.invoke('jvm:get-recommended-args', options),
     scanInstalled: () => ipcRenderer.invoke('jvm:scan-installed'),
     install: (majorVersion) => ipcRenderer.invoke('jvm:install', majorVersion),
-    getRequiredVersion: (mcVersion) => ipcRenderer.invoke('jvm:get-required-version', mcVersion)
+    getRequiredVersion: (mcVersion) => ipcRenderer.invoke('jvm:get-required-version', mcVersion),
+    smartEnsureJava: (options) => ipcRenderer.invoke('jvm:smart-ensure-java', options),
+    smartAutoTune: (options) => ipcRenderer.invoke('jvm:smart-auto-tune', options)
   },
 
   // ==========================================
@@ -190,7 +196,10 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
   discord: {
     getStatus: () => ipcRenderer.invoke('discord:get-status'),
     setEnabled: (enabled) => ipcRenderer.invoke('discord:set-enabled', enabled),
-    updateView: (viewName) => ipcRenderer.invoke('discord:update-view', viewName)
+    updateView: (viewName) => ipcRenderer.invoke('discord:update-view', viewName),
+    setParty: (options) => ipcRenderer.invoke('discord:set-party', options),
+    clearParty: () => ipcRenderer.invoke('discord:clear-party'),
+    getParty: () => ipcRenderer.invoke('discord:get-party')
   },
 
   // ==========================================
@@ -202,7 +211,9 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
     selectFiles: () => ipcRenderer.invoke('github-mods:select-files'),
     upload: (filePaths) => ipcRenderer.invoke('github-mods:upload', filePaths),
     getRepo: () => ipcRenderer.invoke('github-mods:get-repo'),
-    setRepo: (repo) => ipcRenderer.invoke('github-mods:set-repo', repo)
+    setRepo: (repo) => ipcRenderer.invoke('github-mods:set-repo', repo),
+    extractIcon: (params) => ipcRenderer.invoke('github-mods:extract-icon', params),
+    getIcon: (fileName) => ipcRenderer.invoke('github-mods:get-icon', fileName)
   },
 
   // ==========================================
@@ -286,9 +297,34 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
     getInfo: () => ipcRenderer.invoke('system:get-info'),
     getVersions: () => ipcRenderer.invoke('system:get-versions'),
     openExternal: (url) => ipcRenderer.invoke('system:open-external', url),
+    cleanMemory: () => ipcRenderer.invoke('system:clean-memory'),
     minimize: () => ipcRenderer.send('window:minimize'),
     maximize: () => ipcRenderer.send('window:maximize'),
     close: () => ipcRenderer.send('window:close')
+  },
+
+  // ==========================================
+  // SHUBACORE PRO: COMPARTIR E IMPORTAR POR CÓDIGO
+  // ==========================================
+  codeSharer: {
+    exportCode: (profileId) => ipcRenderer.invoke('profile:export-code', profileId),
+    importCode: (options) => ipcRenderer.invoke('profile:import-code', options),
+    getManifest: (code) => ipcRenderer.invoke('profile:get-manifest', code)
+  },
+
+  // ==========================================
+  // SHUBACORE PRO: ANUNCIOS Y CHANGELOGS EN VIVO
+  // ==========================================
+  news: {
+    getFeed: (force) => ipcRenderer.invoke('news:get-feed', force)
+  },
+
+  // ==========================================
+  // SHUBACORE PRO: AUTO-OPTIMIZADOR DE HARDWARE
+  // ==========================================
+  hardware: {
+    getSpecs: () => ipcRenderer.invoke('hardware:get-specs'),
+    autoOptimize: (options) => ipcRenderer.invoke('hardware:auto-optimize', options)
   },
 
   // ==========================================

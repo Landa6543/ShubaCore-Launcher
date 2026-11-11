@@ -180,6 +180,14 @@
             <p class="view-subtitle">Perfiles independientes con sus propios mods, configuraciones y mundos.</p>
           </div>
           <div class="toolbar-actions">
+            <button id="btn-export-profile-code" class="btn btn-secondary" title="Genera un código corto (ej. SHUBA-9F2A) para compartir esta instancia">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" x2="12" y1="2" y2="15"/></svg>
+              <span>📤 Compartir Código</span>
+            </button>
+            <button id="btn-import-profile-code" class="btn btn-secondary" title="Descarga e instala una instancia con todos sus mods usando un código corto">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+              <span>📥 Importar Código</span>
+            </button>
             <button id="btn-sync-cloud-instances" class="btn btn-secondary" title="Sincronizar instancia con perfil de amigos en GitHub">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
               <span>🔄 Sincronizar con Amigo</span>
@@ -198,6 +206,20 @@
             </button>
             <!-- Elemento legado conservado para JS -->
             <button id="btn-open-create-modal" style="display: none;"></button>
+          </div>
+        </div>
+
+        <!-- TABLÓN DE ANUNCIOS Y CHANGELOGS EN VIVO -->
+        <div id="news-feed-banner" class="news-banner-container" style="margin-bottom: 16px;">
+          <div class="news-banner-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="news-pulse-dot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #10b981; box-shadow: 0 0 8px #10b981;"></span>
+              <strong style="font-size: 13px; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.5px;">Tablón de Anuncios y Novedades</strong>
+            </div>
+            <button id="btn-refresh-news" class="btn btn-secondary btn-compact" style="font-size: 11px; padding: 3px 8px;" title="Actualizar anuncios">🔄 Actualizar</button>
+          </div>
+          <div id="news-feed-list" class="news-cards-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px;">
+            <!-- Renderizado dinámico desde NewsManager -->
           </div>
         </div>
 
@@ -522,12 +544,28 @@
               <h3 style="margin: 0; font-size: 16px; color: var(--text-primary); font-weight: 700;">Optimizaciones Nativas (options.txt)</h3>
               <p style="margin: 4px 0 0 0; color: var(--text-secondary); font-size: 13px;">Ajustes directos de rendimiento y comodidad visual aplicados nativamente en options.txt sin mods externos ni descargas automáticas.</p>
             </div>
-            <div class="toolbar-actions">
+            <div class="toolbar-actions" style="display: flex; gap: 8px;">
+              <button id="btn-auto-optimize-hardware" class="btn btn-primary btn-small" title="Auto-detecta CPU y RAM y aplica el perfil ideal en options.txt">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                <span>⚡ Auto-Optimizar para mi PC</span>
+              </button>
               <button id="btn-refresh-hud-state" class="btn btn-secondary btn-small" title="Refrescar estado de opciones">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
                 <span>Refrescar</span>
               </button>
             </div>
+          </div>
+
+          <!-- Banner de Optimización de Hardware -->
+          <div id="hardware-opt-banner" style="display: none; padding: 12px 16px; margin-bottom: 12px; border-radius: var(--radius-md); background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.25); font-size: 13px;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 16px;">⚡</span>
+                <span id="hardware-opt-text" style="color: var(--text-primary); font-weight: 600;">Hardware detectado</span>
+              </div>
+              <span id="hardware-opt-badge" class="badge badge-primary">Mid-Range</span>
+            </div>
+            <div id="hardware-opt-details" style="margin-top: 6px; font-size: 12px; color: var(--text-secondary);"></div>
           </div>
 
           <!-- Banner Informativo para Instancias Vanilla -->
@@ -1206,6 +1244,21 @@
               <div class="toggle-info">
                 <strong>Activar actividad en Discord (Rich Presence)</strong>
                 <small>Muestra en tu perfil de Discord qué estás jugando, tiempo de sesión y mods activos en tiempo real.</small>
+              </div>
+            </div>
+
+            <!-- Optimización del Sistema Operativo & Memoria Standby -->
+            <div style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+              <div>
+                <strong style="display: block; font-size: 13.5px; color: var(--text-primary);">Limpieza de Memoria Standby (Anti-Stuttering)</strong>
+                <small style="color: var(--text-secondary); display: block; margin-top: 2px;">Trimea los Working Sets y vacía la caché Standby de Windows para evitar micro-tirones y congelamientos durante el juego.</small>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span id="standby-memory-status" style="font-size: 12px; color: var(--accent-success); font-weight: 600;"></span>
+                <button id="btn-clean-standby-memory" class="btn btn-secondary btn-small">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4"/><path d="M12 18v4"/><path d="M4.93 4.93l2.83 2.83"/><path d="M16.24 16.24l2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="M4.93 19.07l2.83-2.83"/><path d="M16.24 7.76l2.83-2.83"/></svg>
+                  <span>🧹 Limpiar Memoria Ahora</span>
+                </button>
               </div>
             </div>
           </div>
@@ -1968,6 +2021,88 @@
         <button id="btn-execute-sync-server" class="btn btn-primary">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
           <span id="btn-execute-sync-server-text">Iniciar Sincronización</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: EXPORTAR INSTANCIA A CÓDIGO CORTO -->
+  <div id="modal-export-code" class="modal-overlay" style="display: none;">
+    <div class="modal-content card" style="max-width: 480px;">
+      <div class="modal-header" style="display: flex; align-items: center; justify-content: space-between;">
+        <h3 class="modal-title" style="margin: 0;">📤 Compartir Instancia por Código</h3>
+        <button id="btn-close-export-code-modal" class="btn btn-small close-btn">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 18px 20px; display: flex; flex-direction: column; gap: 14px;">
+        <p style="margin: 0; font-size: 13px; color: var(--text-secondary);">
+          Genera un código corto único para compartir tu modpack con tus amigos. Se subirán las referencias de mods de Modrinth, CurseForge y GitHub sin subir archivos pesados.
+        </p>
+
+        <div class="form-group">
+          <label style="font-size: 12.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px; display: block;">Instancia a Compartir:</label>
+          <select id="select-export-code-profile" class="select-input" style="width: 100%;"></select>
+        </div>
+
+        <div id="export-code-result-box" style="display: none; flex-direction: column; align-items: center; gap: 10px; padding: 18px; border-radius: var(--radius-md); background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25);">
+          <span style="font-size: 12px; color: var(--accent-success); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">¡Código Generado con Éxito!</span>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span id="display-generated-code" style="font-size: 26px; font-weight: 900; letter-spacing: 2px; color: #10b981; font-family: monospace;">SHUBA-XXXX</span>
+            <button id="btn-copy-generated-code" class="btn btn-secondary btn-small" title="Copiar código">📋 Copiar</button>
+          </div>
+          <span id="export-code-details" style="font-size: 12px; color: var(--text-secondary); text-align: center;"></span>
+        </div>
+
+        <div id="export-code-loading" style="display: none; text-align: center; padding: 14px; font-size: 13px; color: var(--text-secondary);">
+          Generando manifiesto y subiendo a GitHub...
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; padding-top: 10px;">
+        <button id="btn-cancel-export-code" class="btn btn-secondary">Cerrar</button>
+        <button id="btn-execute-export-code" class="btn btn-primary">
+          <span>🚀 Generar Código</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: IMPORTAR INSTANCIA POR CÓDIGO CORTO -->
+  <div id="modal-import-code" class="modal-overlay" style="display: none;">
+    <div class="modal-content card" style="max-width: 500px;">
+      <div class="modal-header" style="display: flex; align-items: center; justify-content: space-between;">
+        <h3 class="modal-title" style="margin: 0;">📥 Importar Instancia por Código</h3>
+        <button id="btn-close-import-code-modal" class="btn btn-small close-btn">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 18px 20px; display: flex; flex-direction: column; gap: 14px;">
+        <p style="margin: 0; font-size: 13px; color: var(--text-secondary);">
+          Introduce el código que te pasó un amigo (ej. <strong>SHUBA-9F2A</strong>) para descargar e instalar automáticamente la versión de Minecraft, el loader y todos sus mods.
+        </p>
+
+        <div class="form-group">
+          <label for="input-import-shortcode" style="font-size: 12.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px; display: block;">Código Corto:</label>
+          <input type="text" id="input-import-shortcode" class="text-input" placeholder="Ej: SHUBA-9F2A" style="font-size: 16px; font-weight: 700; text-transform: uppercase; font-family: monospace; letter-spacing: 1px;" />
+        </div>
+
+        <div class="form-group">
+          <label for="input-import-code-name" style="font-size: 12.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px; display: block;">Nombre de la Nueva Instancia (Opcional):</label>
+          <input type="text" id="input-import-code-name" class="text-input" placeholder="Dejar en blanco para usar el nombre original" />
+        </div>
+
+        <div id="import-code-progress-box" style="display: none; flex-direction: column; gap: 8px;">
+          <div style="display: flex; justify-content: space-between; font-size: 12px;">
+            <span id="import-code-progress-status" style="color: var(--text-secondary);">Descargando mods...</span>
+            <span id="import-code-progress-pct" style="color: var(--primary); font-weight: 700;">0%</span>
+          </div>
+          <div class="install-progress-bar-bg" style="height: 6px; border-radius: 3px; background: rgba(255,255,255,0.08); overflow: hidden;">
+            <div id="import-code-progress-fill" style="height: 100%; width: 0%; background: var(--primary); transition: width 0.2s ease;"></div>
+          </div>
+        </div>
+
+        <div id="import-code-error-box" style="display: none; padding: 10px 14px; border-radius: var(--radius-md); background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; font-size: 12.5px;"></div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; padding-top: 10px;">
+        <button id="btn-cancel-import-code" class="btn btn-secondary">Cancelar</button>
+        <button id="btn-execute-import-code" class="btn btn-primary">
+          <span>⚡ Descargar e Instalar</span>
         </button>
       </div>
     </div>
