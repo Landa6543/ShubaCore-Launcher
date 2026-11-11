@@ -359,7 +359,7 @@ function ProcessInputFrame([double]$lx, [double]$ly, [double]$rx, [double]$ry, [
         $dy = [int]($ry * $script:SensitivityY * 12.0 * $factorY)
 
         if ($dx -ne 0 -or $dy -ne 0) {
-            [ShubaNativeBridge]::SendMouseMove $dx $dy
+            [ShubaNativeBridge]::SendMouseMove($dx, $dy)
         }
     }
 

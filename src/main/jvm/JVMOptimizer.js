@@ -339,6 +339,7 @@ class JVMOptimizer {
     flags.push(
       '-XX:+UnlockExperimentalVMOptions',
       '-XX:+UseG1GC',
+      '-XX:+ParallelRefProcEnabled',
       '-XX:G1NewSizePercent=20',
       '-XX:G1ReservePercent=20',
       '-XX:MaxGCPauseMillis=50',
@@ -346,9 +347,10 @@ class JVMOptimizer {
       '-XX:+DisableExplicitGC'
     );
 
-    // 3. Flags para Java 21+ (NeoForge 1.21+ exige --enable-native-access=ALL-UNNAMED)
+    // 3. Flags para Java 21+ (NeoForge 1.21+ exige --enable-native-access=ALL-UNNAMED y módulo vector incubador)
     if (majorVersion >= 21) {
       flags.push('--enable-native-access=ALL-UNNAMED');
+      flags.push('--add-modules=jdk.incubator.vector');
     }
 
     if (customJvmArgs && typeof customJvmArgs === 'string') {

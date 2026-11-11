@@ -244,30 +244,11 @@ class LaunchManager {
         }
       }
 
-      // 5c. Soporte para Mando (Controlador) mediante Java Agent nativo (0 mods en /mods)
-      const isControllerEnabled = !!(overrideOptions.controllerSupport ?? activeProfile.controllerSupport ?? this.configManager.get('performance.controllerSupport', false));
-      if (isControllerEnabled) {
-        try {
-          const { getControllerAgentManager } = require('../controller/ControllerAgentManager');
-          const agentMgr = getControllerAgentManager();
-          const agentPath = agentMgr.ensureAgentJar();
-          if (agentPath && fs.existsSync(agentPath)) {
-            const agentFlag = `-javaagent:${agentPath}`;
-            if (!seenArgs.has(agentFlag)) {
-              seenArgs.add(agentFlag);
-              finalJvmArgs.push(agentFlag);
-              logger.info(`🎮 [LaunchManager] Soporte nativo para mando activo: Inyectado "${agentFlag}" (JVM interceptor GLFW sin mods).`);
-            }
-          }
-          // Asegurar controller-map.json en la carpeta de la instancia
-          try {
-            const { getControllerMapManager } = require('../controller/ControllerMapManager');
-            getControllerMapManager().ensureMappingFile(instanceDir);
-          } catch (_) {}
-        } catch (agentErr) {
-          logger.warn(`[LaunchManager] Aviso al inyectar Java Agent de mando: ${agentErr.message}`);
-        }
-      }
+      // 5c. Asegurar archivo controller-map.json en la instancia para el puente Win32
+      try {
+        const { getControllerMapManager } = require('../controller/ControllerMapManager');
+        getControllerMapManager().ensureMappingFile(instancePath);
+      } catch (_) {}
 
       // 5d. Asegurar options.txt sin pisar configuraciones del usuario ni idioma español
       try {

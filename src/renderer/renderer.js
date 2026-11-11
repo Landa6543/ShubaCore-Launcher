@@ -6945,20 +6945,26 @@ document.addEventListener('DOMContentLoaded', async () => {
               stickRightDot.style.transform = `translate(${Math.round(rx * 26)}px, ${Math.round(ry * 26)}px)`;
             }
 
-            const leftKnobs = [document.getElementById('stick-left-knob'), document.getElementById('main-stick-left-knob')];
-            const rightKnobs = [document.getElementById('stick-right-knob'), document.getElementById('main-stick-right-knob')];
-            leftKnobs.forEach(k => {
-              if (k) {
-                k.setAttribute('cx', String(140 + lx * 8));
-                k.setAttribute('cy', String(115 + ly * 8));
-              }
-            });
-            rightKnobs.forEach(k => {
-              if (k) {
-                k.setAttribute('cx', String(275 + rx * 8));
-                k.setAttribute('cy', String(180 + ry * 8));
-              }
-            });
+            const leftKnobModal = document.getElementById('stick-left-knob');
+            const leftKnobMain = document.getElementById('main-stick-left-knob');
+            if (leftKnobModal) {
+              leftKnobModal.setAttribute('cx', String(140 + lx * 8));
+              leftKnobModal.setAttribute('cy', String(115 + ly * 8));
+            }
+            if (leftKnobMain) {
+              leftKnobMain.setAttribute('cx', String(190 + lx * 10));
+              leftKnobMain.setAttribute('cy', String(165 + ly * 10));
+            }
+            const rightKnobModal = document.getElementById('stick-right-knob');
+            const rightKnobMain = document.getElementById('main-stick-right-knob');
+            if (rightKnobModal) {
+              rightKnobModal.setAttribute('cx', String(275 + rx * 8));
+              rightKnobModal.setAttribute('cy', String(180 + ry * 8));
+            }
+            if (rightKnobMain) {
+              rightKnobMain.setAttribute('cx', String(365 + rx * 10));
+              rightKnobMain.setAttribute('cy', String(230 + ry * 10));
+            }
 
             // Enviar cuadro de control al puente Win32 cada 16ms
             if (api.controller?.sendGamepadFrame) {

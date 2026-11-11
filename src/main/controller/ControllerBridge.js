@@ -81,6 +81,12 @@ class ControllerBridge extends EventEmitter {
 
       this.isRunning = true;
 
+      if (this.workerProcess.stdin) {
+        this.workerProcess.stdin.on('error', (err) => {
+          logger.debug(`[ControllerBridge] Stdin pipe cerrado/error: ${err.message}`);
+        });
+      }
+
       this.workerProcess.stdout.on('data', (data) => {
         const text = data.toString().trim();
         if (text.includes('SHUBA_CONTROLLER_READY')) {
@@ -124,7 +130,7 @@ class ControllerBridge extends EventEmitter {
     this.currentInstanceDir = instanceDir;
     if (targetPid) this.currentPid = targetPid;
 
-    if (!this.isRunning || !this.workerProcess || !this.workerProcess.stdin.writable) {
+    if (!this.isRunning || !this.workerProcess || this.workerProcess.killed || !this.workerProcess.stdin || !this.workerProcess.stdin.writable) {
       return false;
     }
 
@@ -140,7 +146,7 @@ class ControllerBridge extends EventEmitter {
         buttons: map.buttons || {}
       });
 
-      this.workerProcess.stdin.write(`CONFIG:${configPayload}\n`);
+      this.workerProcess.stdin.write(`CONFIG:${configPayload}\n`, () => {});
       return true;
     } catch (err) {
       logger.warn(`[ControllerBridge] Error al actualizar configuración: ${err.message}`);
@@ -152,14 +158,13 @@ class ControllerBridge extends EventEmitter {
    * Envía un cuadro de entrada proveniente de Gamepad API (para mandos PS4/PS5/Switch)
    */
   sendGamepadFrame(frameData) {
-    if (!this.isRunning || !this.workerProcess || !this.workerProcess.stdin.writable) {
+    if (!this.isRunning || !this.workerProcess || this.workerProcess.killed || !this.workerProcess.stdin || !this.workerProcess.stdin.writable) {
       return false;
     }
 
     try {
       const line = `FRAME:${JSON.stringify(frameData)}\n`;
-      this.workerProcess.stdin.write(line);
-      return true;
+      return this.workerProcess.stdin.write(line, () => {});
     } catch (_) {
       return false;
     }
@@ -173,8 +178,8 @@ class ControllerBridge extends EventEmitter {
 
     logger.info('[ControllerBridge] Deteniendo puente nativo Win32...');
     try {
-      if (this.workerProcess && this.workerProcess.stdin && this.workerProcess.stdin.writable) {
-        this.workerProcess.stdin.write("EXIT\n");
+      if (this.workerProcess && !this.workerProcess.killed && this.workerProcess.stdin && this.workerProcess.stdin.writable) {
+        this.workerProcess.stdin.write("EXIT\n", () => {});
       }
     } catch (_) {}
 
