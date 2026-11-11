@@ -1911,6 +1911,15 @@ class ModManager {
     // 1. Sincronizar mods físicos en disco con mods-lock.json
     this.scanAndSyncMods(activeInstance);
     const lockData = this._readLockFile(activeInstance);
+
+    // Normalizar campos en lockData.mods (evitar inconsistencias de mayúsculas o propiedades alternativas como projectID / fileID / modId)
+    for (const [key, m] of Object.entries(lockData.mods || {})) {
+      if (m.source) m.source = String(m.source).toLowerCase();
+      const pid = m.projectId || m.projectID || m.modId;
+      if (pid) m.projectId = String(pid);
+      const fid = m.fileId || m.fileID;
+      if (fid) m.fileId = String(fid);
+    }
     const modsList = Object.values(lockData.mods || {});
 
     logger.info(`[CheckUpdates] Buscando actualizaciones para ${modsList.length} mods en MC ${mcVersion} (${loader})...`);
@@ -2154,15 +2163,30 @@ class ModManager {
       ? CF_LOADER_TYPES[normalizedLoader]
       : CF_LOADER_TYPES.any;
 
-    // 5. PASO 3: Detección de actualizaciones en CurseForge (usando batch POST /v1/mods y latestFilesIndexes)
-    const cfModsToCheck = modsList.filter((m) => m.source === 'curseforge' && m.projectId && /^\d+$/.test(String(m.projectId)));
-    const cfModIds = Array.from(new Set(cfModsToCheck.map((m) => parseInt(m.projectId, 10))));
+    // 5. PASO 3: Detección de actualizaciones en CurseForge (usando batch masivo POST /v1/mods y latestFilesIndexes)
+    const cfModsToCheck = modsList.filter((m) => {
+      const src = (m.source || '').toLowerCase();
+      const pid = String(m.projectId || m.projectID || m.modId || '');
+      return (src === 'curseforge' || /^\d+$/.test(pid)) && /^\d+$/.test(pid);
+    });
+
+    for (const m of cfModsToCheck) {
+      m.source = 'curseforge';
+      m.projectId = String(m.projectId || m.projectID || m.modId);
+      m.fileId = String(m.fileId || m.fileID || '0');
+    }
+
+    const cfModIds = Array.from(new Set(cfModsToCheck.map((m) => parseInt(m.projectId, 10)).filter((n) => !isNaN(n))));
 
     if (cfModIds.length > 0 && apiKey) {
       logger.info(`[CheckUpdates:CF] Comprobando actualizaciones para ${cfModIds.length} mods de CurseForge (MC ${mcVersion}, Loader ${cfLoaderId})...`);
 
-      for (let i = 0; i < cfModIds.length; i += 100) {
-        const chunkIds = cfModIds.slice(i, i + 100);
+      const pendingCfUpdates = [];
+      const cfUpdateFileIds = [];
+
+      // Procesar en lotes masivos de hasta 350 IDs (para 300+ mods se ejecuta en una sola petición HTTP sin saturar rate-limit)
+      for (let i = 0; i < cfModIds.length; i += 350) {
+        const chunkIds = cfModIds.slice(i, i + 350);
         try {
           const cfModsRes = await fetch(`${CURSEFORGE_API_URL}/mods`, {
             method: 'POST',
@@ -2172,7 +2196,7 @@ class ModManager {
               Accept: 'application/json',
               'User-Agent': USER_AGENT
             },
-            body: JSON.stringify({ modIds: chunkIds })
+            body: JSON.stringify({ modIds: chunkIds, filterPcOnly: true })
           });
 
           if (cfModsRes.ok) {
@@ -2180,96 +2204,185 @@ class ModManager {
             const modsInfoList = cfModsData.data || [];
 
             for (const cfMod of modsInfoList) {
-              const installedMod = cfModsToCheck.find((m) => String(m.projectId) === String(cfMod.id));
-              if (!installedMod) continue;
+              if (!cfMod || !cfMod.id) continue;
+              const matchingInstalledMods = cfModsToCheck.filter((m) => String(m.projectId) === String(cfMod.id));
+              if (matchingInstalledMods.length === 0) continue;
 
-              const installedFileId = parseInt(installedMod.fileId || '0', 10);
-              const installedFileName = installedMod.fileName.replace(/\.disabled$/i, '');
               const indexes = cfMod.latestFilesIndexes || [];
 
-              // Filtrar por versión de Minecraft compatible
-              const mcMatches = indexes.filter((f) => {
-                if (!f.gameVersion) return false;
-                return f.gameVersion === mcVersion || f.gameVersion.startsWith(mcVersion);
+              // Evaluar coincidencia de versión de Minecraft
+              const isGameVerMatch = (gv) => {
+                if (!gv || typeof gv !== 'string') return false;
+                const gvTrim = gv.trim().toLowerCase();
+                const mcTrim = mcVersion.trim().toLowerCase();
+                if (gvTrim === mcTrim) return true;
+                if (gvTrim.startsWith(mcTrim) || mcTrim.startsWith(gvTrim)) return true;
+                const mcParts = mcTrim.split('.');
+                const gvParts = gvTrim.split('.');
+                if (mcParts.length >= 2 && gvParts.length >= 2 && mcParts[0] === gvParts[0] && mcParts[1] === gvParts[1]) {
+                  return true;
+                }
+                return false;
+              };
+
+              const mcMatches = indexes.filter((f) => isGameVerMatch(f.gameVersion));
+
+              // Buscar candidatos según modLoader con orden de prioridad
+              let candidates = [];
+              if (cfLoaderId === 6) {
+                // NeoForge: preferir NeoForge (6), fallback Universal (0), fallback Forge (1)
+                candidates = mcMatches.filter((f) => f.modLoader === 6);
+                if (candidates.length === 0) candidates = mcMatches.filter((f) => !f.modLoader || f.modLoader === 0);
+                if (candidates.length === 0) candidates = mcMatches.filter((f) => f.modLoader === 1);
+              } else if (cfLoaderId === 1) {
+                // Forge: preferir Forge (1), fallback Universal (0)
+                candidates = mcMatches.filter((f) => f.modLoader === 1);
+                if (candidates.length === 0) candidates = mcMatches.filter((f) => !f.modLoader || f.modLoader === 0);
+              } else if (cfLoaderId === 4) {
+                // Fabric: preferir Fabric (4), fallback Universal (0), fallback Quilt (5)
+                candidates = mcMatches.filter((f) => f.modLoader === 4);
+                if (candidates.length === 0) candidates = mcMatches.filter((f) => !f.modLoader || f.modLoader === 0);
+                if (candidates.length === 0) candidates = mcMatches.filter((f) => f.modLoader === 5);
+              } else if (cfLoaderId === 5) {
+                // Quilt: preferir Quilt (5), fallback Universal (0), fallback Fabric (4)
+                candidates = mcMatches.filter((f) => f.modLoader === 5);
+                if (candidates.length === 0) candidates = mcMatches.filter((f) => !f.modLoader || f.modLoader === 0);
+                if (candidates.length === 0) candidates = mcMatches.filter((f) => f.modLoader === 4);
+              } else {
+                candidates = mcMatches.filter((f) => f.modLoader === cfLoaderId || !f.modLoader || f.modLoader === 0);
+              }
+
+              // Si latestFilesIndexes no trajo candidatos pero cfMod.latestFiles existe en memoria, usarlo
+              if (candidates.length === 0 && Array.isArray(cfMod.latestFiles) && cfMod.latestFiles.length > 0) {
+                const lfMatches = cfMod.latestFiles.filter((lf) => {
+                  if (!lf || !lf.fileName) return false;
+                  const gvs = lf.gameVersions || [];
+                  const hasMc = gvs.some((gv) => isGameVerMatch(gv));
+                  if (!hasMc) return false;
+                  if (cfLoaderId === 6) {
+                    return gvs.some((v) => /neoforge/i.test(v)) || gvs.some((v) => !/fabric|quilt/i.test(v));
+                  } else if (cfLoaderId === 1) {
+                    return gvs.some((v) => /forge/i.test(v) && !/neoforge/i.test(v)) || gvs.some((v) => !/fabric|quilt|neoforge/i.test(v));
+                  } else if (cfLoaderId === 4) {
+                    return gvs.some((v) => /fabric/i.test(v)) || gvs.some((v) => /quilt/i.test(v));
+                  } else if (cfLoaderId === 5) {
+                    return gvs.some((v) => /quilt/i.test(v)) || gvs.some((v) => /fabric/i.test(v));
+                  }
+                  return true;
+                });
+                if (lfMatches.length > 0) {
+                  candidates = lfMatches.map((lf) => ({
+                    fileId: lf.id,
+                    filename: lf.fileName,
+                    gameVersion: mcVersion,
+                    modLoader: cfLoaderId
+                  }));
+                }
+              }
+
+              if (candidates.length === 0) continue;
+
+              // Ordenar: versión exacta de MC primero y luego fileId más reciente
+              candidates.sort((a, b) => {
+                const aExact = (a.gameVersion === mcVersion) ? 1 : 0;
+                const bExact = (b.gameVersion === mcVersion) ? 1 : 0;
+                if (aExact !== bExact) return bExact - aExact;
+                return (b.fileId || 0) - (a.fileId || 0);
               });
 
-              // Buscar candidato adecuado según loader con orden de prioridad
-              let candidates = mcMatches.filter((f) => f.modLoader === cfLoaderId);
-              if (candidates.length === 0) {
-                candidates = mcMatches.filter((f) => f.modLoader === 0);
-              }
-              if (candidates.length === 0 && cfLoaderId === 6) {
-                candidates = mcMatches.filter((f) => f.modLoader === 1);
-              }
-              if (candidates.length === 0 && (cfLoaderId === 5 || cfLoaderId === 4)) {
-                candidates = mcMatches.filter((f) => f.modLoader === 4 || f.modLoader === 5);
-              }
-
-              // Ordenar candidatos por fileId descendente (el más reciente primero)
-              candidates.sort((a, b) => (b.fileId || 0) - (a.fileId || 0));
               const candidate = candidates[0];
+              if (!candidate || !candidate.fileId) continue;
 
-              if (candidate) {
+              for (const installedMod of matchingInstalledMods) {
+                const installedFileId = parseInt(installedMod.fileId || '0', 10);
+                const installedFileName = (installedMod.fileName || '').replace(/\.disabled$/i, '');
                 const isNewerId = candidate.fileId > installedFileId;
                 const isDifferentName = candidate.filename && candidate.filename !== installedFileName;
 
                 if (isNewerId || (installedFileId === 0 && isDifferentName)) {
-                  const idStr = String(candidate.fileId);
-                  const downloadUrl = this._buildCurseForgeEdgeUrl(candidate.fileId, candidate.filename);
-                  const curVer = installedMod.version || this._extractVersionFromFileName(installedFileName);
-                  const newVer = this._extractVersionFromFileName(candidate.filename);
-
-                  updatesMap.set(installedMod.fileName, {
-                    currentFileName: installedMod.fileName,
-                    currentFileId: String(installedFileId),
-                    currentVersion: curVer,
-                    name: installedMod.displayName || cfMod.name || this._cleanJarName(installedMod.fileName),
-                    projectId: String(cfMod.id),
-                    source: 'curseforge',
-                    latestFile: {
-                      fileId: idStr,
-                      fileName: candidate.filename,
-                      displayName: candidate.filename,
-                      versionNumber: newVer,
-                      downloadUrl
-                    }
+                  pendingCfUpdates.push({
+                    installedMod,
+                    cfMod,
+                    candidateFileId: candidate.fileId,
+                    candidateFileName: candidate.filename
                   });
-                  logger.info(`[Update Available CF] "${installedMod.name}": v${curVer} (${installedFileName}) -> v${newVer} (${candidate.filename})`);
+                  cfUpdateFileIds.push(candidate.fileId);
                 }
-              } else {
-                // Fallback a consulta individual de archivos si latestFilesIndexes no tenía entradas
-                try {
-                  const filesRes = await this._resolveCurseForgeFile(cfMod.id, mcVersion, normalizedLoader);
-                  if (filesRes && filesRes.downloadUrl) {
-                    const latestId = parseInt(filesRes.fileId || '0', 10);
-                    if (latestId > installedFileId || (installedFileId === 0 && filesRes.fileName !== installedFileName)) {
-                      const curVer = installedMod.version || this._extractVersionFromFileName(installedFileName);
-                      const newVer = this._extractVersionFromFileName(filesRes.fileName);
-
-                      updatesMap.set(installedMod.fileName, {
-                        currentFileName: installedMod.fileName,
-                        currentFileId: String(installedFileId),
-                        currentVersion: curVer,
-                        name: installedMod.displayName || cfMod.name || this._cleanJarName(installedMod.fileName),
-                        projectId: String(cfMod.id),
-                        source: 'curseforge',
-                        latestFile: {
-                          fileId: String(filesRes.fileId),
-                          fileName: filesRes.fileName,
-                          displayName: filesRes.displayName || filesRes.fileName,
-                          versionNumber: newVer,
-                          downloadUrl: filesRes.downloadUrl
-                        }
-                      });
-                      logger.info(`[Update Available CF Fallback] "${installedMod.name}": v${curVer} -> v${newVer} (${filesRes.fileName})`);
-                    }
-                  }
-                } catch (_) {}
               }
             }
+          } else {
+            logger.warn(`[CheckUpdates:CF] Error HTTP ${cfModsRes.status} al consultar /v1/mods en batch`);
           }
         } catch (err) {
-          logger.warn(`[CheckUpdates:CF] Error consultando /mods batch: ${err.message}`);
+          logger.warn(`[CheckUpdates:CF] Excepción consultando /v1/mods en batch: ${err.message}`);
+        }
+      }
+
+      // Obtener detalles completos y downloadUrls para todos los archivos con actualización mediante POST /v1/mods/files masivo
+      if (cfUpdateFileIds.length > 0) {
+        const uniqueFileIds = Array.from(new Set(cfUpdateFileIds));
+        logger.info(`[CheckUpdates:CF] Obteniendo detalles y URLs de descarga para ${uniqueFileIds.length} archivos mediante POST /v1/mods/files batch...`);
+
+        const cfFilesDetailsMap = new Map();
+        for (let j = 0; j < uniqueFileIds.length; j += 200) {
+          const chunkFileIds = uniqueFileIds.slice(j, j + 200);
+          try {
+            const filesBatchRes = await fetch(`${CURSEFORGE_API_URL}/mods/files`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': apiKey,
+                Accept: 'application/json',
+                'User-Agent': USER_AGENT
+              },
+              body: JSON.stringify({ fileIds: chunkFileIds })
+            });
+
+            if (filesBatchRes.ok) {
+              const filesBatchJson = await filesBatchRes.json();
+              const filesList = filesBatchJson.data || [];
+              for (const f of filesList) {
+                if (f && f.id) {
+                  cfFilesDetailsMap.set(f.id, f);
+                }
+              }
+            } else {
+              logger.warn(`[CheckUpdates:CF] Error HTTP ${filesBatchRes.status} en /mods/files batch`);
+            }
+          } catch (batchErr) {
+            logger.warn(`[CheckUpdates:CF] Error en consulta batch de /mods/files: ${batchErr.message}`);
+          }
+        }
+
+        // Poblar updatesMap con cada mod que requiere actualización
+        for (const item of pendingCfUpdates) {
+          const { installedMod, cfMod, candidateFileId, candidateFileName } = item;
+          const fileDetail = cfFilesDetailsMap.get(candidateFileId);
+          const finalFileName = fileDetail?.fileName || candidateFileName;
+          const downloadUrl = (fileDetail && fileDetail.downloadUrl)
+            ? fileDetail.downloadUrl
+            : this._buildCurseForgeEdgeUrl(candidateFileId, finalFileName);
+          const curVer = installedMod.version || this._extractVersionFromFileName(installedMod.fileName);
+          const newVer = (fileDetail && fileDetail.displayName)
+            ? this._extractVersionFromFileName(fileDetail.displayName)
+            : this._extractVersionFromFileName(finalFileName);
+
+          updatesMap.set(installedMod.fileName, {
+            currentFileName: installedMod.fileName,
+            currentFileId: String(installedMod.fileId || 0),
+            currentVersion: curVer,
+            name: installedMod.displayName || cfMod.name || this._cleanJarName(installedMod.fileName),
+            projectId: String(cfMod.id),
+            source: 'curseforge',
+            latestFile: {
+              fileId: String(candidateFileId),
+              fileName: finalFileName,
+              displayName: fileDetail?.displayName || finalFileName,
+              versionNumber: newVer,
+              downloadUrl
+            }
+          });
+          logger.info(`[Update Available CF] "${installedMod.name || installedMod.displayName}": v${curVer} (${installedMod.fileName}) -> v${newVer} (${finalFileName})`);
         }
       }
     }
