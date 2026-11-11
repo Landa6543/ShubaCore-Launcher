@@ -719,24 +719,28 @@ document.addEventListener('DOMContentLoaded', async () => {
           account.tokens?.mcAccessToken
         );
 
-    const badge = document.getElementById('sidebar-account-badge') || playerType;
-    if (badge) {
+    const badges = [
+      document.getElementById('sidebar-account-badge'),
+      document.getElementById('player-type')
+    ].filter(Boolean);
+
+    badges.forEach(b => {
       if (isPremium) {
-        badge.textContent = 'MICROSOFT';
-        badge.className = 'badge badge-premium badge-microsoft';
-        badge.style.setProperty('background-color', 'rgba(16, 185, 129, 0.15)', 'important');
-        badge.style.setProperty('color', '#10b981', 'important');
-        badge.style.setProperty('border', '1px solid rgba(16, 185, 129, 0.35)', 'important');
-        badge.style.display = 'inline-block';
+        b.textContent = 'PREMIUM';
+        b.className = 'badge badge-premium badge-microsoft';
+        b.style.setProperty('background-color', 'rgba(16, 185, 129, 0.15)', 'important');
+        b.style.setProperty('color', '#10b981', 'important');
+        b.style.setProperty('border', '1px solid rgba(16, 185, 129, 0.35)', 'important');
+        b.style.display = 'inline-block';
       } else {
-        badge.textContent = 'OFFLINE';
-        badge.className = 'badge badge-offline';
-        badge.style.removeProperty('background-color');
-        badge.style.removeProperty('color');
-        badge.style.removeProperty('border');
-        badge.style.display = 'inline-block';
+        b.textContent = 'OFFLINE';
+        b.className = 'badge badge-offline';
+        b.style.removeProperty('background-color');
+        b.style.removeProperty('color');
+        b.style.removeProperty('border');
+        b.style.display = 'inline-block';
       }
-    }
+    });
 
     if (isPremium) {
       switchAccountModalTab('premium');
