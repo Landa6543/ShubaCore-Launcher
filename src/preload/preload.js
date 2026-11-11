@@ -368,7 +368,7 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
   },
 
   // ==========================================
-  // CONTROLLER AGENT: SOPORTE NATIVO PARA MANDOS (JVM AGENT)
+  // CONTROLLER AGENT & PUENTE NATIVO WIN32 PARA MANDOS
   // ==========================================
   controller: {
     getStatus: () => ipcRenderer.invoke('controller:get-status'),
@@ -377,7 +377,11 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
     saveMap: (params) => ipcRenderer.invoke('controller:save-map', params),
     resetMap: (params) => ipcRenderer.invoke('controller:reset-map', params),
     getDefaultMap: () => ipcRenderer.invoke('controller:get-default-map'),
-    getActions: () => ipcRenderer.invoke('controller:get-actions')
+    getActions: () => ipcRenderer.invoke('controller:get-actions'),
+    getBridgeStatus: () => ipcRenderer.invoke('controller:bridge-status'),
+    startBridge: (params) => ipcRenderer.invoke('controller:bridge-start', params),
+    stopBridge: () => ipcRenderer.invoke('controller:bridge-stop'),
+    sendGamepadFrame: (frameData) => ipcRenderer.send('controller:send-gamepad-frame', frameData)
   },
 
   // ==========================================

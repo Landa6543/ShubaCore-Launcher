@@ -109,7 +109,50 @@ class HudOptionsManager {
   }
 
   /**
-   * Aplica un ajuste directo en options.txt sin mods
+   * Prepara options.txt de forma no destructiva asegurando que no se pierdan
+   * configuraciones del usuario (idioma español, controles, volumen, etc.).
+   * Si es una instancia nueva, inicializa con lang:es_es.
+   */
+  prepareInstanceOptions(instanceDir) {
+    if (!instanceDir || typeof instanceDir !== 'string') return;
+    const optsFile = this.getOptionsFilePath(instanceDir);
+    if (!fs.existsSync(instanceDir)) {
+      try { fs.mkdirSync(instanceDir, { recursive: true }); } catch (_) {}
+    }
+
+    if (!fs.existsSync(optsFile)) {
+      try {
+        fs.writeFileSync(optsFile, 'lang:es_es\ngamma:1.0\n', 'utf8');
+        logger.info(`[HudOptions] options.txt inicializado con idioma español por defecto en: ${optsFile}`);
+      } catch (err) {
+        logger.warn(`[HudOptions] No se pudo inicializar options.txt: ${err.message}`);
+      }
+      return;
+    }
+
+    try {
+      const content = fs.readFileSync(optsFile, 'utf8');
+      const lines = content.split(/\r?\n/);
+      let hasLang = false;
+      for (const line of lines) {
+        if (line.trim().startsWith('lang:')) {
+          hasLang = true;
+          break;
+        }
+      }
+
+      if (!hasLang) {
+        lines.push('lang:es_es');
+        fs.writeFileSync(optsFile, lines.join('\n') + '\n', 'utf8');
+        logger.info(`[HudOptions] Clave lang:es_es agregada a options.txt existente en: ${optsFile}`);
+      }
+    } catch (err) {
+      logger.warn(`[HudOptions] Error verificando options.txt: ${err.message}`);
+    }
+  }
+
+  /**
+   * Aplica un ajuste directo en options.txt sin mods, preservando 100% de las demás claves
    */
   setOption(instanceDir, optionKey, value) {
     const optsFile = this.getOptionsFilePath(instanceDir);
@@ -119,7 +162,9 @@ class HudOptionsManager {
 
     let lines = [];
     if (fs.existsSync(optsFile)) {
-      lines = fs.readFileSync(optsFile, 'utf8').split('\n');
+      try {
+        lines = fs.readFileSync(optsFile, 'utf8').split(/\r?\n/);
+      } catch (_) {}
     }
 
     const updates = {};
@@ -139,29 +184,35 @@ class HudOptionsManager {
       updates['enableVsync'] = value ? 'true' : 'false';
     }
 
-    const map = new Map();
-    for (const line of lines) {
+    let hasLang = false;
+    const handledKeys = new Set();
+    const newLines = lines.map((line) => {
       const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith('#')) continue;
+      if (trimmed.startsWith('lang:')) hasLang = true;
+      if (!trimmed || trimmed.startsWith('#')) return line;
       const idx = trimmed.indexOf(':');
       if (idx !== -1) {
         const k = trimmed.slice(0, idx).trim();
-        const v = trimmed.slice(idx + 1).trim();
-        map.set(k, v);
+        if (updates.hasOwnProperty(k)) {
+          handledKeys.add(k);
+          return `${k}:${updates[k]}`;
+        }
+      }
+      return line;
+    });
+
+    for (const [k, v] of Object.entries(updates)) {
+      if (!handledKeys.has(k)) {
+        newLines.push(`${k}:${v}`);
       }
     }
 
-    for (const [k, v] of Object.entries(updates)) {
-      map.set(k, v);
+    if (!hasLang) {
+      newLines.push('lang:es_es');
     }
 
-    const outLines = [];
-    for (const [k, v] of map.entries()) {
-      outLines.push(`${k}:${v}`);
-    }
-
-    fs.writeFileSync(optsFile, outLines.join('\n') + '\n', 'utf8');
-    logger.info(`[HudOptions] Ajuste "${optionKey}" actualizado a ${value} en: ${optsFile}`);
+    fs.writeFileSync(optsFile, newLines.join('\n') + '\n', 'utf8');
+    logger.info(`[HudOptions] Ajuste "${optionKey}" actualizado a ${value} en: ${optsFile} (preservando todas las opciones de usuario)`);
 
     return {
       success: true,

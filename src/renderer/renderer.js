@@ -544,6 +544,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         try { loadScreenshotsGallery(); } catch (e) { console.warn('[switchTab] Error en loadScreenshotsGallery:', e); }
       } else if (viewName === 'skins') {
         try { initSkinViewer3D(); } catch (e) { console.warn('[switchTab] Error en initSkinViewer3D:', e); }
+      } else if (viewName === 'controller') {
+        try { if (typeof loadControllerView === 'function') loadControllerView(); } catch (e) { console.warn('[switchTab] Error en loadControllerView:', e); }
       } else if (viewName === 'settings') {
         try { renderJavaRuntimes(); } catch (e) { console.warn('[switchTab] Error en renderJavaRuntimes:', e); }
       } else if (viewName === 'console') {
@@ -6321,7 +6323,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // ==========================================
-  // ESTUDIO VISUAL DE MAPEO DE MANDO (HTML5 GAMEPAD API)
+  // ESTUDIO VISUAL DE MAPEO DE MANDO (HTML5 GAMEPAD API & PUENTE WIN32)
   // ==========================================
   let currentControllerMap = null;
   let availableControllerActions = [];
@@ -6330,10 +6332,28 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const gamepadBadge = document.getElementById('gamepad-connection-badge');
   const gamepadBadgeText = document.getElementById('gamepad-connection-text');
+  const controllerNavStatusBadge = document.getElementById('controller-nav-status-badge');
+  const controllerNavStatusText = document.getElementById('controller-nav-status-text');
+  const switchControllerMaster = document.getElementById('switch-controller-master');
+
   const btnResetControllerMapping = document.getElementById('btn-reset-controller-mapping');
   const btnSaveControllerMapping = document.getElementById('btn-save-controller-mapping');
+  const btnViewResetController = document.getElementById('btn-view-reset-controller');
+  const btnViewSaveController = document.getElementById('btn-view-save-controller');
+
   const controllerBindingsGrid = document.getElementById('controller-bindings-grid');
+  const controllerViewBindingsGrid = document.getElementById('controller-view-bindings-grid');
   const presetTag = document.getElementById('current-controller-preset-tag');
+  const controllerViewPresetTag = document.getElementById('controller-view-preset-tag');
+
+  // Sliders de calibración de sticks
+  const sliderDeadzone = document.getElementById('slider-controller-deadzone');
+  const deadzoneValueLabel = document.getElementById('deadzone-value-label');
+  const sliderSensitivity = document.getElementById('slider-controller-sensitivity');
+  const sensitivityValueLabel = document.getElementById('sensitivity-value-label');
+  const checkInvertY = document.getElementById('check-controller-invert-y');
+  const stickLeftDot = document.getElementById('stick-left-dot');
+  const stickRightDot = document.getElementById('stick-right-dot');
 
   // Modal de Reasignación
   const modalBindGamepad = document.getElementById('modal-bind-gamepad-action');
@@ -6367,51 +6387,74 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (res && res.success && res.map) {
         currentControllerMap = res.map;
         renderControllerBindingsGrid();
-        if (presetTag) presetTag.textContent = currentControllerMap.preset || 'Personalizado';
+        syncControllerSliders();
+        const pName = currentControllerMap.preset || 'Xbox Standard';
+        if (presetTag) presetTag.textContent = pName;
+        if (controllerViewPresetTag) controllerViewPresetTag.textContent = pName;
       }
     } catch (err) {
       console.warn('[Gamepad] Error al cargar mapa de controles:', err);
     }
   }
 
+  function syncControllerSliders() {
+    if (!currentControllerMap) return;
+    if (sliderDeadzone) {
+      const dz = Math.round((currentControllerMap.deadzone ?? 0.15) * 100);
+      sliderDeadzone.value = dz;
+      if (deadzoneValueLabel) deadzoneValueLabel.textContent = `${dz}%`;
+    }
+    if (sliderSensitivity) {
+      const sens = Math.round((currentControllerMap.sensitivityX ?? 2.5) * 10);
+      sliderSensitivity.value = sens;
+      if (sensitivityValueLabel) sensitivityValueLabel.textContent = `${(sens / 10).toFixed(1)}x`;
+    }
+    if (checkInvertY) {
+      checkInvertY.checked = !!currentControllerMap.invertY;
+    }
+  }
+
   function renderControllerBindingsGrid() {
-    if (!controllerBindingsGrid || !currentControllerMap?.buttons) return;
-    controllerBindingsGrid.innerHTML = '';
+    if (!currentControllerMap?.buttons) return;
+    const containers = [controllerBindingsGrid, controllerViewBindingsGrid].filter(Boolean);
+    containers.forEach(c => c.innerHTML = '');
 
     const buttons = currentControllerMap.buttons;
     const buttonIndices = Object.keys(buttons).sort((a, b) => Number(a) - Number(b));
 
     for (const idx of buttonIndices) {
       const btnData = buttons[idx];
-      const row = document.createElement('div');
-      row.className = 'binding-row-item';
-      row.id = `binding-row-${idx}`;
-      row.setAttribute('data-btn-index', idx);
-
       const actionObj = availableControllerActions.find(a => a.id === btnData.action) || {
         label: btnData.action || 'Desconocido',
         key: btnData.key || ''
       };
 
-      row.innerHTML = `
-        <div class="binding-btn-info">
-          <span class="binding-badge">${btnData.name || idx}</span>
-          <span class="binding-btn-name">${btnData.label || btnData.name || `Botón ${idx}`}</span>
-        </div>
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <span class="binding-action-chip">
-            <span>${actionObj.label}</span>
-            ${actionObj.key ? `<span class="chip-key">${actionObj.key}</span>` : ''}
-          </span>
-          <span style="font-size: 11px; color: var(--text-muted); opacity: 0.6;">✏️</span>
-        </div>
-      `;
+      containers.forEach(container => {
+        const row = document.createElement('div');
+        row.className = 'binding-row-item';
+        row.id = `binding-row-${idx}`;
+        row.setAttribute('data-btn-index', idx);
 
-      row.addEventListener('click', () => {
-        openRebindModal(idx);
+        row.innerHTML = `
+          <div class="binding-btn-info">
+            <span class="binding-badge">${btnData.name || idx}</span>
+            <span class="binding-btn-name">${btnData.label || btnData.name || `Botón ${idx}`}</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="binding-action-chip">
+              <span>${actionObj.label}</span>
+              ${actionObj.key ? `<span class="chip-key">${actionObj.key}</span>` : ''}
+            </span>
+            <span style="font-size: 11px; color: var(--text-muted); opacity: 0.6;">✏️</span>
+          </div>
+        `;
+
+        row.addEventListener('click', () => {
+          openRebindModal(idx);
+        });
+
+        container.appendChild(row);
       });
-
-      controllerBindingsGrid.appendChild(row);
     }
   }
 
@@ -6419,10 +6462,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     selectedButtonIndexToRebind = String(btnIndex);
     const btnData = currentControllerMap?.buttons?.[selectedButtonIndexToRebind] || { name: `Botón ${btnIndex}`, label: `Botón ${btnIndex}` };
 
-    // Marcar visualmente el botón seleccionado en el SVG
     document.querySelectorAll('.gamepad-interactive-btn').forEach(el => el.classList.remove('selected'));
-    const svgElem = document.getElementById(`pad-btn-${btnIndex}`);
-    if (svgElem) svgElem.classList.add('selected');
+    document.querySelectorAll(`[data-btn-index="${btnIndex}"]`).forEach(el => el.classList.add('selected'));
 
     if (modalBindGamepadTitle) {
       modalBindGamepadTitle.textContent = `🎮 Asignar Acción: [${btnData.name}] ${btnData.label || ''}`;
@@ -6469,11 +6510,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     currentControllerMap.buttons[btnIndex].key = action.key || '';
     currentControllerMap.preset = 'Personalizado';
     if (presetTag) presetTag.textContent = 'Personalizado';
+    if (controllerViewPresetTag) controllerViewPresetTag.textContent = 'Personalizado';
 
     closeRebindModal();
     renderControllerBindingsGrid();
 
-    // Guardar inmediatamente vía IPC
     try {
       const targetDir = currentActiveProfile?.instancePath || null;
       if (targetDir && api.controller?.saveMap) {
@@ -6485,7 +6526,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // Interacción con SVG: Hacer clic en cualquier botón del diagrama
   function setupSvgInteractivity() {
     document.querySelectorAll('.gamepad-interactive-btn').forEach(elem => {
       elem.addEventListener('click', () => {
@@ -6497,7 +6537,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // Polling loop en tiempo real con HTML5 Gamepad API
+  function loadControllerView() {
+    const isCtrlOn = !!(currentActiveProfile?.controllerSupport);
+    if (switchControllerMaster) switchControllerMaster.checked = isCtrlOn;
+    if (switchHudController) {
+      switchHudController.checked = isCtrlOn;
+      updateHudStatusText(statusHudController, isCtrlOn);
+    }
+    loadControllerMapping(currentActiveProfile?.instancePath || null);
+  }
+
   let isGamepadPollingRunning = false;
   function startGamepadPolling() {
     if (isGamepadPollingRunning) return;
@@ -6514,60 +6563,85 @@ document.addEventListener('DOMContentLoaded', async () => {
           }
         }
 
-        // Actualizar Badge de Estado
-        if (gamepadBadge && gamepadBadgeText) {
-          if (activePad) {
-            if (!gamepadBadge.classList.contains('connected')) {
-              gamepadBadge.className = 'badge-status-controller connected';
-            }
-            const cleanId = (activePad.id || 'Mando Estándar').replace(/\(.*?\)/g, '').trim().slice(0, 32);
-            gamepadBadgeText.textContent = `🎮 ${cleanId} (Conectado)`;
-          } else {
-            if (!gamepadBadge.classList.contains('disconnected')) {
-              gamepadBadge.className = 'badge-status-controller disconnected';
-            }
-            gamepadBadgeText.textContent = '⚠️ Ningún mando conectado (Mueve un joystick o pulsa un botón)';
-          }
-        }
+        const badges = [
+          { badge: gamepadBadge, text: gamepadBadgeText },
+          { badge: controllerNavStatusBadge, text: controllerNavStatusText }
+        ];
 
-        // Iluminación en tiempo real de botones y sticks
+        badges.forEach(({ badge, text }) => {
+          if (badge && text) {
+            if (activePad) {
+              if (!badge.classList.contains('connected')) {
+                badge.className = 'badge-status-controller connected';
+              }
+              const cleanId = (activePad.id || 'Mando Estándar').replace(/\(.*?\)/g, '').trim().slice(0, 32);
+              text.textContent = `🎮 ${cleanId} (Conectado)`;
+            } else {
+              if (!badge.classList.contains('disconnected')) {
+                badge.className = 'badge-status-controller disconnected';
+              }
+              text.textContent = '⚠️ Ningún mando conectado (Mueve un joystick o pulsa un botón)';
+            }
+          }
+        });
+
         if (activePad && activePad.buttons) {
           for (let i = 0; i < Math.min(activePad.buttons.length, 16); i++) {
             const btn = activePad.buttons[i];
             const isPressed = !!(btn && (btn.pressed || btn.value > 0.2));
-            const svgBtn = document.getElementById(`pad-btn-${i}`);
-            if (svgBtn) {
-              if (isPressed) svgBtn.classList.add('pressed');
-              else svgBtn.classList.remove('pressed');
-            }
-            const rowItem = document.getElementById(`binding-row-${i}`);
-            if (rowItem) {
-              if (isPressed) rowItem.classList.add('pressed');
-              else rowItem.classList.remove('pressed');
-            }
+            const svgBtns = document.querySelectorAll(`[data-btn-index="${i}"]`);
+            svgBtns.forEach(el => {
+              if (isPressed) el.classList.add('pressed');
+              else el.classList.remove('pressed');
+            });
+            const rowItems = document.querySelectorAll(`[id="binding-row-${i}"]`);
+            rowItems.forEach(el => {
+              if (isPressed) el.classList.add('pressed');
+              else el.classList.remove('pressed');
+            });
           }
 
-          // Inflexión suave de los joysticks según los ejes
           if (activePad.axes && activePad.axes.length >= 4) {
             const lx = activePad.axes[0] || 0;
             const ly = activePad.axes[1] || 0;
             const rx = activePad.axes[2] || 0;
             const ry = activePad.axes[3] || 0;
-            const leftKnob = document.getElementById('stick-left-knob');
-            const rightKnob = document.getElementById('stick-right-knob');
-            if (leftKnob) {
-              leftKnob.setAttribute('cx', String(140 + lx * 8));
-              leftKnob.setAttribute('cy', String(115 + ly * 8));
+
+            if (stickLeftDot) {
+              stickLeftDot.style.transform = `translate(${Math.round(lx * 26)}px, ${Math.round(ly * 26)}px)`;
             }
-            if (rightKnob) {
-              rightKnob.setAttribute('cx', String(275 + rx * 8));
-              rightKnob.setAttribute('cy', String(180 + ry * 8));
+            if (stickRightDot) {
+              stickRightDot.style.transform = `translate(${Math.round(rx * 26)}px, ${Math.round(ry * 26)}px)`;
+            }
+
+            const leftKnobs = [document.getElementById('stick-left-knob'), document.getElementById('main-stick-left-knob')];
+            const rightKnobs = [document.getElementById('stick-right-knob'), document.getElementById('main-stick-right-knob')];
+            leftKnobs.forEach(k => {
+              if (k) {
+                k.setAttribute('cx', String(140 + lx * 8));
+                k.setAttribute('cy', String(115 + ly * 8));
+              }
+            });
+            rightKnobs.forEach(k => {
+              if (k) {
+                k.setAttribute('cx', String(275 + rx * 8));
+                k.setAttribute('cy', String(180 + ry * 8));
+              }
+            });
+
+            // Enviar cuadro de control al puente Win32 cada 16ms
+            if (api.controller?.sendGamepadFrame) {
+              api.controller.sendGamepadFrame({
+                axes: [lx, ly, rx, ry],
+                buttons: Array.from(activePad.buttons).map(b => b.value)
+              });
             }
           }
         } else {
-          // Si no hay mando activo, apagar estados pressed
           document.querySelectorAll('.gamepad-interactive-btn.pressed').forEach(el => el.classList.remove('pressed'));
           document.querySelectorAll('.binding-row-item.pressed').forEach(el => el.classList.remove('pressed'));
+          if (stickLeftDot) stickLeftDot.style.transform = 'translate(0px, 0px)';
+          if (stickRightDot) stickRightDot.style.transform = 'translate(0px, 0px)';
         }
       } catch (_) {}
 
@@ -6577,40 +6651,89 @@ document.addEventListener('DOMContentLoaded', async () => {
     gamepadPollRafId = requestAnimationFrame(poll);
   }
 
-  // Inicialización de Controles del Estudio de Mando
-  if (btnResetControllerMapping) {
-    btnResetControllerMapping.addEventListener('click', async () => {
-      try {
-        const targetDir = currentActiveProfile?.instancePath || null;
-        if (targetDir && api.controller?.resetMap) {
-          const res = await api.controller.resetMap({ instanceDir: targetDir });
-          if (res && res.success && res.map) {
-            currentControllerMap = res.map;
-            renderControllerBindingsGrid();
-            if (presetTag) presetTag.textContent = currentControllerMap.preset || 'Xbox Standard';
-            appendLog('[Mando] Mapeo restablecido a la configuración estándar de Xbox / Bedrock.', 'info');
-          }
+  // Sincronización del interruptor maestro de mando
+  if (switchControllerMaster) {
+    switchControllerMaster.addEventListener('change', async (e) => {
+      const isChecked = e.target.checked;
+      if (switchHudController) {
+        switchHudController.checked = isChecked;
+        updateHudStatusText(statusHudController, isChecked);
+      }
+      if (currentActiveProfile) {
+        currentActiveProfile.controllerSupport = isChecked;
+        await api.profiles.update(currentActiveProfile.id, { controllerSupport: isChecked });
+        if (isChecked && api.controller) {
+          await api.controller.ensure();
         }
-      } catch (err) {
-        alert(`Error al restablecer mapeo: ${err.message}`);
+      }
+      appendLog(`[Mando] Soporte nativo para mando ${isChecked ? 'ACTIVADO' : 'DESACTIVADO'} (Puente Win32).`, 'info');
+    });
+  }
+
+  // Sliders de calibración
+  if (sliderDeadzone) {
+    sliderDeadzone.addEventListener('input', (e) => {
+      const val = parseInt(e.target.value, 10) || 15;
+      if (deadzoneValueLabel) deadzoneValueLabel.textContent = `${val}%`;
+      if (currentControllerMap) currentControllerMap.deadzone = val / 100;
+    });
+  }
+
+  if (sliderSensitivity) {
+    sliderSensitivity.addEventListener('input', (e) => {
+      const val = parseInt(e.target.value, 10) || 25;
+      const sens = val / 10;
+      if (sensitivityValueLabel) sensitivityValueLabel.textContent = `${sens.toFixed(1)}x`;
+      if (currentControllerMap) {
+        currentControllerMap.sensitivityX = sens;
+        currentControllerMap.sensitivityY = sens;
       }
     });
   }
 
-  if (btnSaveControllerMapping) {
-    btnSaveControllerMapping.addEventListener('click', async () => {
-      try {
-        const targetDir = currentActiveProfile?.instancePath || null;
-        if (targetDir && currentControllerMap && api.controller?.saveMap) {
-          await api.controller.saveMap({ instanceDir: targetDir, mapData: currentControllerMap });
-          appendLog('[Mando] ✅ Mapeo de controles guardado correctamente en controller-map.json.', 'info');
-          alert('¡Mapeo de mando guardado exitosamente en la instancia!');
-        }
-      } catch (err) {
-        alert(`Error al guardar: ${err.message}`);
-      }
+  if (checkInvertY) {
+    checkInvertY.addEventListener('change', (e) => {
+      if (currentControllerMap) currentControllerMap.invertY = e.target.checked;
     });
   }
+
+  async function executeResetControllerMapping() {
+    try {
+      const targetDir = currentActiveProfile?.instancePath || null;
+      if (targetDir && api.controller?.resetMap) {
+        const res = await api.controller.resetMap({ instanceDir: targetDir });
+        if (res && res.success && res.map) {
+          currentControllerMap = res.map;
+          renderControllerBindingsGrid();
+          syncControllerSliders();
+          const pName = currentControllerMap.preset || 'Xbox Standard';
+          if (presetTag) presetTag.textContent = pName;
+          if (controllerViewPresetTag) controllerViewPresetTag.textContent = pName;
+          appendLog('[Mando] Mapeo restablecido a la configuración estándar de Xbox / Bedrock.', 'info');
+        }
+      }
+    } catch (err) {
+      alert(`Error al restablecer mapeo: ${err.message}`);
+    }
+  }
+
+  async function executeSaveControllerMapping() {
+    try {
+      const targetDir = currentActiveProfile?.instancePath || null;
+      if (targetDir && currentControllerMap && api.controller?.saveMap) {
+        await api.controller.saveMap({ instanceDir: targetDir, mapData: currentControllerMap });
+        appendLog('[Mando] ✅ Mapeo de controles guardado correctamente en controller-map.json.', 'info');
+        alert('¡Mapeo de mando guardado exitosamente en la instancia!');
+      }
+    } catch (err) {
+      alert(`Error al guardar: ${err.message}`);
+    }
+  }
+
+  if (btnResetControllerMapping) btnResetControllerMapping.addEventListener('click', executeResetControllerMapping);
+  if (btnViewResetController) btnViewResetController.addEventListener('click', executeResetControllerMapping);
+  if (btnSaveControllerMapping) btnSaveControllerMapping.addEventListener('click', executeSaveControllerMapping);
+  if (btnViewSaveController) btnViewSaveController.addEventListener('click', executeSaveControllerMapping);
 
   if (btnCloseBindGamepadModal) btnCloseBindGamepadModal.addEventListener('click', closeRebindModal);
   if (btnCancelBindGamepad) btnCancelBindGamepad.addEventListener('click', closeRebindModal);
@@ -6622,7 +6745,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     appendLog(`[Mando] Dispositivo desconectado: "${e.gamepad.id}".`, 'warn');
   });
 
-  // Arrancar componentes del estudio
   setupSvgInteractivity();
   startGamepadPolling();
   loadControllerActions().catch(() => {});
@@ -6849,40 +6971,123 @@ document.addEventListener('DOMContentLoaded', async () => {
   const newsFeedBanner = document.getElementById('news-feed-banner');
   const newsFeedList = document.getElementById('news-feed-list');
   const btnRefreshNews = document.getElementById('btn-refresh-news');
+  const btnToggleNewsCollapse = document.getElementById('btn-toggle-news-collapse');
+  const newsCollapseText = document.getElementById('news-collapse-text');
+  const newsCounterBadge = document.getElementById('news-counter-badge');
+
+  // Modal de detalles interno
+  const modalNewsDetail = document.getElementById('modal-news-detail');
+  const newsDetailTitle = document.getElementById('news-detail-title');
+  const newsDetailBadge = document.getElementById('news-detail-badge');
+  const newsDetailDate = document.getElementById('news-detail-date');
+  const newsDetailAuthor = document.getElementById('news-detail-author');
+  const newsDetailSummary = document.getElementById('news-detail-summary');
+  const newsDetailChangelogList = document.getElementById('news-detail-changelog-list');
+  const btnCloseNewsDetailModal = document.getElementById('btn-close-news-detail-modal');
+  const btnDismissNewsDetail = document.getElementById('btn-dismiss-news-detail');
+
+  let cachedNewsItems = [];
+  let isNewsCollapsed = false;
+
+  try {
+    isNewsCollapsed = localStorage.getItem('shubacore_news_collapsed') === 'true';
+  } catch (_) {}
+
+  function applyNewsCollapseState() {
+    if (!newsFeedList) return;
+    if (isNewsCollapsed) {
+      newsFeedList.style.display = 'none';
+      if (newsCollapseText) newsCollapseText.textContent = '➕ Expandir';
+    } else {
+      newsFeedList.style.display = 'grid';
+      if (newsCollapseText) newsCollapseText.textContent = '➖ Minimizar';
+    }
+  }
+
+  function openNewsDetailModal(item) {
+    if (!item || !modalNewsDetail) return;
+    if (newsDetailTitle) newsDetailTitle.textContent = item.title || 'Anuncio';
+    if (newsDetailBadge) {
+      newsDetailBadge.textContent = item.tag || 'NOVEDAD';
+      newsDetailBadge.className = `badge ${item.badgeClass || 'badge-primary'}`;
+    }
+    if (newsDetailDate) newsDetailDate.textContent = item.date || '';
+    if (newsDetailAuthor) newsDetailAuthor.textContent = `· ${item.author || 'SHUBATECH Core Team'}`;
+    if (newsDetailSummary) {
+      newsDetailSummary.textContent = item.content || item.summary || '';
+    }
+
+    if (newsDetailChangelogList) {
+      newsDetailChangelogList.innerHTML = '';
+      let changelogItems = Array.isArray(item.changelog) ? item.changelog : [];
+      if (changelogItems.length === 0 && item.summary) {
+        changelogItems = item.summary.split('. ').map(s => s.trim()).filter(Boolean);
+      }
+
+      changelogItems.forEach((ch) => {
+        const li = document.createElement('li');
+        li.style.marginBottom = '4px';
+        li.textContent = ch.endsWith('.') ? ch : `${ch}.`;
+        newsDetailChangelogList.appendChild(li);
+      });
+    }
+
+    modalNewsDetail.style.display = 'flex';
+  }
+
+  function closeNewsDetailModal() {
+    if (modalNewsDetail) modalNewsDetail.style.display = 'none';
+  }
+
+  if (btnCloseNewsDetailModal) btnCloseNewsDetailModal.addEventListener('click', closeNewsDetailModal);
+  if (btnDismissNewsDetail) btnDismissNewsDetail.addEventListener('click', closeNewsDetailModal);
+
+  if (btnToggleNewsCollapse) {
+    btnToggleNewsCollapse.addEventListener('click', () => {
+      isNewsCollapsed = !isNewsCollapsed;
+      try { localStorage.setItem('shubacore_news_collapsed', isNewsCollapsed ? 'true' : 'false'); } catch (_) {}
+      applyNewsCollapseState();
+    });
+  }
 
   async function loadNewsFeed(force = false) {
     if (!newsFeedList) return;
     try {
       const res = await api.news.getFeed(force);
       const items = (res && res.news) ? res.news : [];
+      cachedNewsItems = items;
+
       if (!items || items.length === 0) {
         if (newsFeedBanner) newsFeedBanner.style.display = 'none';
         return;
       }
       if (newsFeedBanner) newsFeedBanner.style.display = 'block';
+      if (newsCounterBadge) newsCounterBadge.textContent = `${items.length} anuncios`;
       newsFeedList.innerHTML = '';
+      applyNewsCollapseState();
 
-      items.forEach((item) => {
+      items.forEach((item, index) => {
         const card = document.createElement('div');
         card.className = 'news-card';
-        card.style.cssText = 'padding: 12px 14px; border-radius: var(--radius-md); background: var(--bg-surface); border: 1px solid var(--border-subtle); display: flex; flex-direction: column; gap: 6px; transition: border-color 0.2s ease;';
+        card.style.cssText = 'padding: 10px 12px; border-radius: var(--radius-md); background: var(--bg-surface); border: 1px solid var(--border-subtle); display: flex; flex-direction: column; gap: 4px; transition: all 0.2s ease;';
 
         card.innerHTML = `
           <div style="display: flex; align-items: center; justify-content: space-between;">
-            <span class="badge ${escapeHtml(item.badgeClass || 'badge-primary')}" style="font-size: 10px; font-weight: 700; padding: 2px 6px;">${escapeHtml(item.tag || 'NOVEDAD')}</span>
+            <span class="badge ${escapeHtml(item.badgeClass || 'badge-primary')}" style="font-size: 9.5px; font-weight: 700; padding: 1px 6px;">${escapeHtml(item.tag || 'NOVEDAD')}</span>
             <span style="font-size: 11px; color: var(--text-dim);">${escapeHtml(item.date || '')}</span>
           </div>
-          <strong style="font-size: 13.5px; color: var(--text-primary); line-height: 1.3;">${escapeHtml(item.title || '')}</strong>
-          <p style="font-size: 12px; color: var(--text-secondary); margin: 0; line-height: 1.45;">${escapeHtml(item.summary || '')}</p>
-          ${item.link ? `<a href="#" class="news-link-action" data-url="${escapeHtml(item.link)}" style="font-size: 11.5px; color: var(--primary); text-decoration: none; margin-top: 2px; font-weight: 600;">Leer detalles &rarr;</a>` : ''}
+          <strong style="font-size: 13px; color: var(--text-primary); line-height: 1.3;">${escapeHtml(item.title || '')}</strong>
+          <p style="font-size: 11.5px; color: var(--text-secondary); margin: 0; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${escapeHtml(item.summary || '')}</p>
+          <button class="news-link-btn" data-news-idx="${index}" style="align-self: flex-start; background: none; border: none; padding: 2px 0; margin-top: 2px; font-size: 11.5px; font-weight: 600; color: var(--primary, #3b82f6); cursor: pointer; text-decoration: none;">
+            Leer detalles &rarr;
+          </button>
         `;
 
-        const linkAction = card.querySelector('.news-link-action');
-        if (linkAction) {
-          linkAction.addEventListener('click', (e) => {
+        const btnDetail = card.querySelector('.news-link-btn');
+        if (btnDetail) {
+          btnDetail.addEventListener('click', (e) => {
             e.preventDefault();
-            const url = linkAction.getAttribute('data-url');
-            if (url && api.system) api.system.openExternal(url);
+            openNewsDetailModal(item);
           });
         }
 
@@ -7234,11 +7439,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (btnSaveTargetServer) {
     btnSaveTargetServer.addEventListener('click', async () => {
-      const newAddress = inputTargetServerIp?.value?.trim();
+      let newAddress = inputTargetServerIp?.value?.trim();
       if (!newAddress) {
-        alert('Introduce una dirección válida.');
+        alert('Introduce una dirección o dominio válido (ej: mi-servidor.playit.gg o 127.0.0.1:25565).');
         return;
       }
+      newAddress = newAddress.replace(/^[a-z]+:\/\//i, '').replace(/\/.*$/, '');
       currentMonitoredAddress = newAddress;
       if (currentActiveProfile) {
         currentActiveProfile.favoriteServerIp = newAddress;

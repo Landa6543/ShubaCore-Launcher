@@ -38,6 +38,7 @@ const { getServerMonitor } = require('../servers/ServerMonitor');
 const { getSplashScreen } = require('../splash/SplashScreen');
 const { getControllerAgentManager } = require('../controller/ControllerAgentManager');
 const { getControllerMapManager } = require('../controller/ControllerMapManager');
+const { getControllerBridge } = require('../controller/ControllerBridge');
 const { defaultLogger: logger } = require('../utils/logger');
 
 function registerIpcHandlers(mainWindow) {
@@ -1849,6 +1850,42 @@ function registerIpcHandlers(mainWindow) {
     } catch (err) {
       return { success: false, error: err.message };
     }
+  });
+
+  ipcMain.handle('controller:bridge-status', async () => {
+    try {
+      const bridge = getControllerBridge();
+      return { success: true, ...bridge.getStatus() };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('controller:bridge-start', async (_event, params) => {
+    try {
+      const bridge = getControllerBridge();
+      const started = bridge.start(params?.instanceDir, params?.targetPid || 0);
+      return { success: started };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('controller:bridge-stop', async () => {
+    try {
+      const bridge = getControllerBridge();
+      bridge.stop();
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.on('controller:send-gamepad-frame', (_event, frameData) => {
+    try {
+      const bridge = getControllerBridge();
+      bridge.sendGamepadFrame(frameData);
+    } catch (_) {}
   });
 
   ipcMain.on('window:minimize', () => {

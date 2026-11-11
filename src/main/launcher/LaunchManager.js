@@ -269,6 +269,14 @@ class LaunchManager {
         }
       }
 
+      // 5d. Asegurar options.txt sin pisar configuraciones del usuario ni idioma español
+      try {
+        const { getHudOptionsManager } = require('../hud/HudOptionsManager');
+        getHudOptionsManager().prepareInstanceOptions(instancePath);
+      } catch (optErr) {
+        logger.warn(`[LaunchManager] Aviso preparando options.txt: ${optErr.message}`);
+      }
+
       logger.info(`Flags JVM completas aplicadas (Java ${resolvedJavaMajor}):\n${finalJvmArgs.join(' ')}`);
 
       // 6. Configurar opciones completas de MCLC
@@ -419,6 +427,17 @@ class LaunchManager {
       // Registrar timestamp de último juego en el perfil
       this.profileManager.updateProfile(activeProfile.id, { lastPlayed: new Date().toISOString() });
 
+      // Iniciar puente nativo de mandos Win32 si está activo
+      const isCtrlActive = !!(overrideOptions.controllerSupport ?? activeProfile.controllerSupport ?? this.configManager.get('performance.controllerSupport', false));
+      if (isCtrlActive) {
+        try {
+          const { getControllerBridge } = require('../controller/ControllerBridge');
+          getControllerBridge().start(instancePath, gameProcess.pid);
+        } catch (bridgeErr) {
+          logger.warn(`[LaunchManager] Aviso al iniciar puente de mandos Win32: ${bridgeErr.message}`);
+        }
+      }
+
       logger.info(`[LaunchManager] Proceso de Minecraft (${activeProfile.name} - ${auth.name}) iniciado exitosamente con PID: ${gameProcess.pid} [Sesión: ${sessionId}]. Sesiones activas: ${this.runningProcesses.size}`);
       this._emit('launch:started', {
         sessionId,
@@ -557,6 +576,10 @@ class LaunchManager {
           const batch = this.pendingLogBatch.splice(0, this.pendingLogBatch.length);
           this._emit('launch:log-batch', batch);
         }
+        try {
+          const { getControllerBridge } = require('../controller/ControllerBridge');
+          getControllerBridge().stop();
+        } catch (_) {}
       }
 
       this._emit('launch:close', {

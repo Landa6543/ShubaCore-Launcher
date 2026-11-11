@@ -117,34 +117,42 @@ class HardwareOptimizer {
     let lines = [];
     if (fs.existsSync(optsFile)) {
       try {
-        lines = fs.readFileSync(optsFile, 'utf8').split('\n');
+        lines = fs.readFileSync(optsFile, 'utf8').split(/\r?\n/);
       } catch (_) {}
     }
 
-    // Mapear opciones existentes conservando configuraciones personalizadas
-    const map = new Map();
-    for (const line of lines) {
+    // Actualizar en sitio preservando exactamente el orden, comentarios y opciones personalizadas del usuario
+    let hasLang = false;
+    const handledKeys = new Set();
+    const newLines = lines.map((line) => {
       const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith('#')) continue;
+      if (trimmed.startsWith('lang:')) hasLang = true;
+      if (!trimmed || trimmed.startsWith('#')) return line;
       const idx = trimmed.indexOf(':');
       if (idx !== -1) {
-        map.set(trimmed.slice(0, idx).trim(), trimmed.slice(idx + 1).trim());
+        const k = trimmed.slice(0, idx).trim();
+        if (preset.hasOwnProperty(k)) {
+          handledKeys.add(k);
+          return `${k}:${preset[k]}`;
+        }
+      }
+      return line;
+    });
+
+    // Agregar opciones del perfil de hardware que no existían previamente
+    for (const [k, v] of Object.entries(preset)) {
+      if (!handledKeys.has(k)) {
+        newLines.push(`${k}:${v}`);
       }
     }
 
-    // Aplicar ajustes del perfil de hardware
-    for (const [k, v] of Object.entries(preset)) {
-      map.set(k, v);
+    // Asegurar idioma español si no está configurado
+    if (!hasLang) {
+      newLines.push('lang:es_es');
     }
 
-    // Reconstruir y guardar options.txt
-    const outLines = [];
-    for (const [k, v] of map.entries()) {
-      outLines.push(`${k}:${v}`);
-    }
-
-    fs.writeFileSync(optsFile, outLines.join('\n') + '\n', 'utf8');
-    logger.info(`[HardwareOptimizer] ✅ options.txt auto-optimizado para ${specs.tierLabel} en: ${optsFile}`);
+    fs.writeFileSync(optsFile, newLines.join('\n') + '\n', 'utf8');
+    logger.info(`[HardwareOptimizer] ✅ options.txt auto-optimizado para ${specs.tierLabel} en: ${optsFile} (preservando configuración de usuario e idioma español)`);
 
     return {
       success: true,

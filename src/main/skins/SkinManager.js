@@ -507,7 +507,7 @@ class SkinManager {
       if (!fs.existsSync(optionsPath)) {
         fs.writeFileSync(
           optionsPath,
-          `resourcePacks:["vanilla","${packEntry}"]\nincompatibleResourcePacks:["${packEntry}"]\n`,
+          `lang:es_es\nresourcePacks:["vanilla","${packEntry}"]\nincompatibleResourcePacks:["${packEntry}"]\n`,
           'utf8'
         );
         return;

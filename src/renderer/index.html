@@ -109,6 +109,13 @@
           <span>Vestidor de Skins</span>
         </button>
 
+        <button id="tab-view-controller" class="nav-item" data-view="controller">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="6" x2="10" y1="12" y2="12"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="15" x2="15.01" y1="13" y2="13"/><line x1="18" x2="18.01" y1="11" y2="11"/><rect width="20" height="12" x="2" y="6" rx="6"/>
+          </svg>
+          <span>🎮 Configurar Mando</span>
+        </button>
+
         <button id="tab-view-settings" class="nav-item" data-view="settings">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
             <line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="1" x2="7" y1="14" y2="14"/><line x1="9" x2="15" y1="8" y2="8"/><line x1="17" x2="23" y1="16" y2="16"/>
@@ -210,15 +217,21 @@
         </div>
 
         <!-- TABLÓN DE ANUNCIOS Y CHANGELOGS EN VIVO -->
-        <div id="news-feed-banner" class="news-banner-container" style="margin-bottom: 16px;">
-          <div class="news-banner-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+        <div id="news-feed-banner" class="news-banner-container compact-news-panel" style="margin-bottom: 14px;">
+          <div class="news-banner-header" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: var(--radius-md);">
             <div style="display: flex; align-items: center; gap: 8px;">
               <span class="news-pulse-dot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #10b981; box-shadow: 0 0 8px #10b981;"></span>
-              <strong style="font-size: 13px; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.5px;">Tablón de Anuncios y Novedades</strong>
+              <strong style="font-size: 12px; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.5px;">Tablón de Anuncios y Novedades</strong>
+              <span id="news-counter-badge" class="badge badge-primary" style="font-size: 10px; padding: 1px 6px;">2 anuncios</span>
             </div>
-            <button id="btn-refresh-news" class="btn btn-secondary btn-compact" style="font-size: 11px; padding: 3px 8px;" title="Actualizar anuncios">🔄 Actualizar</button>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <button id="btn-toggle-news-collapse" class="btn btn-secondary btn-compact" style="font-size: 11px; padding: 3px 8px;" title="Minimizar o expandir anuncios">
+                <span id="news-collapse-text">➖ Minimizar</span>
+              </button>
+              <button id="btn-refresh-news" class="btn btn-secondary btn-compact" style="font-size: 11px; padding: 3px 8px;" title="Actualizar anuncios">🔄 Actualizar</button>
+            </div>
           </div>
-          <div id="news-feed-list" class="news-cards-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px;">
+          <div id="news-feed-list" class="news-cards-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px; margin-top: 10px;">
             <!-- Renderizado dinámico desde NewsManager -->
           </div>
         </div>
@@ -1395,6 +1408,212 @@
         </div>
       </section>
 
+      <!-- VISTA: CONFIGURAR MANDO (CONTROLADOR NATIVO WIN32) -->
+      <section id="view-controller" class="view-panel view-container hidden">
+        <div class="view-toolbar">
+          <div>
+            <h2 class="view-title">🎮 Configurar Mando (Controlador)</h2>
+            <p class="view-subtitle">Soporte nativo para mandos de Xbox y PlayStation vía Win32 a 60Hz. 100% libre de mods en /mods.</p>
+          </div>
+          <div class="toolbar-actions" style="display: flex; align-items: center; gap: 10px;">
+            <span id="controller-nav-status-badge" class="badge-status-controller disconnected">
+              <span class="status-dot"></span>
+              <span id="controller-nav-status-text">⚠️ Ningún mando conectado</span>
+            </span>
+            <div style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.03); padding: 4px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08);">
+              <label for="switch-controller-master" style="font-size: 12px; font-weight: 600; cursor: pointer;">Soporte de Mando:</label>
+              <label class="toggle-switch">
+                <input type="checkbox" id="switch-controller-master">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <button id="btn-view-reset-controller" class="btn btn-secondary" title="Restablecer controles a distribución oficial de Xbox/Bedrock">
+              🔄 Predeterminado Xbox
+            </button>
+            <button id="btn-view-save-controller" class="btn btn-primary">
+              💾 Guardar Mapeo
+            </button>
+          </div>
+        </div>
+
+        <div class="controller-view-content" style="display: flex; flex-direction: column; gap: 16px; width: 100%; overflow-y: auto;">
+          <!-- 1. CALIBRACIÓN Y TEST EN TIEMPO REAL DE LOS 2 STICKS ANALÓGICOS -->
+          <div class="controller-calibration-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+            <!-- STICK IZQUIERDO: MOVIMIENTO -->
+            <div class="card stick-calibration-card" style="padding: 16px; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="font-size: 16px;">🕹️</span>
+                  <strong style="font-size: 13px;">Stick Izquierdo (Movimiento)</strong>
+                </div>
+                <span class="badge badge-primary">Simula W, A, S, D</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 16px;">
+                <div class="stick-crosshair-box" style="position: relative; width: 80px; height: 80px; background: #12141a; border: 1px solid #2d3340; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                  <div style="position: absolute; width: 100%; height: 1px; background: rgba(255,255,255,0.08);"></div>
+                  <div style="position: absolute; height: 100%; width: 1px; background: rgba(255,255,255,0.08);"></div>
+                  <div id="stick-left-dot" style="position: absolute; width: 14px; height: 14px; border-radius: 50%; background: #3b82f6; box-shadow: 0 0 8px #3b82f6; transform: translate(0px, 0px); transition: transform 0.05s ease;"></div>
+                </div>
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
+                  <div style="display: flex; justify-content: space-between; font-size: 12px;">
+                    <span style="color: var(--text-secondary);">Zona Muerta (Deadzone):</span>
+                    <strong id="deadzone-value-label" style="color: var(--text-primary);">15%</strong>
+                  </div>
+                  <input type="range" id="slider-controller-deadzone" min="5" max="40" value="15" step="1" class="range-slider" style="width: 100%;" />
+                  <span style="font-size: 11px; color: var(--text-dim);">Evita derivas indeseadas al soltar el joystick.</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- STICK DERECHO: CÁMARA Y RATÓN -->
+            <div class="card stick-calibration-card" style="padding: 16px; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="font-size: 16px;">👀</span>
+                  <strong style="font-size: 13px;">Stick Derecho (Cámara & Ratón)</strong>
+                </div>
+                <span class="badge badge-success">Giro Relativo 60Hz</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 16px;">
+                <div class="stick-crosshair-box" style="position: relative; width: 80px; height: 80px; background: #12141a; border: 1px solid #2d3340; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                  <div style="position: absolute; width: 100%; height: 1px; background: rgba(255,255,255,0.08);"></div>
+                  <div style="position: absolute; height: 100%; width: 1px; background: rgba(255,255,255,0.08);"></div>
+                  <div id="stick-right-dot" style="position: absolute; width: 14px; height: 14px; border-radius: 50%; background: #10b981; box-shadow: 0 0 8px #10b981; transform: translate(0px, 0px); transition: transform 0.05s ease;"></div>
+                </div>
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
+                  <div style="display: flex; justify-content: space-between; font-size: 12px;">
+                    <span style="color: var(--text-secondary);">Sensibilidad de Cámara:</span>
+                    <strong id="sensitivity-value-label" style="color: var(--text-primary);">2.5x</strong>
+                  </div>
+                  <input type="range" id="slider-controller-sensitivity" min="5" max="80" value="25" step="1" class="range-slider" style="width: 100%;" />
+                  <div style="display: flex; align-items: center; gap: 6px; margin-top: 2px;">
+                    <input type="checkbox" id="check-controller-invert-y" style="cursor: pointer;" />
+                    <label for="check-controller-invert-y" style="font-size: 11.5px; color: var(--text-secondary); cursor: pointer;">Invertir Eje Y (Cámara)</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. DIAGRAMA SVG + TABLA DE ASIGNACIONES -->
+          <div class="controller-visualizer-layout" style="background: var(--bg-surface); padding: 18px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+            <!-- Lado Izquierdo: SVG del Gamepad -->
+            <div class="controller-svg-container">
+              <div class="controller-svg-hint">
+                <span>💡 Presiona botones en tu mando físico para iluminarlos en verde esmeralda, o haz clic en cualquier botón del diagrama para cambiar su acción de Minecraft.</span>
+              </div>
+              <div class="controller-svg-wrapper">
+                <svg id="svg-gamepad-main-visualizer" viewBox="0 0 460 300" class="controller-svg" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <filter id="pad-glow-main" x="-20%" y="-20%" width="140%" height="140%">
+                      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.4"/>
+                    </filter>
+                    <linearGradient id="body-grad-main" x1="0%" y1="0%" x2="0%" y2="100%">
+                      <stop offset="0%" stop-color="#2a2e39" />
+                      <stop offset="100%" stop-color="#181b22" />
+                    </linearGradient>
+                  </defs>
+
+                  <path class="pad-body" filter="url(#pad-glow-main)" d="M 140 45 C 90 45, 50 85, 40 160 C 30 230, 75 285, 115 285 C 135 285, 155 260, 185 240 C 215 225, 245 225, 275 240 C 305 260, 325 285, 345 285 C 385 285, 430 230, 420 160 C 410 85, 370 45, 320 45 Z" fill="url(#body-grad-main)" stroke="#374151" stroke-width="2"/>
+
+                  <!-- LT (6) -->
+                  <g class="gamepad-interactive-btn" data-btn-index="6" data-btn-name="LT">
+                    <rect x="80" y="10" width="60" height="25" rx="6" class="btn-shape trigger" />
+                    <text x="110" y="27" class="btn-label" text-anchor="middle">LT</text>
+                  </g>
+                  <!-- RT (7) -->
+                  <g class="gamepad-interactive-btn" data-btn-index="7" data-btn-name="RT">
+                    <rect x="320" y="10" width="60" height="25" rx="6" class="btn-shape trigger" />
+                    <text x="350" y="27" class="btn-label" text-anchor="middle">RT</text>
+                  </g>
+                  <!-- LB (4) -->
+                  <g class="gamepad-interactive-btn" data-btn-index="4" data-btn-name="LB">
+                    <rect x="95" y="38" width="70" height="18" rx="4" class="btn-shape bumper" />
+                    <text x="130" y="52" class="btn-label" text-anchor="middle">LB</text>
+                  </g>
+                  <!-- RB (5) -->
+                  <g class="gamepad-interactive-btn" data-btn-index="5" data-btn-name="RB">
+                    <rect x="295" y="38" width="70" height="18" rx="4" class="btn-shape bumper" />
+                    <text x="330" y="52" class="btn-label" text-anchor="middle">RB</text>
+                  </g>
+                  <!-- Stick Izq (LS/L3 - 10) -->
+                  <g class="gamepad-interactive-btn stick-group" data-btn-index="10" data-btn-name="LS">
+                    <circle cx="140" cy="115" r="28" class="btn-shape stick-base" />
+                    <circle id="main-stick-left-knob" cx="140" cy="115" r="18" class="btn-shape stick-top" />
+                    <text x="140" y="120" class="btn-label small" text-anchor="middle">L3</text>
+                  </g>
+                  <!-- Stick Der (RS/R3 - 11) -->
+                  <g class="gamepad-interactive-btn stick-group" data-btn-index="11" data-btn-name="RS">
+                    <circle cx="275" cy="180" r="28" class="btn-shape stick-base" />
+                    <circle id="main-stick-right-knob" cx="275" cy="180" r="18" class="btn-shape stick-top" />
+                    <text x="275" y="185" class="btn-label small" text-anchor="middle">R3</text>
+                  </g>
+                  <!-- D-Pad -->
+                  <g class="dpad-group">
+                    <path d="M 170 165 h 20 v -20 h 20 v 20 h 20 v 20 h -20 v 20 h -20 v -20 h -20 z" fill="#1b1e24" stroke="#2e3440" stroke-width="1.5" />
+                    <g class="gamepad-interactive-btn" data-btn-index="12" data-btn-name="DPad_Up">
+                      <path d="M 191 164 h 18 v -18 h -18 z" class="btn-shape dpad" />
+                      <path d="M 200 150 L 195 157 L 205 157 Z" fill="#9ca3af" pointer-events="none" />
+                    </g>
+                    <g class="gamepad-interactive-btn" data-btn-index="13" data-btn-name="DPad_Down">
+                      <path d="M 191 186 h 18 v 18 h -18 z" class="btn-shape dpad" />
+                      <path d="M 200 199 L 195 192 L 205 192 Z" fill="#9ca3af" pointer-events="none" />
+                    </g>
+                    <g class="gamepad-interactive-btn" data-btn-index="14" data-btn-name="DPad_Left">
+                      <path d="M 171 166 h 18 v 18 h -18 z" class="btn-shape dpad" />
+                      <path d="M 176 175 L 183 170 L 183 180 Z" fill="#9ca3af" pointer-events="none" />
+                    </g>
+                    <g class="gamepad-interactive-btn" data-btn-index="15" data-btn-name="DPad_Right">
+                      <path d="M 211 166 h 18 v 18 h -18 z" class="btn-shape dpad" />
+                      <path d="M 224 175 L 217 170 L 217 180 Z" fill="#9ca3af" pointer-events="none" />
+                    </g>
+                  </g>
+                  <!-- Botones A, B, X, Y -->
+                  <g class="gamepad-interactive-btn" data-btn-index="0" data-btn-name="A">
+                    <circle cx="335" cy="150" r="14" class="btn-shape action-btn action-a" />
+                    <text x="335" y="155" class="btn-label font-bold text-a" text-anchor="middle">A</text>
+                  </g>
+                  <g class="gamepad-interactive-btn" data-btn-index="1" data-btn-name="B">
+                    <circle cx="365" cy="120" r="14" class="btn-shape action-btn action-b" />
+                    <text x="365" y="125" class="btn-label font-bold text-b" text-anchor="middle">B</text>
+                  </g>
+                  <g class="gamepad-interactive-btn" data-btn-index="2" data-btn-name="X">
+                    <circle cx="305" cy="120" r="14" class="btn-shape action-btn action-x" />
+                    <text x="305" y="125" class="btn-label font-bold text-x" text-anchor="middle">X</text>
+                  </g>
+                  <g class="gamepad-interactive-btn" data-btn-index="3" data-btn-name="Y">
+                    <circle cx="335" cy="90" r="14" class="btn-shape action-btn action-y" />
+                    <text x="335" y="95" class="btn-label font-bold text-y" text-anchor="middle">Y</text>
+                  </g>
+                  <!-- Select / Start -->
+                  <g class="gamepad-interactive-btn" data-btn-index="8" data-btn-name="Select">
+                    <circle cx="205" cy="105" r="9" class="btn-shape center-btn" />
+                    <text x="205" y="108" class="btn-label small" text-anchor="middle">⧉</text>
+                  </g>
+                  <g class="gamepad-interactive-btn" data-btn-index="9" data-btn-name="Start">
+                    <circle cx="255" cy="105" r="9" class="btn-shape center-btn" />
+                    <text x="255" y="108" class="btn-label small" text-anchor="middle">≡</text>
+                  </g>
+                  <circle cx="230" cy="75" r="14" fill="#1e293b" stroke="#3b82f6" stroke-width="2" opacity="0.9" />
+                  <text x="230" y="80" fill="#60a5fa" font-size="11" font-weight="bold" text-anchor="middle">S</text>
+                </svg>
+              </div>
+            </div>
+
+            <!-- Lado Derecho: Asignación de Teclas & Acciones -->
+            <div class="controller-mapping-list-panel">
+              <div class="mapping-list-header">
+                <h4 style="margin: 0; font-size: 13px; font-weight: 600;">Acciones de Minecraft Asignadas</h4>
+                <span id="controller-view-preset-tag" class="badge-preset">Xbox Standard</span>
+              </div>
+              <div id="controller-view-bindings-grid" class="controller-bindings-grid">
+                <!-- Inyectado dinámicamente -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- VISTA 5: JAVA Y AJUSTES -->
       <section id="view-settings" class="view-panel view-container hidden">
         <div class="view-toolbar">
@@ -2433,18 +2652,18 @@
 
   <!-- MODAL: CAMBIAR IP DE SERVIDOR MONITORIZADO -->
   <div id="modal-edit-monitored-server" class="modal-overlay" style="display: none;">
-    <div class="modal-content card" style="max-width: 440px;">
+    <div class="modal-content card" style="max-width: 460px;">
       <div class="modal-header" style="display: flex; align-items: center; justify-content: space-between;">
-        <h3 class="modal-title" style="margin: 0;">⚙ Configurar Servidor a Monitorizar</h3>
+        <h3 class="modal-title" style="margin: 0;">⚙ Configurar Servidor Favorito</h3>
         <button id="btn-close-edit-monitor-modal" class="btn btn-small close-btn">✕</button>
       </div>
       <div class="modal-body" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 12px;">
         <p style="margin: 0; font-size: 13px; color: var(--text-secondary);">
-          Introduce la IP o dominio de tu servidor de Minecraft favorito (o la IP generada por PlayIt) para ver en vivo su estado, ping y jugadores en la pantalla de la instancia.
+          Introduce la dirección o dominio de tu servidor de Minecraft favorito (ej: <code>play.mi-servidor.com</code> o túnel de PlayIt). El puerto 25565 y la resolución SRV son automáticos si no especificas puerto.
         </p>
         <div class="form-group">
-          <label for="input-target-server-ip" style="font-size: 12.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px; display: block;">Dirección del Servidor (IP:Puerto):</label>
-          <input type="text" id="input-target-server-ip" class="text-input" placeholder="Ej: 127.0.0.1:25565 o play.mi-servidor.com" style="width: 100%; font-family: var(--font-mono); font-weight: 600;" />
+          <label for="input-target-server-ip" style="font-size: 12.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px; display: block;">Dirección del Servidor (IP o Dominio):</label>
+          <input type="text" id="input-target-server-ip" class="text-input" placeholder="Ej: mi-servidor.playit.gg o 127.0.0.1:25565 (Puerto 25565 opcional)" style="width: 100%; font-family: var(--font-mono); font-weight: 600;" />
         </div>
       </div>
       <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; padding-top: 10px;">
@@ -2452,6 +2671,34 @@
         <button id="btn-save-target-server" class="btn btn-primary">
           <span>Guardar y Comprobar</span>
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: DETALLES DE ANUNCIOS Y NOVEDADES (VENTANA INTERNA) -->
+  <div id="modal-news-detail" class="modal-overlay" style="display: none;">
+    <div class="modal-content card" style="max-width: 580px;">
+      <div class="modal-header" style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 12px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 18px;">📰</span>
+          <h3 id="news-detail-title" class="modal-title" style="margin: 0; font-size: 15px; font-weight: 700;">Novedades de ShubaCore</h3>
+        </div>
+        <button id="btn-close-news-detail-modal" class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; max-height: 420px; overflow-y: auto;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span id="news-detail-badge" class="badge badge-primary">LANZAMIENTO</span>
+          <span id="news-detail-date" style="font-size: 11.5px; color: var(--text-dim);">11 Nov 2026</span>
+          <span id="news-detail-author" style="font-size: 11.5px; color: var(--text-muted);">· SHUBATECH Core Team</span>
+        </div>
+        <div id="news-detail-summary" style="font-size: 13px; color: var(--text-primary); line-height: 1.5;"></div>
+        <div id="news-detail-changelog-wrap" style="display: flex; flex-direction: column; gap: 6px; margin-top: 6px; background: rgba(0,0,0,0.25); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+          <strong style="font-size: 12px; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.5px;">Lista de Cambios (Changelog):</strong>
+          <ul id="news-detail-changelog-list" style="margin: 4px 0 0; padding-left: 18px; font-size: 12px; color: var(--text-secondary); line-height: 1.6;"></ul>
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px; border-top: 1px solid rgba(255, 255, 255, 0.08);">
+        <button id="btn-dismiss-news-detail" class="btn btn-primary btn-small">Cerrar</button>
       </div>
     </div>
   </div>
