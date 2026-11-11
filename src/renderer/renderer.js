@@ -2027,16 +2027,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       // Comprobar actualización disponible
       const modUpdate = activeAvailableUpdates.find((u) => u.currentFileName === rawFileName || (u.projectId && String(u.projectId) === String(mod.projectId)));
-      const updateBadge = modUpdate ? '<span class="badge badge-update">¡Actualización!</span>' : '';
-      const curV = modUpdate ? (modUpdate.currentVersion || mod.versionNumber || 'Actual') : '';
-      const newV = modUpdate ? (modUpdate.latestFile.versionNumber || modUpdate.latestFile.displayName || 'Nueva') : '';
-      const versionDiffHtml = modUpdate
-        ? `<span class="mod-version-diff" title="Versión instalada vs versión más reciente">v${escapeHtml(curV)} ➔ v${escapeHtml(newV)}</span>`
-        : '';
+      let cleanNewV = '';
+      if (modUpdate) {
+        const rawNew = (modUpdate.latestFile.versionNumber || modUpdate.latestFile.displayName || '').trim();
+        cleanNewV = rawNew.replace(/^v+/i, '').trim();
+      }
       const updateBtn = modUpdate
-        ? `<button class="btn btn-small btn-update-mod" data-filename="${escapeHtml(rawFileName)}" title="Actualizar a la versión ${escapeHtml(newV)}">
-             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
-             <span>Actualizar</span>
+        ? `<button class="btn btn-small btn-update-mod" data-filename="${escapeHtml(rawFileName)}" title="Actualizar a la versión ${escapeHtml(cleanNewV ? 'v' + cleanNewV : 'más reciente')}">
+             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+             <span>Actualizar${cleanNewV ? ' a v' + escapeHtml(cleanNewV) : ''}</span>
            </button>`
         : '';
 
@@ -2080,14 +2079,27 @@ document.addEventListener('DOMContentLoaded', async () => {
               ${mod.sizeFormatted ? `<span class="badge badge-idle">${escapeHtml(mod.sizeFormatted)}</span>` : ''}
             </div>
             <div class="grid-card-actions">
-              ${updateBadge}
-              ${versionDiffHtml}
               ${updateBtn}
               ${inspectBtn}
               ${deleteBtn}
             </div>
           </div>
         `;
+        card.addEventListener('click', (e) => {
+          if (e.target.closest('.switch-container') || e.target.closest('.btn-update-mod') || e.target.closest('.btn-delete-mod')) {
+            return;
+          }
+          openModDetailModal({
+            id: mod.projectId,
+            source: source,
+            title: modTitle,
+            iconUrl: mod.iconUrl,
+            author: mod.author,
+            summary: mod.summary || mod.description || '',
+            fileName: rawFileName,
+            sizeFormatted: mod.sizeFormatted
+          });
+        });
         modsInstalledList.appendChild(card);
       } else {
         const row = document.createElement('div');
@@ -2111,14 +2123,27 @@ document.addEventListener('DOMContentLoaded', async () => {
             </div>
           </div>
           <div class="installed-mod-right">
-            ${updateBadge}
-            ${versionDiffHtml}
             ${updateBtn}
             <span class="badge ${sourceClass}">${sourceLabel}</span>
             ${inspectBtn}
             ${deleteBtn}
           </div>
         `;
+        row.addEventListener('click', (e) => {
+          if (e.target.closest('.switch-container') || e.target.closest('.btn-update-mod') || e.target.closest('.btn-delete-mod')) {
+            return;
+          }
+          openModDetailModal({
+            id: mod.projectId,
+            source: source,
+            title: modTitle,
+            iconUrl: mod.iconUrl,
+            author: mod.author,
+            summary: mod.summary || mod.description || '',
+            fileName: rawFileName,
+            sizeFormatted: mod.sizeFormatted
+          });
+        });
         modsInstalledList.appendChild(row);
       }
     });
@@ -2126,6 +2151,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Eventos de botones
     modsInstalledList.querySelectorAll('.btn-update-mod').forEach((btn) => {
       btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
         const fn = e.currentTarget.getAttribute('data-filename');
         const modUp = activeAvailableUpdates.find((u) => u.currentFileName === fn);
         if (!modUp) return;
@@ -2167,7 +2193,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
     });
 
+    modsInstalledList.querySelectorAll('.switch-container').forEach((sw) => {
+      sw.addEventListener('click', (e) => e.stopPropagation());
+    });
+
     modsInstalledList.querySelectorAll('.mod-toggle-check').forEach((chk) => {
+      chk.addEventListener('click', (e) => e.stopPropagation());
       chk.addEventListener('change', async (e) => {
         const fn = e.target.getAttribute('data-filename');
         const enabled = e.target.checked;
@@ -2180,6 +2211,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     modsInstalledList.querySelectorAll('.btn-inspect-mod').forEach((btn) => {
       btn.addEventListener('click', (e) => {
+        e.stopPropagation();
         const b = e.currentTarget;
         openModDetailModal({
           id: b.getAttribute('data-projectid'),
@@ -2194,6 +2226,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     modsInstalledList.querySelectorAll('.btn-delete-mod').forEach((btn) => {
       btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
         const fn = e.currentTarget.getAttribute('data-filename');
         if (confirm(`¿Eliminar el mod "${fn}" de la instancia?`)) {
           await api.mods.delete(fn, targetInstance);
@@ -2299,14 +2332,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       btnCheckModUpdates.disabled = true;
       const originalHtml = btnCheckModUpdates.innerHTML;
       btnCheckModUpdates.innerHTML = '<span>Buscando...</span>';
-      appendLog('[Mods] Comprobando versiones compatibles más recientes en CurseForge y Modrinth...', 'info');
+      const channel = document.getElementById('select-update-channel')?.value || 'release';
+      appendLog(`[Mods] Comprobando versiones compatibles más recientes en CurseForge y Modrinth (Canal: ${channel.toUpperCase()})...`, 'info');
 
       try {
         const targetInstance = currentActiveProfile?.instancePath || null;
         const res = await api.mods.checkUpdates({
           instancePath: targetInstance,
           mcVersion: currentActiveProfile?.mcVersion,
-          loader: currentActiveProfile?.loader
+          loader: currentActiveProfile?.loader,
+          channel
         });
 
         activeAvailableUpdates = res.updates || [];
@@ -2343,24 +2378,35 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  const selectUpdateChannel = document.getElementById('select-update-channel');
+  if (selectUpdateChannel) {
+    selectUpdateChannel.addEventListener('change', () => {
+      if (btnCheckModUpdates && !btnCheckModUpdates.disabled) {
+        btnCheckModUpdates.click();
+      }
+    });
+  }
+
   if (btnUpdateAllMods) {
     btnUpdateAllMods.addEventListener('click', async () => {
       const targetInstance = currentActiveProfile?.instancePath || null;
       const mcVer = currentActiveProfile?.mcVersion || '1.21.1';
       const loader = currentActiveProfile?.loader || 'neoforge';
+      const channel = document.getElementById('select-update-channel')?.value || 'release';
 
       // 1. Si el usuario hace clic sin haber escaneado previamente, ejecutar escaneo primero
       if (!activeAvailableUpdates || activeAvailableUpdates.length === 0) {
         btnUpdateAllMods.disabled = true;
         const originalBtnHtml = btnUpdateAllMods.innerHTML;
         btnUpdateAllMods.innerHTML = '<span>Buscando...</span>';
-        appendLog('[Mods] Comprobando versiones compatibles más recientes en CurseForge y Modrinth...', 'info');
+        appendLog(`[Mods] Comprobando versiones compatibles más recientes en CurseForge y Modrinth (Canal: ${channel.toUpperCase()})...`, 'info');
 
         try {
           const res = await api.mods.checkUpdates({
             instancePath: targetInstance,
             mcVersion: mcVer,
-            loader: loader
+            loader: loader,
+            channel
           });
 
           activeAvailableUpdates = res.updates || [];
@@ -2423,7 +2469,8 @@ document.addEventListener('DOMContentLoaded', async () => {
           updates: activeAvailableUpdates,
           instancePath: targetInstance,
           mcVersion: mcVer,
-          loader: loader
+          loader: loader,
+          channel
         });
 
         appendLog(`[Mods] ¡Actualización en lote completada! ${res.updatedCount} mods actualizados con éxito.`, 'success');
@@ -2781,9 +2828,35 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (detailVersionsCount) detailVersionsCount.textContent = '...';
     if (detailCompatBadge) detailCompatBadge.textContent = `Minecraft ${mcVersion} (${loader.toUpperCase()})`;
 
+    // Si es un mod local o personalizado sin ID público en CurseForge o Modrinth
+    const targetProjId = item.id || item.projectId || item.slug;
+    if (!targetProjId || targetProjId === 'undefined' || item.source === 'custom') {
+      if (detailModBody) {
+        detailModBody.innerHTML = `
+          <div class="empty-state" style="padding: 24px; text-align: left;">
+            <h4 style="margin-bottom: 8px; color: var(--text-primary); font-size: 15px;">Mod Local / Personalizado</h4>
+            <p style="color: var(--text-muted); font-size: 13px; line-height: 1.5;">
+              Este archivo (<strong>${escapeHtml(item.fileName || item.title || 'mod.jar')}</strong>) fue instalado manualmente en la carpeta <code>mods/</code> de la instancia y no posee una ficha pública en CurseForge o Modrinth.
+            </p>
+            <div style="margin-top: 14px; font-size: 12px; color: var(--text-dim); display: flex; gap: 16px;">
+              <span><strong>Archivo:</strong> ${escapeHtml(item.fileName || 'desconocido.jar')}</span>
+              ${item.sizeFormatted ? `<span><strong>Tamaño:</strong> ${escapeHtml(item.sizeFormatted)}</span>` : ''}
+              ${item.author ? `<span><strong>Autor:</strong> ${escapeHtml(item.author)}</span>` : ''}
+            </div>
+          </div>
+        `;
+      }
+      if (detailGalleryContainer) detailGalleryContainer.style.display = 'none';
+      if (detailVersionsList) {
+        detailVersionsList.innerHTML = '<div class="empty-state">No hay versiones remotas para mods personalizados locales.</div>';
+      }
+      if (detailVersionsCount) detailVersionsCount.textContent = '0';
+      return;
+    }
+
     try {
       const details = await api.mods.getProjectDetails({
-        projectId: item.id || item.slug,
+        projectId: targetProjId,
         source: item.source,
         mcVersion,
         loader
@@ -2829,95 +2902,117 @@ document.addEventListener('DOMContentLoaded', async () => {
       const targetInstance = currentActiveProfile?.instancePath || null;
       const installedMods = await api.mods.listInstalled(targetInstance);
       const installedMatch = installedMods.find((m) =>
-        (m.projectId && String(m.projectId) === String(item.id)) ||
+        (m.projectId && String(m.projectId) === String(targetProjId)) ||
         (m.name && m.name.toLowerCase() === (item.title || '').toLowerCase())
       );
 
-      // Renderizar versiones y archivos
-      const files = details.files || [];
-      detailVersionsCount.textContent = files.length;
+      // Renderizar versiones y archivos con filtrado dinámico por canal
+      const allFiles = details.files || [];
 
-      if (files.length === 0) {
-        detailVersionsList.innerHTML = `<div class="empty-state">No hay versiones específicas para Minecraft ${mcVersion} (${loader.toUpperCase()}).</div>`;
-        return;
+      function renderDetailVersions(channel = 'release') {
+        const cLow = (channel || 'release').toLowerCase();
+        let filteredFiles = allFiles;
+        if (cLow === 'release') {
+          filteredFiles = allFiles.filter((f) => (f.releaseType || '').toLowerCase() === 'release');
+        } else if (cLow === 'beta') {
+          filteredFiles = allFiles.filter((f) => {
+            const rt = (f.releaseType || '').toLowerCase();
+            return rt === 'release' || rt === 'beta';
+          });
+        }
+        detailVersionsCount.textContent = filteredFiles.length;
+
+        if (filteredFiles.length === 0) {
+          detailVersionsList.innerHTML = `<div class="empty-state">No hay versiones en el canal "${cLow.toUpperCase()}" para Minecraft ${mcVersion} (${loader.toUpperCase()}).</div>`;
+          return;
+        }
+
+        detailVersionsList.innerHTML = '';
+        filteredFiles.forEach((f) => {
+          const row = document.createElement('div');
+          row.className = 'version-row-item';
+
+          const isCurrent = installedMatch && (
+            (f.fileId && String(f.fileId) === String(installedMatch.fileId)) ||
+            (f.fileName && f.fileName === installedMatch.fileName)
+          );
+
+          const badgeTypeClass = f.releaseType === 'Release' ? 'badge-release' : (f.releaseType === 'Beta' ? 'badge-beta' : 'badge-alpha');
+
+          row.innerHTML = `
+            <div class="version-row-left">
+              <div class="version-row-title">
+                <span>${escapeHtml(f.displayName || f.versionNumber || f.fileName)}</span>
+                <span class="${badgeTypeClass}">${escapeHtml(f.releaseType)}</span>
+              </div>
+              <div class="version-row-meta">
+                <span>${escapeHtml(f.fileName)}</span>
+                ${f.sizeFormatted ? ` • <span>${escapeHtml(f.sizeFormatted)}</span>` : ''}
+                ${f.releaseDate ? ` • <span>${escapeHtml(f.releaseDate)}</span>` : ''}
+              </div>
+            </div>
+            <div class="version-row-right">
+              ${isCurrent
+                ? '<span class="badge-installed-now">✔ Instalada actualmente</span>'
+                : `<button class="btn btn-small btn-secondary btn-install-ver" data-fileid="${escapeHtml(f.fileId)}" data-filename="${escapeHtml(f.fileName)}" data-display="${escapeHtml(f.displayName || f.fileName)}" data-version="${escapeHtml(f.versionNumber || '')}" data-url="${escapeHtml(f.downloadUrl || '')}">Instalar esta versión</button>`
+              }
+            </div>
+          `;
+          detailVersionsList.appendChild(row);
+        });
+
+        detailVersionsList.querySelectorAll('.btn-install-ver').forEach((btn) => {
+          btn.addEventListener('click', async (e) => {
+            const b = e.currentTarget;
+            const fileId = b.getAttribute('data-fileid');
+            const fileName = b.getAttribute('data-filename');
+            const displayName = b.getAttribute('data-display');
+            const versionNumber = b.getAttribute('data-version');
+            const downloadUrl = b.getAttribute('data-url');
+
+            b.disabled = true;
+            b.textContent = 'Instalando...';
+            appendLog(`[Versión] Instalando versión "${displayName}" (${fileName})...`, 'info');
+
+            try {
+              const installRes = await api.mods.installVersion({
+                projectId: targetProjId,
+                source: item.source,
+                fileId,
+                downloadUrl,
+                fileName,
+                displayName,
+                versionNumber,
+                instancePath: targetInstance,
+                mcVersion,
+                loader
+              });
+
+              if (installRes.success) {
+                appendLog(`[Versión] ¡Mod "${displayName}" instalado exitosamente!`, 'success');
+                await openModDetailModal(item);
+                if (tabDetailVersions) tabDetailVersions.click();
+              } else {
+                throw new Error(installRes.error || 'Error al instalar versión.');
+              }
+            } catch (err) {
+              appendLog(`[Versión Error] ${err.message}`, 'error');
+              alert(`Error al instalar versión: ${err.message}`);
+              b.disabled = false;
+              b.textContent = 'Instalar esta versión';
+            }
+          });
+        });
       }
 
-      detailVersionsList.innerHTML = '';
-      files.forEach((f) => {
-        const row = document.createElement('div');
-        row.className = 'version-row-item';
-
-        const isCurrent = installedMatch && (
-          (f.fileId && String(f.fileId) === String(installedMatch.fileId)) ||
-          (f.fileName && f.fileName === installedMatch.fileName)
-        );
-
-        const badgeTypeClass = f.releaseType === 'Release' ? 'badge-release' : (f.releaseType === 'Beta' ? 'badge-beta' : 'badge-alpha');
-
-        row.innerHTML = `
-          <div class="version-row-left">
-            <div class="version-row-title">
-              <span>${escapeHtml(f.displayName || f.versionNumber || f.fileName)}</span>
-              <span class="${badgeTypeClass}">${escapeHtml(f.releaseType)}</span>
-            </div>
-            <div class="version-row-meta">
-              <span>${escapeHtml(f.fileName)}</span>
-              ${f.sizeFormatted ? ` • <span>${escapeHtml(f.sizeFormatted)}</span>` : ''}
-              ${f.releaseDate ? ` • <span>${escapeHtml(f.releaseDate)}</span>` : ''}
-            </div>
-          </div>
-          <div class="version-row-right">
-            ${isCurrent
-              ? '<span class="badge-installed-now">✔ Instalada actualmente</span>'
-              : `<button class="btn btn-small btn-secondary btn-install-ver" data-fileid="${escapeHtml(f.fileId)}" data-filename="${escapeHtml(f.fileName)}" data-display="${escapeHtml(f.displayName || f.fileName)}" data-version="${escapeHtml(f.versionNumber || '')}" data-url="${escapeHtml(f.downloadUrl || '')}">Instalar esta versión</button>`
-            }
-          </div>
-        `;
-        detailVersionsList.appendChild(row);
-      });
-
-      detailVersionsList.querySelectorAll('.btn-install-ver').forEach((btn) => {
-        btn.addEventListener('click', async (e) => {
-          const b = e.currentTarget;
-          const fileId = b.getAttribute('data-fileid');
-          const fileName = b.getAttribute('data-filename');
-          const displayName = b.getAttribute('data-display');
-          const versionNumber = b.getAttribute('data-version');
-          const downloadUrl = b.getAttribute('data-url');
-
-          b.disabled = true;
-          b.textContent = 'Instalando...';
-          appendLog(`[Versión] Instalando versión "${displayName}" (${fileName})...`, 'info');
-
-          try {
-            const installRes = await api.mods.installVersion({
-              projectId: item.id || item.slug,
-              source: item.source,
-              fileId,
-              downloadUrl,
-              fileName,
-              displayName,
-              versionNumber,
-              instancePath: targetInstance,
-              mcVersion,
-              loader
-            });
-
-            if (installRes.success) {
-              appendLog(`[Versión] ¡Mod "${displayName}" instalado exitosamente!`, 'success');
-              await openModDetailModal(item);
-              if (tabDetailVersions) tabDetailVersions.click();
-            } else {
-              throw new Error(installRes.error || 'Error al instalar versión.');
-            }
-          } catch (err) {
-            appendLog(`[Versión Error] ${err.message}`, 'error');
-            alert(`Error al instalar versión: ${err.message}`);
-            b.disabled = false;
-            b.textContent = 'Instalar esta versión';
-          }
-        });
-      });
+      const selectDetailChannel = document.getElementById('select-detail-channel');
+      if (selectDetailChannel) {
+        selectDetailChannel.value = 'release';
+        selectDetailChannel.onchange = () => {
+          renderDetailVersions(selectDetailChannel.value);
+        };
+      }
+      renderDetailVersions('release');
     } catch (err) {
       detailModBody.innerHTML = `<div class="empty-state" style="color: var(--accent-danger);">Error al cargar detalles: ${err.message}</div>`;
       detailVersionsList.innerHTML = `<div class="empty-state" style="color: var(--accent-danger);">Error al cargar versiones: ${err.message}</div>`;

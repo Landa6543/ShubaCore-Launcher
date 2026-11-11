@@ -617,7 +617,8 @@ function registerIpcHandlers(mainWindow) {
       const targetInstance = options.instancePath || (activeProf ? activeProf.instancePath : profileManager.getActiveInstancePath());
       const mcVer = options.mcVersion || (activeProf ? activeProf.mcVersion : '1.21.1');
       const loader = options.loader || (activeProf ? activeProf.loader : 'neoforge');
-      return await modManager.checkForModUpdates(targetInstance, mcVer, loader);
+      const channel = options.channel || 'release';
+      return await modManager.checkForModUpdates(targetInstance, mcVer, loader, channel);
     } catch (err) {
       logger.error('Error en mods:check-updates IPC:', err);
       return { updates: [], count: 0, error: err.message };
@@ -630,8 +631,10 @@ function registerIpcHandlers(mainWindow) {
       const targetInstance = options.instancePath || (activeProf ? activeProf.instancePath : profileManager.getActiveInstancePath());
       const mcVer = options.mcVersion || (activeProf ? activeProf.mcVersion : '1.21.1');
       const loader = options.loader || (activeProf ? activeProf.loader : 'neoforge');
+      const channel = options.channel || 'release';
       return await modManager.updateAllMods({
         ...options,
+        channel,
         instancePath: targetInstance,
         mcVersion: mcVer,
         loader,

@@ -641,7 +641,7 @@ class ModManager {
     return record;
   }
 
-  async _resolveModrinthFile(projectId, mcVersion, loader = null) {
+  async _resolveModrinthFile(projectId, mcVersion, loader = null, channel = 'release') {
     let url = `${MODRINTH_API_URL}/project/${projectId}/version`;
     const queryParams = [];
     if (mcVersion) queryParams.push(`game_versions=["${mcVersion}"]`);
@@ -665,6 +665,17 @@ class ModManager {
 
     if (!versions || versions.length === 0) {
       return null;
+    }
+
+    const candidateChannel = (channel || 'release').toLowerCase();
+    if (candidateChannel !== 'all') {
+      const filteredByChannel = versions.filter((v) => {
+        const vt = (v.version_type || 'release').toLowerCase();
+        if (candidateChannel === 'release') return vt === 'release';
+        if (candidateChannel === 'beta') return vt === 'release' || vt === 'beta';
+        return true;
+      });
+      if (filteredByChannel.length > 0) versions = filteredByChannel;
     }
 
     const selectedVersion = versions[0];
@@ -1901,12 +1912,26 @@ class ModManager {
   // DETECCIÓN Y ACTUALIZACIÓN DE MODS
   // =========================================================================
 
-  async checkForModUpdates(instancePath = null, mcVersion = '1.21.1', loader = 'neoforge') {
+  async checkForModUpdates(instancePath = null, mcVersion = '1.21.1', loader = 'neoforge', channel = 'release') {
     const activeInstance = instancePath || this.configManager.getInstanceDirectory();
     const modsDir = path.join(activeInstance, 'mods');
     if (!fs.existsSync(modsDir)) {
       return { updates: [], count: 0 };
     }
+
+    const candidateChannel = (channel || 'release').toLowerCase();
+    const isChannelMatch = (relType) => {
+      if (!relType) return true;
+      if (typeof relType === 'number') {
+        if (candidateChannel === 'release') return relType === 1;
+        if (candidateChannel === 'beta') return relType <= 2;
+        return true;
+      }
+      const str = String(relType).toLowerCase();
+      if (candidateChannel === 'release') return str === 'release';
+      if (candidateChannel === 'beta') return str === 'release' || str === 'beta';
+      return true;
+    };
 
     // 1. Sincronizar mods físicos en disco con mods-lock.json
     this.scanAndSyncMods(activeInstance);
@@ -1922,7 +1947,7 @@ class ModManager {
     }
     const modsList = Object.values(lockData.mods || {});
 
-    logger.info(`[CheckUpdates] Buscando actualizaciones para ${modsList.length} mods en MC ${mcVersion} (${loader})...`);
+    logger.info(`[CheckUpdates] Buscando actualizaciones (canal: ${candidateChannel}) para ${modsList.length} mods en MC ${mcVersion} (${loader})...`);
 
     // 2. Calcular SHA1 y CurseForge Fingerprint (MurmurHash2 32-bit normalizado) de cada archivo .jar físico en disco
     const sha1ToMod = new Map();
@@ -2225,7 +2250,7 @@ class ModManager {
                 return false;
               };
 
-              const mcMatches = indexes.filter((f) => isGameVerMatch(f.gameVersion));
+              const mcMatches = indexes.filter((f) => isGameVerMatch(f.gameVersion) && isChannelMatch(f.releaseType));
 
               // Buscar candidatos según modLoader con orden de prioridad
               let candidates = [];
@@ -2256,6 +2281,7 @@ class ModManager {
               if (candidates.length === 0 && Array.isArray(cfMod.latestFiles) && cfMod.latestFiles.length > 0) {
                 const lfMatches = cfMod.latestFiles.filter((lf) => {
                   if (!lf || !lf.fileName) return false;
+                  if (!isChannelMatch(lf.releaseType)) return false;
                   const gvs = lf.gameVersions || [];
                   const hasMc = gvs.some((gv) => isGameVerMatch(gv));
                   if (!hasMc) return false;
@@ -2358,6 +2384,9 @@ class ModManager {
         for (const item of pendingCfUpdates) {
           const { installedMod, cfMod, candidateFileId, candidateFileName } = item;
           const fileDetail = cfFilesDetailsMap.get(candidateFileId);
+          if (fileDetail && !isChannelMatch(fileDetail.releaseType)) {
+            continue;
+          }
           const finalFileName = fileDetail?.fileName || candidateFileName;
           const downloadUrl = (fileDetail && fileDetail.downloadUrl)
             ? fileDetail.downloadUrl
@@ -2411,6 +2440,10 @@ class ModManager {
             const targetMod = sha1ToMod.get(sha1);
             if (!targetMod) continue;
 
+            const vType = (newVer.version_type || 'release').toLowerCase();
+            if (candidateChannel === 'release' && vType !== 'release') continue;
+            if (candidateChannel === 'beta' && vType !== 'release' && vType !== 'beta') continue;
+
             const primaryFile = newVer.files.find((f) => f.primary) || newVer.files[0];
             if (!primaryFile || !primaryFile.url) continue;
 
@@ -2451,7 +2484,7 @@ class ModManager {
     const modrinthModsToCheck = modsList.filter((m) => m.source === 'modrinth' && m.projectId && !updatesMap.has(m.fileName));
     for (const m of modrinthModsToCheck.slice(0, 30)) {
       try {
-        const latest = await this._resolveModrinthFile(m.projectId, mcVersion, normalizedLoader);
+        const latest = await this._resolveModrinthFile(m.projectId, mcVersion, normalizedLoader, candidateChannel);
         if (latest && latest.downloadUrl) {
           const isDifferentFile = (latest.fileId && m.fileId && String(latest.fileId) !== String(m.fileId)) ||
                                   (latest.fileName && latest.fileName !== m.fileName);
@@ -2485,8 +2518,12 @@ class ModManager {
     return { updates, count: updates.length };
   }
 
-  async updateAllMods({ updates = [], instancePath = null, mcVersion = '1.21.1', loader = 'neoforge', onProgress = null }) {
+  async updateAllMods({ updates = [], instancePath = null, mcVersion = '1.21.1', loader = 'neoforge', channel = 'release', onProgress = null }) {
     const activeInstance = instancePath || this.configManager.getInstanceDirectory();
+    if (!updates || updates.length === 0) {
+      const scanRes = await this.checkForModUpdates(activeInstance, mcVersion, loader, channel);
+      updates = scanRes.updates || [];
+    }
     const results = [];
     let updatedCount = 0;
 
