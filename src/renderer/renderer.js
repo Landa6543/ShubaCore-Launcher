@@ -1101,6 +1101,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  // Activa un perfil y refresca el dock y listado de instancias de forma segura
+  async function switchActiveProfile(id) {
+    if (!id) return;
+    try {
+      await api.profiles.setActive(id);
+      await loadProfiles();
+    } catch (err) {
+      console.warn('Error al activar perfil:', err);
+    }
+  }
+
   // Importar archivo .shubapack
   if (btnImportShubapack) {
     btnImportShubapack.addEventListener('click', async () => {
@@ -1145,12 +1156,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
           if (installRes.success) {
             appendLog(`[Modpacks] ¡Modpack "${installRes.name}" importado con éxito! Se instalaron ${installRes.filesCount || 0} archivos.`, 'success');
-            await loadProfiles();
-            const newProfileId = installRes.profile?.id;
-            if (newProfileId) {
-              await switchActiveProfile(newProfileId);
+            try {
+              const newProfileId = installRes.profile?.id;
+              if (newProfileId) {
+                await api.profiles.setActive(newProfileId);
+              }
+              await loadProfiles();
+              switchMainView('profiles');
+            } catch (uiErr) {
+              console.warn('[Modpack UI] Advertencia al refrescar vista de instancias:', uiErr);
+              appendLog(`[Modpack UI] Advertencia al refrescar vista de instancias: ${uiErr.message}`, 'warn');
             }
-            switchMainView('profiles');
           } else {
             throw new Error(installRes.error || 'Error al procesar el modpack.');
           }
@@ -2495,12 +2511,17 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const packName = res.profile?.name || res.item?.profile?.name || itemTitle;
                 appendLog(`[Modpack] ¡Modpack "${packName}" instalado con éxito como nueva instancia!`, 'success');
                 target.textContent = 'Instalado';
-                await loadProfiles();
-                const newProfileId = res.profile?.id || res.item?.profile?.id;
-                if (newProfileId) {
-                  await switchActiveProfile(newProfileId);
+                try {
+                  const newProfileId = res.profile?.id || res.item?.profile?.id;
+                  if (newProfileId) {
+                    await api.profiles.setActive(newProfileId);
+                  }
+                  await loadProfiles();
+                  switchMainView('profiles');
+                } catch (uiErr) {
+                  console.warn('[Modpack UI] Advertencia al refrescar vista de instancias:', uiErr);
+                  appendLog(`[Modpack UI] Advertencia al refrescar vista de instancias: ${uiErr.message}`, 'warn');
                 }
-                switchMainView('profiles');
               } else {
                 appendLog(`[Descarga] ¡"${itemTitle}" instalado con éxito! Archivo: ${res.fileName}`, 'success');
                 target.textContent = 'Instalado';
