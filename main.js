@@ -104,6 +104,15 @@ function createMainWindow() {
     logger.warn('Aviso al inicializar Discord RPC:', rpcErr.message);
   }
 
+  // Asegurar cierre limpio de servidores dedicados al salir
+  try {
+    const { getServerManager } = require('./src/main/servers/ServerManager');
+    const serverManager = getServerManager();
+    app.on('will-quit', () => {
+      serverManager.killAllServers();
+    });
+  } catch (_) {}
+
   // Inicializar Icono en la Bandeja del Sistema de Windows (System Tray)
   setupSystemTray();
 

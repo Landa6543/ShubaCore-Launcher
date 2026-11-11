@@ -23,6 +23,7 @@ const { getGitHubModsManager } = require('../github/GitHubModsManager');
 const { getProfileSyncManager } = require('../sync/ProfileSyncManager');
 const { getInstancePacksManager } = require('../packs/InstancePacksManager');
 const { getWorldManager } = require('../worlds/WorldManager');
+const { getServerManager } = require('../servers/ServerManager');
 const { defaultLogger: logger } = require('../utils/logger');
 
 function registerIpcHandlers(mainWindow) {
@@ -38,6 +39,8 @@ function registerIpcHandlers(mainWindow) {
   const profileSyncManager = getProfileSyncManager();
   const instancePacksManager = getInstancePacksManager();
   const worldManager = getWorldManager();
+  const serverManager = getServerManager();
+  serverManager.setMainWindow(mainWindow);
 
   // Estado de visibilidad de la pestaña de consola para evitar IPC flood y backpressure
   let isConsoleTabVisible = false;
@@ -1187,6 +1190,128 @@ function registerIpcHandlers(mainWindow) {
       return await worldManager.openWorldFolder(inst, folderName);
     } catch (err) {
       logger.error('Error en worlds:open-folder IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  // ==========================================
+  // SERVIDORES DEDICADOS LOCALES (HOST LOCAL)
+  // ==========================================
+  ipcMain.handle('servers:list', async () => {
+    try {
+      return await serverManager.listServers();
+    } catch (err) {
+      logger.error('Error en servers:list IPC:', err);
+      return [];
+    }
+  });
+
+  ipcMain.handle('servers:get', async (event, id) => {
+    try {
+      return await serverManager.getServer(id);
+    } catch (err) {
+      logger.error('Error en servers:get IPC:', err);
+      return null;
+    }
+  });
+
+  ipcMain.handle('servers:create', async (event, options) => {
+    try {
+      return await serverManager.createServer(options);
+    } catch (err) {
+      logger.error('Error en servers:create IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('servers:start', async (event, id) => {
+    try {
+      return await serverManager.startServer(id);
+    } catch (err) {
+      logger.error('Error en servers:start IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('servers:stop', async (event, id) => {
+    try {
+      return await serverManager.stopServer(id);
+    } catch (err) {
+      logger.error('Error en servers:stop IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('servers:send-command', async (event, { id, command }) => {
+    try {
+      return await serverManager.sendCommand(id, command);
+    } catch (err) {
+      logger.error('Error en servers:send-command IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('servers:get-properties', async (event, id) => {
+    try {
+      return await serverManager.getProperties(id);
+    } catch (err) {
+      logger.error('Error en servers:get-properties IPC:', err);
+      return {};
+    }
+  });
+
+  ipcMain.handle('servers:save-properties', async (event, { id, properties }) => {
+    try {
+      return await serverManager.saveProperties(id, properties);
+    } catch (err) {
+      logger.error('Error en servers:save-properties IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('servers:sync-mods', async (event, { id, instancePath, copyConfigs }) => {
+    try {
+      return await serverManager.syncModsFromInstance(id, instancePath, { copyConfigs });
+    } catch (err) {
+      logger.error('Error en servers:sync-mods IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('servers:select-export-zip', async (event, serverName) => {
+    const defaultName = `${(serverName || 'Servidor').replace(/[^a-zA-Z0-9_-]/g, '_')}_ServerPack.zip`;
+    const res = await dialog.showSaveDialog(mainWindow, {
+      title: 'Exportar Pack Completo para Servidor Externo',
+      defaultPath: defaultName,
+      filters: [{ name: 'Archivo ZIP (.zip)', extensions: ['zip'] }]
+    });
+    if (res.canceled || !res.filePath) return null;
+    return res.filePath;
+  });
+
+  ipcMain.handle('servers:export-pack', async (event, { id, outputPath }) => {
+    try {
+      return await serverManager.exportServerPack(id, outputPath);
+    } catch (err) {
+      logger.error('Error en servers:export-pack IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('servers:delete', async (event, { id, deleteFiles }) => {
+    try {
+      return await serverManager.deleteServer(id, deleteFiles);
+    } catch (err) {
+      logger.error('Error en servers:delete IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('servers:open-folder', async (event, id) => {
+    try {
+      return await serverManager.openFolder(id);
+    } catch (err) {
+      logger.error('Error en servers:open-folder IPC:', err);
       return { success: false, error: err.message };
     }
   });

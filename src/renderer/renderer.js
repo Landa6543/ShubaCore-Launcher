@@ -33,10 +33,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnMaximize = document.getElementById('btn-maximize');
   const btnClose = document.getElementById('btn-close');
 
-  // Vistas Principales (6 Vistas)
+  // Vistas Principales (7 Vistas)
   const tabViewProfiles = document.getElementById('tab-view-profiles');
   const tabViewCatalog = document.getElementById('tab-view-catalog');
   const tabViewMods = document.getElementById('tab-view-mods');
+  const tabViewServers = document.getElementById('tab-view-servers');
   const tabViewSkins = document.getElementById('tab-view-skins');
   const tabViewSettings = document.getElementById('tab-view-settings');
   const tabViewConsole = document.getElementById('tab-view-console');
@@ -44,6 +45,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const viewProfiles = document.getElementById('view-profiles');
   const viewCatalog = document.getElementById('view-catalog');
   const viewMods = document.getElementById('view-mods');
+  const viewServers = document.getElementById('view-servers');
   const viewSkins = document.getElementById('view-skins');
   const viewSettings = document.getElementById('view-settings');
   const viewConsole = document.getElementById('view-console');
@@ -448,12 +450,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // =======================================================
-  // NAVEGACIÓN DE VISTAS (6 VISTAS DE ESCRITORIO)
+  // NAVEGACIÓN DE VISTAS (7 VISTAS DE ESCRITORIO)
   // =======================================================
   const navItems = [
     { btn: tabViewProfiles, view: viewProfiles, name: 'profiles' },
     { btn: tabViewCatalog, view: viewCatalog, name: 'catalog' },
     { btn: tabViewMods, view: viewMods, name: 'mods' },
+    { btn: tabViewServers, view: viewServers, name: 'servers' },
     { btn: tabViewSkins, view: viewSkins, name: 'skins' },
     { btn: tabViewSettings, view: viewSettings, name: 'settings' },
     { btn: tabViewConsole, view: viewConsole, name: 'console' }
@@ -485,6 +488,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     } else if (viewName === 'mods') {
       loadInstalledMods();
+    } else if (viewName === 'servers') {
+      loadDedicatedServers();
     } else if (viewName === 'settings') {
       renderJavaRuntimes();
     } else if (viewName === 'console') {
@@ -4734,6 +4739,783 @@ document.addEventListener('DOMContentLoaded', async () => {
   api.events.on('github-mods:download-progress', (progress) => {
     if (progress.message) {
       appendLog(`[GitHub Mods] ${progress.message}`, 'info');
+    }
+  });
+
+  // =======================================================
+  // 🖥 MIS SERVIDORES DEDICADOS LOCALES (HOST LOCAL)
+  // =======================================================
+  let currentSelectedServerId = null;
+  let currentServerSubtab = 'console';
+  let localServersCache = [];
+
+  const serversListContainer = document.getElementById('servers-list-container');
+  const badgeTotalServers = document.getElementById('badge-total-servers');
+  const btnOpenCreateServerModal = document.getElementById('btn-open-create-server-modal');
+  const btnEmptyCreateServer = document.getElementById('btn-empty-create-server');
+  const btnRefreshServersList = document.getElementById('btn-refresh-servers-list');
+
+  const serverDashboardEmpty = document.getElementById('server-dashboard-empty');
+  const serverDashboardContent = document.getElementById('server-dashboard-content');
+  const serverStatusPill = document.getElementById('server-status-pill');
+  const serverDetailName = document.getElementById('server-detail-name');
+  const serverDetailLoaderBadge = document.getElementById('server-detail-loader-badge');
+  const serverDetailPort = document.getElementById('server-detail-port');
+  const serverDetailRam = document.getElementById('server-detail-ram');
+  const serverDetailModsCount = document.getElementById('server-detail-mods-count');
+
+  const btnStartServer = document.getElementById('btn-start-server');
+  const btnStartServerText = document.getElementById('btn-start-server-text');
+  const btnStopServer = document.getElementById('btn-stop-server');
+  const btnSyncServerModsTop = document.getElementById('btn-sync-server-mods-top');
+  const btnExportServerPack = document.getElementById('btn-export-server-pack');
+  const btnOpenServerFolder = document.getElementById('btn-open-server-folder');
+  const btnDeleteServer = document.getElementById('btn-delete-server');
+
+  // Métricas y Consola
+  const serverStatRam = document.getElementById('server-stat-ram');
+  const serverStatRamMax = document.getElementById('server-stat-ram-max');
+  const serverStatCpu = document.getElementById('server-stat-cpu');
+  const serverStatPlayersCount = document.getElementById('server-stat-players-count');
+  const serverStatIp = document.getElementById('server-stat-ip');
+  const btnCopyServerIp = document.getElementById('btn-copy-server-ip');
+
+  const serverPlayersList = document.getElementById('server-players-list');
+  const serverPlayersHeaderCount = document.getElementById('server-players-header-count');
+  const serverTerminalLogs = document.getElementById('server-terminal-logs');
+  const inputServerCmd = document.getElementById('input-server-cmd');
+  const btnSendServerCmd = document.getElementById('btn-send-server-cmd');
+
+  // Modal Crear Servidor
+  const modalCreateServer = document.getElementById('modal-create-server');
+  const btnCloseCreateServerModal = document.getElementById('btn-close-create-server-modal');
+  const btnCancelCreateServer = document.getElementById('btn-cancel-create-server');
+  const btnSubmitCreateServer = document.getElementById('btn-submit-create-server');
+  const inputServerCreateName = document.getElementById('input-server-create-name');
+  const selectServerCreateMc = document.getElementById('select-server-create-mc');
+  const selectServerCreateLoader = document.getElementById('select-server-create-loader');
+  const selectServerCreateRam = document.getElementById('select-server-create-ram');
+  const inputServerCreatePort = document.getElementById('input-server-create-port');
+  const checkServerSyncModsOnCreate = document.getElementById('check-server-sync-mods-on-create');
+  const boxServerSyncInstanceSelector = document.getElementById('box-server-sync-instance-selector');
+  const selectServerSyncInstance = document.getElementById('select-server-sync-instance');
+  const serverInstallProgressBox = document.getElementById('server-install-progress-box');
+  const serverInstallProgressFill = document.getElementById('server-install-progress-fill');
+  const serverInstallProgressText = document.getElementById('server-install-progress-text');
+
+  // Modal Sincronizar Mods
+  const modalSyncServerMods = document.getElementById('modal-sync-server-mods');
+  const btnCloseSyncServerModal = document.getElementById('btn-close-sync-server-modal');
+  const btnCancelSyncServer = document.getElementById('btn-cancel-sync-server');
+  const btnExecuteSyncServer = document.getElementById('btn-execute-sync-server');
+  const btnExecuteSyncServerText = document.getElementById('btn-execute-sync-server-text');
+  const selectSyncSourceInstance = document.getElementById('select-sync-source-instance');
+  const checkSyncCopyConfigs = document.getElementById('check-sync-copy-configs');
+  const syncServerResultBox = document.getElementById('sync-server-result-box');
+  const syncServerResultText = document.getElementById('sync-server-result-text');
+
+  async function loadDedicatedServers() {
+    if (!api.servers) return;
+    try {
+      const servers = await api.servers.list();
+      localServersCache = Array.isArray(servers) ? servers : [];
+      if (badgeTotalServers) badgeTotalServers.textContent = localServersCache.length;
+
+      renderServersList();
+
+      if (localServersCache.length === 0) {
+        currentSelectedServerId = null;
+        if (serverDashboardEmpty) serverDashboardEmpty.style.display = 'flex';
+        if (serverDashboardContent) serverDashboardContent.style.display = 'none';
+      } else {
+        const found = localServersCache.find((s) => s.id === currentSelectedServerId);
+        if (found) {
+          selectDedicatedServer(found.id);
+        } else {
+          selectDedicatedServer(localServersCache[0].id);
+        }
+      }
+    } catch (err) {
+      appendLog(`[Servers] Error al listar servidores: ${err.message}`, 'error');
+    }
+  }
+
+  function renderServersList() {
+    if (!serversListContainer) return;
+    if (localServersCache.length === 0) {
+      serversListContainer.innerHTML = '<div class="empty-state" style="padding: 24px 12px; font-size: 13px;">No hay servidores creados aún. Haz clic en "➕ Crear Nuevo Servidor".</div>';
+      return;
+    }
+
+    serversListContainer.innerHTML = '';
+    localServersCache.forEach((server) => {
+      const card = document.createElement('div');
+      card.className = `server-item-card ${server.id === currentSelectedServerId ? 'active' : ''}`;
+      card.setAttribute('data-server-id', server.id);
+
+      let statusBadge = '<span class="badge badge-idle" style="font-size: 10px;">🔴 Apagado</span>';
+      if (server.status === 'online') {
+        statusBadge = '<span class="badge badge-success" style="font-size: 10px;">🟢 En línea</span>';
+      } else if (server.status === 'starting') {
+        statusBadge = '<span class="badge badge-warning" style="font-size: 10px;">🟡 Iniciando...</span>';
+      } else if (server.status === 'stopping') {
+        statusBadge = '<span class="badge badge-danger" style="font-size: 10px;">🟡 Deteniendo...</span>';
+      }
+
+      card.innerHTML = `
+        <div class="server-item-title-row">
+          <span class="server-item-name" title="${escapeHtml(server.name)}">${escapeHtml(server.name)}</span>
+          ${statusBadge}
+        </div>
+        <div class="server-item-meta">
+          <span>${escapeHtml(server.loader.toUpperCase())} ${escapeHtml(server.mcVersion)}</span>
+          <span>·</span>
+          <span>:${escapeHtml(server.port)}</span>
+          <span>·</span>
+          <span>${server.modsCount} mods</span>
+        </div>
+      `;
+
+      card.addEventListener('click', () => {
+        selectDedicatedServer(server.id);
+      });
+
+      serversListContainer.appendChild(card);
+    });
+  }
+
+  async function selectDedicatedServer(id) {
+    currentSelectedServerId = id;
+    const server = localServersCache.find((s) => s.id === id);
+    if (!server) return;
+
+    // Actualizar clase activa en la lista lateral
+    document.querySelectorAll('.server-item-card').forEach((c) => {
+      c.classList.toggle('active', c.getAttribute('data-server-id') === id);
+    });
+
+    if (serverDashboardEmpty) serverDashboardEmpty.style.display = 'none';
+    if (serverDashboardContent) serverDashboardContent.style.display = 'flex';
+
+    if (serverDetailName) serverDetailName.textContent = server.name;
+    if (serverDetailLoaderBadge) serverDetailLoaderBadge.textContent = `${server.loader.toUpperCase()} ${server.mcVersion}`;
+    if (serverDetailPort) serverDetailPort.textContent = server.port;
+    if (serverDetailRam) serverDetailRam.textContent = server.ram || '6G';
+    if (serverDetailModsCount) serverDetailModsCount.textContent = server.modsCount || 0;
+    if (serverStatRamMax) serverStatRamMax.textContent = `Límite: ${server.ram || '6G'}`;
+    if (serverStatIp) serverStatIp.textContent = `localhost:${server.port}`;
+
+    updateServerStatusUI(server.status);
+    updateServerPlayersUI(server.players || []);
+
+    if (currentServerSubtab === 'properties') {
+      loadServerProperties(id);
+    } else if (currentServerSubtab === 'mods') {
+      loadServerMods(id);
+    }
+  }
+
+  function updateServerStatusUI(status) {
+    if (!serverStatusPill) return;
+
+    if (status === 'online') {
+      serverStatusPill.className = 'badge badge-success';
+      serverStatusPill.textContent = '🟢 EN LÍNEA';
+      if (btnStartServer) btnStartServer.style.display = 'none';
+      if (btnStopServer) btnStopServer.style.display = 'inline-flex';
+    } else if (status === 'starting') {
+      serverStatusPill.className = 'badge badge-warning';
+      serverStatusPill.textContent = '🟡 INICIANDO...';
+      if (btnStartServer) {
+        btnStartServer.style.display = 'inline-flex';
+        btnStartServer.disabled = true;
+        if (btnStartServerText) btnStartServerText.textContent = 'Iniciando...';
+      }
+      if (btnStopServer) btnStopServer.style.display = 'none';
+    } else if (status === 'stopping') {
+      serverStatusPill.className = 'badge badge-danger';
+      serverStatusPill.textContent = '🟡 DETENIENDO...';
+      if (btnStartServer) btnStartServer.style.display = 'none';
+      if (btnStopServer) {
+        btnStopServer.style.display = 'inline-flex';
+        btnStopServer.disabled = true;
+      }
+    } else {
+      serverStatusPill.className = 'badge badge-idle';
+      serverStatusPill.textContent = '🔴 APAGADO';
+      if (btnStartServer) {
+        btnStartServer.style.display = 'inline-flex';
+        btnStartServer.disabled = false;
+        if (btnStartServerText) btnStartServerText.textContent = 'Iniciar Servidor';
+      }
+      if (btnStopServer) {
+        btnStopServer.style.display = 'none';
+        btnStopServer.disabled = false;
+      }
+    }
+  }
+
+  function updateServerPlayersUI(players) {
+    const list = Array.isArray(players) ? players : [];
+    if (serverPlayersHeaderCount) serverPlayersHeaderCount.textContent = `${list.length} jugador${list.length === 1 ? '' : 'es'}`;
+    if (serverStatPlayersCount) serverStatPlayersCount.textContent = `${list.length} / 20`;
+    if (!serverPlayersList) return;
+
+    if (list.length === 0) {
+      serverPlayersList.innerHTML = '<div class="empty-state" style="padding: 12px; font-size: 12.5px;">Sin jugadores conectados en este momento.</div>';
+      return;
+    }
+
+    serverPlayersList.innerHTML = '';
+    list.forEach((player) => {
+      const row = document.createElement('div');
+      row.className = 'server-player-row';
+      const avatarUrl = `https://mc-heads.net/avatar/${encodeURIComponent(player)}/28`;
+
+      row.innerHTML = `
+        <div class="server-player-left">
+          <img src="${avatarUrl}" class="server-player-avatar" alt="${escapeHtml(player)}" onerror="this.src='assets/logo.png'">
+          <span class="server-player-name">${escapeHtml(player)}</span>
+        </div>
+        <div class="server-player-actions">
+          <button class="btn btn-small btn-secondary btn-player-op" data-player="${escapeHtml(player)}" title="Dar Operador (OP)">👑 OP</button>
+          <button class="btn btn-small btn-secondary btn-player-tp" data-player="${escapeHtml(player)}" title="Teletransportar">📍 TP</button>
+          <button class="btn btn-small btn-secondary btn-player-kick" data-player="${escapeHtml(player)}" title="Expulsar">🥾 Kick</button>
+          <button class="btn btn-small btn-danger btn-player-ban" data-player="${escapeHtml(player)}" title="Banear">🚫 Ban</button>
+        </div>
+      `;
+
+      row.querySelector('.btn-player-op').addEventListener('click', async () => {
+        if (confirm(`¿Dar permisos de Operador (OP) a "${player}"?`)) {
+          await api.servers.sendCommand(currentSelectedServerId, `op ${player}`);
+        }
+      });
+
+      row.querySelector('.btn-player-tp').addEventListener('click', async () => {
+        const target = prompt(`Teletransportar a "${player}" hacia jugador o coordenadas (x y z):`, '0 100 0');
+        if (target) {
+          await api.servers.sendCommand(currentSelectedServerId, `tp ${player} ${target}`);
+        }
+      });
+
+      row.querySelector('.btn-player-kick').addEventListener('click', async () => {
+        if (confirm(`¿Expulsar a "${player}" del servidor?`)) {
+          await api.servers.sendCommand(currentSelectedServerId, `kick ${player} Expulsado por el host`);
+        }
+      });
+
+      row.querySelector('.btn-player-ban').addEventListener('click', async () => {
+        if (confirm(`¿Banear permanentemente a "${player}"?`)) {
+          await api.servers.sendCommand(currentSelectedServerId, `ban ${player}`);
+        }
+      });
+
+      serverPlayersList.appendChild(row);
+    });
+  }
+
+  function appendServerLog(line, isError = false) {
+    if (!serverTerminalLogs) return;
+    const div = document.createElement('div');
+    div.className = `log-line ${isError ? 'log-error' : 'log-info'}`;
+
+    // Estilizar niveles de log conocidos
+    if (line.includes('WARN')) div.className = 'log-line log-warn';
+    else if (line.includes('ERROR') || line.includes('Exception') || isError) div.className = 'log-line log-error';
+    else if (line.includes('Done (') || line.includes('joined the game')) div.className = 'log-line log-success';
+
+    div.textContent = line;
+    serverTerminalLogs.appendChild(div);
+
+    // Limitar histórico de logs en el DOM a 800 líneas
+    if (serverTerminalLogs.children.length > 800) {
+      serverTerminalLogs.removeChild(serverTerminalLogs.children[0]);
+    }
+
+    serverTerminalLogs.scrollTop = serverTerminalLogs.scrollHeight;
+  }
+
+  // Sub-pestañas dentro del servidor (Consola | server.properties | Mods)
+  function switchServerSubtab(tabName) {
+    currentServerSubtab = tabName;
+    document.querySelectorAll('.server-tab-btn').forEach((btn) => {
+      btn.classList.toggle('active', btn.getAttribute('data-server-tab') === tabName);
+    });
+
+    const panels = {
+      console: document.getElementById('server-subpanel-console'),
+      properties: document.getElementById('server-subpanel-properties'),
+      mods: document.getElementById('server-subpanel-mods')
+    };
+
+    Object.keys(panels).forEach((k) => {
+      if (panels[k]) {
+        panels[k].style.display = (k === tabName) ? 'flex' : 'none';
+        panels[k].classList.toggle('active', k === tabName);
+      }
+    });
+
+    if (currentSelectedServerId) {
+      if (tabName === 'properties') loadServerProperties(currentSelectedServerId);
+      if (tabName === 'mods') loadServerMods(currentSelectedServerId);
+    }
+  }
+
+  document.querySelectorAll('.server-tab-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const target = btn.getAttribute('data-server-tab');
+      if (target) switchServerSubtab(target);
+    });
+  });
+
+  // Consola Interactiva: Enviar comandos
+  async function sendServerCommandFromUI() {
+    if (!currentSelectedServerId || !inputServerCmd) return;
+    const cmd = inputServerCmd.value.trim();
+    if (!cmd) return;
+
+    try {
+      inputServerCmd.value = '';
+      await api.servers.sendCommand(currentSelectedServerId, cmd);
+    } catch (err) {
+      appendServerLog(`[Error] ${err.message}`, true);
+    }
+  }
+
+  if (btnSendServerCmd) btnSendServerCmd.addEventListener('click', sendServerCommandFromUI);
+  if (inputServerCmd) {
+    inputServerCmd.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        sendServerCommandFromUI();
+      }
+    });
+  }
+
+  // Botones Rápidos de Comandos (Día, Lluvia, Guardar, Stop)
+  document.querySelectorAll('.btn-quick-cmd').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const cmd = btn.getAttribute('data-cmd');
+      if (cmd && currentSelectedServerId) {
+        await api.servers.sendCommand(currentSelectedServerId, cmd);
+      }
+    });
+  });
+
+  // Copiar IP local
+  if (btnCopyServerIp) {
+    btnCopyServerIp.addEventListener('click', () => {
+      const text = serverStatIp ? serverStatIp.textContent : 'localhost:25565';
+      navigator.clipboard.writeText(text);
+      btnCopyServerIp.textContent = '¡Copiado!';
+      setTimeout(() => { btnCopyServerIp.textContent = 'Copiar IP'; }, 2000);
+    });
+  }
+
+  // Iniciar y Detener Servidor
+  if (btnStartServer) {
+    btnStartServer.addEventListener('click', async () => {
+      if (!currentSelectedServerId) return;
+      btnStartServer.disabled = true;
+      if (btnStartServerText) btnStartServerText.textContent = 'Iniciando...';
+      try {
+        appendServerLog(`[ShubaCore] Lanzando servidor dedicado...`);
+        const res = await api.servers.start(currentSelectedServerId);
+        if (res.success) {
+          updateServerStatusUI('starting');
+        }
+      } catch (err) {
+        alert(`Error al iniciar servidor: ${err.message}`);
+        appendServerLog(`[Error al Iniciar] ${err.message}`, true);
+        updateServerStatusUI('offline');
+      }
+    });
+  }
+
+  if (btnStopServer) {
+    btnStopServer.addEventListener('click', async () => {
+      if (!currentSelectedServerId) return;
+      btnStopServer.disabled = true;
+      try {
+        appendServerLog(`[ShubaCore] Enviando comando "stop" al servidor...`);
+        await api.servers.stop(currentSelectedServerId);
+      } catch (err) {
+        alert(`Error al detener servidor: ${err.message}`);
+      }
+    });
+  }
+
+  // Abrir carpeta del servidor
+  if (btnOpenServerFolder) {
+    btnOpenServerFolder.addEventListener('click', async () => {
+      if (currentSelectedServerId) await api.servers.openFolder(currentSelectedServerId);
+    });
+  }
+
+  // Exportar Pack de Servidor para VPS/Hosting
+  if (btnExportServerPack) {
+    btnExportServerPack.addEventListener('click', async () => {
+      if (!currentSelectedServerId) return;
+      const server = localServersCache.find((s) => s.id === currentSelectedServerId);
+      const targetPath = await api.servers.selectExportZip(server?.name || 'Servidor');
+      if (!targetPath) return;
+
+      btnExportServerPack.disabled = true;
+      btnExportServerPack.innerHTML = '<span>Empaquetando...</span>';
+
+      try {
+        const res = await api.servers.exportPack(currentSelectedServerId, targetPath);
+        if (res.success) {
+          alert(`¡Pack de servidor exportado con éxito!\n\nArchivo: ${targetPath}\nTamaño: ${res.sizeFormatted}\n\nListo para subir a tu VPS, Aternos o hosting.`);
+          appendLog(`[Server Export] Pack exportado: "${targetPath}" (${res.sizeFormatted})`, 'success');
+        }
+      } catch (err) {
+        alert(`Error al exportar pack de servidor: ${err.message}`);
+      } finally {
+        btnExportServerPack.disabled = false;
+        btnExportServerPack.innerHTML = `
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+          <span>📤 Exportar Pack</span>
+        `;
+      }
+    });
+  }
+
+  // Eliminar Servidor
+  if (btnDeleteServer) {
+    btnDeleteServer.addEventListener('click', async () => {
+      if (!currentSelectedServerId) return;
+      const server = localServersCache.find((s) => s.id === currentSelectedServerId);
+      if (confirm(`¿Estás seguro de eliminar el servidor "${server?.name}"?\nEsta acción no se puede deshacer.`)) {
+        await api.servers.delete(currentSelectedServerId, true);
+        appendLog(`[Servers] Servidor "${server?.name}" eliminado.`, 'info');
+        currentSelectedServerId = null;
+        await loadDedicatedServers();
+      }
+    });
+  }
+
+  // --- EDITOR VISUAL SERVER.PROPERTIES ---
+  async function loadServerProperties(id) {
+    try {
+      const props = await api.servers.getProperties(id);
+      const setVal = (elId, val) => {
+        const el = document.getElementById(elId);
+        if (el) el.value = String(val !== undefined ? val : '');
+      };
+
+      setVal('prop-online-mode', props['online-mode'] !== undefined ? props['online-mode'] : 'false');
+      setVal('prop-server-port', props['server-port'] || 25565);
+      setVal('prop-difficulty', props['difficulty'] || 'normal');
+      setVal('prop-gamemode', props['gamemode'] || 'survival');
+      setVal('prop-pvp', props['pvp'] !== undefined ? props['pvp'] : 'true');
+      setVal('prop-max-players', props['max-players'] || 20);
+      setVal('prop-view-distance', props['view-distance'] || 10);
+      setVal('prop-simulation-distance', props['simulation-distance'] || 10);
+      setVal('prop-motd', props['motd'] || 'Servidor de Minecraft - ShubaCore');
+      setVal('prop-white-list', props['white-list'] !== undefined ? props['white-list'] : 'false');
+      setVal('prop-command-blocks', props['enable-command-block'] !== undefined ? props['enable-command-block'] : 'true');
+    } catch (err) {
+      appendLog(`[Properties Error] ${err.message}`, 'error');
+    }
+  }
+
+  const btnSaveServerProperties = document.getElementById('btn-save-server-properties');
+  if (btnSaveServerProperties) {
+    btnSaveServerProperties.addEventListener('click', async () => {
+      if (!currentSelectedServerId) return;
+
+      const getVal = (elId) => {
+        const el = document.getElementById(elId);
+        return el ? el.value : '';
+      };
+
+      const props = {
+        'online-mode': getVal('prop-online-mode') === 'true',
+        'server-port': Number(getVal('prop-server-port')) || 25565,
+        'difficulty': getVal('prop-difficulty'),
+        'gamemode': getVal('prop-gamemode'),
+        'pvp': getVal('prop-pvp') === 'true',
+        'max-players': Number(getVal('prop-max-players')) || 20,
+        'view-distance': Number(getVal('prop-view-distance')) || 10,
+        'simulation-distance': Number(getVal('prop-simulation-distance')) || 10,
+        'motd': getVal('prop-motd'),
+        'white-list': getVal('prop-white-list') === 'true',
+        'enable-command-block': getVal('prop-command-blocks') === 'true'
+      };
+
+      btnSaveServerProperties.disabled = true;
+      btnSaveServerProperties.textContent = 'Guardando...';
+
+      try {
+        await api.servers.saveProperties(currentSelectedServerId, props);
+        alert('¡server.properties guardado exitosamente!');
+        appendLog(`[Servers] Configuración server.properties actualizada.`, 'success');
+        if (serverDetailPort) serverDetailPort.textContent = props['server-port'];
+        if (serverStatIp) serverStatIp.textContent = `localhost:${props['server-port']}`;
+      } catch (err) {
+        alert(`Error al guardar propiedades: ${err.message}`);
+      } finally {
+        btnSaveServerProperties.disabled = false;
+        btnSaveServerProperties.innerHTML = `
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          <span>💾 Guardar Propiedades</span>
+        `;
+      }
+    });
+  }
+
+  // --- MODS DEL SERVIDOR ---
+  const serverModsListContainer = document.getElementById('server-mods-list-container');
+  const serverInstalledModsBadge = document.getElementById('server-installed-mods-badge');
+  const btnOpenServerModsDir = document.getElementById('btn-open-server-mods-dir');
+
+  async function loadServerMods(id) {
+    if (!serverModsListContainer) return;
+    serverModsListContainer.innerHTML = '<div class="empty-state">Consultando mods del servidor...</div>';
+
+    try {
+      const server = localServersCache.find((s) => s.id === id);
+      if (!server) return;
+
+      const modsDir = `${server.serverDir}/mods`;
+      // Listar mediante InstancePacks
+      const mods = await api.instancePacks.list({ instancePath: server.serverDir, type: 'mods' }).catch(() => []);
+      const list = Array.isArray(mods) ? mods : [];
+
+      if (serverInstalledModsBadge) serverInstalledModsBadge.textContent = `${list.length} mods`;
+      if (serverDetailModsCount) serverDetailModsCount.textContent = list.length;
+
+      if (list.length === 0) {
+        serverModsListContainer.innerHTML = `
+          <div class="empty-state" style="padding: 28px 16px;">
+            <p style="font-size: 14px; margin-bottom: 6px;">No hay mods instalados en este servidor todavía.</p>
+            <small style="color: var(--text-dim);">Haz clic en "🔄 Sincronizar desde Instancia Cliente" para copiar todos los mods compatibles automáticamente con filtro anti-crash.</small>
+          </div>
+        `;
+        return;
+      }
+
+      serverModsListContainer.innerHTML = '';
+      list.forEach((mod) => {
+        const card = document.createElement('div');
+        card.className = 'pack-card';
+        card.innerHTML = `
+          <div class="pack-card-left">
+            <img src="assets/logo.png" class="pack-card-icon" alt="Mod">
+            <div class="pack-card-info">
+              <span class="pack-card-title">${escapeHtml(mod.name || mod.fileName)}</span>
+              <div class="pack-card-meta">
+                <span>📁 ${escapeHtml(mod.fileName)}</span>
+                <span>·</span>
+                <span>📦 ${escapeHtml(mod.formattedSize || '')}</span>
+              </div>
+            </div>
+          </div>
+          <div class="pack-card-actions">
+            <button class="btn btn-small btn-danger btn-icon-square btn-del-server-mod" data-filename="${escapeHtml(mod.fileName)}" title="Eliminar mod del servidor">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            </button>
+          </div>
+        `;
+
+        card.querySelector('.btn-del-server-mod').addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const fn = e.currentTarget.getAttribute('data-filename');
+          if (confirm(`¿Eliminar el mod "${fn}" del servidor?`)) {
+            await api.instancePacks.delete({ instancePath: server.serverDir, type: 'mods', fileName: fn });
+            appendLog(`[Servers] Mod "${fn}" eliminado del servidor.`, 'info');
+            await loadServerMods(id);
+          }
+        });
+
+        serverModsListContainer.appendChild(card);
+      });
+    } catch (err) {
+      serverModsListContainer.innerHTML = `<div class="empty-state">Error al cargar mods: ${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  if (btnOpenServerModsDir) {
+    btnOpenServerModsDir.addEventListener('click', async () => {
+      if (currentSelectedServerId) await api.servers.openFolder(currentSelectedServerId);
+    });
+  }
+
+  // --- MODAL: CREAR NUEVO SERVIDOR ---
+  async function populateInstancesDropdown(selectElement) {
+    if (!selectElement) return;
+    try {
+      const profiles = await api.profiles.getAll();
+      const list = Array.isArray(profiles) ? profiles : [];
+      selectElement.innerHTML = '';
+      list.forEach((p) => {
+        const opt = document.createElement('option');
+        opt.value = p.instancePath;
+        opt.textContent = `${p.name} (${(p.loader || 'vanilla').toUpperCase()} ${p.gameVersion || p.mcVersion})`;
+        selectElement.appendChild(opt);
+      });
+    } catch (_) {}
+  }
+
+  if (btnOpenCreateServerModal) {
+    btnOpenCreateServerModal.addEventListener('click', async () => {
+      if (modalCreateServer) modalCreateServer.style.display = 'flex';
+      await populateInstancesDropdown(selectServerSyncInstance);
+    });
+  }
+
+  if (btnEmptyCreateServer) {
+    btnEmptyCreateServer.addEventListener('click', async () => {
+      if (modalCreateServer) modalCreateServer.style.display = 'flex';
+      await populateInstancesDropdown(selectServerSyncInstance);
+    });
+  }
+
+  if (btnCloseCreateServerModal) btnCloseCreateServerModal.addEventListener('click', () => { if (modalCreateServer) modalCreateServer.style.display = 'none'; });
+  if (btnCancelCreateServer) btnCancelCreateServer.addEventListener('click', () => { if (modalCreateServer) modalCreateServer.style.display = 'none'; });
+
+  if (btnSubmitCreateServer) {
+    btnSubmitCreateServer.addEventListener('click', async () => {
+      const name = inputServerCreateName ? inputServerCreateName.value.trim() : 'Mi Servidor';
+      const mcVersion = selectServerCreateMc ? selectServerCreateMc.value : '1.21.1';
+      const loader = selectServerCreateLoader ? selectServerCreateLoader.value : 'neoforge';
+      const ram = selectServerCreateRam ? selectServerCreateRam.value : '6G';
+      const port = inputServerCreatePort ? Number(inputServerCreatePort.value) || 25565 : 25565;
+      const syncMods = Boolean(checkServerSyncModsOnCreate && checkServerSyncModsOnCreate.checked);
+      const sourceInstancePath = selectServerSyncInstance ? selectServerSyncInstance.value : null;
+
+      btnSubmitCreateServer.disabled = true;
+      if (btnCancelCreateServer) btnCancelCreateServer.disabled = true;
+      if (serverInstallProgressBox) serverInstallProgressBox.style.display = 'block';
+
+      try {
+        const res = await api.servers.create({
+          name,
+          mcVersion,
+          loader,
+          ram,
+          port,
+          syncMods,
+          sourceInstancePath
+        });
+
+        if (res.success) {
+          appendLog(`[Servers] ¡Servidor "${name}" creado exitosamente!`, 'success');
+          if (res.server?.syncStats) {
+            appendLog(`[ServerModFilter] Sincronizados ${res.server.syncStats.totalCopied} mods al servidor (${res.server.syncStats.totalSkipped} mods exclusivos de cliente omitidos).`, 'info');
+          }
+          if (modalCreateServer) modalCreateServer.style.display = 'none';
+          await loadDedicatedServers();
+          if (res.server?.id) selectDedicatedServer(res.server.id);
+        } else {
+          throw new Error(res.error || 'Error desconocido al crear servidor.');
+        }
+      } catch (err) {
+        alert(`Error al crear servidor: ${err.message}`);
+        appendLog(`[Server Error] ${err.message}`, 'error');
+      } finally {
+        btnSubmitCreateServer.disabled = false;
+        if (btnCancelCreateServer) btnCancelCreateServer.disabled = false;
+        if (serverInstallProgressBox) serverInstallProgressBox.style.display = 'none';
+      }
+    });
+  }
+
+  // --- MODAL: SINCRONIZAR MODS DESDE INSTANCIA CLIENTE ---
+  async function openSyncServerModal() {
+    if (!currentSelectedServerId || !modalSyncServerMods) return;
+    modalSyncServerMods.style.display = 'flex';
+    if (syncServerResultBox) syncServerResultBox.style.display = 'none';
+    await populateInstancesDropdown(selectSyncSourceInstance);
+  }
+
+  const btnSyncServerMods = document.getElementById('btn-sync-server-mods');
+  if (btnSyncServerMods) btnSyncServerMods.addEventListener('click', openSyncServerModal);
+  if (btnSyncServerModsTop) btnSyncServerModsTop.addEventListener('click', openSyncServerModal);
+
+  if (btnCloseSyncServerModal) btnCloseSyncServerModal.addEventListener('click', () => { if (modalSyncServerMods) modalSyncServerMods.style.display = 'none'; });
+  if (btnCancelSyncServer) btnCancelSyncServer.addEventListener('click', () => { if (modalSyncServerMods) modalSyncServerMods.style.display = 'none'; });
+
+  if (btnExecuteSyncServer) {
+    btnExecuteSyncServer.addEventListener('click', async () => {
+      if (!currentSelectedServerId) return;
+      const instancePath = selectSyncSourceInstance ? selectSyncSourceInstance.value : null;
+      if (!instancePath) {
+        alert('Por favor selecciona una instancia cliente de origen.');
+        return;
+      }
+      const copyConfigs = checkSyncCopyConfigs ? checkSyncCopyConfigs.checked : true;
+
+      btnExecuteSyncServer.disabled = true;
+      if (btnExecuteSyncServerText) btnExecuteSyncServerText.textContent = 'Sincronizando...';
+
+      try {
+        const res = await api.servers.syncMods(currentSelectedServerId, instancePath, copyConfigs);
+        if (res.success) {
+          const msg = `⚡ ¡Sincronización completada! ${res.totalCopied} mods copiados al servidor (${res.totalSkipped} mods exclusivos de cliente omitidos automáticamente para evitar crasheos).`;
+          if (syncServerResultBox) syncServerResultBox.style.display = 'block';
+          if (syncServerResultText) syncServerResultText.innerHTML = `<span style="color: #34d399;">${escapeHtml(msg)}</span>`;
+          appendLog(`[ServerModFilter] ${msg}`, 'success');
+          await loadDedicatedServers();
+          await loadServerMods(currentSelectedServerId);
+          setTimeout(() => {
+            if (modalSyncServerMods) modalSyncServerMods.style.display = 'none';
+          }, 1800);
+        }
+      } catch (err) {
+        alert(`Error al sincronizar mods: ${err.message}`);
+        appendLog(`[Sync Error] ${err.message}`, 'error');
+      } finally {
+        btnExecuteSyncServer.disabled = false;
+        if (btnExecuteSyncServerText) btnExecuteSyncServerText.textContent = 'Iniciar Sincronización';
+      }
+    });
+  }
+
+  if (btnRefreshServersList) {
+    btnRefreshServersList.addEventListener('click', () => loadDedicatedServers());
+  }
+
+  // --- LISTENERS DE EVENTOS EN TIEMPO REAL DEL SERVIDOR ---
+  api.events.on('server:log', ({ serverId, line, isError }) => {
+    if (serverId === currentSelectedServerId) {
+      appendServerLog(line, isError);
+    }
+  });
+
+  api.events.on('server:status', ({ serverId, status }) => {
+    const s = localServersCache.find((x) => x.id === serverId);
+    if (s) s.status = status;
+    renderServersList();
+
+    if (serverId === currentSelectedServerId) {
+      updateServerStatusUI(status);
+    }
+  });
+
+  api.events.on('server:players', ({ serverId, players }) => {
+    const s = localServersCache.find((x) => x.id === serverId);
+    if (s) s.players = players;
+
+    if (serverId === currentSelectedServerId) {
+      updateServerPlayersUI(players);
+    }
+  });
+
+  api.events.on('server:stats', ({ serverId, memoryMb, cpuPercent, uptime }) => {
+    if (serverId === currentSelectedServerId) {
+      if (serverStatRam) serverStatRam.textContent = `${memoryMb} MB`;
+      if (serverStatCpu) serverStatCpu.textContent = `${cpuPercent}%`;
+    }
+  });
+
+  api.events.on('server:install-progress', ({ serverId, message, percent }) => {
+    if (serverInstallProgressFill && percent !== undefined) {
+      serverInstallProgressFill.style.width = `${Math.min(100, Math.max(0, percent))}%`;
+    }
+    if (serverInstallProgressText && message) {
+      serverInstallProgressText.textContent = message;
     }
   });
 

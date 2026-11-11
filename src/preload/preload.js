@@ -35,7 +35,12 @@ const VALID_RECEIVE_CHANNELS = [
   'updater:update-not-available',
   'updater:download-progress',
   'updater:update-downloaded',
-  'updater:error'
+  'updater:error',
+  'server:log',
+  'server:status',
+  'server:players',
+  'server:stats',
+  'server:install-progress'
 ];
 
 contextBridge.exposeInMainWorld('shubaCoreAPI', {
@@ -227,6 +232,25 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
     deleteBackup: (params) => ipcRenderer.invoke('worlds:delete-backup', params),
     backupAll: (instancePath) => ipcRenderer.invoke('worlds:backup-all', instancePath),
     openFolder: (params) => ipcRenderer.invoke('worlds:open-folder', params)
+  },
+
+  // ==========================================
+  // SERVIDORES DEDICADOS LOCALES (HOST LOCAL)
+  // ==========================================
+  servers: {
+    list: () => ipcRenderer.invoke('servers:list'),
+    get: (id) => ipcRenderer.invoke('servers:get', id),
+    create: (options) => ipcRenderer.invoke('servers:create', options),
+    start: (id) => ipcRenderer.invoke('servers:start', id),
+    stop: (id) => ipcRenderer.invoke('servers:stop', id),
+    sendCommand: (id, command) => ipcRenderer.invoke('servers:send-command', { id, command }),
+    getProperties: (id) => ipcRenderer.invoke('servers:get-properties', id),
+    saveProperties: (id, properties) => ipcRenderer.invoke('servers:save-properties', { id, properties }),
+    syncMods: (id, instancePath, copyConfigs) => ipcRenderer.invoke('servers:sync-mods', { id, instancePath, copyConfigs }),
+    selectExportZip: (serverName) => ipcRenderer.invoke('servers:select-export-zip', serverName),
+    exportPack: (id, outputPath) => ipcRenderer.invoke('servers:export-pack', { id, outputPath }),
+    delete: (id, deleteFiles) => ipcRenderer.invoke('servers:delete', { id, deleteFiles }),
+    openFolder: (id) => ipcRenderer.invoke('servers:open-folder', id)
   },
 
   // ==========================================

@@ -84,6 +84,16 @@
           <span>Mods Instalados</span>
         </button>
 
+        <button id="tab-view-servers" class="nav-item" data-view="servers">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <rect width="20" height="8" x="2" y="2" rx="2" ry="2"/>
+            <rect width="20" height="8" x="2" y="14" rx="2" ry="2"/>
+            <line x1="6" x2="6.01" y1="6" y2="6"/>
+            <line x1="6" x2="6.01" y1="18" y2="18"/>
+          </svg>
+          <span>Mis Servidores</span>
+        </button>
+
         <button id="tab-view-skins" class="nav-item" data-view="skins">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
             <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
@@ -486,6 +496,343 @@
           </div>
           <div id="worlds-installed-list" class="installed-mods-list view-list">
             <div class="empty-state">No se encontraron mundos en esta instancia todavía.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VISTA: MIS SERVIDORES (HOST LOCAL) -->
+      <section id="view-servers" class="view-panel view-container hidden">
+        <div class="view-toolbar">
+          <div>
+            <h2 class="view-title">🖥 Mis Servidores (Host Local)</h2>
+            <p class="view-subtitle">Crea, sincroniza mods y hostea servidores dedicados de Minecraft con consola interactiva y métricas en vivo.</p>
+          </div>
+          <div class="toolbar-actions">
+            <button id="btn-open-create-server-modal" class="btn btn-primary">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              <span>➕ Crear Nuevo Servidor</span>
+            </button>
+            <button id="btn-refresh-servers-list" class="btn btn-secondary">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+              <span>Refrescar</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="servers-main-layout">
+          <!-- Columna Lateral Izquierda: Lista de Servidores -->
+          <div class="servers-sidebar-pane">
+            <div class="servers-pane-header">
+              <span class="servers-pane-title">Servidores Creados</span>
+              <span id="badge-total-servers" class="badge badge-secondary">0</span>
+            </div>
+            <div id="servers-list-container" class="servers-list-scroll">
+              <div class="empty-state" style="padding: 24px 12px; font-size: 13px;">No hay servidores creados aún. Haz clic en "➕ Crear Nuevo Servidor".</div>
+            </div>
+          </div>
+
+          <!-- Contenido Principal: Dashboard del Servidor Seleccionado -->
+          <div class="server-dashboard-pane">
+            <div id="server-dashboard-empty" class="server-empty-dashboard">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--text-dim); margin-bottom: 12px;">
+                <rect width="20" height="8" x="2" y="2" rx="2" ry="2"/>
+                <rect width="20" height="8" x="2" y="14" rx="2" ry="2"/>
+                <line x1="6" x2="6.01" y1="6" y2="6"/>
+                <line x1="6" x2="6.01" y1="18" y2="18"/>
+              </svg>
+              <h3 style="margin: 0 0 6px 0; color: var(--text-primary); font-size: 16px;">Ningún servidor seleccionado</h3>
+              <p style="margin: 0; color: var(--text-secondary); font-size: 13px;">Selecciona un servidor de la columna izquierda o crea uno nuevo para ver su consola y controles.</p>
+              <button id="btn-empty-create-server" class="btn btn-primary" style="margin-top: 14px;">➕ Crear Nuevo Servidor</button>
+            </div>
+
+            <div id="server-dashboard-content" class="server-dashboard-view" style="display: none;">
+              <!-- Cabecera del Servidor Activo -->
+              <div class="server-header-card">
+                <div class="server-header-left">
+                  <div class="server-status-indicator-badge">
+                    <span id="server-status-pill" class="badge badge-idle">🔴 APAGADO</span>
+                  </div>
+                  <div>
+                    <h3 id="server-detail-name" class="server-detail-title">Mi Servidor NeoForge</h3>
+                    <div class="server-detail-meta">
+                      <span id="server-detail-loader-badge" class="badge badge-loader">NeoForge 1.21.1</span>
+                      <span>·</span>
+                      <span>Puerto: <strong id="server-detail-port">25565</strong></span>
+                      <span>·</span>
+                      <span>RAM: <strong id="server-detail-ram">6G</strong></span>
+                      <span>·</span>
+                      <span><strong id="server-detail-mods-count">0</strong> mods</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="server-header-actions">
+                  <button id="btn-start-server" class="btn btn-primary">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+                    <span id="btn-start-server-text">Iniciar Servidor</span>
+                  </button>
+                  <button id="btn-stop-server" class="btn btn-danger" style="display: none;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
+                    <span>Detener (stop)</span>
+                  </button>
+                  <button id="btn-sync-server-mods-top" class="btn btn-secondary" title="Sincronizar mods desde una instancia cliente con filtro anti-crash">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                    <span>🔄 Sincronizar Mods</span>
+                  </button>
+                  <button id="btn-export-server-pack" class="btn btn-secondary" title="Exportar paquete de servidor (.zip) listo para subir a un hosting/VPS">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                    <span>📤 Exportar Pack</span>
+                  </button>
+                  <button id="btn-open-server-folder" class="btn btn-secondary" title="Abrir carpeta del servidor en el Explorador de Windows">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                    <span>Carpeta</span>
+                  </button>
+                  <button id="btn-delete-server" class="btn btn-secondary btn-icon-square" title="Eliminar servidor">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Sub-pestañas del Servidor -->
+              <div class="server-tabs-nav">
+                <button class="server-tab-btn active" data-server-tab="console">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+                  <span>📊 Consola & Control en Vivo</span>
+                </button>
+                <button class="server-tab-btn" data-server-tab="properties">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+                  <span>⚙ Editor server.properties</span>
+                </button>
+                <button class="server-tab-btn" data-server-tab="mods">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19.439 7.85c-.049-.955-.595-1.81-1.494-2.147-.946-.356-2.02.046-2.528.851A3.5 3.5 0 0 1 12 8a3.5 3.5 0 0 1-3.417-1.446c-.508-.805-1.582-1.207-2.528-.851-.899.337-1.445 1.192-1.494 2.147-.05 1.01.42 2.02 1.194 2.658A3.5 3.5 0 0 1 7 14c0 1.258-.655 2.364-1.637 2.992-.774.638-1.244 1.648-1.194 2.658.049.955.595 1.81 1.494 2.147.946.356 2.02-.046 2.528-.851A3.5 3.5 0 0 1 12 19.5a3.5 3.5 0 0 1 3.417 1.446c.508.805 1.582 1.207 2.528.851.899-.337 1.445-1.192 1.494-2.147.05-1.01-.42-2.02-1.194-2.658A3.5 3.5 0 0 1 17 14c0-1.258.655-2.364 1.637-2.992.774-.638 1.244-1.648 1.194-2.658Z"/></svg>
+                  <span>🧩 Mods del Servidor</span>
+                </button>
+              </div>
+
+              <!-- PANEL 1: CONSOLA Y CONTROL EN VIVO -->
+              <div id="server-subpanel-console" class="server-subpanel-content active">
+                <!-- Métricas en Vivo -->
+                <div class="server-metrics-grid">
+                  <div class="server-metric-card">
+                    <span class="metric-label">Uso de RAM</span>
+                    <strong id="server-stat-ram" class="metric-val">0 MB</strong>
+                    <span id="server-stat-ram-max" class="metric-sub">Límite: 6G</span>
+                  </div>
+                  <div class="server-metric-card">
+                    <span class="metric-label">Uso de CPU</span>
+                    <strong id="server-stat-cpu" class="metric-val">0%</strong>
+                    <span class="metric-sub">Proceso Java</span>
+                  </div>
+                  <div class="server-metric-card">
+                    <span class="metric-label">Jugadores</span>
+                    <strong id="server-stat-players-count" class="metric-val">0 / 20</strong>
+                    <span class="metric-sub">En línea</span>
+                  </div>
+                  <div class="server-metric-card">
+                    <span class="metric-label">Dirección Local</span>
+                    <strong id="server-stat-ip" class="metric-val" style="font-size: 14px;">localhost:25565</strong>
+                    <button id="btn-copy-server-ip" class="btn-link-action">Copiar IP</button>
+                  </div>
+                </div>
+
+                <!-- Lista de Jugadores Conectados en Tiempo Real -->
+                <div class="server-players-panel">
+                  <div class="server-players-header">
+                    <span style="font-weight: 600; font-size: 13px;">Jugadores Conectados en Tiempo Real</span>
+                    <span id="server-players-header-count" class="badge badge-secondary">0 jugadores</span>
+                  </div>
+                  <div id="server-players-list" class="server-players-list">
+                    <div class="empty-state" style="padding: 12px; font-size: 12.5px;">Sin jugadores conectados en este momento.</div>
+                  </div>
+                </div>
+
+                <!-- Consola Interactiva -->
+                <div class="server-terminal-container">
+                  <div class="server-terminal-header">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <span class="terminal-dot green"></span>
+                      <span style="font-size: 12px; font-weight: 600;">Consola del Servidor</span>
+                    </div>
+                    <div class="server-quick-cmds">
+                      <button class="btn btn-small btn-secondary btn-quick-cmd" data-cmd="time set day">☀ Día</button>
+                      <button class="btn btn-small btn-secondary btn-quick-cmd" data-cmd="weather clear">🌧 Quitar Lluvia</button>
+                      <button class="btn btn-small btn-secondary btn-quick-cmd" data-cmd="save-all">💾 Guardar Mundo</button>
+                      <button class="btn btn-small btn-danger btn-quick-cmd" data-cmd="stop">⏹ Stop</button>
+                    </div>
+                  </div>
+                  <div id="server-terminal-logs" class="server-terminal-screen">
+                    <div class="log-line log-info">[ShubaCore] Servidor listo. Haz clic en "Iniciar Servidor" para arrancar.</div>
+                  </div>
+                  <div class="server-terminal-input-bar">
+                    <input type="text" id="input-server-cmd" class="text-input" placeholder="Escribe un comando de Minecraft (ej: op Notch, gamemode creative Notch, say Hola)..." />
+                    <button id="btn-send-server-cmd" class="btn btn-primary btn-small">Enviar</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- PANEL 2: EDITOR VISUAL SERVER.PROPERTIES -->
+              <div id="server-subpanel-properties" class="server-subpanel-content" style="display: none;">
+                <div class="server-properties-editor">
+                  <div class="properties-editor-header">
+                    <div>
+                      <h4 style="margin: 0; font-size: 15px; color: var(--text-primary);">Configuración de server.properties</h4>
+                      <p style="margin: 4px 0 0 0; font-size: 12px; color: var(--text-secondary);">Ajusta los parámetros del servidor visualmente sin editar archivos de texto manualmente.</p>
+                    </div>
+                    <button id="btn-save-server-properties" class="btn btn-primary">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                      <span>💾 Guardar Propiedades</span>
+                    </button>
+                  </div>
+
+                  <div class="properties-form-grid">
+                    <!-- Modo Online (No-Premium / Microsoft) -->
+                    <div class="property-form-card">
+                      <div class="property-info">
+                        <label style="font-weight: 600; font-size: 13px;">Modo Online (online-mode)</label>
+                        <small style="color: var(--text-muted); display: block;">Si está desactivado, permite unirse a amigos con cuentas No-Premium y LAN/Hamachi.</small>
+                      </div>
+                      <select id="prop-online-mode" class="select-input" style="width: 220px;">
+                        <option value="false">Desactivado (Offline / No-Premium)</option>
+                        <option value="true">Activado (Solo Microsoft Premium)</option>
+                      </select>
+                    </div>
+
+                    <!-- Puerto del Servidor -->
+                    <div class="property-form-card">
+                      <div class="property-info">
+                        <label style="font-weight: 600; font-size: 13px;">Puerto del Servidor (server-port)</label>
+                        <small style="color: var(--text-muted); display: block;">Puerto local para conectarse (por defecto 25565).</small>
+                      </div>
+                      <input type="number" id="prop-server-port" class="text-input" style="width: 140px;" value="25565" />
+                    </div>
+
+                    <!-- Dificultad -->
+                    <div class="property-form-card">
+                      <div class="property-info">
+                        <label style="font-weight: 600; font-size: 13px;">Dificultad (difficulty)</label>
+                        <small style="color: var(--text-muted); display: block;">Dificultad global del mundo.</small>
+                      </div>
+                      <select id="prop-difficulty" class="select-input" style="width: 160px;">
+                        <option value="peaceful">Pacífico</option>
+                        <option value="easy">Fácil</option>
+                        <option value="normal" selected>Normal</option>
+                        <option value="hard">Difícil</option>
+                      </select>
+                    </div>
+
+                    <!-- Modo de Juego por defecto -->
+                    <div class="property-form-card">
+                      <div class="property-info">
+                        <label style="font-weight: 600; font-size: 13px;">Modo de Juego (gamemode)</label>
+                        <small style="color: var(--text-muted); display: block;">Modo con el que ingresan nuevos jugadores.</small>
+                      </div>
+                      <select id="prop-gamemode" class="select-input" style="width: 160px;">
+                        <option value="survival" selected>Supervivencia (Survival)</option>
+                        <option value="creative">Creativo (Creative)</option>
+                        <option value="adventure">Aventura (Adventure)</option>
+                        <option value="spectator">Espectador</option>
+                      </select>
+                    </div>
+
+                    <!-- PVP -->
+                    <div class="property-form-card">
+                      <div class="property-info">
+                        <label style="font-weight: 600; font-size: 13px;">Combate entre Jugadores (PVP)</label>
+                        <small style="color: var(--text-muted); display: block;">Permite que los jugadores se hagan daño entre sí.</small>
+                      </div>
+                      <select id="prop-pvp" class="select-input" style="width: 140px;">
+                        <option value="true" selected>Habilitado</option>
+                        <option value="false">Deshabilitado</option>
+                      </select>
+                    </div>
+
+                    <!-- Máximo de Jugadores -->
+                    <div class="property-form-card">
+                      <div class="property-info">
+                        <label style="font-weight: 600; font-size: 13px;">Máximo de Jugadores (max-players)</label>
+                        <small style="color: var(--text-muted); display: block;">Capacidad máxima simultánea de jugadores.</small>
+                      </div>
+                      <input type="number" id="prop-max-players" class="text-input" style="width: 140px;" value="20" />
+                    </div>
+
+                    <!-- Distancia de Renderizado -->
+                    <div class="property-form-card">
+                      <div class="property-info">
+                        <label style="font-weight: 600; font-size: 13px;">Distancia de Renderizado (view-distance)</label>
+                        <small style="color: var(--text-muted); display: block;">Chunks que el servidor envía a los clientes (8 a 16 recomendado).</small>
+                      </div>
+                      <input type="number" id="prop-view-distance" class="text-input" style="width: 140px;" value="10" />
+                    </div>
+
+                    <!-- Distancia de Simulación -->
+                    <div class="property-form-card">
+                      <div class="property-info">
+                        <label style="font-weight: 600; font-size: 13px;">Distancia de Simulación (simulation-distance)</label>
+                        <small style="color: var(--text-muted); display: block;">Chunks donde se procesan entidades y mobs.</small>
+                      </div>
+                      <input type="number" id="prop-simulation-distance" class="text-input" style="width: 140px;" value="10" />
+                    </div>
+
+                    <!-- MOTD (Mensaje en la lista de servidores) -->
+                    <div class="property-form-card" style="grid-column: span 2;">
+                      <div class="property-info">
+                        <label style="font-weight: 600; font-size: 13px;">Mensaje del Servidor (motd)</label>
+                        <small style="color: var(--text-muted); display: block;">Texto mostrado a los jugadores en la lista multijugador.</small>
+                      </div>
+                      <input type="text" id="prop-motd" class="text-input" style="width: 100%;" value="Servidor de Minecraft - ShubaCore" />
+                    </div>
+
+                    <!-- Lista Blanca (Whitelist) -->
+                    <div class="property-form-card">
+                      <div class="property-info">
+                        <label style="font-weight: 600; font-size: 13px;">Lista Blanca (white-list)</label>
+                        <small style="color: var(--text-muted); display: block;">Solo jugadores aprobados pueden ingresar.</small>
+                      </div>
+                      <select id="prop-white-list" class="select-input" style="width: 140px;">
+                        <option value="false" selected>Desactivada</option>
+                        <option value="true">Activada</option>
+                      </select>
+                    </div>
+
+                    <!-- Bloques de Comandos -->
+                    <div class="property-form-card">
+                      <div class="property-info">
+                        <label style="font-weight: 600; font-size: 13px;">Bloques de Comandos (enable-command-block)</label>
+                        <small style="color: var(--text-muted); display: block;">Permite ejecutar Command Blocks.</small>
+                      </div>
+                      <select id="prop-command-blocks" class="select-input" style="width: 140px;">
+                        <option value="true" selected>Habilitados</option>
+                        <option value="false">Deshabilitados</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- PANEL 3: MODS DEL SERVIDOR -->
+              <div id="server-subpanel-mods" class="server-subpanel-content" style="display: none;">
+                <div class="server-mods-panel-header">
+                  <div>
+                    <span style="font-weight: 600; font-size: 14px; color: var(--text-primary);">Mods Instalados en el Servidor</span>
+                    <span id="server-installed-mods-badge" class="badge badge-secondary" style="margin-left: 8px;">0 mods</span>
+                  </div>
+                  <div style="display: flex; gap: 8px;">
+                    <button id="btn-sync-server-mods" class="btn btn-primary btn-small">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                      <span>🔄 Sincronizar desde Instancia Cliente</span>
+                    </button>
+                    <button id="btn-open-server-mods-dir" class="btn btn-secondary btn-small">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                      <span>Abrir /mods</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div id="server-mods-list-container" class="installed-mods-list view-list" style="margin-top: 14px;">
+                  <div class="empty-state">No hay mods instalados en este servidor todavía. Pulsa "🔄 Sincronizar desde Instancia Cliente" para copiar los mods seguros.</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -1290,6 +1637,129 @@
       </div>
       <div class="modal-footer" style="display: flex; justify-content: flex-end;">
         <button id="btn-dismiss-world-backups-modal" class="btn btn-secondary">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CREAR NUEVO SERVIDOR DEDICADO -->
+  <div id="modal-create-server" class="modal-overlay" style="display: none;">
+    <div class="modal-content card" style="max-width: 540px;">
+      <div class="modal-header">
+        <h3 class="modal-title">🖥 Crear Servidor Dedicado Local</h3>
+        <button id="btn-close-create-server-modal" class="btn btn-small close-btn">✕</button>
+      </div>
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: 14px;">
+        <div class="form-group">
+          <label for="input-server-create-name" style="font-weight: 600;">Nombre del Servidor:</label>
+          <input type="text" id="input-server-create-name" class="text-input" placeholder="ej. Mi Super Servidor" value="Mi Servidor" />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group flex-1">
+            <label for="select-server-create-mc" style="font-weight: 600;">Versión de Minecraft:</label>
+            <select id="select-server-create-mc" class="select-input">
+              <option value="1.21.1" selected>Minecraft 1.21.1 (Recomendado)</option>
+              <option value="1.20.4">Minecraft 1.20.4</option>
+              <option value="1.20.1">Minecraft 1.20.1 (Modpacks)</option>
+              <option value="1.19.2">Minecraft 1.19.2</option>
+              <option value="1.18.2">Minecraft 1.18.2</option>
+              <option value="1.16.5">Minecraft 1.16.5</option>
+            </select>
+          </div>
+          <div class="form-group flex-1">
+            <label for="select-server-create-loader" style="font-weight: 600;">Modloader:</label>
+            <select id="select-server-create-loader" class="select-input">
+              <option value="neoforge" selected>NeoForge</option>
+              <option value="fabric">Fabric</option>
+              <option value="forge">Forge</option>
+              <option value="vanilla">Vanilla (Oficial Mojang)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group flex-1">
+            <label for="select-server-create-ram" style="font-weight: 600;">Memoria RAM Asignada:</label>
+            <select id="select-server-create-ram" class="select-input">
+              <option value="4G">4 GB RAM (Básico)</option>
+              <option value="6G" selected>6 GB RAM (Recomendado)</option>
+              <option value="8G">8 GB RAM (Modpacks Grandes)</option>
+              <option value="10G">10 GB RAM (Heavy)</option>
+              <option value="12G">12 GB RAM (Extremo)</option>
+            </select>
+          </div>
+          <div class="form-group flex-1">
+            <label for="input-server-create-port" style="font-weight: 600;">Puerto de Red:</label>
+            <input type="number" id="input-server-create-port" class="text-input" value="25565" />
+          </div>
+        </div>
+
+        <div class="settings-card" style="margin-top: 4px; padding: 12px; background: rgba(255,255,255,0.02);">
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; font-weight: 600;">
+            <input type="checkbox" id="check-server-sync-mods-on-create" checked style="accent-color: var(--accent-emerald);" />
+            <span>🔄 Sincronizar mods automáticamente desde mi instancia activa</span>
+          </label>
+          <div id="box-server-sync-instance-selector" style="margin-top: 10px;">
+            <label for="select-server-sync-instance" style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 4px;">Instancia origen de los mods:</label>
+            <select id="select-server-sync-instance" class="select-input" style="width: 100%;"></select>
+            <small style="color: var(--text-muted); display: block; margin-top: 4px;">Los mods exclusivos de cliente (gráficos, shaders, HUDs) serán omitidos automáticamente para evitar crasheos.</small>
+          </div>
+        </div>
+
+        <!-- Progreso de Instalación -->
+        <div id="server-install-progress-box" class="install-progress-box" style="display: none;">
+          <div class="install-progress-bar-bg">
+            <div id="server-install-progress-fill" class="install-progress-fill" style="width: 0%;"></div>
+          </div>
+          <span id="server-install-progress-text" class="install-status-text">Descargando e instalando componentes oficiales...</span>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px;">
+        <button id="btn-cancel-create-server" class="btn btn-secondary">Cancelar</button>
+        <button id="btn-submit-create-server" class="btn btn-primary">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20"/><path d="m17 5-5-3-5 3"/><path d="m17 19-5 3-5-3"/></svg>
+          <span>Instalar y Crear Servidor</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: SINCRONIZAR MODS DESDE INSTANCIA CLIENTE -->
+  <div id="modal-sync-server-mods" class="modal-overlay" style="display: none;">
+    <div class="modal-content card" style="max-width: 520px;">
+      <div class="modal-header">
+        <h3 class="modal-title">🔄 Sincronizador de Mods Cliente ➔ Servidor</h3>
+        <button id="btn-close-sync-server-modal" class="btn btn-small close-btn">✕</button>
+      </div>
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: 14px;">
+        <div class="settings-card" style="padding: 12px; background: rgba(16, 185, 129, 0.08); border-color: rgba(16, 185, 129, 0.25);">
+          <div style="font-size: 12.5px; line-height: 1.45; color: #a7f3d0;">
+            🛡 <strong>Filtro Anti-Crash Inteligente:</strong> ShubaCore inspeccionará todos los mods de tu cliente y omitirá automáticamente los que sean solo de cliente (Sodium, Iris, EntityCulling, SoundPhysics, HUDs, etc.), copiando solo mods de contenido/servidor.
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="select-sync-source-instance" style="font-weight: 600;">Selecciona la Instancia Origen:</label>
+          <select id="select-sync-source-instance" class="select-input" style="width: 100%;"></select>
+        </div>
+
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px;">
+          <input type="checkbox" id="check-sync-copy-configs" checked style="accent-color: var(--accent-emerald);" />
+          <span>Sincronizar también configuraciones (carpetas <code>config/</code> y <code>defaultconfigs/</code>)</span>
+        </label>
+
+        <div id="sync-server-result-box" style="display: none; padding: 10px 14px; border-radius: var(--radius-md); font-size: 12.5px; background: var(--bg-surface);">
+          <span id="sync-server-result-text">Sincronizando...</span>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px;">
+        <button id="btn-cancel-sync-server" class="btn btn-secondary">Cerrar</button>
+        <button id="btn-execute-sync-server" class="btn btn-primary">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+          <span id="btn-execute-sync-server-text">Iniciar Sincronización</span>
+        </button>
       </div>
     </div>
   </div>
