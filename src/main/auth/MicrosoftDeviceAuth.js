@@ -147,7 +147,7 @@ class MicrosoftDeviceAuth {
   /**
    * 3. Intercambia el access_token de Microsoft por tokens de Xbox Live, XSTS y Minecraft
    */
-  async exchangeForMinecraft(msAccessToken) {
+  async exchangeForMinecraft(msAccessToken, cachedSession = null) {
     logger.info('[MS Auth] Paso 1: Autenticando con Xbox Live (XBL)...');
     const xblRes = await fetch(XBL_AUTH_URL, {
       method: 'POST',
@@ -229,6 +229,28 @@ class MicrosoftDeviceAuth {
 
     if (!mcLoginRes.ok) {
       const mcErr = await mcLoginRes.text();
+      const isRateLimited = mcLoginRes.status === 429 || mcErr.includes('TOO_MANY_REQUESTS');
+      if (isRateLimited) {
+        logger.warn('[MS Auth] Minecraft Services reportó TOO_MANY_REQUESTS (429) en login_with_xbox.');
+        if (cachedSession && (cachedSession.mcAccessToken || cachedSession.access_token)) {
+          const existingToken = cachedSession.mcAccessToken || cachedSession.access_token;
+          const username = cachedSession.username || cachedSession.name || 'Jugador';
+          const uuid = cachedSession.uuid || '';
+          const rawUuid = cachedSession.rawUuid || (uuid ? uuid.replace(/-/g, '') : '');
+          logger.info(`[MS Auth] Reutilizando sesión y tokens existentes en caché para "${username}".`);
+          return {
+            name: username,
+            uuid,
+            rawUuid,
+            skinUrl: cachedSession.skinUrl || `https://mc-heads.net/skin/${encodeURIComponent(username)}`,
+            skinVariant: cachedSession.skinVariant || 'CLASSIC',
+            mcAccessToken: existingToken,
+            mcExpiresIn: 86400,
+            rateLimited: true
+          };
+        }
+        throw new Error('Servidores de autenticación de Minecraft temporalmente ocupados (TOO_MANY_REQUESTS). Por favor espera un momento.');
+      }
       logger.error('[MS Auth] Error en login_with_xbox:', mcErr);
       throw new Error(`Fallo al autenticar en servicios de Minecraft (${mcLoginRes.status}).`);
     }
@@ -251,6 +273,20 @@ class MicrosoftDeviceAuth {
     }
 
     if (!profileRes.ok) {
+      if (profileRes.status === 429 && cachedSession && (cachedSession.username || cachedSession.name)) {
+        const username = cachedSession.username || cachedSession.name;
+        logger.warn(`[MS Auth] Consulta de perfil 429 TOO_MANY_REQUESTS. Reutilizando perfil en caché para "${username}".`);
+        return {
+          name: username,
+          uuid: cachedSession.uuid || '',
+          rawUuid: cachedSession.rawUuid || (cachedSession.uuid ? cachedSession.uuid.replace(/-/g, '') : ''),
+          skinUrl: cachedSession.skinUrl || `https://mc-heads.net/skin/${encodeURIComponent(username)}`,
+          skinVariant: cachedSession.skinVariant || 'CLASSIC',
+          mcAccessToken,
+          mcExpiresIn: mcLoginData.expires_in || 86400,
+          rateLimited: true
+        };
+      }
       throw new Error(`Fallo al consultar perfil de Minecraft (${profileRes.status}).`);
     }
 
@@ -276,7 +312,7 @@ class MicrosoftDeviceAuth {
   /**
    * 4. Renueva la sesión con el refresh_token de Microsoft
    */
-  async refreshSession(refreshToken) {
+  async refreshSession(refreshToken, cachedSession = null) {
     logger.info('[MS Auth] Renovando sesión oficial con refresh_token...');
     const params = new URLSearchParams({
       grant_type: 'refresh_token',
@@ -296,7 +332,7 @@ class MicrosoftDeviceAuth {
     }
 
     const tokenData = await res.json();
-    const mcData = await this.exchangeForMinecraft(tokenData.access_token);
+    const mcData = await this.exchangeForMinecraft(tokenData.access_token, cachedSession);
 
     return {
       ...mcData,

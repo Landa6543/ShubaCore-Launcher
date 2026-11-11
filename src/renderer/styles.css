@@ -1270,6 +1270,7 @@ select option, .select-input option, .catalog-select option, .dark-select option
   gap: 16px;
   width: 100%;
   box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .instance-context-left {
@@ -1346,6 +1347,7 @@ select option, .select-input option, .catalog-select option, .dark-select option
   width: 100%;
   box-sizing: border-box;
   flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
 .control-bar-search {
@@ -1438,10 +1440,14 @@ select option, .select-input option, .catalog-select option, .dark-select option
   background: rgba(18, 20, 26, 0.6);
   display: flex;
   align-items: center;
+  flex-shrink: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .installed-mods-container {
-  flex: 1;
+  flex: 1 1 0%;
+  min-height: 0;
   width: 100%;
   max-width: none !important;
   margin: 0;
@@ -2966,18 +2972,25 @@ input:checked + .switch-slider:before {
 .instance-subtabs-nav {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   padding: 10px 24px;
   background-color: var(--bg-surface);
   border-bottom: 1px solid var(--border);
+  width: 100%;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  height: 52px;
+  min-height: 52px;
   overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .instance-subtab-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  padding: 7px 14px;
+  padding: 8px 16px;
   border-radius: var(--radius-md);
   border: 1px solid transparent;
   background: transparent;
@@ -2988,6 +3001,9 @@ input:checked + .switch-slider:before {
   transition: all 0.15s ease;
   user-select: none;
   white-space: nowrap;
+  flex-shrink: 0;
+  height: 34px;
+  box-sizing: border-box;
 }
 
 .instance-subtab-btn:hover {
@@ -3023,6 +3039,59 @@ input:checked + .switch-slider:before {
   color: #34d399;
 }
 
+/* ==========================================================================
+   CONTENEDORES DE SUB-PANELES DE INSTANCIA
+   ========================================================================== */
+.instance-subpanel {
+  display: none;
+  width: 100%;
+  box-sizing: border-box;
+  flex: 1 1 0%;
+  min-height: 0;
+  min-width: 0;
+}
+
+.instance-subpanel.active {
+  display: flex !important;
+}
+
+#subpanel-instance-mods {
+  flex-direction: column;
+  overflow: hidden;
+  height: 100%;
+  flex: 1 1 0%;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+#subpanel-instance-shaders,
+#subpanel-instance-resourcepacks,
+#subpanel-instance-worlds {
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 24px;
+  overflow-y: auto;
+  height: 100%;
+  flex: 1 1 0%;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+#shaders-installed-list,
+#resourcepacks-installed-list,
+#worlds-installed-list {
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 /* Tarjetas de Shaders, Resource Packs y Mundos */
 .pack-card, .world-card {
   display: flex;
@@ -3035,6 +3104,9 @@ input:checked + .switch-slider:before {
   gap: 14px;
   transition: all 0.15s ease;
   margin-bottom: 8px;
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
 }
 
 .pack-card:hover, .world-card:hover {

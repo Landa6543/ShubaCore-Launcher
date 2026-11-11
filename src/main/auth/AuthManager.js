@@ -16,6 +16,10 @@ class AuthManager {
   constructor() {
     this.configManager = getConfigManager();
     this.deviceAuth = getMicrosoftDeviceAuth();
+    this._savedSessionPromise = null;
+    this._activeRefreshPromise = null;
+    this._lastRefreshTimestamp = 0;
+    this._refreshCooldownMs = 30000;
   }
 
   /**
@@ -176,8 +180,25 @@ class AuthManager {
 
   /**
    * Carga la sesión guardada desde auth-session.json y renueva el token silenciosamente si expiró
+   * Utiliza una promesa en vuelo compartida para evitar múltiples llamadas concurrentes en el arranque
    */
   async getSavedSession() {
+    if (this._savedSessionPromise) {
+      return this._savedSessionPromise;
+    }
+
+    this._savedSessionPromise = (async () => {
+      try {
+        return await this._getSavedSessionInternal();
+      } finally {
+        this._savedSessionPromise = null;
+      }
+    })();
+
+    return this._savedSessionPromise;
+  }
+
+  async _getSavedSessionInternal() {
     let session = this._readSessionFile();
 
     // Auto-renovación silenciosa de token Microsoft si expiró o está por expirar
@@ -186,7 +207,7 @@ class AuthManager {
       if (isExpired) {
         logger.info('[AuthManager] Token de Microsoft expirado al cargar launcher. Auto-renovando silenciosamente con msRefreshToken...');
         try {
-          await this.refreshMicrosoftSession();
+          await this.refreshMicrosoftSession(false);
           session = this._readSessionFile();
         } catch (err) {
           logger.warn(`[AuthManager] No se pudo auto-renovar token en inicio: ${err.message}`);
@@ -420,8 +441,35 @@ class AuthManager {
 
   /**
    * Refresca silenciosamente la sesión de Microsoft usando el refresh_token
+   * Cuenta con bloqueo de concurrencia (mutex in-flight) y cooldown anti rate-limit (30s)
    */
   async refreshMicrosoftSession(force = false) {
+    // 1. Mutex: si ya hay un proceso de renovación en curso, retornar la misma promesa
+    if (this._activeRefreshPromise) {
+      logger.debug('[AuthManager] Renovación de token de Microsoft ya en curso. Retornando promesa activa...');
+      return this._activeRefreshPromise;
+    }
+
+    // 2. Cooldown anti rate-limit (30s): no volver a saturar Microsoft si ya se verificó recientemente
+    const now = Date.now();
+    if (!force && (now - this._lastRefreshTimestamp < this._refreshCooldownMs)) {
+      logger.debug('[AuthManager] Renovación solicitada dentro del período de cooldown (30s). Reutilizando sesión actual.');
+      const session = this._readSessionFile();
+      return { success: true, renewed: false, session, account: this.getCurrentAccount() };
+    }
+
+    this._activeRefreshPromise = (async () => {
+      try {
+        return await this._refreshMicrosoftSessionInternal(force);
+      } finally {
+        this._activeRefreshPromise = null;
+      }
+    })();
+
+    return this._activeRefreshPromise;
+  }
+
+  async _refreshMicrosoftSessionInternal(force = false) {
     const session = this._readSessionFile();
     const msAcc = session.microsoftAccount;
     if (!msAcc || !msAcc.msRefreshToken) {
@@ -435,14 +483,16 @@ class AuthManager {
 
     try {
       logger.info(`[AuthManager] Renovando sesión oficial silenciosamente para "${msAcc.username}"...`);
-      const refreshed = await this.deviceAuth.refreshSession(msAcc.msRefreshToken);
+      this._lastRefreshTimestamp = Date.now();
+      const refreshed = await this.deviceAuth.refreshSession(msAcc.msRefreshToken, msAcc);
 
-      session.microsoftAccount.username = refreshed.name;
-      session.microsoftAccount.uuid = refreshed.uuid;
-      session.microsoftAccount.mcAccessToken = refreshed.mcAccessToken;
+      session.microsoftAccount.username = refreshed.name || msAcc.username;
+      session.microsoftAccount.uuid = refreshed.uuid || msAcc.uuid;
+      session.microsoftAccount.mcAccessToken = refreshed.mcAccessToken || msAcc.mcAccessToken;
       session.microsoftAccount.msRefreshToken = refreshed.msRefreshToken || msAcc.msRefreshToken;
       session.microsoftAccount.skinUrl = refreshed.skinUrl || msAcc.skinUrl;
-      session.microsoftAccount.expiresAt = Date.now() + ((refreshed.mcExpiresIn || 86400) * 1000);
+      const expiresInSec = refreshed.rateLimited ? 600 : (refreshed.mcExpiresIn || 86400);
+      session.microsoftAccount.expiresAt = Date.now() + (expiresInSec * 1000);
 
       this._writeSessionFile(session);
 
@@ -452,10 +502,10 @@ class AuthManager {
         this.configManager.set('auth.mode', 'premium');
       }
 
-      logger.info(`[AuthManager] Sesión de Microsoft renovada exitosamente para "${refreshed.name}".`);
+      logger.info(`[AuthManager] Sesión de Microsoft renovada exitosamente para "${refreshed.name}".${refreshed.rateLimited ? ' (Reutilizados por rate-limit Mojang)' : ''}`);
       return { success: true, renewed: true, session, account: fullAccount };
     } catch (err) {
-      logger.warn(`[AuthManager] Error al renovar token de Microsoft: ${err.message}`);
+      logger.warn(`[AuthManager] Aviso al renovar token de Microsoft: ${err.message}`);
       return { success: false, error: err.message };
     }
   }
@@ -469,7 +519,7 @@ class AuthManager {
       const isExpired = Date.now() >= ((session.microsoftAccount.expiresAt || 0) - 60 * 1000);
       if (isExpired) {
         logger.info('[AuthManager] [Launch] Token de Microsoft expirado antes de lanzar Minecraft. Renovando silenciosamente...');
-        await this.refreshMicrosoftSession();
+        await this.refreshMicrosoftSession(false);
       }
       const updated = this._readSessionFile();
       if (updated.microsoftAccount) {

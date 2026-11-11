@@ -2462,7 +2462,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     Object.keys(subpanels).forEach((k) => {
       if (subpanels[k]) {
-        subpanels[k].style.display = (k === tabName) ? (k === 'mods' ? 'block' : 'flex') : 'none';
+        const isActive = (k === tabName);
+        subpanels[k].style.display = isActive ? 'flex' : 'none';
+        subpanels[k].classList.toggle('active', isActive);
       }
     });
 
