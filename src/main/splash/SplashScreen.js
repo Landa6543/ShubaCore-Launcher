@@ -172,14 +172,14 @@ class SplashScreen {
   }
 
   /**
-   * Remueve ShubaCoreSplash de options.txt si el usuario lo desactiva
+   * Remueve ShubaCoreSplash de options.txt (resourcePacks e incompatibleResourcePacks)
    */
   removeFromOptionsTxt(instancePath) {
     const optsFile = path.join(instancePath, 'options.txt');
     if (!fs.existsSync(optsFile)) return false;
 
     try {
-      const lines = fs.readFileSync(optsFile, 'utf8').split('\n');
+      const lines = fs.readFileSync(optsFile, 'utf8').split(/\r?\n/);
       let modified = false;
 
       for (let i = 0; i < lines.length; i++) {
@@ -192,9 +192,31 @@ class SplashScreen {
               const filtered = currentPacks.filter((p) => p !== 'file/ShubaCoreSplash' && p !== 'ShubaCoreSplash');
               lines[i] = `resourcePacks:${JSON.stringify(filtered)}`;
               modified = true;
+            } else if (valStr.includes('ShubaCoreSplash')) {
+              lines[i] = 'resourcePacks:[]';
+              modified = true;
             }
-          } catch (_) {}
-          break;
+          } catch (_) {
+            lines[i] = 'resourcePacks:[]';
+            modified = true;
+          }
+        }
+        if (line.startsWith('incompatibleResourcePacks:')) {
+          const valStr = line.slice('incompatibleResourcePacks:'.length).trim();
+          try {
+            if (valStr.startsWith('[') && valStr.endsWith(']')) {
+              const currentPacks = JSON.parse(valStr);
+              const filtered = currentPacks.filter((p) => p !== 'file/ShubaCoreSplash' && p !== 'ShubaCoreSplash');
+              lines[i] = `incompatibleResourcePacks:${JSON.stringify(filtered)}`;
+              modified = true;
+            } else if (valStr.includes('ShubaCoreSplash')) {
+              lines[i] = 'incompatibleResourcePacks:[]';
+              modified = true;
+            }
+          } catch (_) {
+            lines[i] = 'incompatibleResourcePacks:[]';
+            modified = true;
+          }
         }
       }
 
@@ -210,25 +232,35 @@ class SplashScreen {
   }
 
   /**
-   * Método orquestador llamado antes del lanzamiento de Minecraft
+   * Elimina completamente el paquete ShubaCoreSplash y limpia options.txt
+   */
+  cleanAndPurgeSplash(instancePath) {
+    if (!instancePath || typeof instancePath !== 'string') return;
+    try {
+      const packDir = path.join(instancePath, 'resourcepacks', 'ShubaCoreSplash');
+      if (fs.existsSync(packDir)) {
+        try {
+          fs.rmSync(packDir, { recursive: true, force: true });
+          logger.info(`[SplashScreen] ✅ Carpeta incompatible ShubaCoreSplash eliminada de: ${packDir}`);
+        } catch (rmErr) {
+          logger.warn(`[SplashScreen] No se pudo eliminar carpeta ShubaCoreSplash: ${rmErr.message}`);
+        }
+      }
+      this.removeFromOptionsTxt(instancePath);
+    } catch (err) {
+      logger.warn(`[SplashScreen] Aviso al purgar ShubaCoreSplash: ${err.message}`);
+    }
+  }
+
+  /**
+   * Método orquestador: Desactivado permanentemente para evitar conflictos con ResourceManager y options.txt
    */
   async injectSplashScreen({ instancePath, mcVersion = '1.21.1', profile = null, customLogoPath = null }) {
     if (!instancePath) return { applied: false, reason: 'No instancePath' };
 
-    // Si el perfil explícitamente tiene desactivado customSplash, removerlo
-    if (profile && profile.customSplash === false) {
-      this.removeFromOptionsTxt(instancePath);
-      return { applied: false, disabledByProfile: true };
-    }
-
-    try {
-      const packDir = this.generateSplashPack(instancePath, { mcVersion, customLogoPath });
-      this.injectIntoOptionsTxt(instancePath);
-      return { applied: true, packPath: packDir };
-    } catch (err) {
-      logger.error(`[SplashScreen] Error al inyectar splash screen: ${err.message}`);
-      return { applied: false, error: err.message };
-    }
+    // Inyección desactivada: siempre purga para prevenir crash 3221225477 en Render thread
+    this.cleanAndPurgeSplash(instancePath);
+    return { applied: false, disabled: true, purged: true };
   }
 }
 

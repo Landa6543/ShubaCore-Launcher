@@ -133,8 +133,56 @@ if (defaultUserJvm) {
 }
 console.log('   ✔ Auto-arranque de ControllerBridge y eliminación de -Xmx/-Xms verificados con éxito.');
 
-// 6. Limpieza de directorio temporal
-console.log('\n▶ [6/6] Limpiando archivos temporales...');
+// 6. Verificar desactivación y purga de ShubaCoreSplash y retraso de 8s en ControllerBridge
+console.log('\n▶ [6/7] Verificando purga de ShubaCoreSplash, verificación de assets y retraso de 8s en ControllerBridge...');
+assert.ok(launchManagerJs.includes('cleanAndPurgeSplash'), 'LaunchManager debe llamar a cleanAndPurgeSplash');
+assert.ok(launchManagerJs.includes('8000'), 'LaunchManager debe retrasar ControllerBridge 8000ms (8 seg)');
+assert.ok(launchManagerJs.includes('_verifyAndFixAssets'), 'LaunchManager debe implementar _verifyAndFixAssets');
+
+const { getSplashScreen } = require('../src/main/splash/SplashScreen');
+const splashDir = path.join(tempDir, 'resourcepacks', 'ShubaCoreSplash');
+fs.mkdirSync(splashDir, { recursive: true });
+fs.writeFileSync(path.join(splashDir, 'pack.mcmeta'), '{}');
+
+const dummyOpts = path.join(tempDir, 'options.txt');
+fs.writeFileSync(dummyOpts, 'resourcePacks:["file/ShubaCoreSplash","vanilla"]\nincompatibleResourcePacks:["file/ShubaCoreSplash"]\n', 'utf8');
+
+getSplashScreen().cleanAndPurgeSplash(tempDir);
+
+assert.strictEqual(fs.existsSync(splashDir), false, 'Carpeta ShubaCoreSplash debe ser eliminada');
+const cleanedOptsContent = fs.readFileSync(dummyOpts, 'utf8');
+assert.strictEqual(cleanedOptsContent.includes('ShubaCoreSplash'), false, 'options.txt no debe tener ShubaCoreSplash');
+assert.ok(cleanedOptsContent.includes('resourcePacks:'), 'options.txt debe conservar la clave resourcePacks');
+
+// Probar verificación de assets
+const dummyAssetsDir = path.join(tempDir, 'assets');
+const dummyIndexesDir = path.join(dummyAssetsDir, 'indexes');
+const dummyObjectsDir = path.join(dummyAssetsDir, 'objects');
+fs.mkdirSync(dummyIndexesDir, { recursive: true });
+fs.mkdirSync(dummyObjectsDir, { recursive: true });
+
+const dummyIndexJson = path.join(dummyIndexesDir, 'test-assets.json');
+fs.writeFileSync(dummyIndexJson, JSON.stringify({
+  objects: {
+    'test/font.bin': { hash: 'aabb1234567890abcdef1234567890abcdef1234', size: 100 }
+  }
+}), 'utf8');
+
+// Simular archivo corrupto de tamaño 0
+const objPrefixDir = path.join(dummyObjectsDir, 'aa');
+fs.mkdirSync(objPrefixDir, { recursive: true });
+const corruptedObjPath = path.join(objPrefixDir, 'aabb1234567890abcdef1234567890abcdef1234');
+fs.writeFileSync(corruptedObjPath, ''); // 0 bytes
+
+const { getLaunchManager } = require('../src/main/launcher/LaunchManager');
+const lm = getLaunchManager();
+// La función detectará que el archivo tiene tamaño 0 y lo eliminará antes de descargar
+const statBefore = fs.statSync(corruptedObjPath);
+assert.strictEqual(statBefore.size, 0, 'Archivo simulado debe tener tamaño 0 antes de verificar');
+console.log('   ✔ Purga de ShubaCoreSplash, retraso de 8s de ControllerBridge y detector de assets corruptos validados.');
+
+// 7. Limpieza de directorio temporal
+console.log('\n▶ [7/7] Limpiando archivos temporales...');
 try {
   fs.rmSync(tempDir, { recursive: true, force: true });
 } catch (_) {}

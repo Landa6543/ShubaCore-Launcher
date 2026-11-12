@@ -152,6 +152,44 @@ class HudOptionsManager {
           currentLang = trimmed.substring(5).trim();
         }
         if (trimmed.startsWith('autoJump:')) hasAutoJump = true;
+
+        // Limpieza de ShubaCoreSplash incompatible de resourcePacks e incompatibleResourcePacks
+        if (trimmed.startsWith('resourcePacks:') && trimmed.includes('ShubaCoreSplash')) {
+          const valStr = trimmed.slice('resourcePacks:'.length).trim();
+          try {
+            if (valStr.startsWith('[') && valStr.endsWith(']')) {
+              const currentPacks = JSON.parse(valStr);
+              const filtered = currentPacks.filter((p) => p !== 'file/ShubaCoreSplash' && p !== 'ShubaCoreSplash');
+              lines[i] = `resourcePacks:${JSON.stringify(filtered)}`;
+            } else {
+              lines[i] = 'resourcePacks:[]';
+            }
+          } catch (_) {
+            lines[i] = 'resourcePacks:[]';
+          }
+          modified = true;
+        }
+        if (trimmed.startsWith('incompatibleResourcePacks:') && trimmed.includes('ShubaCoreSplash')) {
+          const valStr = trimmed.slice('incompatibleResourcePacks:'.length).trim();
+          try {
+            if (valStr.startsWith('[') && valStr.endsWith(']')) {
+              const currentPacks = JSON.parse(valStr);
+              const filtered = currentPacks.filter((p) => p !== 'file/ShubaCoreSplash' && p !== 'ShubaCoreSplash');
+              lines[i] = `incompatibleResourcePacks:${JSON.stringify(filtered)}`;
+            } else {
+              lines[i] = 'incompatibleResourcePacks:[]';
+            }
+          } catch (_) {
+            lines[i] = 'incompatibleResourcePacks:[]';
+          }
+          modified = true;
+        }
+      }
+
+      // Eliminar carpeta ShubaCoreSplash si existe en la instancia
+      const splashPackDir = path.join(instanceDir, 'resourcepacks', 'ShubaCoreSplash');
+      if (fs.existsSync(splashPackDir)) {
+        try { fs.rmSync(splashPackDir, { recursive: true, force: true }); } catch (_) {}
       }
 
       let modified = false;

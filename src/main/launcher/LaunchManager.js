@@ -126,6 +126,7 @@ class LaunchManager {
     this.recentLogsBuffer = [];
     this.pendingLogBatch = [];
     this.logFlushTimer = null;
+    this.controllerBridgeTimer = null;
   }
 
   get activeProcess() {
@@ -391,8 +392,8 @@ class LaunchManager {
       // 5e. REQUISITO 1: Purga total de <instanceDir>/natives/ y extracción exclusiva de nativos x64
       const instanceNativesDir = this._prepareCleanNatives(instancePath, sharedRoot);
 
-      // 5f. REQUISITO 2: Asegurar assetIndex y descarga completa de minecraft/lang/es_es.json
-      await this._ensureLanguageAssets(sharedRoot, mcVersion, customVersionName);
+      // 5f. REQUISITO 2: Verificar integridad de assets (evitar crash de lwjgl_freetype con unifont) y asegurar es_es.json
+      await this._verifyAndFixAssets(sharedRoot, mcVersion, customVersionName);
 
       // Inyectar rutas limpias de nativos en las flags de Java (reemplazando cualquier ruta anterior)
       const cleanedJvmArgs = finalJvmArgs.filter((arg) => !arg.startsWith('-Djava.library.path=') && !arg.startsWith('-Dorg.lwjgl.librarypath='));
@@ -494,19 +495,12 @@ class LaunchManager {
         logger.warn(`[LaunchManager] Aviso al inyectar Resource Pack ShubaSkinOverride: ${skinErr.message}`);
       }
 
-      // MECANISMO 3: Inyección de Pantalla de Carga Custom (Splash Screen SHUBATECH)
+      // MECANISMO 3: Purgar y asegurar que ShubaCoreSplash esté 100% desactivado y eliminado de resourcepacks y options.txt
       try {
         const { getSplashScreen } = require('../splash/SplashScreen');
-        const splashRes = await getSplashScreen().injectSplashScreen({
-          instancePath,
-          mcVersion,
-          profile: activeProfile
-        });
-        if (splashRes.applied) {
-          logger.info(`⚡ [LaunchManager] [MECANISMO 3] Pantalla de carga personalizada SHUBATECH inyectada en "${instancePath}".`);
-        }
+        getSplashScreen().cleanAndPurgeSplash(instancePath);
       } catch (splashErr) {
-        logger.warn(`[LaunchManager] Aviso al inyectar SplashScreen: ${splashErr.message}`);
+        logger.warn(`[LaunchManager] Aviso al purgar SplashScreen: ${splashErr.message}`);
       }
 
       // 7. ShubaCore Pro - Limpieza de memoria Standby (Anti-Stuttering) antes del despegue
@@ -550,17 +544,6 @@ class LaunchManager {
 
       // Registrar timestamp de último juego en el perfil
       this.profileManager.updateProfile(activeProfile.id, { lastPlayed: new Date().toISOString() });
-
-      // Iniciar puente nativo de mandos Win32 automáticamente al lanzar Minecraft
-      if (process.platform === 'win32') {
-        try {
-          const { getControllerBridge } = require('../controller/ControllerBridge');
-          getControllerBridge().start(instancePath, gameProcess.pid);
-          logger.info(`[Mando] Puente XInput/Gamepad activo para Minecraft (PID: ${gameProcess.pid})`);
-        } catch (bridgeErr) {
-          logger.warn(`[LaunchManager] Aviso al iniciar puente de mandos Win32: ${bridgeErr.message}`);
-        }
-      }
 
       logger.info(`[LaunchManager] Proceso de Minecraft (${activeProfile.name} - ${auth.name}) iniciado exitosamente con PID: ${gameProcess.pid} [Sesión: ${sessionId}]. Sesiones activas: ${this.runningProcesses.size}`);
       this._emit('launch:started', {
@@ -666,18 +649,27 @@ class LaunchManager {
     logger.info(`¡La ventana de Minecraft (${profileName || 'Sesión'}) se ha creado y el juego está listo!`);
     logger.info('===========================================================');
 
-    // Asegurar que ControllerBridge esté activo con el PID de la ventana de Minecraft
+    // Retrasar el inicio de ControllerBridge 8 segundos tras abrir la ventana para no interferir con OpenGL y fuentes
     if (process.platform === 'win32') {
-      try {
-        const { getControllerBridge } = require('../controller/ControllerBridge');
-        const session = this.runningProcesses.get(sessionId);
-        const pid = session?.pid;
-        const instPath = session?.instancePath || this.lastInstancePath;
-        getControllerBridge().start(instPath, pid);
-        logger.info(`[Mando] Puente XInput/Gamepad activo para Minecraft (PID: ${pid || 'auto'})`);
-      } catch (bridgeErr) {
-        logger.warn(`[LaunchManager] Aviso al verificar puente de mandos Win32: ${bridgeErr.message}`);
+      if (this.controllerBridgeTimer) {
+        clearTimeout(this.controllerBridgeTimer);
+        this.controllerBridgeTimer = null;
       }
+      logger.info('[Mando] Esperando 8 segundos a que Minecraft estabilice OpenGL y fuentes antes de activar el mando...');
+      this.controllerBridgeTimer = setTimeout(() => {
+        if (this.runningProcesses.has(sessionId)) {
+          try {
+            const { getControllerBridge } = require('../controller/ControllerBridge');
+            const session = this.runningProcesses.get(sessionId);
+            const pid = session?.pid;
+            const instPath = session?.instancePath || this.lastInstancePath;
+            getControllerBridge().start(instPath, pid);
+            logger.info(`[Mando] Puente XInput/Gamepad activo para Minecraft (PID: ${pid || 'auto'}) tras 8s de estabilización`);
+          } catch (bridgeErr) {
+            logger.warn(`[LaunchManager] Aviso al iniciar puente de mandos Win32: ${bridgeErr.message}`);
+          }
+        }
+      }, 8000);
     }
 
     // Emitir evento para que ipcHandlers / main.js oculte la ventana y congele interfaz
@@ -699,6 +691,10 @@ class LaunchManager {
 
     const handleSessionClose = (code) => {
       clearTimeout(fallbackTimer);
+      if (this.controllerBridgeTimer) {
+        clearTimeout(this.controllerBridgeTimer);
+        this.controllerBridgeTimer = null;
+      }
       if (!this.runningProcesses.has(sessionId)) return;
 
       this.runningProcesses.delete(sessionId);
@@ -738,6 +734,10 @@ class LaunchManager {
   }
 
   killSession(sessionId) {
+    if (this.controllerBridgeTimer) {
+      clearTimeout(this.controllerBridgeTimer);
+      this.controllerBridgeTimer = null;
+    }
     const session = this.runningProcesses.get(sessionId);
     if (!session) return false;
 
@@ -932,10 +932,11 @@ class LaunchManager {
   }
 
   /**
-   * REQUISITO 2: Asegura que el assetIndex y el paquete oficial de idioma español
-   * (minecraft/lang/es_es.json) estén descargados antes de lanzar Minecraft.
+   * REQUISITO 2: Verifica la integridad de tamaño y descarga de todos los assets
+   * en <userData>/assets/indexes/<assetIndexId>.json para evitar crashes en lwjgl_freetype.dll (unifont).
+   * Si algún objeto tiene tamaño 0 o distinto a assetObj.size, lo re-descarga de Mojang.
    */
-  async _ensureLanguageAssets(sharedRoot, mcVersion, customVersionName) {
+  async _verifyAndFixAssets(sharedRoot, mcVersion, customVersionName) {
     try {
       const assetDir = path.join(sharedRoot, 'assets');
       const indexesDir = path.join(assetDir, 'indexes');
@@ -944,7 +945,29 @@ class LaunchManager {
       if (!fs.existsSync(indexesDir)) fs.mkdirSync(indexesDir, { recursive: true });
       if (!fs.existsSync(objectsDir)) fs.mkdirSync(objectsDir, { recursive: true });
 
-      let indexFile = path.join(indexesDir, `${mcVersion}.json`);
+      // 1. Localizar el assetIndexId desde el archivo de versión
+      let assetIndexId = null;
+      let assetIndexUrl = null;
+      const targetVersion = customVersionName || mcVersion;
+      const vJsonPath = path.join(sharedRoot, 'versions', targetVersion, `${targetVersion}.json`);
+      if (fs.existsSync(vJsonPath)) {
+        try {
+          const vData = JSON.parse(fs.readFileSync(vJsonPath, 'utf8'));
+          if (vData.assetIndex) {
+            assetIndexId = vData.assetIndex.id;
+            assetIndexUrl = vData.assetIndex.url;
+          } else if (vData.assets) {
+            assetIndexId = vData.assets;
+          }
+        } catch (_) {}
+      }
+
+      if (!assetIndexId) assetIndexId = mcVersion;
+
+      let indexFile = path.join(indexesDir, `${assetIndexId}.json`);
+      if (!fs.existsSync(indexFile)) {
+        indexFile = path.join(indexesDir, `${mcVersion}.json`);
+      }
       if (!fs.existsSync(indexFile)) {
         const indexFiles = fs.readdirSync(indexesDir).filter((f) => f.endsWith('.json'));
         if (indexFiles.length > 0) {
@@ -952,6 +975,25 @@ class LaunchManager {
         }
       }
 
+      // Si el índice no existe en disco pero tenemos su URL oficial, descargarlo
+      if (!fs.existsSync(indexFile) && assetIndexUrl) {
+        try {
+          logger.info(`[LaunchManager] Descargando assetIndex (${assetIndexId}) desde: ${assetIndexUrl}`);
+          const https = require('https');
+          const indexDir = path.dirname(indexFile);
+          if (!fs.existsSync(indexDir)) fs.mkdirSync(indexDir, { recursive: true });
+          await new Promise((resolve) => {
+            const file = fs.createWriteStream(indexFile);
+            https.get(assetIndexUrl, (res) => {
+              if (res.statusCode !== 200) return resolve();
+              res.pipe(file);
+              file.on('finish', () => file.close(resolve));
+            }).on('error', () => resolve());
+          });
+        } catch (_) {}
+      }
+
+      // Si es modloader con nombre custom (ej. NeoForge), clonar el índice para que MCLC lo encuentre
       if (customVersionName && fs.existsSync(indexFile)) {
         const customIndexTarget = path.join(indexesDir, `${customVersionName}.json`);
         if (!fs.existsSync(customIndexTarget)) {
@@ -961,36 +1003,126 @@ class LaunchManager {
         }
       }
 
-      if (fs.existsSync(indexFile)) {
-        const indexData = JSON.parse(fs.readFileSync(indexFile, 'utf8'));
-        const objects = indexData.objects || {};
-        const esLangObj = objects['minecraft/lang/es_es.json'];
-        if (esLangObj && esLangObj.hash) {
-          const hash = esLangObj.hash;
-          const subhash = hash.substring(0, 2);
-          const objDir = path.join(objectsDir, subhash);
-          const objPath = path.join(objDir, hash);
+      if (!fs.existsSync(indexFile)) {
+        logger.warn(`[LaunchManager] No se pudo verificar assets: indexFile no encontrado en ${indexesDir}`);
+        return;
+      }
 
-          if (!fs.existsSync(objPath) || fs.statSync(objPath).size === 0) {
-            if (!fs.existsSync(objDir)) fs.mkdirSync(objDir, { recursive: true });
-            const url = `https://resources.download.minecraft.net/${subhash}/${hash}`;
-            logger.info(`[LaunchManager] Descargando idioma español (es_es.json) desde: ${url}`);
-            const https = require('https');
-            await new Promise((resolve) => {
-              const file = fs.createWriteStream(objPath);
-              https.get(url, (res) => {
-                if (res.statusCode !== 200) return resolve();
-                res.pipe(file);
-                file.on('finish', () => file.close(resolve));
-              }).on('error', () => resolve());
-            });
-            logger.info(`[LaunchManager] ✅ Idioma español (es_es.json) verificado en: ${objPath}`);
+      const indexData = JSON.parse(fs.readFileSync(indexFile, 'utf8'));
+      const objects = indexData.objects || {};
+      const toDownload = [];
+
+      // 2. Comprobar existencia y tamaño exacto de cada objeto
+      for (const [name, obj] of Object.entries(objects)) {
+        if (!obj || !obj.hash || typeof obj.size !== 'number') continue;
+        const hash = obj.hash;
+        const expectedSize = obj.size;
+        const prefix = hash.substring(0, 2);
+        const objDir = path.join(objectsDir, prefix);
+        const objPath = path.join(objDir, hash);
+
+        let needsDownload = false;
+        try {
+          const stat = fs.statSync(objPath);
+          if (stat.size !== expectedSize || stat.size === 0) {
+            needsDownload = true;
+            try { fs.unlinkSync(objPath); } catch (_) {}
+          }
+        } catch (_) {
+          needsDownload = true;
+        }
+
+        if (needsDownload) {
+          toDownload.push({ name, hash, expectedSize, prefix, objDir, objPath });
+        }
+      }
+
+      // Asegurar específicamente que el idioma español exista en la lista de descarga si falta
+      const esLangObj = objects['minecraft/lang/es_es.json'];
+      if (esLangObj && esLangObj.hash) {
+        const esHash = esLangObj.hash;
+        const esPrefix = esHash.substring(0, 2);
+        const esPath = path.join(objectsDir, esPrefix, esHash);
+        try {
+          const s = fs.statSync(esPath);
+          if (s.size === 0 || s.size !== esLangObj.size) {
+            if (!toDownload.some((d) => d.hash === esHash)) {
+              toDownload.push({ name: 'minecraft/lang/es_es.json', hash: esHash, expectedSize: esLangObj.size, prefix: esPrefix, objDir: path.join(objectsDir, esPrefix), objPath: esPath });
+            }
+          }
+        } catch (_) {
+          if (!toDownload.some((d) => d.hash === esHash)) {
+            toDownload.push({ name: 'minecraft/lang/es_es.json', hash: esHash, expectedSize: esLangObj.size, prefix: esPrefix, objDir: path.join(objectsDir, esPrefix), objPath: esPath });
           }
         }
       }
+
+      if (toDownload.length === 0) {
+        logger.info(`[LaunchManager] ✅ Integridad de assets verificada: ${Object.keys(objects).length} objetos 100% íntegros (evitado crash freetype).`);
+        return;
+      }
+
+      logger.info(`[LaunchManager] ⚠️ Se detectaron ${toDownload.length} assets faltantes o corruptos (tamaño 0 / distinto). Descargando...`);
+
+      // 3. Descarga concurrente (pool de 10) desde https://resources.download.minecraft.net/
+      const https = require('https');
+      const downloadOne = (item) => {
+        return new Promise((resolve) => {
+          if (!fs.existsSync(item.objDir)) {
+            try { fs.mkdirSync(item.objDir, { recursive: true }); } catch (_) {}
+          }
+          const url = `https://resources.download.minecraft.net/${item.prefix}/${item.hash}`;
+          const file = fs.createWriteStream(item.objPath);
+          const req = https.get(url, (res) => {
+            if (res.statusCode !== 200) {
+              try { fs.unlinkSync(item.objPath); } catch (_) {}
+              return resolve(false);
+            }
+            res.pipe(file);
+            file.on('finish', () => {
+              file.close(() => {
+                try {
+                  const s = fs.statSync(item.objPath);
+                  resolve(s.size === item.expectedSize);
+                } catch (_) {
+                  resolve(false);
+                }
+              });
+            });
+          });
+          req.on('error', () => {
+            try { fs.unlinkSync(item.objPath); } catch (_) {}
+            resolve(false);
+          });
+          req.setTimeout(15000, () => {
+            req.destroy();
+            try { fs.unlinkSync(item.objPath); } catch (_) {}
+            resolve(false);
+          });
+        });
+      };
+
+      const concurrency = 10;
+      let currentIndex = 0;
+      let repaired = 0;
+
+      const workers = Array(concurrency).fill(null).map(async () => {
+        while (currentIndex < toDownload.length) {
+          const item = toDownload[currentIndex++];
+          const ok = await downloadOne(item);
+          if (ok) repaired++;
+        }
+      });
+
+      await Promise.all(workers);
+      logger.info(`[LaunchManager] ✅ Reparación de assets completada: ${repaired}/${toDownload.length} descargados exitosamente.`);
     } catch (err) {
-      logger.warn(`[LaunchManager] Aviso verificando idioma: ${err.message}`);
+      logger.warn(`[LaunchManager] Aviso durante verificación de assets: ${err.message}`);
     }
+  }
+
+  async _ensureLanguageAssets(sharedRoot, mcVersion, customVersionName) {
+    return this._verifyAndFixAssets(sharedRoot, mcVersion, customVersionName);
   }
 
   getStatus() {
