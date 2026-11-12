@@ -533,7 +533,8 @@ class ModManager {
         packPath: tempPackFile,
         instancePath: null,
         createProfile: true,
-        onProgress
+        onProgress,
+        iconUrl
       });
 
       return {
@@ -2633,7 +2634,7 @@ class ModManager {
     };
   }
 
-  async installModpackFile({ packPath, instancePath = null, createProfile = false, onProgress = null }) {
+  async installModpackFile({ packPath, instancePath = null, createProfile = false, onProgress = null, iconUrl = null }) {
     if (!fs.existsSync(packPath)) {
       throw new Error(`El archivo de modpack no existe: ${packPath}`);
     }
@@ -2647,19 +2648,19 @@ class ModManager {
     // 1. Modrinth (.mrpack)
     const modrinthIndexEntry = zipEntries.find((e) => e.entryName === 'modrinth.index.json');
     if (modrinthIndexEntry) {
-      return await this._installModrinthMrpack(zip, modrinthIndexEntry, targetInstance, onProgress, packPath);
+      return await this._installModrinthMrpack(zip, modrinthIndexEntry, targetInstance, onProgress, packPath, iconUrl);
     }
 
     // 2. CurseForge (.zip)
     const cfManifestEntry = zipEntries.find((e) => e.entryName === 'manifest.json');
     if (cfManifestEntry) {
-      return await this._installCurseForgeZip(zip, cfManifestEntry, targetInstance, onProgress, packPath);
+      return await this._installCurseForgeZip(zip, cfManifestEntry, targetInstance, onProgress, packPath, iconUrl);
     }
 
     throw new Error('El archivo comprimido no contiene un modrinth.index.json ni un manifest.json válido.');
   }
 
-  async _installModrinthMrpack(zip, indexEntry, targetInstance, onProgress, packPath = null) {
+  async _installModrinthMrpack(zip, indexEntry, targetInstance, onProgress, packPath = null, iconUrl = null) {
     logger.info('[Modpack:Modrinth] Procesando modrinth.index.json...');
     const indexJson = JSON.parse(indexEntry.getData().toString('utf8'));
     const files = indexJson.files || [];
@@ -2704,6 +2705,9 @@ class ModManager {
       profileManager.setActive(createdProfile.id);
       logger.info(`[Modpack:Modrinth] Creada nueva instancia para modpack: "${packName}" (${loader} ${mcVersion})`);
     }
+
+    // Guardar y configurar icono oficial del modpack
+    await this._saveModpackIcon({ zip, instancePath, createdProfile, iconUrl });
 
     // Overrides (overrides/ y client-overrides/)
     const overridesPrefixes = ['overrides/', 'client-overrides/', 'client_overrides/'];
@@ -2789,7 +2793,7 @@ class ModManager {
     };
   }
 
-  async _installCurseForgeZip(zip, manifestEntry, targetInstance, onProgress, packPath = null) {
+  async _installCurseForgeZip(zip, manifestEntry, targetInstance, onProgress, packPath = null, iconUrl = null) {
     logger.info('[Modpack:CurseForge] Procesando manifest.json...');
     const manifest = JSON.parse(manifestEntry.getData().toString('utf8'));
     const apiKey = this._getCurseForgeKey();
@@ -2817,6 +2821,9 @@ class ModManager {
       profileManager.setActive(createdProfile.id);
       logger.info(`[Modpack:CurseForge] Creada nueva instancia para modpack: "${packName}" (${loaderInfo.loader} ${mcVersion})`);
     }
+
+    // Guardar y configurar icono oficial del modpack
+    await this._saveModpackIcon({ zip, instancePath, createdProfile, iconUrl });
 
     // Paso B: Extraer overrides/ (o el directorio indicado en manifest.overrides) y client-overrides/
     const overridesDirName = (manifest.overrides || 'overrides').replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
@@ -2990,6 +2997,72 @@ class ModManager {
       profile: createdProfile,
       allMods
     };
+  }
+
+  async _saveModpackIcon({ zip, instancePath, createdProfile, iconUrl = null }) {
+    try {
+      let iconSaved = false;
+      const localIconPath = path.join(instancePath, 'icon.png');
+
+      // 1. Buscar en el zip si trae icon.png, logo.png, pack.png o overrides/icon.png
+      if (zip) {
+        const iconEntry = zip.getEntries().find((e) => !e.isDirectory && (
+          e.entryName === 'icon.png' ||
+          e.entryName === 'logo.png' ||
+          e.entryName === 'pack.png' ||
+          e.entryName.toLowerCase().endsWith('/icon.png')
+        ));
+        if (iconEntry) {
+          fs.writeFileSync(localIconPath, iconEntry.getData());
+          iconSaved = true;
+          logger.info(`[Modpack] Icono extraído del paquete a: ${localIconPath}`);
+        }
+      }
+
+      // 2. Si no viene en el zip y hay una iconUrl válida, descargarla
+      if (!iconSaved && iconUrl && typeof iconUrl === 'string' && iconUrl.startsWith('http')) {
+        try {
+          const res = await fetch(iconUrl);
+          if (res.ok) {
+            const buf = Buffer.from(await res.arrayBuffer());
+            fs.writeFileSync(localIconPath, buf);
+            iconSaved = true;
+            logger.info(`[Modpack] Icono oficial descargado desde ${iconUrl} a: ${localIconPath}`);
+          }
+        } catch (dErr) {
+          logger.warn(`No se pudo descargar icono oficial de ${iconUrl}:`, dErr.message);
+        }
+      }
+
+      // 3. Escribir metadatos en instance.json y actualizar perfil en ProfileManager
+      let finalIcon = 'assets/logo.png';
+      if (fs.existsSync(localIconPath)) {
+        try {
+          const b64 = fs.readFileSync(localIconPath).toString('base64');
+          finalIcon = `data:image/png;base64,${b64}`;
+        } catch (_) {}
+      } else if (iconUrl) {
+        finalIcon = iconUrl;
+      }
+
+      const instJsonFile = path.join(instancePath, 'instance.json');
+      let instJson = {};
+      if (fs.existsSync(instJsonFile)) {
+        try { instJson = JSON.parse(fs.readFileSync(instJsonFile, 'utf8')); } catch (_) {}
+      }
+      instJson.icon = 'icon.png';
+      if (iconUrl) instJson.iconUrl = iconUrl;
+      fs.writeFileSync(instJsonFile, JSON.stringify(instJson, null, 2), 'utf8');
+
+      if (createdProfile) {
+        const { getProfileManager } = require('../profiles/ProfileManager');
+        const profileManager = getProfileManager();
+        createdProfile.icon = finalIcon;
+        profileManager.updateProfile(createdProfile.id, { icon: finalIcon });
+      }
+    } catch (err) {
+      logger.warn(`Aviso al guardar icono de modpack: ${err.message}`);
+    }
   }
 
   // =========================================================================

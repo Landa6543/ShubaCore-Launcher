@@ -744,94 +744,11 @@ class ClientModPatcher {
    * Inyecta ShubaClient-UI.jar y el pack de dependencias y optimización en la carpeta mods/ de la instancia.
    */
   injectIntoInstance(instanceDir, options = {}) {
-    if (!instanceDir || typeof instanceDir !== 'string') return { injected: false };
-
-    const instanceModsDir = path.join(instanceDir, 'mods');
-    fs.mkdirSync(instanceModsDir, { recursive: true });
-
-    // Limpiar mod previo obsoleto si existe
-    const oldCustom = path.join(instanceModsDir, 'shubaclient-custom.jar');
-    if (fs.existsSync(oldCustom)) {
-      try { fs.rmSync(oldCustom, { force: true }); } catch (_) {}
-    }
-
-    // Asegurar que el mod custom esté listo
-    const readyState = this.ensureShubaClientReady();
-    if (!readyState.ready || !readyState.customJarPath) {
-      return { injected: false, error: 'No se pudo generar ShubaClient-UI.jar' };
-    }
-
-    const injectedFiles = [];
-
-    // 1. Inyectar ShubaClient-UI.jar
-    const targetCustom = path.join(instanceModsDir, 'ShubaClient-UI.jar');
-    fs.copyFileSync(readyState.customJarPath, targetCustom);
-    injectedFiles.push('ShubaClient-UI.jar');
-
-    // 2. Inyectar dependencias esenciales (deps/) si no existen en mods/
-    if (fs.existsSync(readyState.depsDir)) {
-      try {
-        const depFiles = fs.readdirSync(readyState.depsDir).filter(f => f.endsWith('.jar'));
-        for (const dep of depFiles) {
-          const targetDep = path.join(instanceModsDir, dep);
-          if (!fs.existsSync(targetDep)) {
-            fs.copyFileSync(path.join(readyState.depsDir, dep), targetDep);
-            injectedFiles.push(dep);
-          }
-        }
-      } catch (_) {}
-    }
-
-    // 3. Inyectar pack de optimización (opt/: Sodium, ImmediatelyFast, ModernFix, etc.)
-    const includeOpt = options.includeOptimization !== false;
-    if (includeOpt && fs.existsSync(readyState.optDir)) {
-      try {
-        const optFiles = fs.readdirSync(readyState.optDir).filter(f => f.endsWith('.jar'));
-        for (const opt of optFiles) {
-          const targetOpt = path.join(instanceModsDir, opt);
-          if (!fs.existsSync(targetOpt)) {
-            fs.copyFileSync(path.join(readyState.optDir, opt), targetOpt);
-            injectedFiles.push(opt);
-          }
-        }
-      } catch (_) {}
-    }
-
-    // 4. Copiar assets y cosméticos locales del host si existen
-    try {
-      const userProfile = process.env.USERPROFILE || os.homedir();
-      const hostPolyplus = path.join(userProfile, 'AppData', 'Roaming', 'Polyfrost', 'OneClient', '.minecraft', 'polyplus');
-      if (fs.existsSync(hostPolyplus)) {
-        const instPolyplus = path.join(instanceDir, 'polyplus');
-        fs.mkdirSync(instPolyplus, { recursive: true });
-        const subdirs = ['cosmetics', 'lobby', 'panorama'];
-        for (const sd of subdirs) {
-          const srcSd = path.join(hostPolyplus, sd);
-          const dstSd = path.join(instPolyplus, sd);
-          if (fs.existsSync(srcSd) && !fs.existsSync(dstSd)) {
-            this._copyDirRecursive(srcSd, dstSd);
-            logger.info(`[SHUBATECH] [ShubaClient] Caché local de cosméticos sincronizado: ${sd}`);
-          }
-        }
-      }
-    } catch (cosmErr) {
-      logger.warn(`[SHUBATECH] [ShubaClient] Aviso al copiar cosméticos locales: ${cosmErr.message}`);
-    }
-
-    // 5. Preparar configs por defecto de OneConfig
-    this.prepareInstanceConfig(instanceDir);
-
-    // 6. Sincronizar capturas de pantalla del usuario en el panorama del menú
-    try {
-      this.injectScreenshotsAsPanorama(instanceDir);
-    } catch (_) {}
-
-    logger.info(`[SHUBATECH] [ShubaClient] ✨ Inyectada interfaz in-game ShubaClient UI y pack de optimización (${injectedFiles.length} mods) en: ${instanceModsDir}`);
-
+    logger.info('[ClientModPatcher] Parcheo en vivo desactivado permanentemente para evitar roturas de UI y crasheos.');
     return {
-      injected: true,
-      injectedFiles,
-      instanceModsDir
+      injected: false,
+      disabled: true,
+      reason: 'Live patching disabled. Mods are installed cleanly via GitHub custom mods catalog.'
     };
   }
 

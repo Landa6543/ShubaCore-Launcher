@@ -1391,7 +1391,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         const pCleanVer = (p.loaderVersion || '').split(' ')[0].trim();
         const pRamMin = p.ramMin || p.memoryMin || '2G';
         const pRamMax = p.ramMax || p.memoryMax || '8G';
-        const pIcon = p.icon && p.icon.startsWith('data:image') ? p.icon : 'assets/logo.png';
+        let pIcon = 'assets/logo.png';
+        if (p.icon && (p.icon.startsWith('data:image') || p.icon.startsWith('http://') || p.icon.startsWith('https://'))) {
+          pIcon = p.icon;
+        } else if (p.iconUrl && (p.iconUrl.startsWith('http://') || p.iconUrl.startsWith('https://'))) {
+          pIcon = p.iconUrl;
+        }
 
         const card = document.createElement('div');
         card.className = `instance-card ${isActive ? 'active' : ''}`;
@@ -1649,6 +1654,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     modalCreateProfile.classList.add('active');
     if (inputCreateProfileIcon) inputCreateProfileIcon.value = '';
     if (createProfileIconPreview) createProfileIconPreview.src = 'assets/logo.png';
+    // REGLA OBLIGATORIA: Siempre por defecto en Vanilla y última versión estable de Minecraft
+    if (selectProfileLoader) selectProfileLoader.value = 'vanilla';
+    if (selectProfileMc && allCachedMcVersions && allCachedMcVersions.length > 0) {
+      selectProfileMc.value = allCachedMcVersions[0];
+    }
     await updateLoaderVersionsInModal();
   }
 
@@ -1734,8 +1744,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       const profilePayload = {
         name,
-        mcVersion: selectProfileMc.value || '1.21.1',
-        loader: selectProfileLoader.value || 'neoforge',
+        mcVersion: selectProfileMc.value || '26.3',
+        loader: selectProfileLoader.value || 'vanilla',
         loaderVersion: cleanLoaderVer,
         icon: (inputCreateProfileIcon ? inputCreateProfileIcon.value.trim() : '') || 'assets/logo.png',
         enableShubaClientUI,
@@ -3959,7 +3969,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           </div>
           <div class="mod-card-footer">
             <span class="hint">${escapeHtml(formattedDownloads)} descargas</span>
-            <button class="btn btn-small btn-secondary btn-download-content" data-id="${escapeHtml(item.id)}" data-source="${escapeHtml(item.source)}" data-title="${escapeHtml(item.title)}">
+            <button class="btn btn-small btn-secondary btn-download-content" data-id="${escapeHtml(item.id)}" data-source="${escapeHtml(item.source)}" data-title="${escapeHtml(item.title)}" data-icon="${escapeHtml(item.iconUrl || '')}">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
               <span>${actionButtonText}</span>
             </button>
@@ -3981,6 +3991,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           const projectId = target.getAttribute('data-id');
           const itemSource = target.getAttribute('data-source');
           const itemTitle = target.getAttribute('data-title');
+          const itemIcon = target.getAttribute('data-icon') || '';
 
           target.disabled = true;
           target.textContent = 'Descargando...';
@@ -3995,7 +4006,9 @@ document.addEventListener('DOMContentLoaded', async () => {
               contentType: currentContentType,
               mcVersion,
               loader,
-              instancePath: targetInstance
+              instancePath: targetInstance,
+              iconUrl: itemIcon,
+              title: itemTitle
             });
 
             if (res.success) {

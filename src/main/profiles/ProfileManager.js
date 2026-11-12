@@ -185,15 +185,16 @@ class ProfileManager {
 
     // Icono personalizado o por defecto
     let icon = rawObj.icon;
-    if (!icon || icon === 'creeper') {
-      const localIconPath = path.join(this.getInstancePath(id), 'icon.png');
-      if (fs.existsSync(localIconPath)) {
-        try {
-          const b64 = fs.readFileSync(localIconPath).toString('base64');
-          icon = `data:image/png;base64,${b64}`;
-        } catch (_) {
-          icon = 'assets/logo.png';
-        }
+    const localIconPath = path.join(this.getInstancePath(id), 'icon.png');
+    if (fs.existsSync(localIconPath)) {
+      try {
+        const b64 = fs.readFileSync(localIconPath).toString('base64');
+        icon = `data:image/png;base64,${b64}`;
+      } catch (_) {}
+    }
+    if (!icon || icon === 'creeper' || icon === 'default' || icon === 'icon.png') {
+      if (rawObj.iconUrl && (rawObj.iconUrl.startsWith('http://') || rawObj.iconUrl.startsWith('https://'))) {
+        icon = rawObj.iconUrl;
       } else {
         icon = 'assets/logo.png';
       }

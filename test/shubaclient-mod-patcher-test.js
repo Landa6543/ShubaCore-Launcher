@@ -171,16 +171,13 @@ async function runTests() {
   console.log('   ✔ Configuración 3D de ShubaClient validada correctamente.\n');
 
   // ----------------------------------------------------
-  // 5. INYECCIÓN AUTOMÁTICA EN INSTANCIA
+  // 5. PARCHEO EN VIVO DESACTIVADO (MODS VÍA GITHUB CATALOG)
   // ----------------------------------------------------
-  console.log('▶ [5/6] Verificando inyección en instancia (mods/ y opt/)...');
+  console.log('▶ [5/6] Verificando desactivación segura del parcheo en vivo...');
   const injectResult = patcher.injectIntoInstance(mockInstanceDir);
-  assert.ok(injectResult.injected, 'La inyección debe completarse con éxito');
-
-  const instanceModsDir = path.join(mockInstanceDir, 'mods');
-  assert.ok(fs.existsSync(path.join(instanceModsDir, 'ShubaClient-UI.jar')), 'ShubaClient-UI.jar debe estar en /mods');
-  assert.ok(!fs.existsSync(path.join(instanceModsDir, 'shubaclient-custom.jar')), 'El archivo previo shubaclient-custom.jar debe ser purgado');
-  console.log(`   ✔ Inyección validada: ${injectResult.injectedFiles.length} mods inyectados en la instancia.\n`);
+  assert.strictEqual(injectResult.injected, false, 'El parcheo en vivo debe estar desactivado');
+  assert.strictEqual(injectResult.disabled, true, 'El estado disabled debe ser true');
+  console.log('   ✔ Parcheo en vivo desactivado para evitar roturas de UI; mods se gestionan vía GitHub.\n');
 
   // ----------------------------------------------------
   // 6. VERIFICACIÓN DE CONTROLES EN LA INTERFAZ (DOM)

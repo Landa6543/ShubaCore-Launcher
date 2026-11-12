@@ -227,11 +227,11 @@ namespace ShubaController
 
         static void Main(string[] args)
         {
-            Console.WriteLine("SHUBA_CONTROLLER_STARTED");
+            try { Console.WriteLine("SHUBA_CONTROLLER_STARTED"); } catch { }
             bool xinputOk = InitXInput();
             if (!xinputOk)
             {
-                Console.WriteLine("ERROR:XInput initialization failed");
+                try { Console.WriteLine("ERROR:XInput initialization failed"); } catch { }
                 return;
             }
 
@@ -257,11 +257,11 @@ namespace ShubaController
                 }
             }
 
-            Console.WriteLine("SHUBA_CONTROLLER_READY:TargetPid=" + targetPid + ";TestMode=" + testMode);
+            try { Console.WriteLine("SHUBA_CONTROLLER_READY:TargetPid=" + targetPid + ";TestMode=" + testMode); } catch { }
 
             if (testMode)
             {
-                Console.WriteLine("SHUBA_TEST_MODE_RUNNING:" + testDurationSec + "s");
+                try { Console.WriteLine("SHUBA_TEST_MODE_RUNNING:" + testDurationSec + "s"); } catch { }
                 DateTime testEnd = DateTime.UtcNow.AddSeconds(testDurationSec);
                 double angle = 0;
                 while (DateTime.UtcNow < testEnd)
@@ -272,28 +272,29 @@ namespace ShubaController
                     angle += 0.2;
                     Thread.Sleep(20);
                 }
-                Console.WriteLine("SHUBA_TEST_MODE_FINISHED");
+                try { Console.WriteLine("SHUBA_TEST_MODE_FINISHED"); } catch { }
                 return;
             }
 
             // Background Stdin listener for graceful EXIT
             bool shouldExit = false;
-            Thread stdinThread = new Thread(delegate() {
-                try {
-                    string line;
-                    while ((line = Console.ReadLine()) != null) {
-                        if (line.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase)) {
-                            shouldExit = true;
-                            break;
+            try {
+                Thread stdinThread = new Thread(delegate() {
+                    try {
+                        string line;
+                        while ((line = Console.ReadLine()) != null) {
+                            if (line.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase)) {
+                                shouldExit = true;
+                                break;
+                            }
                         }
-                    }
-                } catch { }
-                // DO NOT set shouldExit = true here! Detached or EOF stdin must not terminate the controller!
-            });
-            stdinThread.IsBackground = true;
-            stdinThread.Start();
+                    } catch { }
+                });
+                stdinThread.IsBackground = true;
+                stdinThread.Start();
+            } catch { }
 
-            // Main 10ms polling loop
+            // Main 10ms polling loop (Zero Console.WriteLine to avoid broken pipe / buffer freeze)
             XINPUT_STATE state = new XINPUT_STATE();
             int tickCounter = 0;
             int deadTargetCounter = 0;
@@ -302,7 +303,7 @@ namespace ShubaController
             {
                 try
                 {
-                    // Check if target process died
+                    // Check if target process died (give 50 attempts = 5s before assuming dead)
                     if (targetPid > 0 && (++tickCounter % 100 == 0))
                     {
                         try
@@ -311,7 +312,7 @@ namespace ShubaController
                             if (tp.HasExited)
                             {
                                 deadTargetCounter++;
-                                if (deadTargetCounter >= 10) break;
+                                if (deadTargetCounter >= 50) break;
                             }
                             else
                             {
@@ -321,7 +322,7 @@ namespace ShubaController
                         catch
                         {
                             deadTargetCounter++;
-                            if (deadTargetCounter >= 10) break;
+                            if (deadTargetCounter >= 50) break;
                         }
                     }
 
@@ -404,7 +405,7 @@ namespace ShubaController
             }
 
             ReleaseAll();
-            Console.WriteLine("SHUBA_CONTROLLER_STOPPED");
+            try { Console.WriteLine("SHUBA_CONTROLLER_STOPPED"); } catch { }
         }
     }
 }
@@ -582,17 +583,27 @@ class ControllerBridge extends EventEmitter {
         this.emit('stopped');
 
         // Si el juego sigue activo y no fue un cierre intencional, reiniciar el controlador en 500ms
-        if (!this.intentionalStop && wasRunning && savedTargetPid > 0) {
+        if (!this.intentionalStop && wasRunning) {
           let isTargetAlive = false;
-          try {
-            process.kill(savedTargetPid, 0);
-            isTargetAlive = true;
-          } catch (_) {
-            isTargetAlive = false;
+          if (savedTargetPid > 0) {
+            try {
+              process.kill(savedTargetPid, 0);
+              isTargetAlive = true;
+            } catch (_) {
+              isTargetAlive = false;
+            }
+          } else {
+            try {
+              const { getLaunchManager } = require('../launcher/LaunchManager');
+              const lm = getLaunchManager();
+              if (lm && lm.runningProcesses && lm.runningProcesses.size > 0) {
+                isTargetAlive = true;
+              }
+            } catch (_) {}
           }
 
           if (isTargetAlive) {
-            logger.warn(`[ControllerBridge] ShubaController.exe terminó inesperadamente pero el proceso de Minecraft (PID: ${savedTargetPid}) continúa activo. Reiniciando puente en 500ms...`);
+            logger.warn(`[ControllerBridge] ShubaController.exe terminó inesperadamente pero Minecraft sigue activo. Reiniciando puente en 500ms...`);
             setTimeout(() => {
               if (!this.intentionalStop && !this.isRunning) {
                 this.start(savedInstanceDir, savedTargetPid);

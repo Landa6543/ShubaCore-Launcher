@@ -105,6 +105,21 @@ class HardwareOptimizer {
       throw new Error('Directorio de instancia no especificado.');
     }
 
+    // PROHIBIDO modificar options.txt si Minecraft ya está corriendo para evitar colisiones con el hilo del juego
+    try {
+      const { getLaunchManager } = require('../launcher/LaunchManager');
+      const lm = getLaunchManager();
+      if (lm && lm.runningProcesses && lm.runningProcesses.size > 0) {
+        for (const session of lm.runningProcesses.values()) {
+          const sessPath = session?.instancePath;
+          if (sessPath && path.resolve(sessPath) === path.resolve(instanceDir)) {
+            logger.warn(`[HardwareOptimizer] Bloqueada escritura en options.txt: Minecraft (PID ${session.pid}) está en ejecución.`);
+            return { success: false, reason: 'game_running' };
+          }
+        }
+      }
+    } catch (_) {}
+
     if (!fs.existsSync(instanceDir)) {
       fs.mkdirSync(instanceDir, { recursive: true });
     }
