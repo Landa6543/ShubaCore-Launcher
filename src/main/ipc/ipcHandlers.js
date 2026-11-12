@@ -1974,6 +1974,44 @@ function registerIpcHandlers(mainWindow) {
     }
   });
 
+  // ==========================================
+  // SHUBACLIENT IN-GAME UI (Menú 3D, Wardrobe, Social, Host World)
+  // ==========================================
+  ipcMain.handle('client:get-status', async () => {
+    try {
+      const { getClientModPatcher } = require('../client/ClientModPatcher');
+      const patcher = getClientModPatcher();
+      const discovery = patcher.findOneClientInstallation();
+      const runtimeDir = patcher.getRuntimeClientModsDir();
+      const customJar = path.join(runtimeDir, 'shubaclient-custom.jar');
+      const isCustomReady = fs.existsSync(customJar);
+      return {
+        installed: discovery.found,
+        sourcePath: discovery.sourcePath,
+        baseJar: discovery.baseJar,
+        customReady: isCustomReady,
+        customPath: isCustomReady ? customJar : null,
+        companionsCount: discovery.companionJars.length,
+        optCount: discovery.optJars.length
+      };
+    } catch (err) {
+      logger.error('Error en client:get-status IPC:', err);
+      return { installed: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('client:extract-and-patch', async () => {
+    try {
+      const { getClientModPatcher } = require('../client/ClientModPatcher');
+      const patcher = getClientModPatcher();
+      const res = patcher.ensureShubaClientReady();
+      return { success: true, ...res };
+    } catch (err) {
+      logger.error('Error en client:extract-and-patch IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
   ipcMain.on('window:minimize', () => {
     if (mainWindow) mainWindow.minimize();
   });

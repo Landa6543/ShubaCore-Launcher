@@ -481,6 +481,29 @@ class LaunchManager {
         }
       }
 
+      // REQUISITO: INYECCIÓN SHUBACLIENT UI (Menú 3D, Wardrobe, Social & Host World + Pack de Optimización)
+      const isShubaClientEnabled = activeProfile.enableShubaClientUI !== false &&
+        overrideOptions.enableShubaClientUI !== false &&
+        this.configManager.get('general.enableShubaClientUI', true) !== false;
+
+      if (isShubaClientEnabled && (loader === 'fabric' || loader === 'quilt')) {
+        try {
+          const { getClientModPatcher } = require('../client/ClientModPatcher');
+          const patcher = getClientModPatcher();
+          const patchRes = patcher.injectIntoInstance(instancePath, {
+            includeOptimization: true
+          });
+          if (patchRes.injected) {
+            logger.info(`✨ [LaunchManager] [ShubaClient] Interfaz in-game ShubaClient UI (Menú 3D, Wardrobe, Social & Host World) inyectada en "${activeProfile.name}".`);
+            if (patcher.extractedSource) {
+              logger.info(`[Launcher] [ShubaClient] Origen del mod base OneClient extraído: ${patcher.extractedSource}`);
+            }
+          }
+        } catch (clientModErr) {
+          logger.warn(`[LaunchManager] Aviso al inyectar ShubaClient UI: ${clientModErr.message}`);
+        }
+      }
+
       // MECANISMO 2: Inyección de Resource Pack Nativo "ShubaSkinOverride" (100% Vanilla sin mods)
       try {
         const packRes = await skinMgr.injectSkinResourcePack({

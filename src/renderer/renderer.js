@@ -1729,6 +1729,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       const cleanLoaderVer = (selectProfileLoaderVersion.value || '').split(' ')[0].trim();
       const ramMin = (inputProfileRamMin.value || '2G').trim();
       const ramMax = (inputProfileRamMax.value || '8G').trim();
+      const checkCreateShubaClient = document.getElementById('check-create-shubaclient-ui');
+      const enableShubaClientUI = checkCreateShubaClient ? checkCreateShubaClient.checked : true;
 
       const profilePayload = {
         name,
@@ -1736,6 +1738,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         loader: selectProfileLoader.value || 'neoforge',
         loaderVersion: cleanLoaderVer,
         icon: (inputCreateProfileIcon ? inputCreateProfileIcon.value.trim() : '') || 'assets/logo.png',
+        enableShubaClientUI,
         ramMin,
         ramMax,
         memoryMin: ramMin,
@@ -1823,6 +1826,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     inputEditProfileRamMin.value = profile.ramMin || profile.memoryMin || '2G';
     inputEditProfileRamMax.value = profile.ramMax || profile.memoryMax || '8G';
+
+    const checkEditShubaClient = document.getElementById('check-edit-shubaclient-ui');
+    if (checkEditShubaClient) {
+      checkEditShubaClient.checked = profile.enableShubaClientUI !== false;
+    }
 
     modalEditProfile.classList.add('active');
     await updateEditLoaderVersions(currentLoaderVer);
@@ -1944,6 +1952,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const javaPath = inputEditProfileCustomJava ? inputEditProfileCustomJava.value.trim() : '';
     const ramMin = (inputEditProfileRamMin.value || '2G').trim();
     const ramMax = (inputEditProfileRamMax.value || '8G').trim();
+    const checkEditShubaClient = document.getElementById('check-edit-shubaclient-ui');
+    const enableShubaClientUI = checkEditShubaClient ? checkEditShubaClient.checked : true;
 
     btnConfirmEditProfile.disabled = true;
     btnConfirmEditProfile.textContent = 'Guardando...';
@@ -1955,6 +1965,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         loader,
         loaderVersion: cleanLoaderVer,
         icon: (inputEditProfileIcon ? inputEditProfileIcon.value.trim() : '') || 'assets/logo.png',
+        enableShubaClientUI,
         javaSelection,
         javaPath,
         ramMin,
@@ -2059,6 +2070,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         checkForceSpanish.checked = forceSp !== false;
         checkForceSpanish.addEventListener('change', async () => {
           await api.config.setKey('general.forceSpanish', checkForceSpanish.checked);
+        });
+      }
+
+      const checkShubaClientUi = document.getElementById('check-enable-shubaclient-ui');
+      if (checkShubaClientUi && api.config) {
+        const scUi = await api.config.getKey('general.enableShubaClientUI', true);
+        checkShubaClientUi.checked = scUi !== false;
+        checkShubaClientUi.addEventListener('change', async () => {
+          await api.config.setKey('general.enableShubaClientUI', checkShubaClientUi.checked);
         });
       }
       inputInstancePath.value = config.instance?.path || '';

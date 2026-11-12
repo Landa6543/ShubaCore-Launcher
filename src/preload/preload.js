@@ -326,6 +326,14 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
   },
 
   // ==========================================
+  // SHUBACLIENT IN-GAME UI (Menú 3D, Wardrobe, Social, Host World)
+  // ==========================================
+  client: {
+    getStatus: () => ipcRenderer.invoke('client:get-status'),
+    extractAndPatch: () => ipcRenderer.invoke('client:extract-and-patch')
+  },
+
+  // ==========================================
   // SHUBACORE PRO: COMPARTIR E IMPORTAR POR CÓDIGO
   // ==========================================
   codeSharer: {
