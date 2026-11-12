@@ -40,6 +40,7 @@ class SkinManager {
     if (!fs.existsSync(this.skinsDir)) {
       fs.mkdirSync(this.skinsDir, { recursive: true });
     }
+    this._mojangProfileCache = new Map();
   }
 
   /**
@@ -112,6 +113,14 @@ class SkinManager {
     const cleanUser = String(username || '').trim();
     if (!cleanUser) {
       throw new Error('El nombre de usuario de Mojang no puede estar vacío.');
+    }
+
+    const cacheKey = cleanUser.toLowerCase();
+    if (this._mojangProfileCache && this._mojangProfileCache.has(cacheKey)) {
+      const cached = this._mojangProfileCache.get(cacheKey);
+      if (Date.now() - cached.timestamp < 300000) {
+        return cached.data;
+      }
     }
 
     logger.info(`[SkinManager] Consultando API oficial de Mojang para el jugador: "${cleanUser}"...`);
@@ -187,7 +196,7 @@ class SkinManager {
 
     const dataUrl = `data:image/png;base64,${pngBuffer.toString('base64')}`;
 
-    return {
+    const result = {
       success: true,
       officialUuidRaw,
       formattedUuid,
@@ -197,6 +206,12 @@ class SkinManager {
       pngBuffer,
       dataUrl
     };
+
+    if (this._mojangProfileCache) {
+      this._mojangProfileCache.set(cacheKey, { data: result, timestamp: Date.now() });
+    }
+
+    return result;
   }
 
   /**
@@ -412,157 +427,58 @@ class SkinManager {
   }
 
   /**
-   * REQUISITO 2: Inyección de Resource Pack Nativo "ShubaSkinOverride" (100% Vanilla sin mods)
-   *
-   * Crea <instanceDir>/resourcepacks/ShubaSkinOverride/:
-   * 1. pack.mcmeta con pack_format compatible y supported_formats [1, 99]
-   * 2. Reemplaza todas las 9 skins base por defecto de Minecraft 1.21.1:
-   *    - assets/minecraft/textures/entity/player/wide/
-   *    - assets/minecraft/textures/entity/player/slim/
-   *    - assets/minecraft/textures/entity/ (steve.png y alex.png para versiones previas)
-   * 3. Actualiza o crea <instanceDir>/options.txt asegurando que "file/ShubaSkinOverride"
-   *    esté en resourcePacks:[...] para que Minecraft lo cargue activado automáticamente.
+   * REQUISITO: Desactivada la inyección de ShubaSkinOverride para evitar crasheos (código 3221225477)
+   * Purga automáticamente cualquier residuo de ShubaSkinOverride de la instancia.
    */
-  async injectSkinResourcePack({ instancePath, username = 'steve', mcVersion = '1.21.1' }) {
+  async injectSkinResourcePack({ instancePath }) {
     if (!instancePath || !fs.existsSync(instancePath)) {
       return { applied: false, reason: 'invalid_instance_path' };
     }
 
-    // Buscar archivo .png de la skin (current_skin.png o <username>.png)
-    let skinSourcePath = null;
-    if (fs.existsSync(this.currentSkinPath)) {
-      skinSourcePath = this.currentSkinPath;
-    } else {
-      const userSkin = this.getSkinPath(username);
-      if (fs.existsSync(userSkin)) {
-        skinSourcePath = userSkin;
+    try {
+      const packDir = path.join(instancePath, 'resourcepacks', 'ShubaSkinOverride');
+      if (fs.existsSync(packDir)) {
+        fs.rmSync(packDir, { recursive: true, force: true });
       }
-    }
-
-    if (!skinSourcePath) {
-      logger.info(`[SkinManager] No hay skin personalizada para inyectar en "${instancePath}".`);
-      return { applied: false, reason: 'no_skin_found' };
-    }
-
-    const skinBuffer = fs.readFileSync(skinSourcePath);
-
-    // 1. Directorio del Resource Pack
-    const packDir = path.join(instancePath, 'resourcepacks', 'ShubaSkinOverride');
-    if (!fs.existsSync(packDir)) {
-      fs.mkdirSync(packDir, { recursive: true });
-    }
-
-    // 2. pack.mcmeta nativo universal (1.18 hasta 26.3+)
-    const packFormat = 34;
-    const mcmeta = {
-      pack: {
-        pack_format: packFormat,
-        supported_formats: {
-          min_inclusive: 1,
-          max_inclusive: 999
-        },
-        min_format: 1,
-        max_format: 999,
-        description: 'ShubaCore Native Skin System'
+      const packZip = path.join(instancePath, 'resourcepacks', 'ShubaSkinOverride.zip');
+      if (fs.existsSync(packZip)) {
+        fs.rmSync(packZip, { recursive: true, force: true });
       }
-    };
-    fs.writeFileSync(path.join(packDir, 'pack.mcmeta'), JSON.stringify(mcmeta, null, 2), 'utf8');
+      this._purgePackFromOptionsTxt(path.join(instancePath, 'options.txt'), 'file/ShubaSkinOverride');
+    } catch (_) {}
 
-    // 3. Crear carpetas de destino de texturas
-    const wideDir = path.join(packDir, 'assets', 'minecraft', 'textures', 'entity', 'player', 'wide');
-    const slimDir = path.join(packDir, 'assets', 'minecraft', 'textures', 'entity', 'player', 'slim');
-    const legacyDir = path.join(packDir, 'assets', 'minecraft', 'textures', 'entity');
-
-    fs.mkdirSync(wideDir, { recursive: true });
-    fs.mkdirSync(slimDir, { recursive: true });
-
-    // Copiar a todas las 9 skins por defecto en wide y slim
-    for (const skinFileName of DEFAULT_PLAYER_SKIN_NAMES) {
-      fs.writeFileSync(path.join(wideDir, skinFileName), skinBuffer);
-      fs.writeFileSync(path.join(slimDir, skinFileName), skinBuffer);
-    }
-
-    // Copiar para versiones legacy (1.8 a 1.19.2)
-    fs.writeFileSync(path.join(legacyDir, 'steve.png'), skinBuffer);
-    fs.writeFileSync(path.join(legacyDir, 'alex.png'), skinBuffer);
-
-    // 4. Actualizar options.txt para activar automáticamente el Resource Pack
-    const optionsPath = path.join(instancePath, 'options.txt');
-    this._enablePackInOptionsTxt(optionsPath, 'file/ShubaSkinOverride');
-
-    logger.info(`⚡ [SkinManager] Resource pack nativo ShubaSkinOverride generado exitosamente en: ${packDir}`);
     return {
-      applied: true,
-      packDir,
-      packFormat,
-      skinPath: skinSourcePath
+      applied: false,
+      reason: 'disabled'
     };
   }
 
   /**
-   * Asegura que el resource pack figure en resourcePacks e incompatibleResourcePacks de options.txt
+   * Elimina un resource pack de resourcePacks e incompatibleResourcePacks de options.txt
    */
-  _enablePackInOptionsTxt(optionsPath, packEntry = 'file/ShubaSkinOverride') {
+  _purgePackFromOptionsTxt(optionsPath, packEntry = 'file/ShubaSkinOverride') {
     try {
-      if (!fs.existsSync(optionsPath)) {
-        fs.writeFileSync(
-          optionsPath,
-          `lang:es_es\nresourcePacks:["vanilla","${packEntry}"]\nincompatibleResourcePacks:["${packEntry}"]\n`,
-          'utf8'
-        );
-        return;
-      }
-
+      if (!fs.existsSync(optionsPath)) return;
       const content = fs.readFileSync(optionsPath, 'utf8');
+      if (!content.includes(packEntry) && !content.includes('ShubaSkinOverride')) return;
+
       const lines = content.split(/\r?\n/);
-      let foundResourcePacks = false;
-      let foundIncompatible = false;
-
-      const newLines = lines.map((line) => {
-        if (line.startsWith('resourcePacks:')) {
-          foundResourcePacks = true;
-          const rawVal = line.substring('resourcePacks:'.length).trim();
-          let list = [];
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].startsWith('resourcePacks:') || lines[i].startsWith('incompatibleResourcePacks:')) {
+          const colonIdx = lines[i].indexOf(':');
+          const key = lines[i].slice(0, colonIdx);
+          const rawVal = lines[i].slice(colonIdx + 1).trim();
           try {
-            list = JSON.parse(rawVal);
-          } catch (_) {
-            list = rawVal.replace(/[\[\]"']/g, '').split(',').map((s) => s.trim()).filter(Boolean);
-          }
-          if (!Array.isArray(list)) list = [];
-          if (!list.includes(packEntry)) {
-            list.push(packEntry);
-          }
-          return `resourcePacks:${JSON.stringify(list)}`;
+            if (rawVal.startsWith('[') && rawVal.endsWith(']')) {
+              const list = JSON.parse(rawVal);
+              const filtered = list.filter((p) => p !== packEntry && p !== 'ShubaSkinOverride');
+              lines[i] = `${key}:${JSON.stringify(filtered)}`;
+            }
+          } catch (_) {}
         }
-        if (line.startsWith('incompatibleResourcePacks:')) {
-          foundIncompatible = true;
-          const rawVal = line.substring('incompatibleResourcePacks:'.length).trim();
-          let list = [];
-          try {
-            list = JSON.parse(rawVal);
-          } catch (_) {
-            list = rawVal.replace(/[\[\]"']/g, '').split(',').map((s) => s.trim()).filter(Boolean);
-          }
-          if (!Array.isArray(list)) list = [];
-          if (!list.includes(packEntry)) {
-            list.push(packEntry);
-          }
-          return `incompatibleResourcePacks:${JSON.stringify(list)}`;
-        }
-        return line;
-      });
-
-      if (!foundResourcePacks) {
-        newLines.push(`resourcePacks:["vanilla","${packEntry}"]`);
       }
-      if (!foundIncompatible) {
-        newLines.push(`incompatibleResourcePacks:["${packEntry}"]`);
-      }
-
-      fs.writeFileSync(optionsPath, newLines.join('\n'), 'utf8');
-    } catch (err) {
-      logger.warn(`No se pudo actualizar options.txt: ${err.message}`);
-    }
+      fs.writeFileSync(optionsPath, lines.join('\n') + '\n', 'utf8');
+    } catch (_) {}
   }
 
   /**

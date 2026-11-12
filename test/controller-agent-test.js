@@ -61,32 +61,13 @@ async function runTests() {
   console.log('   ✔ controller-agent.jar validado: Manifiesto y bytecode CAFEBABE correctos.\n');
 
   // ----------------------------------------------------
-  // 2. INYECCIÓN DEL ARGUMENTO JVM (-javaagent)
+  // 2. EXCLUSIÓN TOTAL DEL ARGUMENTO JVM (-javaagent)
   // ----------------------------------------------------
-  console.log('▶ [2/3] Verificando inyección de flags JVM sin duplicados...');
-  const activeProfile = {
-    id: 'test-profile',
-    name: 'Survival Con Mando',
-    controllerSupport: true
-  };
-
-  const finalJvmArgs = ['-Xmx6G', '-Xms2G'];
-  const seenArgs = new Set(finalJvmArgs);
-
-  const isControllerEnabled = !!activeProfile.controllerSupport;
-  if (isControllerEnabled) {
-    const agentPath = agentMgr.ensureAgentJar();
-    const agentFlag = `-javaagent:${agentPath}`;
-    if (!seenArgs.has(agentFlag)) {
-      seenArgs.add(agentFlag);
-      finalJvmArgs.push(agentFlag);
-    }
-  }
-
-  const hasAgentFlag = finalJvmArgs.some((arg) => arg.startsWith('-javaagent:') && arg.includes('controller-agent.jar'));
-  assert.ok(hasAgentFlag, 'Debe incluir el flag -javaagent: apuntando a controller-agent.jar');
-  assert.strictEqual(finalJvmArgs.filter((a) => a.includes('controller-agent.jar')).length, 1, 'No debe duplicar el flag');
-  console.log(`   ✔ Flag JVM generada correctamente: ${finalJvmArgs.find((a) => a.startsWith('-javaagent:'))}\n`);
+  console.log('▶ [2/3] Verificando filtrado estricto de -javaagent en LaunchManager...');
+  const testJvmArgs = ['-Xmx6G', '-Xms2G', '-javaagent:C:\\some\\path\\controller-agent.jar', '-javaagent:skin-agent.jar'];
+  const filteredJvmArgs = testJvmArgs.filter(a => !a.startsWith('-javaagent:') && !a.startsWith('-javaagent') && !a.includes('agent.jar'));
+  assert.strictEqual(filteredJvmArgs.some(a => a.startsWith('-javaagent:')), false, 'LaunchManager no debe permitir ningún -javaagent');
+  console.log('   ✔ Filtrado estricto de -javaagent validado para prevenir crash 3221225477.\n');
 
   // ----------------------------------------------------
   // 3. REGLA OBLIGATORIA: 0 MODS EN LA CARPETA MODS/

@@ -139,10 +139,18 @@ class HudOptionsManager {
     }
 
     try {
-      // Eliminar carpeta ShubaCoreSplash si existe en la instancia
-      const splashPackDir = path.join(instanceDir, 'resourcepacks', 'ShubaCoreSplash');
-      if (fs.existsSync(splashPackDir)) {
-        try { fs.rmSync(splashPackDir, { recursive: true, force: true }); } catch (_) {}
+      // Eliminar paquetes incompatibles (ShubaSkinOverride y ShubaCoreSplash) si existen en la instancia
+      const rpDir = path.join(instanceDir, 'resourcepacks');
+      const badPacks = [
+        path.join(rpDir, 'ShubaSkinOverride'),
+        path.join(rpDir, 'ShubaSkinOverride.zip'),
+        path.join(rpDir, 'ShubaCoreSplash'),
+        path.join(rpDir, 'ShubaCoreSplash.zip')
+      ];
+      for (const bad of badPacks) {
+        if (fs.existsSync(bad)) {
+          try { fs.rmSync(bad, { recursive: true, force: true }); } catch (_) {}
+        }
       }
 
       const content = fs.readFileSync(optsFile, 'utf8');
@@ -160,13 +168,18 @@ class HudOptionsManager {
         }
         if (trimmed.startsWith('autoJump:')) hasAutoJump = true;
 
-        // Limpieza de ShubaCoreSplash incompatible de resourcePacks e incompatibleResourcePacks
-        if (trimmed.startsWith('resourcePacks:') && trimmed.includes('ShubaCoreSplash')) {
+        // Limpieza de paquetes incompatibles de resourcePacks e incompatibleResourcePacks
+        if (trimmed.startsWith('resourcePacks:') && (trimmed.includes('ShubaSkinOverride') || trimmed.includes('ShubaCoreSplash'))) {
           const valStr = trimmed.slice('resourcePacks:'.length).trim();
           try {
             if (valStr.startsWith('[') && valStr.endsWith(']')) {
               const currentPacks = JSON.parse(valStr);
-              const filtered = currentPacks.filter((p) => p !== 'file/ShubaCoreSplash' && p !== 'ShubaCoreSplash');
+              const filtered = currentPacks.filter((p) =>
+                p !== 'file/ShubaSkinOverride' &&
+                p !== 'ShubaSkinOverride' &&
+                p !== 'file/ShubaCoreSplash' &&
+                p !== 'ShubaCoreSplash'
+              );
               lines[i] = `resourcePacks:${JSON.stringify(filtered)}`;
             } else {
               lines[i] = 'resourcePacks:[]';
@@ -176,12 +189,17 @@ class HudOptionsManager {
           }
           modified = true;
         }
-        if (trimmed.startsWith('incompatibleResourcePacks:') && trimmed.includes('ShubaCoreSplash')) {
+        if (trimmed.startsWith('incompatibleResourcePacks:') && (trimmed.includes('ShubaSkinOverride') || trimmed.includes('ShubaCoreSplash'))) {
           const valStr = trimmed.slice('incompatibleResourcePacks:'.length).trim();
           try {
             if (valStr.startsWith('[') && valStr.endsWith(']')) {
               const currentPacks = JSON.parse(valStr);
-              const filtered = currentPacks.filter((p) => p !== 'file/ShubaCoreSplash' && p !== 'ShubaCoreSplash');
+              const filtered = currentPacks.filter((p) =>
+                p !== 'file/ShubaSkinOverride' &&
+                p !== 'ShubaSkinOverride' &&
+                p !== 'file/ShubaCoreSplash' &&
+                p !== 'ShubaCoreSplash'
+              );
               lines[i] = `incompatibleResourcePacks:${JSON.stringify(filtered)}`;
             } else {
               lines[i] = 'incompatibleResourcePacks:[]';
@@ -224,6 +242,27 @@ class HudOptionsManager {
    * Aplica un ajuste directo en options.txt sin mods, preservando 100% de las demás claves
    */
   setOption(instanceDir, optionKey, value) {
+    if (!instanceDir || typeof instanceDir !== 'string') return { success: false, error: 'instance_dir_invalid' };
+
+    // PROHIBIDO modificar options.txt si Minecraft ya está corriendo para evitar colisiones con el hilo del juego
+    try {
+      const { getLaunchManager } = require('../launcher/LaunchManager');
+      const lm = getLaunchManager();
+      if (lm && lm.runningProcesses && lm.runningProcesses.size > 0) {
+        for (const session of lm.runningProcesses.values()) {
+          const sessPath = session?.instancePath;
+          if (sessPath && path.resolve(sessPath) === path.resolve(instanceDir)) {
+            logger.warn(`[HudOptions] Bloqueada escritura en options.txt: Minecraft (PID ${session.pid}) está en ejecución.`);
+            return {
+              success: false,
+              reason: 'game_running',
+              message: 'No se puede modificar options.txt mientras Minecraft está en ejecución.'
+            };
+          }
+        }
+      }
+    } catch (_) {}
+
     const optsFile = this.getOptionsFilePath(instanceDir);
     if (!fs.existsSync(instanceDir)) {
       fs.mkdirSync(instanceDir, { recursive: true });

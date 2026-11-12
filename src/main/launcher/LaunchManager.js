@@ -44,27 +44,32 @@ Handler.prototype.parseRule = function(lib) {
   return origParseRule.call(this, lib);
 };
 
-// Función auxiliar para descartar banderas de memoria por defecto (-Xmx y -Xms) del manifiesto
-function stripMemoryFlags(argsArray) {
+// Función auxiliar para descartar banderas incompatibles (-Xmx, -Xms y cualquier -javaagent:)
+function stripIncompatibleJvmFlags(argsArray) {
   if (!Array.isArray(argsArray)) return argsArray;
   return argsArray.filter((arg) => {
     if (typeof arg === 'string') {
-      return !arg.startsWith('-Xmx') && !arg.startsWith('-Xms');
+      if (arg.startsWith('-Xmx') || arg.startsWith('-Xms')) return false;
+      if (arg.startsWith('-javaagent:') || arg.startsWith('-javaagent') || arg.includes('agent.jar')) return false;
+      return true;
     }
     if (arg && typeof arg === 'object' && arg.value) {
       if (typeof arg.value === 'string') {
-        return !arg.value.startsWith('-Xmx') && !arg.value.startsWith('-Xms');
+        if (arg.value.startsWith('-Xmx') || arg.value.startsWith('-Xms')) return false;
+        if (arg.value.startsWith('-javaagent:') || arg.value.startsWith('-javaagent') || arg.value.includes('agent.jar')) return false;
+        return true;
       }
       if (Array.isArray(arg.value)) {
-        arg.value = arg.value.filter((v) => typeof v !== 'string' || (!v.startsWith('-Xmx') && !v.startsWith('-Xms')));
+        arg.value = arg.value.filter((v) => typeof v !== 'string' || (!v.startsWith('-Xmx') && !v.startsWith('-Xms') && !v.startsWith('-javaagent') && !v.includes('agent.jar')));
         return arg.value.length > 0;
       }
     }
     return true;
   });
 }
+const stripMemoryFlags = stripIncompatibleJvmFlags;
 
-// Interceptar getVersion de MCLC para depurar las librerías cargadas desde el JSON de versión y eliminar -Xmx/-Xms por defecto
+// Interceptar getVersion de MCLC para depurar las librerías cargadas desde el JSON de versión y eliminar -Xmx/-Xms y -javaagent por defecto
 const origGetVersion = Handler.prototype.getVersion;
 Handler.prototype.getVersion = async function() {
   const ver = await origGetVersion.call(this);
@@ -78,10 +83,10 @@ Handler.prototype.getVersion = async function() {
     }
     if (ver.arguments) {
       if (Array.isArray(ver.arguments.jvm)) {
-        ver.arguments.jvm = stripMemoryFlags(ver.arguments.jvm);
+        ver.arguments.jvm = stripIncompatibleJvmFlags(ver.arguments.jvm);
       }
       if (Array.isArray(ver.arguments['default-user-jvm'])) {
-        ver.arguments['default-user-jvm'] = stripMemoryFlags(ver.arguments['default-user-jvm']);
+        ver.arguments['default-user-jvm'] = stripIncompatibleJvmFlags(ver.arguments['default-user-jvm']);
       }
     }
   }
@@ -292,7 +297,10 @@ class LaunchManager {
       // 5. Configurar Flags JVM de alto rendimiento
       const memoryMin = overrideOptions.ramMin || overrideOptions.memoryMin || activeProfile.ramMin || activeProfile.memoryMin || this.configManager.get('memory.min', '2G');
       const memoryMax = overrideOptions.ramMax || overrideOptions.memoryMax || activeProfile.ramMax || activeProfile.memoryMax || this.configManager.get('memory.max', '8G');
-      const customJvmArgs = overrideOptions.customJvmArgs || activeProfile.customJvmArgs || this.configManager.get('performance.customJvmArgs', '');
+      const rawCustomJvmArgs = overrideOptions.customJvmArgs || activeProfile.customJvmArgs || this.configManager.get('performance.customJvmArgs', '');
+      const customJvmArgs = typeof rawCustomJvmArgs === 'string'
+        ? rawCustomJvmArgs.split(/\s+/).filter(a => !a.startsWith('-javaagent:') && !a.startsWith('-javaagent') && !a.includes('agent.jar')).join(' ')
+        : '';
 
       const jvmFlags = JVMOptimizer.buildJvmArguments({
         majorVersion: resolvedJavaMajor,
@@ -317,12 +325,12 @@ class LaunchManager {
           if (vJson.arguments) {
             if (Array.isArray(vJson.arguments.jvm)) {
               const beforeLen = vJson.arguments.jvm.length;
-              vJson.arguments.jvm = stripMemoryFlags(vJson.arguments.jvm);
+              vJson.arguments.jvm = stripIncompatibleJvmFlags(vJson.arguments.jvm);
               if (vJson.arguments.jvm.length !== beforeLen) vModified = true;
             }
             if (Array.isArray(vJson.arguments['default-user-jvm'])) {
               const beforeLen = vJson.arguments['default-user-jvm'].length;
-              vJson.arguments['default-user-jvm'] = stripMemoryFlags(vJson.arguments['default-user-jvm']);
+              vJson.arguments['default-user-jvm'] = stripIncompatibleJvmFlags(vJson.arguments['default-user-jvm']);
               if (vJson.arguments['default-user-jvm'].length !== beforeLen) vModified = true;
             }
           }
@@ -341,7 +349,7 @@ class LaunchManager {
           mcRoot: sharedRoot,
           customVersionName
         });
-        parsedLoaderJvmArgs = parsedLoaderJvmArgs.filter((a) => typeof a === 'string' && !a.startsWith('-Xmx') && !a.startsWith('-Xms'));
+        parsedLoaderJvmArgs = parsedLoaderJvmArgs.filter((a) => typeof a === 'string' && !a.startsWith('-Xmx') && !a.startsWith('-Xms') && !a.startsWith('-javaagent:') && !a.startsWith('-javaagent'));
         logger.info(`[NeoForge JVM] Inyectados ${parsedLoaderJvmArgs.length} argumentos JVM unificados desde ${customVersionName}.json`);
       }
 
@@ -366,6 +374,10 @@ class LaunchManager {
         if (a && typeof a === 'string') {
           // Descartar flags de memoria que no provengan directamente de jvmFlags de ShubaCore
           if ((a.startsWith('-Xmx') || a.startsWith('-Xms')) && !jvmFlags.includes(a)) {
+            continue;
+          }
+          // PROHIBIDO cualquier -javaagent: en los argumentos JVM (elimina crash 3221225477)
+          if (a.startsWith('-javaagent:') || a.startsWith('-javaagent') || a.includes('skin-agent') || a.includes('controller-agent') || a.includes('agent.jar')) {
             continue;
           }
           if (!seenArgs.has(a)) {
@@ -408,6 +420,15 @@ class LaunchManager {
           return true;
         });
       }
+
+      // REQUISITO ESTRICTO: Prohibido cualquier -javaagent en los argumentos JVM (elimina crash 3221225477)
+      cleanedJvmArgs = cleanedJvmArgs.filter((arg) => {
+        if (typeof arg !== 'string') return false;
+        const trimmed = arg.trim();
+        if (trimmed.startsWith('-javaagent:') || trimmed.startsWith('-javaagent')) return false;
+        if (trimmed.includes('skin-agent') || trimmed.includes('controller-agent') || trimmed.includes('agent.jar')) return false;
+        return true;
+      });
 
       cleanedJvmArgs.push(`-Djava.library.path=${instanceNativesDir}`);
       cleanedJvmArgs.push(`-Dorg.lwjgl.librarypath=${instanceNativesDir}`);
@@ -522,31 +543,28 @@ class LaunchManager {
         } catch (_) {}
       }
 
-      // MECANISMO 2: Inyección de Resource Pack Nativo "ShubaSkinOverride" (100% Vanilla sin mods)
+      // AUTO-PURGA OBLIGATORIA: Eliminar ShubaSkinOverride y ShubaCoreSplash de disco y options.txt antes del spawn de javaw.exe
       try {
-        const packRes = await skinMgr.injectSkinResourcePack({
-          instancePath,
-          username: auth.name,
-          mcVersion
-        });
-        if (packRes.applied) {
-          logger.info(`⚡ [LaunchManager] [MECANISMO 2] Resource pack nativo ShubaSkinOverride aplicado en "${instancePath}" (Vanilla 100% sin mods).`);
+        const rpDir = path.join(instancePath, 'resourcepacks');
+        const badPacks = [
+          path.join(rpDir, 'ShubaSkinOverride'),
+          path.join(rpDir, 'ShubaSkinOverride.zip'),
+          path.join(rpDir, 'ShubaCoreSplash'),
+          path.join(rpDir, 'ShubaCoreSplash.zip')
+        ];
+        for (const bad of badPacks) {
+          if (fs.existsSync(bad)) {
+            try {
+              fs.rmSync(bad, { recursive: true, force: true });
+              logger.info(`[LaunchManager] ✅ Paquete incompatible purgado de disco: ${bad}`);
+            } catch (_) {}
+          }
         }
-      } catch (skinErr) {
-        logger.warn(`[LaunchManager] Aviso al inyectar Resource Pack ShubaSkinOverride: ${skinErr.message}`);
-      }
 
-      // Limpieza automática y definitiva de ShubaCoreSplash antes de iniciar Minecraft
-      try {
-        const splashPackDir = path.join(instancePath, 'resourcepacks', 'ShubaCoreSplash');
-        if (fs.existsSync(splashPackDir)) {
-          fs.rmSync(splashPackDir, { recursive: true, force: true });
-          logger.info(`[LaunchManager] ✅ Carpeta incompatible ShubaCoreSplash eliminada de: ${splashPackDir}`);
-        }
         const optsFile = path.join(instancePath, 'options.txt');
         if (fs.existsSync(optsFile)) {
           const content = fs.readFileSync(optsFile, 'utf8');
-          if (content.includes('ShubaCoreSplash')) {
+          if (content.includes('ShubaSkinOverride') || content.includes('ShubaCoreSplash')) {
             const lines = content.split(/\r?\n/);
             let modified = false;
             for (let i = 0; i < lines.length; i++) {
@@ -558,7 +576,12 @@ class LaunchManager {
                 try {
                   if (valStr.startsWith('[') && valStr.endsWith(']')) {
                     const packs = JSON.parse(valStr);
-                    const filtered = packs.filter((p) => p !== 'file/ShubaCoreSplash' && p !== 'ShubaCoreSplash');
+                    const filtered = packs.filter((p) =>
+                      p !== 'file/ShubaSkinOverride' &&
+                      p !== 'ShubaSkinOverride' &&
+                      p !== 'file/ShubaCoreSplash' &&
+                      p !== 'ShubaCoreSplash'
+                    );
                     lines[i] = `${key}:${JSON.stringify(filtered)}`;
                   } else {
                     lines[i] = `${key}:[]`;
@@ -571,12 +594,12 @@ class LaunchManager {
             }
             if (modified) {
               fs.writeFileSync(optsFile, lines.join('\n') + '\n', 'utf8');
-              logger.info(`[LaunchManager] ✅ ShubaCoreSplash purgado de options.txt en: ${optsFile}`);
+              logger.info(`[LaunchManager] ✅ options.txt saneado (purgados ShubaSkinOverride y ShubaCoreSplash) en: ${optsFile}`);
             }
           }
         }
       } catch (cleanErr) {
-        logger.warn(`[LaunchManager] Aviso al purgar ShubaCoreSplash: ${cleanErr.message}`);
+        logger.warn(`[LaunchManager] Aviso al purgar resourcepacks incompatibles: ${cleanErr.message}`);
       }
 
       // 7. ShubaCore Pro - Limpieza de memoria Standby (Anti-Stuttering) antes del despegue

@@ -1142,7 +1142,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         if (result && result.success) {
-          appendLog(`[Skins] Skin de ${activeUser} guardada con éxito (se aplicará nativamente sin mods vía ShubaSkinOverride).`, 'success');
+          appendLog(`[Skins] Skin de ${activeUser} guardada con éxito.`, 'success');
           const finalSkin = result.skin?.dataUrl || result.dataUrl;
           renderSkinFaceToCanvas(finalSkin, sidebarAvatarCanvas);
           renderSkinFaceToCanvas(finalSkin, vestidorFaceCanvas);
@@ -6609,7 +6609,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       const activeProfile = await api.profiles.getActive();
       const instanceDir = activeProfile?.instancePath || activeProfile?.gameDirectory || currentActiveProfile?.instancePath;
       if (!instanceDir) return;
-      await api.hud.setOption(instanceDir, optionKey, value);
+      const res = await api.hud.setOption(instanceDir, optionKey, value);
+      if (res && res.reason === 'game_running') {
+        appendLog(`[Optimizaciones] Bloqueado: No se puede modificar options.txt mientras Minecraft está en ejecución.`, 'warn');
+        if (statusElem) {
+          const prevVal = !value;
+          updateHudStatusText(statusElem, prevVal);
+        }
+        return;
+      }
       updateHudStatusText(statusElem, value);
       appendLog(`[Optimizaciones] Ajuste "${optionKey}" ${value ? 'ACTIVADO' : 'DESACTIVADO'} en options.txt.`, 'info');
     } catch (err) {

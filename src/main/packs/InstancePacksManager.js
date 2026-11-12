@@ -66,6 +66,17 @@ class InstancePacksManager {
 
       if (!isZip && !isDir) continue;
 
+      // PROHIBIDO y AUTO-PURGA: ShubaSkinOverride y ShubaCoreSplash nunca deben listarse ni existir
+      if (
+        ent.name.includes('ShubaSkinOverride') ||
+        ent.name.includes('ShubaCoreSplash')
+      ) {
+        try {
+          fs.rmSync(fullPath, { recursive: true, force: true });
+        } catch (_) {}
+        continue;
+      }
+
       let name = ent.name.replace(/\.zip$/i, '');
       let description = type === 'shaders' ? 'Paquete de shaders para Minecraft' : 'Paquete de recursos y texturas';
       let icon = null;
