@@ -135,11 +135,10 @@ console.log('   ✔ Auto-arranque de ControllerBridge y eliminación de -Xmx/-Xm
 
 // 6. Verificar desactivación y purga de ShubaCoreSplash y retraso de 8s en ControllerBridge
 console.log('\n▶ [6/7] Verificando purga de ShubaCoreSplash, verificación de assets y retraso de 8s en ControllerBridge...');
-assert.ok(launchManagerJs.includes('cleanAndPurgeSplash'), 'LaunchManager debe llamar a cleanAndPurgeSplash');
+assert.ok(launchManagerJs.includes('ShubaCoreSplash'), 'LaunchManager debe purgar automáticamente ShubaCoreSplash');
 assert.ok(launchManagerJs.includes('8000'), 'LaunchManager debe retrasar ControllerBridge 8000ms (8 seg)');
 assert.ok(launchManagerJs.includes('_verifyAndFixAssets'), 'LaunchManager debe implementar _verifyAndFixAssets');
 
-const { getSplashScreen } = require('../src/main/splash/SplashScreen');
 const splashDir = path.join(tempDir, 'resourcepacks', 'ShubaCoreSplash');
 fs.mkdirSync(splashDir, { recursive: true });
 fs.writeFileSync(path.join(splashDir, 'pack.mcmeta'), '{}');
@@ -147,7 +146,7 @@ fs.writeFileSync(path.join(splashDir, 'pack.mcmeta'), '{}');
 const dummyOpts = path.join(tempDir, 'options.txt');
 fs.writeFileSync(dummyOpts, 'resourcePacks:["file/ShubaCoreSplash","vanilla"]\nincompatibleResourcePacks:["file/ShubaCoreSplash"]\n', 'utf8');
 
-getSplashScreen().cleanAndPurgeSplash(tempDir);
+getHudOptionsManager().prepareInstanceOptions(tempDir);
 
 assert.strictEqual(fs.existsSync(splashDir), false, 'Carpeta ShubaCoreSplash debe ser eliminada');
 const cleanedOptsContent = fs.readFileSync(dummyOpts, 'utf8');

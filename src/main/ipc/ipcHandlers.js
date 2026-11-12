@@ -35,7 +35,6 @@ const { getHardwareOptimizer } = require('../hardware/HardwareOptimizer');
 const { getMemoryCleaner } = require('../system/MemoryCleaner');
 const { getPlayItManager } = require('../tunnel/PlayItManager');
 const { getServerMonitor } = require('../servers/ServerMonitor');
-const { getSplashScreen } = require('../splash/SplashScreen');
 const { getControllerAgentManager } = require('../controller/ControllerAgentManager');
 const { getControllerMapManager } = require('../controller/ControllerMapManager');
 const { getControllerBridge } = require('../controller/ControllerBridge');
@@ -69,7 +68,6 @@ function registerIpcHandlers(mainWindow) {
   const playItManager = getPlayItManager();
   const serverMonitor = getServerMonitor();
   serverMonitor.setMainWindow(mainWindow);
-  const splashScreen = getSplashScreen();
 
   // Reenviar eventos de PlayIt al renderer
   playItManager.on('status', (state) => {
@@ -1780,24 +1778,10 @@ function registerIpcHandlers(mainWindow) {
   });
 
   // ==========================================
-  // SPLASH SCREEN: PANTALLA DE CARGA PERSONALIZADA
+  // SPLASH SCREEN: PANTALLA DE CARGA PERSONALIZADA (ELIMINADA DEFINITIVAMENTE)
   // ==========================================
-  ipcMain.handle('splash:inject', async (event, options = {}) => {
-    try {
-      return await splashScreen.injectSplashScreen(options);
-    } catch (err) {
-      logger.error('Error en splash:inject IPC:', err);
-      return { applied: false, error: err.message };
-    }
-  });
-
-  ipcMain.handle('splash:remove', async (event, { instancePath } = {}) => {
-    try {
-      return splashScreen.removeFromOptionsTxt(instancePath);
-    } catch (err) {
-      return false;
-    }
-  });
+  ipcMain.handle('splash:inject', async () => ({ applied: false, disabled: true, purged: true }));
+  ipcMain.handle('splash:remove', async () => true);
 
   // ==========================================
   // CONTROLLER AGENT: SOPORTE NATIVO PARA MANDOS (JVM AGENT)

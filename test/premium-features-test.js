@@ -14,7 +14,6 @@ const path = require('path');
 
 const { PlayItManager } = require('../src/main/tunnel/PlayItManager');
 const { ServerMonitor } = require('../src/main/servers/ServerMonitor');
-const { SplashScreen } = require('../src/main/splash/SplashScreen');
 
 const TEST_DIR = path.join(__dirname, '.test-premium-features');
 
@@ -99,64 +98,34 @@ async function runTests() {
   console.log('   ✔ ServerMonitor validado: Parsing de IPs, ping fail-safe a servidores cerrados y timer.\n');
 
   // ----------------------------------------------------
-  // 3. SPLASH SCREEN SHUBATECH
+  // 3. PURGA Y ELIMINACIÓN PERMANENTE DE SHUBACORESPLASH
   // ----------------------------------------------------
-  console.log('▶ [3/3] Verificando SplashScreen (Resource Pack nativo & Inyección en options.txt)...');
-  const splash = new SplashScreen();
-
-  // Test pack_format calculation
-  assert.strictEqual(SplashScreen.getPackFormat('1.21.1'), 34, 'MC 1.21.1 debe usar pack_format 34');
-  assert.strictEqual(SplashScreen.getPackFormat('1.21.4'), 46, 'MC 1.21.4 debe usar pack_format 46');
-  assert.strictEqual(SplashScreen.getPackFormat('1.20.1'), 15, 'MC 1.20.1 debe usar pack_format 15');
-  assert.strictEqual(SplashScreen.getPackFormat('1.16.5'), 6, 'MC 1.16.5 debe usar pack_format 6');
-
-  // Test generación de Resource Pack dinámico
+  console.log('▶ [3/3] Verificando purga permanente de ShubaCoreSplash en options.txt y resourcepacks...');
   const testInstanceDir = path.join(TEST_DIR, 'instancia-prueba');
   fs.mkdirSync(testInstanceDir, { recursive: true });
 
-  const packDir = splash.generateSplashPack(testInstanceDir, { mcVersion: '1.21.1' });
-  assert.ok(fs.existsSync(packDir), 'El directorio del Resource Pack debe existir');
+  const splashDir = path.join(testInstanceDir, 'resourcepacks', 'ShubaCoreSplash');
+  fs.mkdirSync(splashDir, { recursive: true });
+  fs.writeFileSync(path.join(splashDir, 'pack.mcmeta'), '{"pack":{}}', 'utf8');
 
-  const mcmetaPath = path.join(packDir, 'pack.mcmeta');
-  assert.ok(fs.existsSync(mcmetaPath), 'pack.mcmeta debe existir');
-  const mcmeta = JSON.parse(fs.readFileSync(mcmetaPath, 'utf8'));
-  assert.strictEqual(mcmeta.pack.pack_format, 34, 'pack_format en mcmeta debe ser 34');
-
-  const mojangStudiosPng = path.join(packDir, 'assets', 'minecraft', 'textures', 'gui', 'title', 'mojangstudios.png');
-  const mojangPng = path.join(packDir, 'assets', 'minecraft', 'textures', 'gui', 'title', 'mojang.png');
-  assert.ok(fs.existsSync(mojangStudiosPng), 'mojangstudios.png (1.16+) debe existir');
-  assert.ok(fs.existsSync(mojangPng), 'mojang.png (legacy) debe existir');
-
-  // Test inyección en options.txt existente con otros resource packs
   const testOptionsPath = path.join(testInstanceDir, 'options.txt');
   fs.writeFileSync(
     testOptionsPath,
-    'gamma:100.0\nresourcePacks:["file/Faithful32x.zip","vanilla"]\nrenderDistance:12\n',
+    'gamma:100.0\nresourcePacks:["file/ShubaCoreSplash","file/Faithful32x.zip","vanilla"]\nincompatibleResourcePacks:["file/ShubaCoreSplash"]\n',
     'utf8'
   );
 
-  splash.injectIntoOptionsTxt(testInstanceDir);
+  // Probar limpieza automática de options.txt y eliminación de carpeta
+  const { getHudOptionsManager } = require('../src/main/hud/HudOptionsManager');
+  getHudOptionsManager().prepareInstanceOptions(testInstanceDir);
 
+  assert.strictEqual(fs.existsSync(splashDir), false, 'La carpeta ShubaCoreSplash debe ser borrada permanentemente');
   const updatedOptions = fs.readFileSync(testOptionsPath, 'utf8');
-  assert.ok(updatedOptions.includes('resourcePacks:'), 'Debe conservar la línea resourcePacks');
+  assert.strictEqual(updatedOptions.includes('ShubaCoreSplash'), false, 'ShubaCoreSplash debe estar totalmente purgado de options.txt');
+  assert.ok(updatedOptions.includes('file/Faithful32x.zip'), 'Debe conservar los resource packs previos del usuario');
+  assert.ok(updatedOptions.includes('vanilla'), 'Debe conservar vanilla');
 
-  const optionsLines = updatedOptions.split('\n');
-  const packLine = optionsLines.find((l) => l.startsWith('resourcePacks:'));
-  const parsedPacks = JSON.parse(packLine.slice('resourcePacks:'.length));
-
-  assert.strictEqual(parsedPacks[0], 'file/ShubaCoreSplash', '"file/ShubaCoreSplash" debe ser el primer pack en la lista');
-  assert.ok(parsedPacks.includes('file/Faithful32x.zip'), 'Debe conservar los resource packs previos del usuario');
-  assert.ok(parsedPacks.includes('vanilla'), 'Debe conservar vanilla');
-
-  // Test remoción limpia si el usuario lo desactiva
-  splash.removeFromOptionsTxt(testInstanceDir);
-  const cleanedOptions = fs.readFileSync(testOptionsPath, 'utf8');
-  const cleanedPackLine = cleanedOptions.split('\n').find((l) => l.startsWith('resourcePacks:'));
-  const cleanedPacks = JSON.parse(cleanedPackLine.slice('resourcePacks:'.length));
-  assert.strictEqual(cleanedPacks.includes('file/ShubaCoreSplash'), false, 'ShubaCoreSplash debe ser removido limpiamente');
-  assert.ok(cleanedPacks.includes('file/Faithful32x.zip'), 'Debe conservar los demás paquetes activos');
-
-  console.log('   ✔ SplashScreen validado: Generación de pack dinámico, inyección prioritaria en options.txt y remoción no destructiva.\n');
+  console.log('   ✔ Purga permanente de ShubaCoreSplash y protección de options.txt validada al 100%.\n');
 
   // Limpieza
   try {

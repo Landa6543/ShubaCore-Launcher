@@ -139,11 +139,18 @@ class HudOptionsManager {
     }
 
     try {
+      // Eliminar carpeta ShubaCoreSplash si existe en la instancia
+      const splashPackDir = path.join(instanceDir, 'resourcepacks', 'ShubaCoreSplash');
+      if (fs.existsSync(splashPackDir)) {
+        try { fs.rmSync(splashPackDir, { recursive: true, force: true }); } catch (_) {}
+      }
+
       const content = fs.readFileSync(optsFile, 'utf8');
       const lines = content.split(/\r?\n/);
       let foundLangIndex = -1;
       let currentLang = '';
       let hasAutoJump = false;
+      let modified = false;
 
       for (let i = 0; i < lines.length; i++) {
         const trimmed = lines[i].trim();
@@ -186,13 +193,6 @@ class HudOptionsManager {
         }
       }
 
-      // Eliminar carpeta ShubaCoreSplash si existe en la instancia
-      const splashPackDir = path.join(instanceDir, 'resourcepacks', 'ShubaCoreSplash');
-      if (fs.existsSync(splashPackDir)) {
-        try { fs.rmSync(splashPackDir, { recursive: true, force: true }); } catch (_) {}
-      }
-
-      let modified = false;
       // Si el switch global de Forzar Español está activo (o si lang era en_us), forzar explícitamente es_es
       if (forceSpanish || currentLang === 'en_us' || currentLang === '') {
         if (foundLangIndex !== -1) {

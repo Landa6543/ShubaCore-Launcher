@@ -495,12 +495,47 @@ class LaunchManager {
         logger.warn(`[LaunchManager] Aviso al inyectar Resource Pack ShubaSkinOverride: ${skinErr.message}`);
       }
 
-      // MECANISMO 3: Purgar y asegurar que ShubaCoreSplash esté 100% desactivado y eliminado de resourcepacks y options.txt
+      // Limpieza automática y definitiva de ShubaCoreSplash antes de iniciar Minecraft
       try {
-        const { getSplashScreen } = require('../splash/SplashScreen');
-        getSplashScreen().cleanAndPurgeSplash(instancePath);
-      } catch (splashErr) {
-        logger.warn(`[LaunchManager] Aviso al purgar SplashScreen: ${splashErr.message}`);
+        const splashPackDir = path.join(instancePath, 'resourcepacks', 'ShubaCoreSplash');
+        if (fs.existsSync(splashPackDir)) {
+          fs.rmSync(splashPackDir, { recursive: true, force: true });
+          logger.info(`[LaunchManager] ✅ Carpeta incompatible ShubaCoreSplash eliminada de: ${splashPackDir}`);
+        }
+        const optsFile = path.join(instancePath, 'options.txt');
+        if (fs.existsSync(optsFile)) {
+          const content = fs.readFileSync(optsFile, 'utf8');
+          if (content.includes('ShubaCoreSplash')) {
+            const lines = content.split(/\r?\n/);
+            let modified = false;
+            for (let i = 0; i < lines.length; i++) {
+              const trimmed = lines[i].trim();
+              if (trimmed.startsWith('resourcePacks:') || trimmed.startsWith('incompatibleResourcePacks:')) {
+                const colonIdx = lines[i].indexOf(':');
+                const key = lines[i].slice(0, colonIdx);
+                const valStr = lines[i].slice(colonIdx + 1).trim();
+                try {
+                  if (valStr.startsWith('[') && valStr.endsWith(']')) {
+                    const packs = JSON.parse(valStr);
+                    const filtered = packs.filter((p) => p !== 'file/ShubaCoreSplash' && p !== 'ShubaCoreSplash');
+                    lines[i] = `${key}:${JSON.stringify(filtered)}`;
+                  } else {
+                    lines[i] = `${key}:[]`;
+                  }
+                } catch (_) {
+                  lines[i] = `${key}:[]`;
+                }
+                modified = true;
+              }
+            }
+            if (modified) {
+              fs.writeFileSync(optsFile, lines.join('\n') + '\n', 'utf8');
+              logger.info(`[LaunchManager] ✅ ShubaCoreSplash purgado de options.txt en: ${optsFile}`);
+            }
+          }
+        }
+      } catch (cleanErr) {
+        logger.warn(`[LaunchManager] Aviso al purgar ShubaCoreSplash: ${cleanErr.message}`);
       }
 
       // 7. ShubaCore Pro - Limpieza de memoria Standby (Anti-Stuttering) antes del despegue
