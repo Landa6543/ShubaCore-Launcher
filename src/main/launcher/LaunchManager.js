@@ -396,7 +396,19 @@ class LaunchManager {
       await this._verifyAndFixAssets(sharedRoot, mcVersion, customVersionName);
 
       // Inyectar rutas limpias de nativos en las flags de Java (reemplazando cualquier ruta anterior)
-      const cleanedJvmArgs = finalJvmArgs.filter((arg) => !arg.startsWith('-Djava.library.path=') && !arg.startsWith('-Dorg.lwjgl.librarypath='));
+      let cleanedJvmArgs = finalJvmArgs.filter((arg) => !arg.startsWith('-Djava.library.path=') && !arg.startsWith('-Dorg.lwjgl.librarypath='));
+
+      // Filtrar flags exclusivas de JPMS / NeoForge (--module-path y ALL-MODULE-PATH) si el loader es Fabric, Quilt o Vanilla
+      if (loader === 'fabric' || loader === 'quilt' || loader === 'vanilla') {
+        cleanedJvmArgs = cleanedJvmArgs.filter((arg) => {
+          if (typeof arg !== 'string') return false;
+          const trimmed = arg.trim();
+          if (trimmed.startsWith('--module-path') || trimmed === '-p' || trimmed.startsWith('-p=')) return false;
+          if (trimmed.includes('ALL-MODULE-PATH')) return false;
+          return true;
+        });
+      }
+
       cleanedJvmArgs.push(`-Djava.library.path=${instanceNativesDir}`);
       cleanedJvmArgs.push(`-Dorg.lwjgl.librarypath=${instanceNativesDir}`);
 

@@ -413,6 +413,15 @@ body {
   letter-spacing: 0.2px !important;
   padding: 0 10px !important;
   font-weight: 700 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.btn-play.btn-launch-multi #btn-launch-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .btn-play.btn-launch-multi:hover {

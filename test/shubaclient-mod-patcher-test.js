@@ -65,25 +65,33 @@ async function runTests() {
   // ----------------------------------------------------
   // 3. PARCHEO Y REBRANDING A SHUBACORE / SHUBATECH
   // ----------------------------------------------------
-  console.log('▶ [3/6] Verificando parcheo y rebranding a shubaclient-custom.jar...');
-  const customJarPath = path.join(extractionDir, 'shubaclient-custom.jar');
+  console.log('▶ [3/6] Verificando parcheo y rebranding a ShubaClient-UI.jar...');
+  const customJarPath = path.join(extractionDir, 'ShubaClient-UI.jar');
   const patchResult = patcher.patchClientMod(extraction.baseJarPath, customJarPath);
 
   assert.ok(patchResult.success, 'El parcheo debe completarse con éxito');
-  assert.ok(fs.existsSync(customJarPath), 'shubaclient-custom.jar debe generarse en disco');
+  assert.ok(fs.existsSync(customJarPath), 'ShubaClient-UI.jar debe generarse en disco');
 
   // Inspeccionar interior del JAR generado
   const customZip = new AdmZip(customJarPath);
 
-  // A) Metadata fabric.mod.json
+  // A) Firmas eliminadas y MANIFEST saneado
+  const sigEntries = customZip.getEntries().filter(e =>
+    /\.(SF|RSA|DSA)$/i.test(e.entryName) || /^META-INF\/SIG-/i.test(e.entryName)
+  );
+  assert.strictEqual(sigEntries.length, 0, 'No deben existir firmas digitales (.SF, .RSA, .DSA) que rompan el classloader');
+  const mfStr = customZip.readAsText('META-INF/MANIFEST.MF');
+  assert.ok(!mfStr.includes('SHA-256-Digest:'), 'MANIFEST.MF no debe contener digests para evitar SecurityException');
+
+  // B) Metadata fabric.mod.json
   const metaStr = customZip.readAsText('fabric.mod.json');
   assert.ok(metaStr, 'fabric.mod.json debe existir en el JAR');
   const meta = JSON.parse(metaStr);
   assert.strictEqual(meta.name, 'ShubaClient UI', 'El nombre del mod debe ser "ShubaClient UI"');
-  assert.strictEqual(meta.description, 'Interfaz nativa y utilidades exclusivas de SHUBATECH');
+  assert.strictEqual(meta.description, 'Interfaz moderna y utilidades exclusivas desarrolladas por SHUBATECH');
   assert.ok(meta.authors.includes('SHUBATECH') && meta.authors.includes('LanderAlo'), 'Los autores deben ser SHUBATECH y LanderAlo');
 
-  // B) Idiomas (en_us y es_es)
+  // C) Idiomas (en_us y es_es)
   const enUsStr = customZip.readAsText('assets/polyplus/lang/en_us.json');
   assert.ok(enUsStr.includes('ShubaClient'), 'en_us.json debe contener ShubaClient');
   assert.ok(!enUsStr.includes('ONECLIENT'), 'en_us.json no debe contener ONECLIENT');
@@ -94,10 +102,11 @@ async function runTests() {
   assert.strictEqual(esEs['polyplus.hostWorld'], 'Hostear Mundo');
   assert.strictEqual(esEs['polyplus.page.wardrobe'], 'Vestidor');
   assert.strictEqual(esEs['polyplus.page.social'], 'Amigos');
+  assert.strictEqual(esEs['polyplus.page.marketplace'], 'Vestidor');
   assert.strictEqual(esEs['polyplus.mainmenu.play'], 'Jugar');
   assert.strictEqual(esEs['polyplus.mainmenu.keepOneClient'], 'Usar ShubaClient');
 
-  // C) Texturas y Logos Vectoriales
+  // D) Texturas y Logos Vectoriales
   const brandSvg = customZip.readAsText('assets/polyplus/brand/oneclient.svg');
   assert.ok(brandSvg.includes('SHUBACORE'), 'oneclient.svg debe ser reemplazado por logo SHUBACORE');
 
@@ -107,11 +116,17 @@ async function runTests() {
   const footerLogoSvg = customZip.readAsText('assets/polyplus/mainmenu/footer-logo.svg');
   assert.ok(footerLogoSvg.includes('shubaFoot'), 'footer-logo.svg debe contener el vector de SHUBATECH');
 
-  // D) Bytecode Constant Pool
+  // E) Bytecode Constant Pool y Parches de Juego (Vestidor Gratis & Marketplace Redirigido)
   const menuCls = customZip.readFile('org/polyfrost/polyplus/client/gui/PolyPlusMainMenuScreenKt.class');
   assert.ok(menuCls.includes('SHUBACORE'), 'Clase PolyPlusMainMenuScreenKt debe contener SHUBACORE');
   assert.ok(!menuCls.includes('ONECLIENT'), 'Clase PolyPlusMainMenuScreenKt no debe contener ONECLIENT');
-  console.log('   ✔ Metadatos, archivos de idioma, logos SVG y constantes JVM verificadas al 100%.\n');
+
+  const cuiCls = customZip.readFile('org/polyfrost/polyplus/client/gui/wardrobe/CosmeticUiItem.class');
+  assert.ok(cuiCls.includes(Buffer.from([0x04, 0xac])), 'CosmeticUiItem.getOwned debe retornar true (iconst_1; ireturn) para cosméticos gratis');
+
+  const lcCls = customZip.readFile('org/polyfrost/polyplus/client/gui/lobbyshell/LobbyChromeKt.class');
+  assert.ok(lcCls.includes('Vestidor'), 'LobbyChromeKt debe renombrar Marketplace a Vestidor');
+  console.log('   ✔ Metadatos, firmas saneadas, idiomas, logos SVG y constantes JVM verificadas al 100%.\n');
 
   // ----------------------------------------------------
   // 4. CONFIGURACIÓN IN-GAME (ONECONFIG 3D LOBBY Y PAUSA)
@@ -143,7 +158,8 @@ async function runTests() {
   assert.ok(injectResult.injected, 'La inyección debe completarse con éxito');
 
   const instanceModsDir = path.join(mockInstanceDir, 'mods');
-  assert.ok(fs.existsSync(path.join(instanceModsDir, 'shubaclient-custom.jar')), 'shubaclient-custom.jar debe estar en /mods');
+  assert.ok(fs.existsSync(path.join(instanceModsDir, 'ShubaClient-UI.jar')), 'ShubaClient-UI.jar debe estar en /mods');
+  assert.ok(!fs.existsSync(path.join(instanceModsDir, 'shubaclient-custom.jar')), 'El archivo previo shubaclient-custom.jar debe ser purgado');
   console.log(`   ✔ Inyección validada: ${injectResult.injectedFiles.length} mods inyectados en la instancia.\n`);
 
   // ----------------------------------------------------

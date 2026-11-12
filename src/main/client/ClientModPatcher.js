@@ -233,6 +233,29 @@ class ClientModPatcher {
   }
 
   /**
+   * Copia recursivamente directorios y archivos sin sobrescribir si ya existen
+   */
+  _copyDirRecursive(src, dest) {
+    if (!fs.existsSync(dest)) {
+      try { fs.mkdirSync(dest, { recursive: true }); } catch (_) {}
+    }
+    try {
+      const items = fs.readdirSync(src, { withFileTypes: true });
+      for (const item of items) {
+        const srcPath = path.join(src, item.name);
+        const destPath = path.join(dest, item.name);
+        if (item.isDirectory()) {
+          this._copyDirRecursive(srcPath, destPath);
+        } else if (item.isFile()) {
+          if (!fs.existsSync(destPath)) {
+            try { fs.copyFileSync(srcPath, destPath); } catch (_) {}
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  /**
    * Genera el SVG del logo horizontal de SHUBACORE para reemplazar oneclient.svg
    */
   getBrandSvgContent() {
@@ -285,7 +308,7 @@ class ClientModPatcher {
   }
 
   /**
-   * Parchea y personaliza el .jar base de OneClient para generar shubaclient-custom.jar
+   * Parchea y personaliza el .jar base de OneClient para generar ShubaClient-UI.jar
    * con metadatos de SHUBATECH, traducción al español y logos oficiales.
    */
   patchClientMod(baseJarPath = null, outputJarPath = null) {
@@ -294,11 +317,33 @@ class ClientModPatcher {
       throw new Error(`El archivo JAR base no existe en: ${inputJar}`);
     }
 
-    const outputJar = outputJarPath || path.join(path.dirname(inputJar), 'shubaclient-custom.jar');
+    const outputJar = outputJarPath || path.join(path.dirname(inputJar), 'ShubaClient-UI.jar');
     logger.info(`[SHUBATECH] [ShubaClient] Iniciando parcheo y rebranding de ${path.basename(inputJar)} -> ${path.basename(outputJar)}...`);
 
     const zip = new AdmZip(inputJar);
     const entries = zip.getEntries();
+
+    // 0. ELIMINACIÓN DE FIRMAS DIGITALES Y SANEAMIENTO DE MANIFEST.MF
+    // Evita crash código 1 por java.lang.SecurityException: SHA-256 digest error
+    const sigFiles = entries.filter((e) =>
+      /\.(SF|RSA|DSA)$/i.test(e.entryName) || /^META-INF\/SIG-/i.test(e.entryName)
+    );
+    for (const sigFile of sigFiles) {
+      zip.deleteFile(sigFile);
+      logger.debug(`[SHUBATECH] [ShubaClient] Firma digital eliminada: ${sigFile.entryName}`);
+    }
+
+    const manifestEntry = zip.getEntry('META-INF/MANIFEST.MF');
+    if (manifestEntry) {
+      try {
+        let manifestText = zip.readAsText(manifestEntry);
+        manifestText = manifestText.replace(/\r?\nName: [^\r\n]+(?:\r?\n [^\r\n]+)*(?:\r?\n[a-zA-Z0-9_-]+-Digest:[^\r\n]+)+/gi, '');
+        manifestText = manifestText.replace(/^[a-zA-Z0-9_-]+-Digest:[^\r\n]+(?:\r?\n)?/gmi, '');
+        zip.updateFile('META-INF/MANIFEST.MF', Buffer.from(manifestText.trim() + '\n', 'utf8'));
+      } catch (mErr) {
+        logger.warn(`[SHUBATECH] [ShubaClient] Aviso al sanear MANIFEST.MF: ${mErr.message}`);
+      }
+    }
 
     // 1. MODIFICAR METADATOS (fabric.mod.json)
     const fabricEntry = zip.getEntry('fabric.mod.json');
@@ -306,7 +351,7 @@ class ClientModPatcher {
       try {
         const meta = JSON.parse(zip.readAsText(fabricEntry));
         meta.name = 'ShubaClient UI';
-        meta.description = 'Interfaz nativa y utilidades exclusivas de SHUBATECH';
+        meta.description = 'Interfaz moderna y utilidades exclusivas desarrolladas por SHUBATECH';
         meta.authors = ['SHUBATECH', 'LanderAlo'];
         if (meta.contact) {
           meta.contact.homepage = 'https://github.com/Landa6543/ShubaCore-Launcher';
@@ -326,6 +371,7 @@ class ClientModPatcher {
         enContent = enContent.replace(/ONECLIENT/g, 'SHUBACORE');
         enContent = enContent.replace(/PolyPlus/g, 'ShubaClient');
         enContent = enContent.replace(/Polyfrost/g, 'SHUBATECH');
+        enContent = enContent.replace(/Marketplace/g, 'Vestidor');
         zip.updateFile('assets/polyplus/lang/en_us.json', Buffer.from(enContent, 'utf8'));
       } catch (_) {}
     }
@@ -335,7 +381,12 @@ class ClientModPatcher {
       'polyplus.hostWorld': 'Hostear Mundo',
       'polyplus.page.wardrobe': 'Vestidor',
       'polyplus.page.social': 'Amigos',
+      'polyplus.page.stats': 'Estadísticas',
+      'polyplus.page.news': 'Novedades',
+      'polyplus.page.marketplace': 'Vestidor',
       'polyplus.mainmenu.play': 'Jugar',
+      'polyplus.mainmenu.singleplayer': 'Un Jugador',
+      'polyplus.mainmenu.multiplayer': 'Multijugador',
       'polyplus.mainmenu.switchToOneClient': 'Menú ShubaClient',
       'polyplus.mainmenu.switchToPolyPlus': 'Menú ShubaClient',
       'polyplus.mainmenu.preferVanilla': '¿Prefieres el menú Vanilla?',
@@ -349,9 +400,15 @@ class ClientModPatcher {
       'polyplus.mmc.debugifyNote': 'Nota de SHUBATECH: Optimizaciones y utilidades activas para un juego seguro y fluido.',
       'polyplus.sodium.options.view_bobbing.tooltip': 'Si está activado, la cámara se balanceará al caminar. Desactívalo si te produce mareos.',
       'menu.play': 'Jugar',
+      'menu.singleplayer': 'Un Jugador',
+      'menu.multiplayer': 'Multijugador',
       'menu.wardrobe': 'Vestidor',
       'menu.social': 'Amigos',
-      'menu.hostWorld': 'Hostear Mundo'
+      'menu.stats': 'Estadísticas',
+      'menu.news': 'Novedades',
+      'menu.hostWorld': 'Hostear Mundo',
+      'menu.options': 'Opciones',
+      'menu.quit': 'Salir del Juego'
     };
     zip.addFile('assets/polyplus/lang/es_es.json', Buffer.from(JSON.stringify(esTranslations, null, 2), 'utf8'));
 
@@ -417,6 +474,49 @@ class ClientModPatcher {
           }
         }
 
+        // Reemplazo de Marketplace -> Vestidor y redirección de navegación a Wardrobe en LobbyChromeKt
+        if (entry.entryName === 'org/polyfrost/polyplus/client/gui/lobbyshell/LobbyChromeKt.class') {
+          const TARGET_MARKETPLACE_UTF8 = Buffer.from([0x01, 0x00, 0x0b, 0x4d, 0x61, 0x72, 0x6b, 0x65, 0x74, 0x70, 0x6c, 0x61, 0x63, 0x65]);
+          const REPL_VESTIDOR_UTF8 = Buffer.from([0x01, 0x00, 0x0b, 0x56, 0x65, 0x73, 0x74, 0x69, 0x64, 0x6f, 0x72, 0x20, 0x20, 0x20]);
+          let mIdx = classBuf.indexOf(TARGET_MARKETPLACE_UTF8);
+          if (mIdx !== -1) {
+            REPL_VESTIDOR_UTF8.copy(classBuf, mIdx);
+            changed = true;
+          }
+
+          // Redirección de getstatic LobbyPage.Marketplace -> getstatic LobbyPage.Wardrobe
+          const GETSTATIC_MKT = Buffer.from([0xb2, 0x00, 0x22]);
+          const GETSTATIC_WDR = Buffer.from([0xb2, 0x00, 0x1c]);
+          let gIdx = 0;
+          while ((gIdx = classBuf.indexOf(GETSTATIC_MKT, gIdx)) !== -1) {
+            GETSTATIC_WDR.copy(classBuf, gIdx);
+            changed = true;
+            gIdx += GETSTATIC_MKT.length;
+          }
+        }
+
+        // Cosméticos desbloqueados 100% gratis en Vestidor (CosmeticUiItem.getOwned() -> true)
+        if (entry.entryName === 'org/polyfrost/polyplus/client/gui/wardrobe/CosmeticUiItem.class') {
+          const CUI_TARGET = Buffer.from([0x2a, 0xb4, 0x00, 0x2c, 0xac]); // aload_0, getfield owned, ireturn
+          const CUI_REPL = Buffer.from([0x04, 0xac, 0x00, 0x00, 0x00]);   // iconst_1, ireturn, nop, nop, nop
+          let cIdx = classBuf.indexOf(CUI_TARGET);
+          if (cIdx !== -1) {
+            CUI_REPL.copy(classBuf, cIdx);
+            changed = true;
+          }
+        }
+
+        // Validación de propiedad en tienda/vestidor (WardrobeModelsKt.fullyOwned() -> true)
+        if (entry.entryName === 'org/polyfrost/polyplus/client/gui/wardrobe/WardrobeModelsKt.class') {
+          const WM_TARGET = Buffer.from([0x2a, 0x12, 0x0a, 0xb8, 0x00, 0x10, 0x2b]);
+          const WM_REPL = Buffer.from([0x04, 0xac, 0x00, 0x00, 0x00, 0x00, 0x00]); // iconst_1, ireturn, nop...
+          let wIdx = classBuf.indexOf(WM_TARGET);
+          if (wIdx !== -1) {
+            WM_REPL.copy(classBuf, wIdx);
+            changed = true;
+          }
+        }
+
         if (changed) {
           zip.updateFile(entry, classBuf);
           patchedClassesCount++;
@@ -424,14 +524,14 @@ class ClientModPatcher {
       }
     }
 
-    logger.info(`[SHUBATECH] [ShubaClient] Parcheadas ${patchedClassesCount} clases JVM con constantes SHUBACORE.`);
+    logger.info(`[SHUBATECH] [ShubaClient] Parcheadas ${patchedClassesCount} clases JVM con constantes SHUBACORE, vestidor gratuito y redirección de Marketplace.`);
 
-    // 5. GUARDAR SHUBACLIENT-CUSTOM.JAR
+    // 5. GUARDAR ShubaClient-UI.jar
     zip.writeZip(outputJar);
     this.customJarPath = outputJar;
 
     const stats = fs.statSync(outputJar);
-    logger.info(`[SHUBATECH] [ShubaClient] ✅ Parcheo y rebranding a shubaclient-custom.jar completado exitosamente (${stats.size} bytes).`);
+    logger.info(`[SHUBATECH] [ShubaClient] ✅ Parcheo y rebranding a ShubaClient-UI.jar completado exitosamente (${stats.size} bytes).`);
 
     return {
       success: true,
@@ -442,12 +542,12 @@ class ClientModPatcher {
   }
 
   /**
-   * Asegura que el archivo shubaclient-custom.jar esté listo para usarse.
+   * Asegura que el archivo ShubaClient-UI.jar esté listo para usarse.
    * Si no existe, realiza la extracción y el parcheo automáticamente.
    */
   ensureShubaClientReady() {
     const runtimeDir = this.getRuntimeClientModsDir();
-    const customJar = path.join(runtimeDir, 'shubaclient-custom.jar');
+    const customJar = path.join(runtimeDir, 'ShubaClient-UI.jar');
 
     if (fs.existsSync(customJar) && fs.statSync(customJar).size > 1000000) {
       this.customJarPath = customJar;
@@ -540,7 +640,7 @@ class ClientModPatcher {
   }
 
   /**
-   * Inyecta shubaclient-custom.jar y el pack de dependencias y optimización en la carpeta mods/ de la instancia.
+   * Inyecta ShubaClient-UI.jar y el pack de dependencias y optimización en la carpeta mods/ de la instancia.
    */
   injectIntoInstance(instanceDir, options = {}) {
     if (!instanceDir || typeof instanceDir !== 'string') return { injected: false };
@@ -548,18 +648,24 @@ class ClientModPatcher {
     const instanceModsDir = path.join(instanceDir, 'mods');
     fs.mkdirSync(instanceModsDir, { recursive: true });
 
+    // Limpiar mod previo obsoleto si existe
+    const oldCustom = path.join(instanceModsDir, 'shubaclient-custom.jar');
+    if (fs.existsSync(oldCustom)) {
+      try { fs.rmSync(oldCustom, { force: true }); } catch (_) {}
+    }
+
     // Asegurar que el mod custom esté listo
     const readyState = this.ensureShubaClientReady();
     if (!readyState.ready || !readyState.customJarPath) {
-      return { injected: false, error: 'No se pudo generar shubaclient-custom.jar' };
+      return { injected: false, error: 'No se pudo generar ShubaClient-UI.jar' };
     }
 
     const injectedFiles = [];
 
-    // 1. Inyectar shubaclient-custom.jar
-    const targetCustom = path.join(instanceModsDir, 'shubaclient-custom.jar');
+    // 1. Inyectar ShubaClient-UI.jar
+    const targetCustom = path.join(instanceModsDir, 'ShubaClient-UI.jar');
     fs.copyFileSync(readyState.customJarPath, targetCustom);
-    injectedFiles.push('shubaclient-custom.jar');
+    injectedFiles.push('ShubaClient-UI.jar');
 
     // 2. Inyectar dependencias esenciales (deps/) si no existen en mods/
     if (fs.existsSync(readyState.depsDir)) {
@@ -590,7 +696,28 @@ class ClientModPatcher {
       } catch (_) {}
     }
 
-    // 4. Preparar configs por defecto de OneConfig
+    // 4. Copiar assets y cosméticos locales del host si existen
+    try {
+      const userProfile = process.env.USERPROFILE || os.homedir();
+      const hostPolyplus = path.join(userProfile, 'AppData', 'Roaming', 'Polyfrost', 'OneClient', '.minecraft', 'polyplus');
+      if (fs.existsSync(hostPolyplus)) {
+        const instPolyplus = path.join(instanceDir, 'polyplus');
+        fs.mkdirSync(instPolyplus, { recursive: true });
+        const subdirs = ['cosmetics', 'lobby', 'panorama'];
+        for (const sd of subdirs) {
+          const srcSd = path.join(hostPolyplus, sd);
+          const dstSd = path.join(instPolyplus, sd);
+          if (fs.existsSync(srcSd) && !fs.existsSync(dstSd)) {
+            this._copyDirRecursive(srcSd, dstSd);
+            logger.info(`[SHUBATECH] [ShubaClient] Caché local de cosméticos sincronizado: ${sd}`);
+          }
+        }
+      }
+    } catch (cosmErr) {
+      logger.warn(`[SHUBATECH] [ShubaClient] Aviso al copiar cosméticos locales: ${cosmErr.message}`);
+    }
+
+    // 5. Preparar configs por defecto de OneConfig
     this.prepareInstanceConfig(instanceDir);
 
     logger.info(`[SHUBATECH] [ShubaClient] ✨ Inyectada interfaz in-game ShubaClient UI y pack de optimización (${injectedFiles.length} mods) en: ${instanceModsDir}`);

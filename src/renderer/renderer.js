@@ -4436,7 +4436,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       btnLaunch.disabled = false;
       btnLaunch.classList.add('btn-launch-multi');
       if (btnLaunchText) {
-        btnLaunchText.textContent = `➕ LANZAR OTRA SESIÓN (${activeSessionsCount} en juego)`;
+        btnLaunchText.textContent = `+ Sesión (${activeSessionsCount})`;
       }
       if (btnStopSessions) {
         btnStopSessions.style.display = 'inline-flex';

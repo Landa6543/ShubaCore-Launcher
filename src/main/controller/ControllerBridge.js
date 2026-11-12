@@ -288,7 +288,7 @@ namespace ShubaController
                         }
                     }
                 } catch { }
-                shouldExit = true;
+                // DO NOT set shouldExit = true here! Detached or EOF stdin must not terminate the controller!
             });
             stdinThread.IsBackground = true;
             stdinThread.Start();
@@ -296,92 +296,109 @@ namespace ShubaController
             // Main 10ms polling loop
             XINPUT_STATE state = new XINPUT_STATE();
             int tickCounter = 0;
+            int deadTargetCounter = 0;
 
             while (!shouldExit)
             {
-                // Check if target process died
-                if (targetPid > 0 && (++tickCounter % 100 == 0))
+                try
                 {
-                    try
+                    // Check if target process died
+                    if (targetPid > 0 && (++tickCounter % 100 == 0))
                     {
-                        Process tp = Process.GetProcessById(targetPid);
-                        if (tp.HasExited) break;
-                    }
-                    catch { break; }
-                }
-
-                // Check window focus
-                bool isFocused = IsForegroundAcceptable(targetPid);
-                if (!isFocused)
-                {
-                    ReleaseAll();
-                    Thread.Sleep(20);
-                    continue;
-                }
-
-                // Query controllers 0..3
-                bool foundActive = false;
-                for (int port = 0; port < 4; port++)
-                {
-                    if (XInputGetState(port, ref state) == 0)
-                    {
-                        foundActive = true;
-
-                        // Left Stick (WASD Hardware Scan Codes)
-                        SendKey(SCAN_W, ref keyW, state.Gamepad.sThumbLY > 8000);
-                        SendKey(SCAN_S, ref keyS, state.Gamepad.sThumbLY < -8000);
-                        SendKey(SCAN_A, ref keyA, state.Gamepad.sThumbLX < -8000);
-                        SendKey(SCAN_D, ref keyD, state.Gamepad.sThumbLX > 8000);
-
-                        // Right Stick (Relative Mouse Movement for Camera)
-                        short rx = state.Gamepad.sThumbRX;
-                        short ry = state.Gamepad.sThumbRY;
-                        if (Math.Abs(rx) > 6000 || Math.Abs(ry) > 6000)
+                        try
                         {
-                            int dx = (int)((rx / 32767.0) * 18.0);
-                            int dy = (int)((-ry / 32767.0) * 18.0);
-                            mouse_event(MOUSEEVENTF_MOVE, dx, dy, 0, UIntPtr.Zero);
+                            Process tp = Process.GetProcessById(targetPid);
+                            if (tp.HasExited)
+                            {
+                                deadTargetCounter++;
+                                if (deadTargetCounter >= 5) break;
+                            }
+                            else
+                            {
+                                deadTargetCounter = 0;
+                            }
                         }
-
-                        // RT / LT -> Left Click / Right Click
-                        SendMouseButton(MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, ref mouseLeft, state.Gamepad.bRightTrigger > 30);
-                        SendMouseButton(MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP, ref mouseRight, state.Gamepad.bLeftTrigger > 30);
-
-                        // LB / RB -> Mouse Wheel (Hotbar selection)
-                        bool curLB = (state.Gamepad.wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER) != 0;
-                        if (curLB && !lbPressed) {
-                            mouse_event(MOUSEEVENTF_WHEEL, 0, 0, 120, UIntPtr.Zero);
+                        catch
+                        {
+                            deadTargetCounter++;
+                            if (deadTargetCounter >= 5) break;
                         }
-                        lbPressed = curLB;
+                    }
 
-                        bool curRB = (state.Gamepad.wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER) != 0;
-                        if (curRB && !rbPressed) {
-                            mouse_event(MOUSEEVENTF_WHEEL, 0, 0, unchecked((uint)-120), UIntPtr.Zero);
+                    // Check window focus
+                    bool isFocused = IsForegroundAcceptable(targetPid);
+                    if (!isFocused)
+                    {
+                        ReleaseAll();
+                        Thread.Sleep(20);
+                        continue;
+                    }
+
+                    // Query controllers 0..3
+                    bool foundActive = false;
+                    for (int port = 0; port < 4; port++)
+                    {
+                        if (XInputGetState(port, ref state) == 0)
+                        {
+                            foundActive = true;
+
+                            // Left Stick (WASD Hardware Scan Codes)
+                            SendKey(SCAN_W, ref keyW, state.Gamepad.sThumbLY > 8000);
+                            SendKey(SCAN_S, ref keyS, state.Gamepad.sThumbLY < -8000);
+                            SendKey(SCAN_A, ref keyA, state.Gamepad.sThumbLX < -8000);
+                            SendKey(SCAN_D, ref keyD, state.Gamepad.sThumbLX > 8000);
+
+                            // Right Stick (Relative Mouse Movement for Camera)
+                            short rx = state.Gamepad.sThumbRX;
+                            short ry = state.Gamepad.sThumbRY;
+                            if (Math.Abs(rx) > 6000 || Math.Abs(ry) > 6000)
+                            {
+                                int dx = (int)((rx / 32767.0) * 18.0);
+                                int dy = (int)((-ry / 32767.0) * 18.0);
+                                mouse_event(MOUSEEVENTF_MOVE, dx, dy, 0, UIntPtr.Zero);
+                            }
+
+                            // RT / LT -> Left Click / Right Click
+                            SendMouseButton(MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, ref mouseLeft, state.Gamepad.bRightTrigger > 30);
+                            SendMouseButton(MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP, ref mouseRight, state.Gamepad.bLeftTrigger > 30);
+
+                            // LB / RB -> Mouse Wheel (Hotbar selection)
+                            bool curLB = (state.Gamepad.wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER) != 0;
+                            if (curLB && !lbPressed) {
+                                mouse_event(MOUSEEVENTF_WHEEL, 0, 0, 120, UIntPtr.Zero);
+                            }
+                            lbPressed = curLB;
+
+                            bool curRB = (state.Gamepad.wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER) != 0;
+                            if (curRB && !rbPressed) {
+                                mouse_event(MOUSEEVENTF_WHEEL, 0, 0, unchecked((uint)-120), UIntPtr.Zero);
+                            }
+                            rbPressed = curRB;
+
+                            // Face & Special Buttons
+                            SendKey(SCAN_SPACE, ref keySpace, (state.Gamepad.wButtons & XINPUT_GAMEPAD_A) != 0);
+                            SendKey(SCAN_Q, ref keyQ, (state.Gamepad.wButtons & XINPUT_GAMEPAD_B) != 0);
+                            SendKey(SCAN_F, ref keyF, (state.Gamepad.wButtons & XINPUT_GAMEPAD_X) != 0);
+                            SendKey(SCAN_E, ref keyE, (state.Gamepad.wButtons & XINPUT_GAMEPAD_Y) != 0);
+                            SendKey(SCAN_CTRL, ref keyCtrl, (state.Gamepad.wButtons & XINPUT_GAMEPAD_LEFT_THUMB) != 0);
+                            SendKey(SCAN_SHIFT, ref keyShift, (state.Gamepad.wButtons & XINPUT_GAMEPAD_RIGHT_THUMB) != 0);
+                            SendKey(SCAN_ESC, ref keyEsc, (state.Gamepad.wButtons & XINPUT_GAMEPAD_START) != 0);
+                            SendKey(SCAN_TAB, ref keyTab, (state.Gamepad.wButtons & XINPUT_GAMEPAD_BACK) != 0);
+                            SendKey(SCAN_F3, ref keyF3, (state.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_UP) != 0);
+                            SendKey(SCAN_F5, ref keyF5, (state.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_DOWN) != 0);
+                            SendKey(SCAN_L, ref keyL, (state.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_LEFT) != 0);
+                            SendKey(SCAN_T, ref keyT, (state.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_RIGHT) != 0);
+
+                            break;
                         }
-                        rbPressed = curRB;
+                    }
 
-                        // Face & Special Buttons
-                        SendKey(SCAN_SPACE, ref keySpace, (state.Gamepad.wButtons & XINPUT_GAMEPAD_A) != 0);
-                        SendKey(SCAN_Q, ref keyQ, (state.Gamepad.wButtons & XINPUT_GAMEPAD_B) != 0);
-                        SendKey(SCAN_F, ref keyF, (state.Gamepad.wButtons & XINPUT_GAMEPAD_X) != 0);
-                        SendKey(SCAN_E, ref keyE, (state.Gamepad.wButtons & XINPUT_GAMEPAD_Y) != 0);
-                        SendKey(SCAN_CTRL, ref keyCtrl, (state.Gamepad.wButtons & XINPUT_GAMEPAD_LEFT_THUMB) != 0);
-                        SendKey(SCAN_SHIFT, ref keyShift, (state.Gamepad.wButtons & XINPUT_GAMEPAD_RIGHT_THUMB) != 0);
-                        SendKey(SCAN_ESC, ref keyEsc, (state.Gamepad.wButtons & XINPUT_GAMEPAD_START) != 0);
-                        SendKey(SCAN_TAB, ref keyTab, (state.Gamepad.wButtons & XINPUT_GAMEPAD_BACK) != 0);
-                        SendKey(SCAN_F3, ref keyF3, (state.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_UP) != 0);
-                        SendKey(SCAN_F5, ref keyF5, (state.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_DOWN) != 0);
-                        SendKey(SCAN_L, ref keyL, (state.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_LEFT) != 0);
-                        SendKey(SCAN_T, ref keyT, (state.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_RIGHT) != 0);
-
-                        break;
+                    if (!foundActive)
+                    {
+                        ReleaseAll();
                     }
                 }
-
-                if (!foundActive)
-                {
-                    ReleaseAll();
-                }
+                catch { }
 
                 Thread.Sleep(10);
             }
@@ -398,6 +415,7 @@ class ControllerBridge extends EventEmitter {
     super();
     this.workerProcess = null;
     this.isRunning = false;
+    this.intentionalStop = false;
     this.currentInstanceDir = null;
     this.currentPid = 0;
   }
@@ -418,8 +436,18 @@ class ControllerBridge extends EventEmitter {
         return path.join(app.getPath('userData'), 'runtime');
       }
     } catch (_) {}
-    const cfgMgr = getConfigManager();
-    return path.join(cfgMgr.getSharedRoot(), 'runtime');
+    let baseDir = null;
+    try {
+      const cfgMgr = getConfigManager();
+      const sharedRoot = cfgMgr.get('storage.sharedRoot');
+      if (sharedRoot && typeof sharedRoot === 'string') {
+        baseDir = sharedRoot;
+      }
+    } catch (_) {}
+    if (!baseDir) {
+      baseDir = path.join(process.env.APPDATA || path.join(require('os').homedir(), 'AppData', 'Roaming'), '.shubacore');
+    }
+    return path.join(baseDir, 'runtime');
   }
 
   /**
@@ -513,6 +541,7 @@ class ControllerBridge extends EventEmitter {
 
     this.currentInstanceDir = instanceDir;
     this.currentPid = targetPid || 0;
+    this.intentionalStop = false;
 
     try {
       logger.info(`[ControllerBridge] Ejecutando ShubaController.exe nativo (PID objetivo: ${this.currentPid})...`);
@@ -540,9 +569,32 @@ class ControllerBridge extends EventEmitter {
 
       this.workerProcess.on('exit', (code) => {
         logger.info(`[ControllerBridge] ShubaController.exe finalizado con código: ${code}`);
+        const wasRunning = this.isRunning;
+        const savedInstanceDir = this.currentInstanceDir;
+        const savedTargetPid = this.currentPid;
         this.isRunning = false;
         this.workerProcess = null;
         this.emit('stopped');
+
+        // Si el juego sigue activo y no fue un cierre intencional, reiniciar el controlador en 500ms
+        if (!this.intentionalStop && wasRunning && savedTargetPid > 0) {
+          let isTargetAlive = false;
+          try {
+            process.kill(savedTargetPid, 0);
+            isTargetAlive = true;
+          } catch (_) {
+            isTargetAlive = false;
+          }
+
+          if (isTargetAlive) {
+            logger.warn(`[ControllerBridge] ShubaController.exe terminó inesperadamente pero el proceso de Minecraft (PID: ${savedTargetPid}) continúa activo. Reiniciando puente en 500ms...`);
+            setTimeout(() => {
+              if (!this.intentionalStop && !this.isRunning) {
+                this.start(savedInstanceDir, savedTargetPid);
+              }
+            }, 500);
+          }
+        }
       });
 
       this.workerProcess.on('error', (err) => {
@@ -609,6 +661,7 @@ class ControllerBridge extends EventEmitter {
    * Detiene el proceso nativo ShubaController.exe
    */
   stop() {
+    this.intentionalStop = true;
     if (!this.isRunning && !this.workerProcess) return;
 
     logger.info('[ControllerBridge] Deteniendo ShubaController.exe nativo...');
