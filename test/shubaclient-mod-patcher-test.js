@@ -91,10 +91,13 @@ async function runTests() {
   assert.strictEqual(meta.description, 'Interfaz moderna y utilidades exclusivas desarrolladas por SHUBATECH');
   assert.ok(meta.authors.includes('SHUBATECH') && meta.authors.includes('LanderAlo'), 'Los autores deben ser SHUBATECH y LanderAlo');
 
-  // C) Idiomas (en_us y es_es)
+  // C) Idiomas (en_us y es_es 100% traducidos al español con marca SHUBACORE)
   const enUsStr = customZip.readAsText('assets/polyplus/lang/en_us.json');
   assert.ok(enUsStr.includes('ShubaClient'), 'en_us.json debe contener ShubaClient');
   assert.ok(!enUsStr.includes('ONECLIENT'), 'en_us.json no debe contener ONECLIENT');
+  const enUs = JSON.parse(enUsStr);
+  assert.strictEqual(enUs['polyplus.hostWorld'], 'Hostear Mundo', 'en_us.json debe contener Hostear Mundo');
+  assert.strictEqual(enUs['menu.play'], 'Jugar', 'en_us.json debe contener Jugar');
 
   const esEsStr = customZip.readAsText('assets/polyplus/lang/es_es.json');
   assert.ok(esEsStr, 'es_es.json debe ser creado');
@@ -105,6 +108,7 @@ async function runTests() {
   assert.strictEqual(esEs['polyplus.page.marketplace'], 'Vestidor');
   assert.strictEqual(esEs['polyplus.mainmenu.play'], 'Jugar');
   assert.strictEqual(esEs['polyplus.mainmenu.keepOneClient'], 'Usar ShubaClient');
+  assert.strictEqual(esEs['menu.returnToGame'], 'Volver al juego');
 
   // D) Texturas y Logos Vectoriales
   const brandSvg = customZip.readAsText('assets/polyplus/brand/oneclient.svg');
@@ -116,7 +120,23 @@ async function runTests() {
   const footerLogoSvg = customZip.readAsText('assets/polyplus/mainmenu/footer-logo.svg');
   assert.ok(footerLogoSvg.includes('shubaFoot'), 'footer-logo.svg debe contener el vector de SHUBATECH');
 
+  const polyplusSvg = customZip.readAsText('assets/polyplus/modicons/polyplus.svg');
+  assert.ok(polyplusSvg.includes('shubaStar'), 'polyplus.svg debe contener el vector de SHUBATECH');
+
   // E) Bytecode Constant Pool y Parches de Juego (Vestidor Gratis & Marketplace Redirigido)
+  // Prueba de Constant Pool Parser binario formal
+  const dummyClass = Buffer.concat([
+    Buffer.from([0xca, 0xfe, 0xba, 0xbe]), // magic
+    Buffer.from([0x00, 0x00]),             // minor
+    Buffer.from([0x00, 0x3d]),             // major
+    Buffer.from([0x00, 0x02]),             // count (2 entries => 1 slot)
+    Buffer.from([0x01, 0x00, 0x09]),       // tag Utf8, len 9
+    Buffer.from('ONECLIENT', 'utf8')
+  ]);
+  const cpTestRes = patcher._patchClassConstantPool(dummyClass, { 'ONECLIENT': 'SHUBACORE' });
+  assert.ok(cpTestRes.modified, 'CP Parser debe detectar y modificar ONECLIENT');
+  assert.ok(cpTestRes.buffer.includes('SHUBACORE'), 'CP Parser debe escribir SHUBACORE');
+
   const menuCls = customZip.readFile('org/polyfrost/polyplus/client/gui/PolyPlusMainMenuScreenKt.class');
   assert.ok(menuCls.includes('SHUBACORE'), 'Clase PolyPlusMainMenuScreenKt debe contener SHUBACORE');
   assert.ok(!menuCls.includes('ONECLIENT'), 'Clase PolyPlusMainMenuScreenKt no debe contener ONECLIENT');
@@ -181,6 +201,25 @@ async function runTests() {
   assert.ok(launchManagerJs.includes('isShubaClientEnabled'), 'LaunchManager debe verificar isShubaClientEnabled');
 
   console.log('   ✔ Todos los componentes UI e integración en LaunchManager verificados.\n');
+
+  // ----------------------------------------------------
+  // 7. PANORAMA Y CATÁLOGO DE MODS CUSTOM EN GITHUB
+  // ----------------------------------------------------
+  console.log('▶ [7/7] Verificando inyección de capturas en panorama y mod en GitHub catalog...');
+  const mockScreenshotsDir = path.join(mockInstanceDir, 'screenshots');
+  fs.mkdirSync(mockScreenshotsDir, { recursive: true });
+  fs.writeFileSync(path.join(mockScreenshotsDir, 'test-screen.png'), 'fake-png-data');
+  const panoRes = patcher.injectScreenshotsAsPanorama(mockInstanceDir);
+  assert.ok(panoRes.applied, 'injectScreenshotsAsPanorama debe aplicar la captura');
+  assert.ok(fs.existsSync(path.join(mockInstanceDir, 'polyplus', 'panorama', 'my-screenshots', 'panorama_0.png')), 'panorama_0.png debe existir');
+  assert.ok(fs.existsSync(path.join(mockInstanceDir, 'resourcepacks', 'ShubaPanorama', 'pack.mcmeta')), 'Resource pack ShubaPanorama de fallback para NeoForge debe existir');
+
+  const { GitHubModsManager } = require('../src/main/github/GitHubModsManager');
+  const ghMgr = new GitHubModsManager();
+  const customMods = await ghMgr.fetchCustomMods(true);
+  const foundShubaUi = customMods.find(m => m.fileName.toLowerCase() === 'shubaclient-ui.jar');
+  assert.ok(foundShubaUi, 'ShubaClient UI debe estar presente en el catálogo de mods custom de GitHub');
+  console.log('   ✔ Panorama con capturas y catálogo custom de GitHub validados con éxito.\n');
 
   // Limpieza
   try {

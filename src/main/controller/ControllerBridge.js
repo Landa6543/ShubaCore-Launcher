@@ -311,7 +311,7 @@ namespace ShubaController
                             if (tp.HasExited)
                             {
                                 deadTargetCounter++;
-                                if (deadTargetCounter >= 5) break;
+                                if (deadTargetCounter >= 10) break;
                             }
                             else
                             {
@@ -321,7 +321,7 @@ namespace ShubaController
                         catch
                         {
                             deadTargetCounter++;
-                            if (deadTargetCounter >= 5) break;
+                            if (deadTargetCounter >= 10) break;
                         }
                     }
 
@@ -549,23 +549,28 @@ class ControllerBridge extends EventEmitter {
       const args = this.currentPid ? [String(this.currentPid)] : [];
       this.workerProcess = spawn(exePath, args, {
         windowsHide: true,
-        stdio: ['pipe', 'pipe', 'pipe']
+        stdio: 'ignore'
       });
 
       this.isRunning = true;
+      this.emit('ready');
 
-      this.workerProcess.stdout.on('data', (data) => {
-        const text = data.toString().trim();
-        logger.info(`[ShubaController] ${text}`);
-        if (text.includes('SHUBA_CONTROLLER_READY')) {
-          this.emit('ready');
-        }
-      });
+      if (this.workerProcess.stdout) {
+        this.workerProcess.stdout.on('data', (data) => {
+          const text = data.toString().trim();
+          logger.info(`[ShubaController] ${text}`);
+          if (text.includes('SHUBA_CONTROLLER_READY')) {
+            this.emit('ready');
+          }
+        });
+      }
 
-      this.workerProcess.stderr.on('data', (data) => {
-        const errText = data.toString().trim();
-        if (errText) logger.warn(`[ShubaController stderr] ${errText}`);
-      });
+      if (this.workerProcess.stderr) {
+        this.workerProcess.stderr.on('data', (data) => {
+          const errText = data.toString().trim();
+          if (errText) logger.warn(`[ShubaController stderr] ${errText}`);
+        });
+      }
 
       this.workerProcess.on('exit', (code) => {
         logger.info(`[ControllerBridge] ShubaController.exe finalizado con código: ${code}`);
@@ -672,13 +677,11 @@ class ControllerBridge extends EventEmitter {
     } catch (_) {}
 
     const proc = this.workerProcess;
-    setTimeout(() => {
-      try {
-        if (proc && !proc.killed) {
-          proc.kill('SIGTERM');
-        }
-      } catch (_) {}
-    }, 200);
+    try {
+      if (proc && !proc.killed) {
+        proc.kill();
+      }
+    } catch (_) {}
 
     this.isRunning = false;
     this.workerProcess = null;

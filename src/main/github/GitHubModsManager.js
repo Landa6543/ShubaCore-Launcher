@@ -206,12 +206,41 @@ class GitHubModsManager {
       logger.warn(`[GitHubMods] Error al consultar releases: ${err.message}`);
     }
 
+    // Requisito: Mod de Interfaz ShubaClient UI en catálogo de Mods Custom (Landa6543/ShubaCore-Mods)
+    const scKey = 'shubaclient-ui.jar';
+    if (!modsMap.has(scKey)) {
+      modsMap.set(scKey, {
+        id: 'gh_shubaclient_ui',
+        projectId: 'gh_shubaclient_ui',
+        name: 'ShubaClient UI (100% Rebranded)',
+        title: 'ShubaClient UI (100% Rebranded)',
+        slug: 'shubaclient-ui',
+        fileName: 'ShubaClient-UI.jar',
+        author: 'SHUBATECH',
+        description: 'Interfaz in-game completa: Menú principal 3D, Vestidor con cosméticos gratis, Amigos, Estadísticas y Host World. Rebrandeado oficialmente a SHUBACORE.',
+        summary: 'Interfaz in-game completa: Menú principal 3D, Vestidor con cosméticos gratis, Amigos, Estadísticas y Host World. Rebrandeado oficialmente a SHUBACORE.',
+        version: '1.0.0',
+        downloadUrl: 'local://shubaclient-ui',
+        size: 72664670,
+        downloads: 999,
+        updatedAt: new Date().toISOString(),
+        iconUrl: 'assets/logo.png',
+        source: 'github',
+        categories: ['custom', 'interface', 'github', 'shubatech'],
+        isCustom: true,
+        htmlUrl: `https://github.com/${owner}/${repo}`
+      });
+    }
+
     const modsList = Array.from(modsMap.values());
 
     // Resolver iconos locales o cacheados para cada mod custom
     try {
       const profileManager = getProfileManager();
-      const allProfiles = (profileManager && profileManager.getAll) ? profileManager.getAll() : [];
+      const rawProfiles = (profileManager && profileManager.getAll) ? profileManager.getAll() : [];
+      const allProfiles = Array.isArray(rawProfiles)
+        ? rawProfiles
+        : (rawProfiles && rawProfiles.profiles ? (Array.isArray(rawProfiles.profiles) ? rawProfiles.profiles : Object.values(rawProfiles.profiles)) : []);
 
       for (const mod of modsList) {
         const fileName = mod.fileName;
@@ -324,6 +353,43 @@ class GitHubModsManager {
     }
 
     const targetFilePath = path.join(targetModsDir, fileName);
+
+    // Si es el mod de interfaz ShubaClient-UI.jar, asegurar y generar localmente
+    if (fileName.toLowerCase() === 'shubaclient-ui.jar' || (downloadUrl && downloadUrl.startsWith('local://shubaclient-ui'))) {
+      try {
+        if (onProgress) onProgress({ type: 'start', message: 'Preparando ShubaClient UI...', percent: 25 });
+        const { getClientModPatcher } = require('../client/ClientModPatcher');
+        const patcher = getClientModPatcher();
+        const ready = patcher.ensureShubaClientReady();
+        if (ready && ready.customJarPath && fs.existsSync(ready.customJarPath)) {
+          fs.copyFileSync(ready.customJarPath, targetFilePath);
+          // Inyectar dependencias y optimizaciones acompañantes si existen
+          if (ready.depsDir && fs.existsSync(ready.depsDir)) {
+            const deps = fs.readdirSync(ready.depsDir).filter(f => f.endsWith('.jar'));
+            for (const d of deps) {
+              const dDest = path.join(targetModsDir, d);
+              if (!fs.existsSync(dDest)) {
+                try { fs.copyFileSync(path.join(ready.depsDir, d), dDest); } catch (_) {}
+              }
+            }
+          }
+          if (ready.optDir && fs.existsSync(ready.optDir)) {
+            const opts = fs.readdirSync(ready.optDir).filter(f => f.endsWith('.jar'));
+            for (const o of opts) {
+              const oDest = path.join(targetModsDir, o);
+              if (!fs.existsSync(oDest)) {
+                try { fs.copyFileSync(path.join(ready.optDir, o), oDest); } catch (_) {}
+              }
+            }
+          }
+          if (onProgress) onProgress({ type: 'finish', message: 'ShubaClient UI instalado con éxito', percent: 100 });
+          return { success: true, filePath: targetFilePath, fileName };
+        }
+      } catch (uiErr) {
+        logger.warn(`[GitHubMods] Fallo local al preparar ShubaClient UI: ${uiErr.message}`);
+      }
+    }
+
     const tempFilePath = `${targetFilePath}.download_${Date.now()}`;
 
     logger.info(`[GitHubMods] Descargando mod custom "${fileName}" desde: ${downloadUrl}`);

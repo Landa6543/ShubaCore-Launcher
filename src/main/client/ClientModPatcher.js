@@ -256,6 +256,84 @@ class ClientModPatcher {
   }
 
   /**
+   * Parsea la estructura binaria del Constant Pool de un archivo .class (JVM Specification)
+   * y reemplaza de forma segura las constantes CONSTANT_Utf8 (tag 0x01) correspondientes
+   * a nombres de marca de OneClient / Polyfrost sin alterar la longitud total del pool.
+   */
+  _patchClassConstantPool(classBuf, stringMap) {
+    if (!classBuf || classBuf.length < 10) return { modified: false, buffer: classBuf };
+    if (classBuf.readUInt32BE(0) !== 0xCAFEBABE) return { modified: false, buffer: classBuf };
+
+    const poolCount = classBuf.readUInt16BE(8);
+    let offset = 10;
+    let modified = false;
+
+    for (let i = 1; i < poolCount; i++) {
+      if (offset >= classBuf.length) break;
+      const tag = classBuf.readUInt8(offset);
+      offset += 1;
+
+      switch (tag) {
+        case 1: { // CONSTANT_Utf8
+          const len = classBuf.readUInt16BE(offset);
+          offset += 2;
+          if (offset + len <= classBuf.length) {
+            const str = classBuf.toString('utf8', offset, offset + len);
+            for (const [target, replacement] of Object.entries(stringMap)) {
+              if (str === target && Buffer.byteLength(target, 'utf8') === Buffer.byteLength(replacement, 'utf8')) {
+                Buffer.from(replacement, 'utf8').copy(classBuf, offset);
+                modified = true;
+              } else if (str.includes(target) && Buffer.byteLength(target, 'utf8') === Buffer.byteLength(replacement, 'utf8')) {
+                // Solo reemplazar si no es un paquete Java interno que rompería el classloader
+                if (!str.startsWith('org/polyfrost') && !str.startsWith('Lorg/polyfrost') && !str.startsWith('com/polyfrost')) {
+                  const replaced = str.split(target).join(replacement);
+                  if (Buffer.byteLength(replaced, 'utf8') === len) {
+                    Buffer.from(replaced, 'utf8').copy(classBuf, offset);
+                    modified = true;
+                  }
+                }
+              }
+            }
+          }
+          offset += len;
+          break;
+        }
+        case 3: // Integer
+        case 4: // Float
+          offset += 4;
+          break;
+        case 5: // Long
+        case 6: // Double
+          offset += 8;
+          i++; // Long y Double ocupan dos slots
+          break;
+        case 7: // Class
+        case 8: // String
+        case 16: // MethodType
+        case 19: // Module
+        case 20: // Package
+          offset += 2;
+          break;
+        case 9: // Fieldref
+        case 10: // Methodref
+        case 11: // InterfaceMethodref
+        case 12: // NameAndType
+        case 17: // Dynamic
+        case 18: // InvokeDynamic
+          offset += 4;
+          break;
+        case 15: // MethodHandle
+          offset += 3;
+          break;
+        default:
+          return { modified, buffer: classBuf };
+      }
+    }
+
+    return { modified, buffer: classBuf };
+  }
+
+  /**
    * Genera el SVG del logo horizontal de SHUBACORE para reemplazar oneclient.svg
    */
   getBrandSvgContent() {
@@ -362,22 +440,8 @@ class ClientModPatcher {
       }
     }
 
-    // 2. ARCHIVOS DE IDIOMA (en_us.json y es_es.json)
-    const langEnEntry = zip.getEntry('assets/polyplus/lang/en_us.json');
-    if (langEnEntry) {
-      try {
-        let enContent = zip.readAsText(langEnEntry);
-        enContent = enContent.replace(/OneClient/g, 'ShubaClient');
-        enContent = enContent.replace(/ONECLIENT/g, 'SHUBACORE');
-        enContent = enContent.replace(/PolyPlus/g, 'ShubaClient');
-        enContent = enContent.replace(/Polyfrost/g, 'SHUBATECH');
-        enContent = enContent.replace(/Marketplace/g, 'Vestidor');
-        zip.updateFile('assets/polyplus/lang/en_us.json', Buffer.from(enContent, 'utf8'));
-      } catch (_) {}
-    }
-
-    // Crear traducción oficial al español (es_es.json)
-    const esTranslations = {
+    // 2. ARCHIVOS DE IDIOMA (en_us.json y es_es.json 100% traducidos al español con marca SHUBACORE)
+    const fullSpanishTranslations = {
       'polyplus.hostWorld': 'Hostear Mundo',
       'polyplus.page.wardrobe': 'Vestidor',
       'polyplus.page.social': 'Amigos',
@@ -407,15 +471,29 @@ class ClientModPatcher {
       'menu.stats': 'Estadísticas',
       'menu.news': 'Novedades',
       'menu.hostWorld': 'Hostear Mundo',
+      'menu.returnToGame': 'Volver al juego',
       'menu.options': 'Opciones',
+      'menu.worldOptions': 'Opciones del mundo',
       'menu.quit': 'Salir del Juego'
     };
-    zip.addFile('assets/polyplus/lang/es_es.json', Buffer.from(JSON.stringify(esTranslations, null, 2), 'utf8'));
+
+    const langBytes = Buffer.from(JSON.stringify(fullSpanishTranslations, null, 2), 'utf8');
+    if (zip.getEntry('assets/polyplus/lang/en_us.json')) {
+      zip.updateFile('assets/polyplus/lang/en_us.json', langBytes);
+    } else {
+      zip.addFile('assets/polyplus/lang/en_us.json', langBytes);
+    }
+    if (zip.getEntry('assets/polyplus/lang/es_es.json')) {
+      zip.updateFile('assets/polyplus/lang/es_es.json', langBytes);
+    } else {
+      zip.addFile('assets/polyplus/lang/es_es.json', langBytes);
+    }
 
     // 3. TEXTURAS Y LOGOS VECTORIALES (SVG / PNG)
     zip.addFile('assets/polyplus/brand/oneclient.svg', Buffer.from(this.getBrandSvgContent(), 'utf8'));
     zip.addFile('assets/polyplus/mainmenu/logo.svg', Buffer.from(this.getMainLogoSvgContent(), 'utf8'));
     zip.addFile('assets/polyplus/mainmenu/footer-logo.svg', Buffer.from(this.getFooterLogoSvgContent(), 'utf8'));
+    zip.addFile('assets/polyplus/modicons/polyplus.svg', Buffer.from(this.getMainLogoSvgContent(), 'utf8'));
 
     // Reemplazar icon.png con el logo oficial de ShubaCore si está disponible
     const localLogoPaths = [
@@ -455,6 +533,29 @@ class ClientModPatcher {
       if (entry.entryName.endsWith('.class')) {
         let classBuf = zip.readFile(entry);
         let changed = false;
+
+        // 4.1 Parser binario formal de Constant Pool de JVM
+        const cpRes = this._patchClassConstantPool(classBuf, {
+          'ONECLIENT': 'SHUBACORE',
+          'POLYFROST': 'SHUBATECH',
+          'polyfrost': 'shubatech',
+          'oneclient': 'shubacore'
+        });
+        if (cpRes.modified) {
+          classBuf = cpRes.buffer;
+          changed = true;
+        }
+
+        if (safeUiClasses.includes(entry.entryName)) {
+          const uiCpRes = this._patchClassConstantPool(classBuf, {
+            'OneClient': 'ShubaCore',
+            'Polyfrost': 'SHUBATECH'
+          });
+          if (uiCpRes.modified) {
+            classBuf = uiCpRes.buffer;
+            changed = true;
+          }
+        }
 
         // Reemplazo de ONECLIENT -> SHUBACORE (Global en cualquier clase)
         let idx = classBuf.indexOf(TARGET_ONECLIENT_UTF8);
@@ -720,6 +821,11 @@ class ClientModPatcher {
     // 5. Preparar configs por defecto de OneConfig
     this.prepareInstanceConfig(instanceDir);
 
+    // 6. Sincronizar capturas de pantalla del usuario en el panorama del menú
+    try {
+      this.injectScreenshotsAsPanorama(instanceDir);
+    } catch (_) {}
+
     logger.info(`[SHUBATECH] [ShubaClient] ✨ Inyectada interfaz in-game ShubaClient UI y pack de optimización (${injectedFiles.length} mods) en: ${instanceModsDir}`);
 
     return {
@@ -727,6 +833,79 @@ class ClientModPatcher {
       injectedFiles,
       instanceModsDir
     };
+  }
+
+  /**
+   * Detecta capturas de pantalla del usuario en <instanceDir>/screenshots/
+   * y las sincroniza como panorama principal en ShubaClient (polyplus/panorama)
+   * y en el fallback de resource packs para Vanilla y NeoForge.
+   */
+  injectScreenshotsAsPanorama(instanceDir) {
+    if (!instanceDir || typeof instanceDir !== 'string') return { applied: false };
+
+    const screenshotsDir = path.join(instanceDir, 'screenshots');
+    if (!fs.existsSync(screenshotsDir)) {
+      return { applied: false, reason: 'Carpeta de screenshots no encontrada' };
+    }
+
+    try {
+      const files = fs.readdirSync(screenshotsDir)
+        .filter(f => f.toLowerCase().endsWith('.png'))
+        .map(f => ({
+          name: f,
+          path: path.join(screenshotsDir, f),
+          mtime: fs.statSync(path.join(screenshotsDir, f)).mtimeMs
+        }))
+        .sort((a, b) => b.mtime - a.mtime);
+
+      if (files.length === 0) {
+        return { applied: false, reason: 'No hay capturas disponibles' };
+      }
+
+      const latestScreenshot = files[0].path;
+
+      // 1. Inyectar en galería de panoramas 3D de ShubaClient (PolyPlus)
+      const panoramaDir = path.join(instanceDir, 'polyplus', 'panorama', 'my-screenshots');
+      fs.mkdirSync(panoramaDir, { recursive: true });
+      for (let i = 0; i < 6; i++) {
+        fs.copyFileSync(latestScreenshot, path.join(panoramaDir, `panorama_${i}.png`));
+      }
+      fs.writeFileSync(path.join(panoramaDir, '.complete'), '', 'utf8');
+
+      // Activar customPanorama en oneconfig
+      const oneconfigPath = path.join(instanceDir, 'oneconfig', 'polyplus-mainmenu.json');
+      if (fs.existsSync(oneconfigPath)) {
+        try {
+          const cfg = JSON.parse(fs.readFileSync(oneconfigPath, 'utf8'));
+          cfg.customPanorama = true;
+          fs.writeFileSync(oneconfigPath, JSON.stringify(cfg, null, 2), 'utf8');
+        } catch (_) {}
+      }
+
+      // 2. Adaptación NeoForge / Vanilla: generar resourcepack ShubaPanorama ligero
+      const rpPanoramaDir = path.join(instanceDir, 'resourcepacks', 'ShubaPanorama', 'assets', 'minecraft', 'textures', 'gui', 'title', 'background');
+      fs.mkdirSync(rpPanoramaDir, { recursive: true });
+      for (let i = 0; i < 6; i++) {
+        fs.copyFileSync(latestScreenshot, path.join(rpPanoramaDir, `panorama_${i}.png`));
+      }
+      const rpMeta = {
+        pack: {
+          pack_format: 34,
+          description: 'SHUBACORE - Fondo de capturas en el menú principal'
+        }
+      };
+      fs.writeFileSync(
+        path.join(instanceDir, 'resourcepacks', 'ShubaPanorama', 'pack.mcmeta'),
+        JSON.stringify(rpMeta, null, 2),
+        'utf8'
+      );
+
+      logger.info(`[SHUBATECH] [ShubaClient] Captura de usuario (${files[0].name}) aplicada como panorama 3D y menú principal.`);
+      return { applied: true, screenshot: latestScreenshot };
+    } catch (err) {
+      logger.warn(`[SHUBATECH] [ShubaClient] Aviso al inyectar capturas en panorama: ${err.message}`);
+      return { applied: false, error: err.message };
+    }
   }
 }
 

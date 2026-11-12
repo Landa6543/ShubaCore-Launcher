@@ -514,6 +514,12 @@ class LaunchManager {
         } catch (clientModErr) {
           logger.warn(`[LaunchManager] Aviso al inyectar ShubaClient UI: ${clientModErr.message}`);
         }
+      } else {
+        // Fallback / Adaptación para NeoForge, Forge o Vanilla: Sincronizar capturas en el panorama del menú
+        try {
+          const { getClientModPatcher } = require('../client/ClientModPatcher');
+          getClientModPatcher().injectScreenshotsAsPanorama(instancePath);
+        } catch (_) {}
       }
 
       // MECANISMO 2: Inyección de Resource Pack Nativo "ShubaSkinOverride" (100% Vanilla sin mods)
