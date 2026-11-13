@@ -912,6 +912,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         skinToRender = localSkin.dataUrl;
         if (skinAppliedStatus) skinAppliedStatus.textContent = 'Skin personalizada activa';
         if (skinPreviewLabel) skinPreviewLabel.textContent = 'Personalizada';
+        const savedModel = localSkin.skinModel || localSkin.config?.skinModel;
+        if (savedModel === 'slim') {
+          setSkinModelType('slim', false);
+        } else {
+          setSkinModelType('default', false);
+        }
       } else if (isPremium) {
         skinToRender = session.microsoftAccount.skinUrl || `https://mc-heads.net/skin/${encodeURIComponent(accName)}`;
         if (skinAppliedStatus) skinAppliedStatus.textContent = 'Skin oficial sincronizada con Mojang';
@@ -993,7 +999,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  function setSkinModelType(model) {
+  function setSkinModelType(model, persist = true) {
     currentModelType = model; // 'default' o 'slim'
     const btnClassic = document.getElementById('btn-model-classic');
     const btnSlim = document.getElementById('btn-model-slim');
@@ -1012,6 +1018,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (lastLoadedSkinUrl) {
         skinViewer3D.loadSkin(lastLoadedSkinUrl, { model });
       }
+    }
+
+    if (persist && api?.skins?.setModel) {
+      api.skins.setModel(model === 'slim' ? 'slim' : 'classic').catch(console.warn);
     }
   }
 
@@ -1138,7 +1148,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           result = await api.skins.setFromUsername(activeUser, pendingSkinData.value);
         } else if (pendingSkinData.type === 'file') {
           appendLog(`[Skins] Guardando skin local para "${activeUser}"...`, 'info');
-          result = await api.skins.setFromFile(activeUser, pendingSkinData.value);
+          result = await api.skins.setFromFile(activeUser, pendingSkinData.value, currentModelType === 'slim' ? 'slim' : 'classic');
         }
 
         if (result && result.success) {
@@ -1158,7 +1168,7 @@ document.addEventListener('DOMContentLoaded', async () => {
               const uploadRes = await api.skins.uploadToMojang(
                 sess.microsoftAccount.mcAccessToken,
                 finalSkin,
-                result.skinModel || 'classic'
+                result.skinModel || (currentModelType === 'slim' ? 'slim' : 'classic')
               );
               if (uploadRes && uploadRes.success) {
                 appendLog('¡Skin sincronizada exitosamente con Mojang y visible en servidores oficiales!', 'success');
@@ -4910,6 +4920,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (publishSuccessBox) publishSuccessBox.style.display = 'none';
     if (publishStatusText) publishStatusText.style.display = 'none';
+    const publishProgressBox = document.getElementById('publish-progress-box');
+    if (publishProgressBox) publishProgressBox.style.display = 'none';
     if (btnConfirmPublishProfile) {
       btnConfirmPublishProfile.disabled = false;
       btnConfirmPublishProfile.innerHTML = `
@@ -4931,16 +4943,35 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (btnClosePublishModal) btnClosePublishModal.addEventListener('click', closePublishProfileModal);
   if (btnCancelPublishProfile) btnCancelPublishProfile.addEventListener('click', closePublishProfileModal);
 
+  const publishProgressBox = document.getElementById('publish-progress-box');
+  const publishProgressStatus = document.getElementById('publish-progress-status');
+  const publishProgressPct = document.getElementById('publish-progress-pct');
+  const publishProgressFill = document.getElementById('publish-progress-fill');
+  const inputPublishShareLink = document.getElementById('input-publish-share-link');
+  const btnCopyShareLink = document.getElementById('btn-copy-share-link');
+
   if (btnConfirmPublishProfile) {
     btnConfirmPublishProfile.addEventListener('click', async () => {
       if (!currentPublishTargetProfileId) return;
       btnConfirmPublishProfile.disabled = true;
       btnConfirmPublishProfile.innerHTML = `<span>Publicando en GitHub...</span>`;
-      if (publishStatusText) {
-        publishStatusText.style.display = 'block';
-        publishStatusText.style.color = 'var(--text-secondary)';
-        publishStatusText.textContent = 'Analizando mods y empaquetando configuraciones...';
+
+      if (publishProgressBox) {
+        publishProgressBox.style.display = 'flex';
+        if (publishProgressStatus) publishProgressStatus.textContent = 'Analizando mods y calculando hashes...';
+        if (publishProgressPct) publishProgressPct.textContent = '25%';
+        if (publishProgressFill) publishProgressFill.style.width = '25%';
       }
+
+      let currentPct = 25;
+      const progressTimer = setInterval(() => {
+        if (currentPct < 85) {
+          currentPct += 15;
+          if (publishProgressFill) publishProgressFill.style.width = `${currentPct}%`;
+          if (publishProgressPct) publishProgressPct.textContent = `${currentPct}%`;
+          if (publishProgressStatus) publishProgressStatus.textContent = currentPct > 55 ? 'Empaquetando manifiesto ligero...' : 'Subiendo a repositorio GitHub...';
+        }
+      }, 350);
 
       const includeConfigs = checkPublishIncludeConfigs ? checkPublishIncludeConfigs.checked : true;
 
@@ -4950,18 +4981,30 @@ document.addEventListener('DOMContentLoaded', async () => {
           includeConfigs
         });
 
+        clearInterval(progressTimer);
+        if (publishProgressFill) publishProgressFill.style.width = '100%';
+        if (publishProgressPct) publishProgressPct.textContent = '100%';
+        if (publishProgressStatus) publishProgressStatus.textContent = '¡Completado con éxito!';
+
+        setTimeout(() => {
+          if (publishProgressBox) publishProgressBox.style.display = 'none';
+        }, 500);
+
         if (res.success) {
           appendLog(`[ProfileSync] ¡Perfil "${res.profileName}" publicado exitosamente con ${res.modCount} mods!`, 'success');
           if (publishStatusText) publishStatusText.style.display = 'none';
           if (publishSuccessBox) {
             publishSuccessBox.style.display = 'block';
             if (inputPublishShareCode) inputPublishShareCode.value = res.shareCode;
+            if (inputPublishShareLink) inputPublishShareLink.value = res.repoUrl || `https://github.com/Landa6543/ShubaCore-Mods/tree/main/shared-profiles/${res.slug}.shubasync.json`;
           }
           btnConfirmPublishProfile.innerHTML = `<span>✓ Publicado</span>`;
         } else {
           throw new Error(res.error || 'Error al publicar el perfil en GitHub.');
         }
       } catch (pubErr) {
+        clearInterval(progressTimer);
+        if (publishProgressBox) publishProgressBox.style.display = 'none';
         btnConfirmPublishProfile.disabled = false;
         btnConfirmPublishProfile.innerHTML = `<span>Reintentar</span>`;
         if (publishStatusText) {
@@ -4979,7 +5022,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       inputPublishShareCode.select();
       navigator.clipboard.writeText(inputPublishShareCode.value);
       btnCopyShareCode.textContent = '¡Copiado!';
-      setTimeout(() => { btnCopyShareCode.textContent = 'Copiar'; }, 2000);
+      setTimeout(() => { btnCopyShareCode.textContent = 'Copiar Código'; }, 2000);
+    });
+  }
+
+  if (btnCopyShareLink && inputPublishShareLink) {
+    btnCopyShareLink.addEventListener('click', () => {
+      inputPublishShareLink.select();
+      navigator.clipboard.writeText(inputPublishShareLink.value);
+      btnCopyShareLink.textContent = '¡Copiado!';
+      setTimeout(() => { btnCopyShareLink.textContent = 'Copiar Link'; }, 2000);
     });
   }
 
@@ -5355,6 +5407,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         btnStopServer.disabled = false;
       }
     }
+
+    const btnPlayJoinServerEl = document.getElementById('btn-play-join-server');
+    if (btnPlayJoinServerEl) {
+      btnPlayJoinServerEl.style.display = status === 'online' ? 'inline-flex' : 'none';
+    }
   }
 
   function updateServerPlayersUI(players) {
@@ -5543,6 +5600,96 @@ document.addEventListener('DOMContentLoaded', async () => {
         await api.servers.stop(currentSelectedServerId);
       } catch (err) {
         alert(`Error al detener servidor: ${err.message}`);
+      }
+    });
+  }
+
+  // Jugar y Entrar Directo al Servidor Dedicado
+  const btnPlayJoinServer = document.getElementById('btn-play-join-server');
+  if (btnPlayJoinServer) {
+    btnPlayJoinServer.addEventListener('click', async () => {
+      const server = localServersCache.find((s) => s.id === currentSelectedServerId);
+      if (!server) return;
+
+      const serverPort = server.port || 25565;
+      const targetAddress = `localhost:${serverPort}`;
+
+      let targetProfile = currentActiveProfile;
+      if (profilesCache && profilesCache.length > 0) {
+        const exactMatch = profilesCache.find((p) => p.mcVersion === server.mcVersion && (p.loader || 'vanilla').toLowerCase() === (server.loader || 'vanilla').toLowerCase());
+        const versionMatch = profilesCache.find((p) => p.mcVersion === server.mcVersion);
+        targetProfile = exactMatch || versionMatch || currentActiveProfile || profilesCache[0];
+      }
+
+      if (!targetProfile) {
+        alert('No hay instancias de Minecraft disponibles para conectar.');
+        return;
+      }
+
+      appendLog(`[Servidor] Lanzando instancia "${targetProfile.name}" para unirse directo a ${targetAddress}...`, 'info');
+      try {
+        btnPlayJoinServer.disabled = true;
+        btnPlayJoinServer.textContent = '🎮 Entrando...';
+        await api.launcher.launch({
+          instancePath: targetProfile.instancePath || null,
+          mcVersion: targetProfile.mcVersion,
+          loader: targetProfile.loader,
+          loaderVersion: targetProfile.loaderVersion,
+          memoryMin: inputMinRam?.value?.trim() || '2G',
+          memoryMax: inputMaxRam?.value?.trim() || '8G',
+          javaSelection: targetProfile.javaSelection || selectGlobalJava?.value || 'auto',
+          javaPath: targetProfile.javaPath || inputCustomJava?.value || '',
+          quickPlayMultiplayer: targetAddress
+        });
+      } catch (launchErr) {
+        alert(`Error al unirse al servidor: ${launchErr.message}`);
+      } finally {
+        btnPlayJoinServer.disabled = false;
+        btnPlayJoinServer.innerHTML = `
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <span>🎮 Jugar y Entrar Directo</span>
+        `;
+      }
+    });
+  }
+
+  // Detección y limpieza de crash por mod exclusivo de cliente
+  const serverClientModAlert = document.getElementById('server-client-mod-alert');
+  const serverClientModErrorText = document.getElementById('server-client-mod-error-text');
+  const btnCleanServerClientMods = document.getElementById('btn-clean-server-client-mods');
+
+  if (api?.events?.on) {
+    api.events.on('server:client-mod-crash', ({ serverId, errorLine }) => {
+      if (currentSelectedServerId === serverId) {
+        if (serverClientModAlert) {
+          serverClientModAlert.style.display = 'flex';
+          if (serverClientModErrorText) {
+            serverClientModErrorText.textContent = `Crash detectado: ${errorLine || 'Mod exclusivo de cliente en servidor'}`;
+          }
+        }
+      }
+    });
+  }
+
+  if (btnCleanServerClientMods) {
+    btnCleanServerClientMods.addEventListener('click', async () => {
+      if (!currentSelectedServerId) return;
+      btnCleanServerClientMods.disabled = true;
+      btnCleanServerClientMods.textContent = 'Limpiando y reiniciando...';
+      try {
+        const res = await api.servers.cleanClientMods(currentSelectedServerId);
+        if (res.success) {
+          appendLog(`[ServerModFilter] ${res.removedCount} mods de cliente eliminados con éxito del servidor.`, 'success');
+          if (serverClientModAlert) serverClientModAlert.style.display = 'none';
+          await loadDedicatedServers();
+        } else {
+          alert(`Error al limpiar mods: ${res.error || 'Desconocido'}`);
+        }
+      } catch (err) {
+        alert(`Error al limpiar mods: ${err.message}`);
+      } finally {
+        btnCleanServerClientMods.disabled = false;
+        btnCleanServerClientMods.textContent = '🧹 Eliminar Mods de Cliente Detectados y Reiniciar';
       }
     });
   }
@@ -5778,6 +5925,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function applySelectedInstanceDefaults() {
+    if (!checkServerSyncModsOnCreate || !checkServerSyncModsOnCreate.checked) return;
     if (!selectServerSyncInstance) return;
     const opt = selectServerSyncInstance.selectedOptions[0];
     if (!opt) return;
@@ -5813,7 +5961,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   if (selectServerSyncInstance) {
-    selectServerSyncInstance.addEventListener('change', applySelectedInstanceDefaults);
+    selectServerSyncInstance.addEventListener('change', () => {
+      if (checkServerSyncModsOnCreate && checkServerSyncModsOnCreate.checked) {
+        applySelectedInstanceDefaults();
+      }
+    });
+  }
+
+  if (checkServerSyncModsOnCreate) {
+    checkServerSyncModsOnCreate.addEventListener('change', () => {
+      if (checkServerSyncModsOnCreate.checked) {
+        applySelectedInstanceDefaults();
+      }
+    });
   }
 
   if (selectServerCreateRam) {
@@ -5849,7 +6009,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         selectElement.appendChild(opt);
       });
 
-      if (selectElement === selectServerSyncInstance) {
+      if (selectElement === selectServerSyncInstance && checkServerSyncModsOnCreate?.checked) {
         applySelectedInstanceDefaults();
       }
     } catch (_) {}
@@ -7187,20 +7347,73 @@ document.addEventListener('DOMContentLoaded', async () => {
   const importCodeProgressFill = document.getElementById('import-code-progress-fill');
   const importCodeErrorBox = document.getElementById('import-code-error-box');
 
+  const exportCodeInstancesList = document.getElementById('export-code-instances-list');
+
   function openExportCodeModal() {
     if (!modalExportCode) return;
     try {
       if (selectExportCodeProfile) {
         selectExportCodeProfile.innerHTML = '';
-        (profilesCache || []).forEach((p) => {
-          const opt = document.createElement('option');
-          opt.value = p.id;
-          opt.textContent = `${p.name} (MC ${p.mcVersion} · ${p.loader})`;
-          if (currentActiveProfile && p.id === currentActiveProfile.id) {
-            opt.selected = true;
+      }
+      if (exportCodeInstancesList) {
+        exportCodeInstancesList.innerHTML = '';
+      }
+
+      const list = profilesCache || [];
+      if (list.length === 0) {
+        if (exportCodeInstancesList) {
+          exportCodeInstancesList.innerHTML = '<div class="empty-state" style="padding: 12px; font-size: 12px;">No hay instancias disponibles para compartir.</div>';
+        }
+      } else {
+        const initialSelectedId = currentActiveProfile?.id || list[0].id;
+        list.forEach((p) => {
+          if (selectExportCodeProfile) {
+            const opt = document.createElement('option');
+            opt.value = p.id;
+            opt.textContent = `${p.name} (MC ${p.mcVersion} · ${p.loader})`;
+            if (p.id === initialSelectedId) opt.selected = true;
+            selectExportCodeProfile.appendChild(opt);
           }
-          selectExportCodeProfile.appendChild(opt);
+
+          if (exportCodeInstancesList) {
+            const item = document.createElement('div');
+            item.className = `export-instance-item ${p.id === initialSelectedId ? 'selected' : ''}`;
+            item.setAttribute('data-profile-id', p.id);
+            const iconSrc = p.iconPath && p.iconPath.trim() ? p.iconPath : 'assets/logo.png';
+            const modsCount = p.modsCount ?? (Array.isArray(p.mods) ? p.mods.length : 0);
+            item.innerHTML = `
+              <img src="${escapeHtml(iconSrc)}" class="export-instance-icon" onerror="this.src='assets/logo.png'" alt="Icono" />
+              <div style="flex: 1; min-width: 0;">
+                <div style="font-weight: 600; font-size: 13px; color: var(--text-primary); text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${escapeHtml(p.name)}</div>
+                <div style="font-size: 11.5px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; margin-top: 2px;">
+                  <span class="badge badge-loader" style="font-size: 10px; padding: 1px 6px;">${escapeHtml((p.loader || 'vanilla').toUpperCase())} ${escapeHtml(p.mcVersion || '')}</span>
+                  <span>·</span>
+                  <span>${modsCount} mods</span>
+                </div>
+              </div>
+              <div class="radio-indicator" style="width: 16px; height: 16px; border-radius: 50%; border: 2px solid ${p.id === initialSelectedId ? 'var(--accent-emerald)' : 'rgba(255,255,255,0.2)'}; display: flex; align-items: center; justify-content: center;">
+                <div style="width: 8px; height: 8px; border-radius: 50%; background: ${p.id === initialSelectedId ? 'var(--accent-emerald)' : 'transparent'};"></div>
+              </div>
+            `;
+            item.addEventListener('click', () => {
+              document.querySelectorAll('.export-instance-item').forEach((it) => {
+                it.classList.remove('selected');
+                const radioOuter = it.querySelector('.radio-indicator');
+                const radioInner = radioOuter?.querySelector('div');
+                if (radioOuter) radioOuter.style.borderColor = 'rgba(255,255,255,0.2)';
+                if (radioInner) radioInner.style.background = 'transparent';
+              });
+              item.classList.add('selected');
+              const selOuter = item.querySelector('.radio-indicator');
+              const selInner = selOuter?.querySelector('div');
+              if (selOuter) selOuter.style.borderColor = 'var(--accent-emerald)';
+              if (selInner) selInner.style.background = 'var(--accent-emerald)';
+              if (selectExportCodeProfile) selectExportCodeProfile.value = p.id;
+            });
+            exportCodeInstancesList.appendChild(item);
+          }
         });
+        if (selectExportCodeProfile) selectExportCodeProfile.value = initialSelectedId;
       }
       if (exportCodeResultBox) exportCodeResultBox.style.display = 'none';
       if (exportCodeLoading) exportCodeLoading.style.display = 'none';
@@ -7866,10 +8079,140 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   api.events.on('server-monitor:update', (data) => renderServerMonitorStatus(data));
 
+  // ==========================================
+  // CIERRE DE MODALES CON ESCAPE
+  // ==========================================
+  function closeActiveModal() {
+    const modals = document.querySelectorAll('.modal-overlay');
+    modals.forEach((m) => {
+      if (m.style.display === 'flex' || m.style.display === 'block' || m.classList.contains('active')) {
+        m.style.display = 'none';
+        m.classList.remove('active');
+      }
+    });
+  }
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeActiveModal();
+    }
+  });
+
+  // ==========================================
+  // FONDO PERSONALIZADO DE LA INTERFAZ
+  // ==========================================
+  async function initCustomBackground() {
+    const bgLayer = document.getElementById('app-custom-bg-layer');
+    const bgOverlay = document.getElementById('app-custom-bg-overlay');
+    const btnSelectBg = document.getElementById('btn-select-custom-bg');
+    const btnResetBg = document.getElementById('btn-reset-custom-bg');
+    const bgCurrentName = document.getElementById('custom-bg-current-name');
+    const rangeOpacity = document.getElementById('range-custom-bg-opacity');
+    const valOpacity = document.getElementById('val-custom-bg-opacity');
+    const rangeBlur = document.getElementById('range-custom-bg-blur');
+    const valBlur = document.getElementById('val-custom-bg-blur');
+
+    if (!api?.customBg) return;
+
+    function applyBgUI(bgData) {
+      if (!bgData || !bgData.enabled || !bgData.dataUrl) {
+        if (bgLayer) {
+          bgLayer.style.display = 'none';
+          bgLayer.style.backgroundImage = 'none';
+        }
+        if (bgOverlay) bgOverlay.style.display = 'none';
+        if (bgCurrentName) bgCurrentName.textContent = 'Fondo predeterminado activo';
+        return;
+      }
+
+      const opacity = typeof bgData.opacity === 'number' ? bgData.opacity : 50;
+      const blur = typeof bgData.blur === 'number' ? bgData.blur : 0;
+
+      if (bgLayer) {
+        bgLayer.style.backgroundImage = `url("${bgData.dataUrl}")`;
+        bgLayer.style.filter = blur > 0 ? `blur(${blur}px)` : 'none';
+        bgLayer.style.display = 'block';
+      }
+      if (bgOverlay) {
+        bgOverlay.style.backgroundColor = `rgba(10, 11, 14, ${opacity / 100})`;
+        bgOverlay.style.display = 'block';
+      }
+      if (bgCurrentName) {
+        bgCurrentName.textContent = `Fondo: ${bgData.originalName || 'Personalizado'}`;
+      }
+      if (rangeOpacity) rangeOpacity.value = opacity;
+      if (valOpacity) valOpacity.textContent = `${opacity}%`;
+      if (rangeBlur) rangeBlur.value = blur;
+      if (valBlur) valBlur.textContent = `${blur}px`;
+    }
+
+    try {
+      const currentBg = await api.customBg.get();
+      applyBgUI(currentBg);
+    } catch (err) {
+      console.warn('[CustomBG] Error al cargar fondo:', err);
+    }
+
+    if (btnSelectBg) {
+      btnSelectBg.addEventListener('click', async () => {
+        try {
+          const res = await api.customBg.select();
+          if (res && res.success && res.customBg) {
+            applyBgUI(res.customBg);
+            appendLog('[Ajustes] Fondo de pantalla personalizado actualizado.', 'success');
+          }
+        } catch (err) {
+          alert(`Error al seleccionar fondo: ${err.message}`);
+        }
+      });
+    }
+
+    if (btnResetBg) {
+      btnResetBg.addEventListener('click', async () => {
+        try {
+          await api.customBg.reset();
+          applyBgUI({ enabled: false });
+          appendLog('[Ajustes] Fondo restablecido a los valores por defecto.', 'info');
+        } catch (err) {
+          alert(`Error al restablecer fondo: ${err.message}`);
+        }
+      });
+    }
+
+    if (rangeOpacity) {
+      rangeOpacity.addEventListener('input', () => {
+        const val = Number(rangeOpacity.value);
+        if (valOpacity) valOpacity.textContent = `${val}%`;
+        if (bgOverlay) bgOverlay.style.backgroundColor = `rgba(10, 11, 14, ${val / 100})`;
+      });
+      rangeOpacity.addEventListener('change', async () => {
+        const val = Number(rangeOpacity.value);
+        try {
+          await api.customBg.setSettings({ opacity: val });
+        } catch (_) {}
+      });
+    }
+
+    if (rangeBlur) {
+      rangeBlur.addEventListener('input', () => {
+        const val = Number(rangeBlur.value);
+        if (valBlur) valBlur.textContent = `${val}px`;
+        if (bgLayer) bgLayer.style.filter = val > 0 ? `blur(${val}px)` : 'none';
+      });
+      rangeBlur.addEventListener('change', async () => {
+        const val = Number(rangeBlur.value);
+        try {
+          await api.customBg.setSettings({ blur: val });
+        } catch (_) {}
+      });
+    }
+  }
+
   // Inicialización
   await initLauncherUpdater();
   await loadConfig();
   await detectJava();
+  await initCustomBackground();
   try {
     loadNewsFeed().catch(() => {});
   } catch (_) {}

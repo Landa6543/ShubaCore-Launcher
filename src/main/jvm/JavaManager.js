@@ -262,7 +262,7 @@ class JavaManager {
   static async ensureJavaForVersion(mcVersion, sharedRoot = null) {
     try {
       const required = JavaManager.getRequiredJavaForMinecraft(mcVersion, sharedRoot);
-      const targetMajor = required.majorVersion || 21;
+      const targetMajor = typeof required === 'number' ? required : (required?.majorVersion || 21);
       const found = JavaManager.findJavaForVersion(targetMajor, sharedRoot);
       if (found && found.path) {
         return { javaPath: found.path, majorVersion: found.majorVersion };

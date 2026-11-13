@@ -2168,6 +2168,34 @@ input:checked + .switch-slider:before {
   color: var(--text-primary);
 }
 
+.modal-header .close-btn,
+.modal-close-btn {
+  background: rgba(255, 255, 255, 0.06);
+  color: #9ca3af;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
+}
+
+.modal-header .close-btn:hover,
+.modal-close-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.35);
+  transform: scale(1.05);
+}
+
 .modal-body {
   padding: 16px;
   display: flex;
@@ -4573,4 +4601,68 @@ body.app-frozen *::after {
 #modal-clip-player .modal-content {
   border: 1px solid rgba(16, 185, 129, 0.3);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8), 0 0 20px rgba(16, 185, 129, 0.15);
+}
+
+/* ==========================================
+   PERSONALIZACIÓN DE FONDO DEL LAUNCHER
+   ========================================== */
+.app-custom-bg-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  pointer-events: none;
+  transition: filter 0.2s ease;
+}
+
+.app-custom-bg-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: rgba(10, 11, 14, 0.5);
+  transition: background-color 0.2s ease;
+}
+
+.titlebar,
+.app-container,
+.modal-overlay {
+  position: relative;
+  z-index: 2;
+}
+
+/* ==========================================
+   LISTA DE INSTANCIAS PARA COMPARTIR CÓDIGO
+   ========================================== */
+.export-instance-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.export-instance-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--border);
+}
+
+.export-instance-item.selected {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.45);
+}
+
+.export-instance-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  object-fit: contain;
+  background: rgba(0, 0, 0, 0.3);
+  flex-shrink: 0;
 }

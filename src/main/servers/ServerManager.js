@@ -156,23 +156,34 @@ class ServerManager {
   async createServer(options) {
     const { name, mcVersion, loader, loaderVersion, ram, port, sourceInstancePath, syncMods } = options;
     const cleanName = String(name || 'Mi Servidor').trim();
-    const id = cleanName.toLowerCase().replace(/[^a-z0-9_-]/g, '-').replace(/-+/g, '-') + `_${Date.now().toString(36)}`;
+    const cleanLoader = String(loader || 'neoforge').toLowerCase().trim();
+    const cleanMcVersion = String(mcVersion || '1.21.1').trim();
+
+    // REQUISITO 1.2: Nombre limpio sanitizado sin hashes random (añadir (2) sólo si ya existe)
+    let baseId = cleanName.toLowerCase().replace(/[^a-z0-9_-]/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
+    if (!baseId) baseId = 'mi-servidor';
     const rootDir = this.getServersRootDir();
+    let id = baseId;
+    let counter = 2;
+    while (fs.existsSync(path.join(rootDir, id))) {
+      id = `${baseId}-${counter}`;
+      counter++;
+    }
     const serverDir = path.join(rootDir, id);
 
     fs.mkdirSync(serverDir, { recursive: true });
 
-    // Resolver Java correspondiente para la versión
-    const javaResolution = await JavaManager.ensureJavaForVersion(mcVersion);
+    // Resolver Java correspondiente para la versión (Java 25 para 26.x+, Java 21 para 1.20.5-1.21.x, Java 17 para 1.18-1.20.4)
+    const javaResolution = await JavaManager.ensureJavaForVersion(cleanMcVersion);
     const javaPath = javaResolution?.javaPath || 'java';
 
-    logger.info(`[ServerManager] Creando servidor "${cleanName}" (${id}) en: ${serverDir}`);
+    logger.info(`[ServerManager] Creando servidor "${cleanName}" (${id}) | Loader: ${cleanLoader.toUpperCase()} | MC: ${cleanMcVersion} en: ${serverDir}`);
 
     // 1. Instalar el servidor mediante ServerInstaller
     const installRes = await ServerInstaller.installServer({
       serverDir,
-      mcVersion,
-      loader: loader || 'neoforge',
+      mcVersion: cleanMcVersion,
+      loader: cleanLoader,
       loaderVersion,
       javaPath,
       name: cleanName,
@@ -199,8 +210,8 @@ class ServerManager {
     const serverMeta = {
       id,
       name: cleanName,
-      mcVersion,
-      loader: (loader || 'neoforge').toLowerCase(),
+      mcVersion: cleanMcVersion,
+      loader: cleanLoader,
       loaderVersion: loaderVersion || 'latest',
       ram: ram || '6G',
       port: Number(port) || 25565,
@@ -257,6 +268,14 @@ class ServerManager {
       javaPath = 'java';
     }
 
+    // Usar java.exe para proceso de consola si javaw.exe fue seleccionado
+    if (typeof javaPath === 'string' && javaPath.toLowerCase().endsWith('javaw.exe')) {
+      const javaExe = javaPath.replace(/javaw\.exe$/i, 'java.exe');
+      if (fs.existsSync(javaExe)) {
+        javaPath = javaExe;
+      }
+    }
+
     const ram = this.formatRamArgument(server.ram || '6G');
     const jvmFlags = [
       `-Xms2G`,
@@ -310,13 +329,15 @@ class ServerManager {
 
     logger.info(`[ServerManager] Lanzando servidor dedicado: ${spawnCmd} ${spawnArgs.join(' ')} (CWD: ${serverDir})`);
 
+    const javaBinDir = path.dirname(javaPath);
     const child = spawn(spawnCmd, spawnArgs, {
       cwd: serverDir,
       stdio: ['pipe', 'pipe', 'pipe'],
       windowsHide: true,
       env: {
         ...process.env,
-        JAVA_HOME: path.dirname(path.dirname(javaPath))
+        JAVA_HOME: path.dirname(javaBinDir),
+        PATH: `${javaBinDir}${path.delimiter}${process.env.PATH || ''}`
       }
     });
 
@@ -789,9 +810,73 @@ class ServerManager {
       if (active.logBuffer.length > 1000) active.logBuffer.shift();
     }
 
+    // REQUISITO 1.4: Detección de crash por mod exclusivo de cliente
+    if (
+      line.includes('DistCleaner') ||
+      line.includes('only on CLIENT') ||
+      line.includes('net.minecraft.client') ||
+      line.includes('RuntimeDistCleaner') ||
+      line.includes('Attempted to load class net/minecraft/client')
+    ) {
+      logger.warn(`[ServerManager] ⚠️ Detectado posible mod de cliente en servidor "${id}": ${line}`);
+      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+        this.mainWindow.webContents.send('server:client-mod-crash', {
+          serverId: id,
+          errorLine: line
+        });
+      }
+    }
+
     if (this.mainWindow && !this.mainWindow.isDestroyed()) {
       this.mainWindow.webContents.send('server:log', { serverId: id, line, isError });
     }
+  }
+
+  /**
+   * REQUISITO 1.4: Elimina mods de cliente detectados en la carpeta /mods del servidor y reinicia el proceso
+   */
+  async cleanClientMods(id) {
+    const server = await this.getServer(id);
+    if (!server) throw new Error(`Servidor con ID "${id}" no encontrado.`);
+
+    try {
+      await this.stopServer(id);
+      await new Promise((r) => setTimeout(r, 1000));
+    } catch (_) {}
+
+    const modsDir = path.join(server.serverDir, 'mods');
+    const removedMods = [];
+
+    if (fs.existsSync(modsDir)) {
+      const files = fs.readdirSync(modsDir).filter((f) => f.toLowerCase().endsWith('.jar'));
+      for (const file of files) {
+        const fullPath = path.join(modsDir, file);
+        const check = ServerModFilter.isClientOnlyMod(fullPath, file);
+        if (check.isClientOnly) {
+          try {
+            fs.rmSync(fullPath, { force: true });
+            removedMods.push({ file, reason: check.reason });
+            logger.info(`[ServerManager] 🧹 Mod de cliente eliminado: ${file} (${check.reason})`);
+          } catch (delErr) {
+            logger.warn(`[ServerManager] No se pudo borrar ${file}:`, delErr.message);
+          }
+        }
+      }
+    }
+
+    let startResult = null;
+    try {
+      startResult = await this.startServer(id);
+    } catch (startErr) {
+      logger.warn(`[ServerManager] Error al reiniciar servidor tras limpieza:`, startErr.message);
+    }
+
+    return {
+      success: true,
+      removedCount: removedMods.length,
+      removedMods,
+      restarted: !!startResult?.success
+    };
   }
 
   _pollServerStats(id, pid, startTime) {

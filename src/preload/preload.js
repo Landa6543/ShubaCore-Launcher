@@ -51,7 +51,8 @@ const VALID_RECEIVE_CHANNELS = [
   'playit:tunnel-ready',
   'playit:progress',
   'server-monitor:update',
-  'clips:shortcut-triggered'
+  'clips:shortcut-triggered',
+  'server:client-mod-crash'
 ];
 
 contextBridge.exposeInMainWorld('shubaCoreAPI', {
@@ -180,7 +181,8 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
     get: (username) => ipcRenderer.invoke('skins:get', username),
     fetchMojangPreview: (username) => ipcRenderer.invoke('skins:fetch-mojang-preview', username),
     setFromUsername: (offlineUser, mojangUser) => ipcRenderer.invoke('skins:set-from-username', { offlineUser, mojangUser }),
-    setFromFile: (offlineUser, filePath) => ipcRenderer.invoke('skins:set-from-file', { offlineUser, filePath }),
+    setFromFile: (offlineUser, filePath, skinModel) => ipcRenderer.invoke('skins:set-from-file', { offlineUser, filePath, skinModel }),
+    setModel: (skinModel) => ipcRenderer.invoke('skins:set-model', { skinModel }),
     selectFile: () => ipcRenderer.invoke('skins:select-file'),
     remove: (username) => ipcRenderer.invoke('skins:remove', username),
     uploadToMojang: (mcAccessToken, skinData, variant) => ipcRenderer.invoke('skins:upload-to-mojang', { mcAccessToken, skinData, variant })
@@ -273,7 +275,8 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
     selectExportZip: (serverName) => ipcRenderer.invoke('servers:select-export-zip', serverName),
     exportPack: (id, outputPath) => ipcRenderer.invoke('servers:export-pack', { id, outputPath }),
     delete: (id, deleteFiles) => ipcRenderer.invoke('servers:delete', { id, deleteFiles }),
-    openFolder: (id) => ipcRenderer.invoke('servers:open-folder', id)
+    openFolder: (id) => ipcRenderer.invoke('servers:open-folder', id),
+    cleanClientMods: (id) => ipcRenderer.invoke('servers:clean-client-mods', id)
   },
 
   // ==========================================
@@ -408,6 +411,16 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
     stopBridge: () => ipcRenderer.invoke('controller:bridge-stop'),
     sendGamepadFrame: (frameData) => ipcRenderer.send('controller:send-gamepad-frame', frameData),
     testInjection: (params) => ipcRenderer.invoke('controller:test-injection', params)
+  },
+
+  // ==========================================
+  // PERSONALIZACIÓN DE INTERFAZ / FONDO PERSONALIZADO
+  // ==========================================
+  customBg: {
+    select: () => ipcRenderer.invoke('custom-bg:select'),
+    get: () => ipcRenderer.invoke('custom-bg:get'),
+    setSettings: (settings) => ipcRenderer.invoke('custom-bg:set-settings', settings),
+    reset: () => ipcRenderer.invoke('custom-bg:reset')
   },
 
   // ==========================================

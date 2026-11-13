@@ -200,6 +200,15 @@ class ProfileManager {
       }
     }
 
+    let modsCount = 0;
+    const instPath = this.getInstancePath(id);
+    try {
+      const modsDir = path.join(instPath, 'mods');
+      if (fs.existsSync(modsDir)) {
+        modsCount = fs.readdirSync(modsDir).filter((f) => f.toLowerCase().endsWith('.jar')).length;
+      }
+    } catch (_) {}
+
     return {
       id,
       name,
@@ -216,7 +225,8 @@ class ProfileManager {
       customJvmArgs: rawObj.customJvmArgs || '',
       createdAt: rawObj.createdAt || new Date().toISOString(),
       lastPlayed: rawObj.lastPlayed || null,
-      instancePath: this.getInstancePath(id)
+      instancePath: instPath,
+      modsCount
     };
   }
 

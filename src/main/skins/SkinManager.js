@@ -255,7 +255,7 @@ class SkinManager {
   /**
    * Asigna una skin desde un archivo PNG local del PC
    */
-  async setSkinFromFile(offlineUsername, sourceFilePath) {
+  async setSkinFromFile(offlineUsername, sourceFilePath, skinModel = null) {
     const cleanOffline = (offlineUsername || '').trim();
     if (!cleanOffline) throw new Error('El nombre de usuario offline es obligatorio.');
     if (!fs.existsSync(sourceFilePath)) {
@@ -271,26 +271,42 @@ class SkinManager {
     const userPath = this.getSkinPath(cleanOffline);
     fs.writeFileSync(userPath, buf);
 
+    const prevConfig = this.configManager.get('skin') || {};
+    const resolvedModel = (skinModel === 'slim' || (!skinModel && prevConfig.skinModel === 'slim')) ? 'slim' : 'classic';
+
     const skinConfig = {
       skinSource: 'local_file',
       clonedUuid: null,
-      skinModel: 'classic',
+      skinModel: resolvedModel,
       originalUsername: cleanOffline,
       updatedAt: new Date().toISOString()
     };
     this.configManager.set('skin', skinConfig);
 
-    logger.info(`[SkinManager] Skin local guardada con éxito para "${cleanOffline}" en: ${this.currentSkinPath}`);
+    logger.info(`[SkinManager] Skin local guardada con éxito para "${cleanOffline}" (${resolvedModel}) en: ${this.currentSkinPath}`);
 
     return {
       success: true,
       username: cleanOffline,
       skinSource: 'local_file',
-      skinModel: 'classic',
+      skinModel: resolvedModel,
       clonedUuid: null,
       path: this.currentSkinPath,
       dataUrl: `data:image/png;base64,${buf.toString('base64')}`
     };
+  }
+
+  /**
+   * Persiste la variante de modelo (slim o classic) en la configuración
+   */
+  setSkinModel(skinModel) {
+    const model = String(skinModel).toLowerCase() === 'slim' ? 'slim' : 'classic';
+    const skinConfig = this.configManager.get('skin') || {};
+    skinConfig.skinModel = model;
+    skinConfig.updatedAt = new Date().toISOString();
+    this.configManager.set('skin', skinConfig);
+    logger.info(`[SkinManager] Variante de skin actualizada a: "${model}"`);
+    return { success: true, skinModel: model };
   }
 
   /**

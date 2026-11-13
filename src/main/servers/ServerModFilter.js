@@ -106,10 +106,55 @@ const CLIENT_ONLY_MOD_KEYWORDS = [
   'resourcify',
   'authme-client',
   'modernfix-client',
-  'ferritecore-client'
+  'ferritecore-client',
+  'moreculling',
+  'more-culling',
+  'more_culling',
+  'controllable',
+  'audioextension',
+  'audio-extension',
+  'audio_extension',
+  'shubaclient',
+  'shubaclient-ui',
+  'shubacontroller'
 ];
 
 class ServerModFilter {
+  /**
+   * Clasifica un archivo .jar como [Cliente], [Servidor] o [Ambos]
+   *
+   * @param {string} jarFilePath - Ruta absoluta al archivo .jar
+   * @param {string} fileName - Nombre del archivo .jar
+   * @returns {{ type: 'client'|'server'|'both', label: string, reason?: string }}
+   */
+  static classifyMod(jarFilePath, fileName = null) {
+    const clientCheck = this.isClientOnlyMod(jarFilePath, fileName);
+    if (clientCheck.isClientOnly) {
+      return {
+        type: 'client',
+        label: '[Cliente]',
+        reason: clientCheck.reason
+      };
+    }
+
+    if (fs.existsSync(jarFilePath)) {
+      try {
+        const zip = new AdmZip(jarFilePath);
+        const fabricEntry = zip.getEntry('fabric.mod.json');
+        if (fabricEntry) {
+          try {
+            const data = JSON.parse(fabricEntry.getData().toString('utf8'));
+            if (data.environment === 'server') {
+              return { type: 'server', label: '[Servidor]', reason: 'fabric.mod.json environment: server' };
+            }
+          } catch (_) {}
+        }
+      } catch (_) {}
+    }
+
+    return { type: 'both', label: '[Ambos]', reason: 'Compatible con cliente y servidor dedicado' };
+  }
+
   /**
    * Determina si un archivo .jar es exclusivo del lado cliente
    *

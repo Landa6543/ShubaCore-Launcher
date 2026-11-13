@@ -835,9 +835,9 @@ function registerIpcHandlers(mainWindow) {
     }
   });
 
-  ipcMain.handle('skins:set-from-file', async (event, { offlineUser, filePath }) => {
+  ipcMain.handle('skins:set-from-file', async (event, { offlineUser, filePath, skinModel }) => {
     try {
-      const skinData = await skinManager.setSkinFromFile(offlineUser, filePath);
+      const skinData = await skinManager.setSkinFromFile(offlineUser, filePath, skinModel);
       try {
         const activePath = profileManager.getActiveInstancePath();
         if (activePath && fs.existsSync(activePath)) {
@@ -849,6 +849,15 @@ function registerIpcHandlers(mainWindow) {
       return { success: true, skin: skinData };
     } catch (err) {
       logger.error('Error en skins:set-from-file IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('skins:set-model', async (event, { skinModel }) => {
+    try {
+      return skinManager.setSkinModel(skinModel);
+    } catch (err) {
+      logger.error('Error en skins:set-model IPC:', err);
       return { success: false, error: err.message };
     }
   });
@@ -1469,6 +1478,15 @@ function registerIpcHandlers(mainWindow) {
     }
   });
 
+  ipcMain.handle('servers:clean-client-mods', async (event, id) => {
+    try {
+      return await serverManager.cleanClientMods(id);
+    } catch (err) {
+      logger.error('Error en servers:clean-client-mods IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
   // ==========================================
   // GALERÍA DE CAPTURAS DE PANTALLA (SCREENSHOTS)
   // ==========================================
@@ -2025,6 +2043,132 @@ function registerIpcHandlers(mainWindow) {
 
   ipcMain.on('window:close', () => {
     if (mainWindow) mainWindow.close();
+  });
+
+  // ==========================================
+  // FONDO PERSONALIZADO DE LA INTERFAZ
+  // ==========================================
+  const customBgDir = path.join(app.getPath('userData'), 'custom-bg');
+  if (!fs.existsSync(customBgDir)) {
+    try { fs.mkdirSync(customBgDir, { recursive: true }); } catch (_) {}
+  }
+
+  ipcMain.handle('custom-bg:select', async () => {
+    try {
+      const result = await dialog.showOpenDialog(mainWindow, {
+        title: 'Seleccionar Imagen o GIF de Fondo',
+        properties: ['openFile'],
+        filters: [
+          { name: 'Imágenes y GIFs (*.png, *.jpg, *.jpeg, *.webp, *.gif)', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'] }
+        ]
+      });
+
+      if (result.canceled || result.filePaths.length === 0) {
+        return { canceled: true };
+      }
+
+      const srcPath = result.filePaths[0];
+      const ext = path.extname(srcPath).toLowerCase() || '.png';
+      const targetFileName = `background${ext}`;
+      const targetPath = path.join(customBgDir, targetFileName);
+
+      // Limpiar archivos anteriores en customBgDir
+      try {
+        const existingFiles = fs.readdirSync(customBgDir);
+        for (const f of existingFiles) {
+          try { fs.rmSync(path.join(customBgDir, f), { force: true }); } catch (_) {}
+        }
+      } catch (_) {}
+
+      fs.copyFileSync(srcPath, targetPath);
+
+      const fileBuffer = fs.readFileSync(targetPath);
+      const mime = ext === '.gif' ? 'image/gif' : (ext === '.webp' ? 'image/webp' : (ext === '.png' ? 'image/png' : 'image/jpeg'));
+      const dataUrl = `data:${mime};base64,${fileBuffer.toString('base64')}`;
+
+      const prevConfig = configManager.get('customBg') || {};
+      const newConfig = {
+        enabled: true,
+        fileName: targetFileName,
+        opacity: typeof prevConfig.opacity === 'number' ? prevConfig.opacity : 50,
+        blur: typeof prevConfig.blur === 'number' ? prevConfig.blur : 0,
+        originalName: path.basename(srcPath)
+      };
+      configManager.set('customBg', newConfig);
+
+      return {
+        canceled: false,
+        success: true,
+        customBg: {
+          ...newConfig,
+          dataUrl
+        }
+      };
+    } catch (err) {
+      logger.error('Error en custom-bg:select IPC:', err);
+      return { canceled: true, success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('custom-bg:get', async () => {
+    try {
+      const bgConfig = configManager.get('customBg') || { enabled: false, opacity: 50, blur: 0 };
+      if (!bgConfig.enabled || !bgConfig.fileName) {
+        return { enabled: false, opacity: bgConfig.opacity ?? 50, blur: bgConfig.blur ?? 0 };
+      }
+
+      const filePath = path.join(customBgDir, bgConfig.fileName);
+      if (!fs.existsSync(filePath)) {
+        return { enabled: false, opacity: bgConfig.opacity ?? 50, blur: bgConfig.blur ?? 0 };
+      }
+
+      const ext = path.extname(filePath).toLowerCase();
+      const mime = ext === '.gif' ? 'image/gif' : (ext === '.webp' ? 'image/webp' : (ext === '.png' ? 'image/png' : 'image/jpeg'));
+      const fileBuffer = fs.readFileSync(filePath);
+      const dataUrl = `data:${mime};base64,${fileBuffer.toString('base64')}`;
+
+      return {
+        enabled: true,
+        opacity: bgConfig.opacity ?? 50,
+        blur: bgConfig.blur ?? 0,
+        fileName: bgConfig.fileName,
+        originalName: bgConfig.originalName || bgConfig.fileName,
+        dataUrl
+      };
+    } catch (err) {
+      logger.error('Error en custom-bg:get IPC:', err);
+      return { enabled: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('custom-bg:set-settings', async (event, settings = {}) => {
+    try {
+      const bgConfig = configManager.get('customBg') || {};
+      if (typeof settings.opacity === 'number') bgConfig.opacity = Math.max(0, Math.min(90, settings.opacity));
+      if (typeof settings.blur === 'number') bgConfig.blur = Math.max(0, Math.min(20, settings.blur));
+      if (typeof settings.enabled === 'boolean') bgConfig.enabled = settings.enabled;
+      configManager.set('customBg', bgConfig);
+      return { success: true, customBg: bgConfig };
+    } catch (err) {
+      logger.error('Error en custom-bg:set-settings IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('custom-bg:reset', async () => {
+    try {
+      try {
+        const files = fs.readdirSync(customBgDir);
+        for (const f of files) {
+          try { fs.rmSync(path.join(customBgDir, f), { force: true }); } catch (_) {}
+        }
+      } catch (_) {}
+      configManager.set('customBg', { enabled: false, opacity: 50, blur: 0, fileName: null });
+      return { success: true };
+    } catch (err) {
+      logger.error('Error en custom-bg:reset IPC:', err);
+      return { success: false, error: err.message };
+    }
   });
 
   logger.info('Canales IPC registrados con éxito (incluyendo Perfiles y Versiones de Loaders).');

@@ -539,6 +539,12 @@ class LaunchManager {
         logger.info(`⚡ [QuickPlay] Lanzando con entrada directa al mundo: "${overrideOptions.quickPlaySingleplayer.trim()}"`);
       }
 
+      // Soporte QuickPlay para multijugador / servidores dedicados locales
+      if (typeof overrideOptions.quickPlayMultiplayer === 'string' && overrideOptions.quickPlayMultiplayer.trim().length > 0) {
+        customLaunchArgs.push('--quickPlayMultiplayer', overrideOptions.quickPlayMultiplayer.trim());
+        logger.info(`⚡ [QuickPlay] Lanzando con entrada directa al servidor: "${overrideOptions.quickPlayMultiplayer.trim()}"`);
+      }
+
       // Silenciar telemetría y llamadas de cuenta en modo offline pasando --userProperties {}
       if (isOfflineAccount) {
         if (!customLaunchArgs.includes('--userProperties')) {
