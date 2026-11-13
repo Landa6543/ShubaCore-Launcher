@@ -1136,6 +1136,32 @@ class ModManager {
     const filesOnDisk = fs.readdirSync(modsDir);
     const validFiles = new Set(filesOnDisk.filter((f) => f.endsWith('.jar') || f.endsWith('.jar.disabled')));
 
+    // Caché rápida persistente en disco (.shubacore-mods-cache.json)
+    const cacheFile = path.join(activeInstance, '.shubacore-mods-cache.json');
+    let diskCache = {};
+    if (fs.existsSync(cacheFile)) {
+      try {
+        diskCache = JSON.parse(fs.readFileSync(cacheFile, 'utf8')) || {};
+      } catch (_) {
+        diskCache = {};
+      }
+    }
+
+    const getJarMetaWithCache = (filePath, file, stats) => {
+      if (stats && diskCache[file] && diskCache[file].mtimeMs === stats.mtimeMs && diskCache[file].size === stats.size && diskCache[file].metadata) {
+        return diskCache[file].metadata;
+      }
+      const extracted = this._extractJarMetadata(filePath);
+      if (stats) {
+        diskCache[file] = {
+          mtimeMs: stats.mtimeMs,
+          size: stats.size,
+          metadata: extracted
+        };
+      }
+      return extracted;
+    };
+
     // 1. Detectar archivos introducidos manualmente o ya existentes (source: "custom", etc.)
     validFiles.forEach((file) => {
       const isEnabled = !file.endsWith('.disabled');
@@ -1143,10 +1169,11 @@ class ModManager {
       const filePath = path.join(modsDir, file);
 
       let sizeFormatted = '';
+      let fileStats = null;
       try {
         if (fs.existsSync(filePath)) {
-          const stats = fs.statSync(filePath);
-          const bytes = stats.size;
+          fileStats = fs.statSync(filePath);
+          const bytes = fileStats.size;
           if (bytes >= 1024 * 1024) {
             sizeFormatted = (bytes / (1024 * 1024)).toFixed(1) + ' MB';
           } else if (bytes >= 1024) {
@@ -1165,7 +1192,7 @@ class ModManager {
 
       if (!existingKey) {
         logger.info(`[Auto-Detect] Mod manual detectado en /mods: ${file}. Analizando metadatos internos del .jar...`);
-        const jarMeta = this._extractJarMetadata(filePath);
+        const jarMeta = getJarMetaWithCache(filePath, file, fileStats);
         const resolvedTitle = (jarMeta && jarMeta.name) ? jarMeta.name : cleanTitle;
         const resolvedAuthor = (jarMeta && jarMeta.author) ? jarMeta.author : null;
         const resolvedVersion = (jarMeta && jarMeta.version) ? jarMeta.version : 'custom';
@@ -1211,9 +1238,9 @@ class ModManager {
           modEntry.source = 'custom';
         }
 
-        // Si le falta icono o autor, intentar extraerlo localmente del .jar
+        // Si le falta icono o autor, intentar extraerlo localmente del .jar con caché
         if (!modEntry.iconUrl || !modEntry.author) {
-          const jarMeta = this._extractJarMetadata(filePath);
+          const jarMeta = getJarMetaWithCache(filePath, file, fileStats);
           if (jarMeta) {
             if (jarMeta.iconBase64 && !modEntry.iconUrl) modEntry.iconUrl = jarMeta.iconBase64;
             if (jarMeta.author && !modEntry.author) modEntry.author = jarMeta.author;
@@ -1230,6 +1257,14 @@ class ModManager {
         }
       }
     });
+
+    // Guardar caché de metadatos en disco
+    Object.keys(diskCache).forEach((k) => {
+      if (!validFiles.has(k)) delete diskCache[k];
+    });
+    try {
+      fs.writeFileSync(cacheFile, JSON.stringify(diskCache), 'utf8');
+    } catch (_) {}
 
     // 2. Limpiar del lockfile los mods eliminados físicamente
     Object.keys(lockData.mods).forEach((key) => {

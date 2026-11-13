@@ -681,7 +681,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         try { loadProfiles(); } catch (e) { console.warn('[switchTab] Error en loadProfiles:', e); }
       } else if (viewName === 'catalog') {
         try {
-          if (!inputModSearch.value.trim() && modsSearchResults.children.length <= 1) {
+          if (modsSearchResults) {
+            modsSearchResults.className = (catalogViewMode === 'grid') ? 'catalog-grid' : 'catalog-list-view';
+          }
+          if (!inputModSearch.value.trim() && (!modsSearchResults || modsSearchResults.children.length <= 1)) {
             performModSearch();
           }
         } catch (e) { console.warn('[switchTab] Error en performModSearch:', e); }
@@ -699,8 +702,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         try { loadScreenshotsGallery(); } catch (e) { console.warn('[switchTab] Error en loadScreenshotsGallery:', e); }
       } else if (viewName === 'skins') {
         try { renderDefaultSkinsGrid(); renderUserSavedSkinsGrid(); } catch (_) {}
-
-        try { initSkinViewer3D(); } catch (e) { console.warn('[switchTab] Error en initSkinViewer3D:', e); }
+        requestAnimationFrame(() => {
+          try {
+            if (!skinViewer3D) {
+              initSkinViewer3D();
+            } else {
+              skinViewer3D.setSize(300, 440);
+            }
+            if (!lastLoadedSkinUrl) {
+              loadSkinIn3DViewer('https://launchercontent.mojang.com/default-skins/steve.png');
+            }
+          } catch (e) {
+            console.warn('[switchTab] Error en initSkinViewer3D:', e);
+          }
+        });
       } else if (viewName === 'controller') {
         try { if (typeof loadControllerView === 'function') loadControllerView(); } catch (e) { console.warn('[switchTab] Error en loadControllerView:', e); }
       } else if (viewName === 'settings') {
@@ -1122,8 +1137,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       skinViewer3D = new skinview3d.SkinViewer({
         canvas: canvas,
         width: 300,
-        height: 420
+        height: 440
       });
+      skinViewer3D.setSize(300, 440);
 
       skinViewer3D.controls.enableRotate = true;
       skinViewer3D.controls.enableZoom = true;
@@ -1209,6 +1225,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       skinViewer3D.animation = new skinview3d.RunningAnimation();
       skinViewer3D.animation.speed = 1.0;
     }
+
+    if (skinViewer3D.animation && isAnimationPaused) {
+      skinViewer3D.animation.paused = true;
+    }
   }
 
   function toggleSkinAutoRotate() {
@@ -1239,14 +1259,74 @@ document.addEventListener('DOMContentLoaded', async () => {
   // =========================================================================
   // VESTIDOR 3D: CONTROLES FLOTANTES, CAPAS, ÉLITROS, PAUSA Y SEGUIR CURSOR
   // =========================================================================
+  function createProceduralCape(theme) {
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 64;
+      canvas.height = 32;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+
+      let baseColor = '#80131b';
+      let trimColor = '#d4af37';
+      let patternColor = '#4a080d';
+
+      if (theme === 'migrator') {
+        baseColor = '#1f2429';
+        trimColor = '#b81414';
+        patternColor = '#0f1214';
+      } else if (theme === '15th') {
+        baseColor = '#2e8b2b';
+        trimColor = '#5cd658';
+        patternColor = '#1a5418';
+      } else if (theme === 'pancape') {
+        baseColor = '#d99e52';
+        trimColor = '#fcd068';
+        patternColor = '#8f5c22';
+      } else if (theme === 'cherry') {
+        baseColor = '#f59ebb';
+        trimColor = '#ffffff';
+        patternColor = '#c76286';
+      } else if (theme === 'tiktok') {
+        baseColor = '#111111';
+        trimColor = '#00f2fe';
+        patternColor = '#fe0979';
+      } else if (theme === 'twitch') {
+        baseColor = '#6441a5';
+        trimColor = '#9146ff';
+        patternColor = '#321f57';
+      }
+
+      ctx.fillStyle = baseColor;
+      ctx.fillRect(0, 0, 64, 32);
+
+      ctx.fillStyle = trimColor;
+      ctx.fillRect(0, 0, 64, 1);
+      ctx.fillRect(0, 31, 64, 1);
+      ctx.fillRect(0, 0, 1, 32);
+      ctx.fillRect(63, 0, 1, 32);
+
+      ctx.fillStyle = patternColor;
+      ctx.fillRect(2, 2, 8, 14);
+      ctx.fillRect(13, 2, 8, 14);
+
+      ctx.fillStyle = trimColor;
+      ctx.fillRect(15, 6, 4, 6);
+
+      return canvas.toDataURL('image/png');
+    } catch (_) {
+      return null;
+    }
+  }
+
   const OFFICIAL_CAPES = {
-    vanilla: 'https://textures.minecraft.net/texture/41434c4f69f2e7c3e1e93ae1fa46b3fcf5eeae16c148ec78917e76cb4be704e6',
-    migrator: 'https://textures.minecraft.net/texture/2340c0e03dd6644d682c91c62923537d6f84f791232b761f249d65a88c',
-    '15th': 'https://textures.minecraft.net/texture/593d6d5c6be3662d989f6aa6a3c9a59b20d757d53b26fae3d1dd3924f728c009',
-    pancape: 'https://textures.minecraft.net/texture/6e19194ec710321a6f672322a36a9daea4f02a014902a77f9872584e27f050ff',
-    cherry: 'https://textures.minecraft.net/texture/277c0f16f3d4cb99f196cc7024f0c4ee828ad6bfb1ef407a5180cefb6cc1a93e',
-    tiktok: 'https://textures.minecraft.net/texture/55b3eb3dbe3b4e6378e930f7e1b6f6580f4f7d4323cb1fe3fa47cb4e5a9539d',
-    twitch: 'https://textures.minecraft.net/texture/2a6d71b8ee83fcf634ad2a8e8e7cff62f9eb66bb4f17cffec77e85df6ecbb7',
+    vanilla: createProceduralCape('vanilla') || 'https://textures.minecraft.net/texture/41434c4f69f2e7c3e1e93ae1fa46b3fcf5eeae16c148ec78917e76cb4be704e6',
+    migrator: createProceduralCape('migrator') || 'https://textures.minecraft.net/texture/2340c0e03dd6644d682c91c62923537d6f84f791232b761f249d65a88c',
+    '15th': createProceduralCape('15th') || 'https://textures.minecraft.net/texture/593d6d5c6be3662d989f6aa6a3c9a59b20d757d53b26fae3d1dd3924f728c009',
+    pancape: createProceduralCape('pancape') || 'https://textures.minecraft.net/texture/6e19194ec710321a6f672322a36a9daea4f02a014902a77f9872584e27f050ff',
+    cherry: createProceduralCape('cherry') || 'https://textures.minecraft.net/texture/277c0f16f3d4cb99f196cc7024f0c4ee828ad6bfb1ef407a5180cefb6cc1a93e',
+    tiktok: createProceduralCape('tiktok') || 'https://textures.minecraft.net/texture/55b3eb3dbe3b4e6378e930f7e1b6f6580f4f7d4323cb1fe3fa47cb4e5a9539d',
+    twitch: createProceduralCape('twitch') || 'https://textures.minecraft.net/texture/2a6d71b8ee83fcf634ad2a8e8e7cff62f9eb66bb4f17cffec77e85df6ecbb7',
     none: null
   };
 
@@ -1268,16 +1348,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   let isFollowCursorActive = false;
 
   function loadCapeIn3DViewer(capeUrl, asElytra = isElytraMode) {
+    if (!skinViewer3D) {
+      initSkinViewer3D();
+    }
     if (!skinViewer3D) return;
     try {
-      currentActiveCapeUrl = capeUrl;
-      if (!capeUrl) {
+      const resolvedCape = (typeof capeUrl === 'string' && OFFICIAL_CAPES[capeUrl]) ? OFFICIAL_CAPES[capeUrl] : capeUrl;
+      currentActiveCapeUrl = resolvedCape;
+      if (!resolvedCape) {
         if (skinViewer3D.playerObject && skinViewer3D.playerObject.cape) {
           skinViewer3D.playerObject.cape.visible = false;
         }
         return;
       }
-      skinViewer3D.loadCape(capeUrl, { backEquipment: asElytra ? 'elytra' : 'cape' });
+      skinViewer3D.loadCape(resolvedCape, { backEquipment: asElytra ? 'elytra' : 'cape' });
       if (skinViewer3D.playerObject && skinViewer3D.playerObject.cape) {
         skinViewer3D.playerObject.cape.visible = true;
       }
@@ -1894,9 +1978,6 @@ document.addEventListener('DOMContentLoaded', async () => {
               <button class="btn btn-small btn-secondary btn-icon-square btn-export-pack" data-id="${p.id}" data-name="${escapeHtml(p.name || 'perfil')}" title="Exportar como .shubapack">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
               </button>
-              <button class="btn btn-small btn-secondary btn-icon-square btn-publish-cloud" data-id="${p.id}" data-name="${escapeHtml(p.name || 'perfil')}" title="☁ Publicar en la nube para amigos (.shubasync.json)">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/><polyline points="12 13 12 7 9 10"/><polyline points="12 7 15 10"/></svg>
-              </button>
               ${profiles.length > 1 ? `
                 <button class="btn btn-small btn-danger btn-icon-square btn-delete-profile" data-id="${p.id}" title="Eliminar instancia">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
@@ -2004,14 +2085,6 @@ document.addEventListener('DOMContentLoaded', async () => {
               btn.disabled = false;
             }
           }
-        });
-      });
-
-      document.querySelectorAll('.btn-publish-cloud').forEach((btn) => {
-        btn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const id = e.currentTarget.getAttribute('data-id');
-          openPublishProfileModal(id);
         });
       });
     } catch (err) {
@@ -2227,8 +2300,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       const cleanLoaderVer = (selectProfileLoaderVersion.value || '').split(' ')[0].trim();
       const ramMin = (inputProfileRamMin.value || '2G').trim();
       const ramMax = (inputProfileRamMax.value || '8G').trim();
-      const checkCreateShubaClient = document.getElementById('check-create-shubaclient-ui');
-      const enableShubaClientUI = checkCreateShubaClient ? checkCreateShubaClient.checked : true;
 
       const profilePayload = {
         name,
@@ -2236,7 +2307,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         loader: selectProfileLoader.value || 'vanilla',
         loaderVersion: cleanLoaderVer,
         icon: (inputCreateProfileIcon ? inputCreateProfileIcon.value.trim() : '') || 'assets/logo.png',
-        enableShubaClientUI,
         ramMin,
         ramMax,
         memoryMin: ramMin,
@@ -2324,11 +2394,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     inputEditProfileRamMin.value = profile.ramMin || profile.memoryMin || '2G';
     inputEditProfileRamMax.value = profile.ramMax || profile.memoryMax || '8G';
-
-    const checkEditShubaClient = document.getElementById('check-edit-shubaclient-ui');
-    if (checkEditShubaClient) {
-      checkEditShubaClient.checked = profile.enableShubaClientUI !== false;
-    }
 
     modalEditProfile.classList.add('active');
     await updateEditLoaderVersions(currentLoaderVer);
@@ -2450,8 +2515,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const javaPath = inputEditProfileCustomJava ? inputEditProfileCustomJava.value.trim() : '';
     const ramMin = (inputEditProfileRamMin.value || '2G').trim();
     const ramMax = (inputEditProfileRamMax.value || '8G').trim();
-    const checkEditShubaClient = document.getElementById('check-edit-shubaclient-ui');
-    const enableShubaClientUI = checkEditShubaClient ? checkEditShubaClient.checked : true;
 
     btnConfirmEditProfile.disabled = true;
     btnConfirmEditProfile.textContent = 'Guardando...';
@@ -2463,7 +2526,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         loader,
         loaderVersion: cleanLoaderVer,
         icon: (inputEditProfileIcon ? inputEditProfileIcon.value.trim() : '') || 'assets/logo.png',
-        enableShubaClientUI,
         javaSelection,
         javaPath,
         ramMin,
@@ -4449,12 +4511,247 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  let lastCatalogResults = [];
+  let lastCatalogInstalledMap = new Map();
+  let lastCatalogActiveProfileRef = null;
+  let lastCatalogMcVersion = '';
+  let lastCatalogLoader = '';
+  let lastCatalogCatLabel = 'Proyectos';
+
+  function renderCatalogItems(results, container, installedMap, activeProfileRef, mcVersion, loader, catLabel) {
+    if (!container) return;
+    container.className = (catalogViewMode === 'grid') ? 'catalog-grid' : 'catalog-list-view';
+    container.innerHTML = '';
+
+    if (!results || results.length === 0) {
+      container.innerHTML = `<div class="empty-state">No se encontraron ${(catLabel || 'proyectos').toLowerCase()} disponibles.</div>`;
+      return;
+    }
+
+    results.forEach((item) => {
+      const card = document.createElement('div');
+      card.className = (catalogViewMode === 'grid') ? 'mod-card' : 'catalog-mod-row';
+
+      const sourceClass = item.source === 'curseforge' ? 'badge-curseforge' : (item.source === 'github' ? 'badge-github' : 'badge-modrinth');
+      const sourceName = item.source === 'curseforge' ? 'CurseForge' : (item.source === 'github' ? 'GitHub' : 'Modrinth');
+      const iconSrc = item.iconUrl || item.iconDataUrl || 'assets/logo.png';
+      const formattedDownloads = formatDownloads(item.downloads);
+      const relativeDate = formatRelativeDate(item.dateModified);
+      const formattedSize = item.fileSize ? formatFileSize(item.fileSize) : (item.size ? formatFileSize(item.size) : '');
+
+      const isInstalled = (installedMap instanceof Map) && (
+        installedMap.has(String(item.id).toLowerCase()) ||
+        installedMap.has((item.slug || '').toLowerCase()) ||
+        installedMap.has((item.title || item.name || '').toLowerCase()) ||
+        installedMap.has((item.fileName || '').toLowerCase())
+      );
+      const installedMod = isInstalled ? (
+        installedMap.get(String(item.id).toLowerCase()) ||
+        installedMap.get((item.slug || '').toLowerCase()) ||
+        installedMap.get((item.title || item.name || '').toLowerCase()) ||
+        installedMap.get((item.fileName || '').toLowerCase())
+      ) : null;
+      const isOutdated = isInstalled && installedMod && (
+        (installedMod.fileId && item.latestFileId && String(installedMod.fileId) !== String(item.latestFileId)) ||
+        (installedMod.version && item.latestVersion && installedMod.version !== item.latestVersion)
+      );
+
+      let actionButtonText = 'Instalar';
+      if (currentContentType === 'resourcepacks') actionButtonText = 'Descargar';
+      else if (currentContentType === 'shaders') actionButtonText = 'Descargar';
+      else if (currentContentType === 'modpacks') actionButtonText = 'Instalar Pack';
+
+      let installedActionHtml = '';
+      if (!isInstalled) {
+        installedActionHtml = `
+          <button type="button" class="btn btn-small btn-install-catalog btn-download-content" data-id="${escapeHtml(item.id || item.fileName)}" data-source="${escapeHtml(item.source)}" data-title="${escapeHtml(item.title || item.name)}" data-icon="${escapeHtml(iconSrc)}">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+            <span>${actionButtonText}</span>
+          </button>
+        `;
+      } else if (isOutdated) {
+        installedActionHtml = `
+          <button type="button" class="btn btn-small btn-catalog-update btn-download-content" data-id="${escapeHtml(item.id || item.fileName)}" data-source="${escapeHtml(item.source)}" data-title="${escapeHtml(item.title || item.name)}" data-icon="${escapeHtml(iconSrc)}">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 11 12 6 7 11"/><line x1="12" y1="6" x2="12" y2="18"/></svg>
+            <span>Actualizar</span>
+          </button>
+        `;
+      } else {
+        installedActionHtml = `
+          <div class="badge-catalog-updated">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            <span>Actualizado</span>
+          </div>
+        `;
+      }
+
+      const categoriesList = Array.isArray(item.categories) ? item.categories.slice(0, 4) : [];
+      const categoryPillsHtml = categoriesList.length > 0
+        ? categoriesList.map((c) => `<span class="category-pill-tag">${escapeHtml(c)}</span>`).join('')
+        : `<span class="category-pill-tag">${escapeHtml(catLabel || 'Proyecto')}</span>`;
+
+      const gVers = Array.isArray(item.gameVersions) && item.gameVersions.length > 0 ? item.gameVersions : [mcVersion || '1.21.1'];
+      const gameVersionBadge = gVers.length > 1 ? `${gVers[0]} +${gVers.length - 1}` : gVers[0];
+
+      const itemLoaders = Array.isArray(item.loaders) && item.loaders.length > 0 ? item.loaders : [loader || 'NeoForge'];
+      const primaryLoader = itemLoaders[0];
+      const loaderBadgeStr = itemLoaders.length > 1 ? `${primaryLoader} +${itemLoaders.length - 1}` : primaryLoader;
+      const loaderSvg = getLoaderSvgIcon(primaryLoader);
+
+      let environmentStr = 'Client and Server';
+      if (item.clientSide === 'required' && item.serverSide === 'unsupported') environmentStr = 'Client';
+      else if (item.serverSide === 'required' && item.clientSide === 'unsupported') environmentStr = 'Server';
+
+      if (catalogViewMode === 'list') {
+        card.innerHTML = `
+          <div class="mod-row-left">
+            <img src="${escapeHtml(iconSrc)}" class="mod-row-thumb" alt="Icon" onerror="this.src='https://mc-heads.net/avatar/Steve/64'">
+          </div>
+          <div class="mod-row-center">
+            <div class="mod-row-header">
+              <span class="mod-source-icon ${sourceClass}">${escapeHtml(sourceName)}</span>
+              <h3 class="mod-row-title" title="${escapeHtml(item.title || item.name)}">${escapeHtml(item.title || item.name)}</h3>
+              <span class="mod-row-author">por <strong>${escapeHtml(item.author || 'Autor')}</strong></span>
+            </div>
+            <p class="mod-row-desc">${escapeHtml(item.summary || item.description || 'Sin descripción disponible.')}</p>
+            <div class="mod-row-categories">
+              ${categoryPillsHtml}
+            </div>
+          </div>
+          <div class="mod-row-right">
+            <div class="mod-row-action-top">
+              ${installedActionHtml}
+            </div>
+            <div class="mod-row-meta-bottom">
+              <span class="meta-stat" title="Descargas">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+                ${escapeHtml(formattedDownloads)}
+              </span>
+              <span class="meta-stat" title="Última actualización">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                ${escapeHtml(relativeDate)}
+              </span>
+              ${formattedSize ? `
+              <span class="meta-stat" title="Tamaño del archivo">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                ${escapeHtml(formattedSize)}
+              </span>` : ''}
+              <span class="meta-stat" title="Versión compatible de Minecraft">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="8" cy="12" r="1.5"/><circle cx="16" cy="12" r="1.5"/></svg>
+                ${escapeHtml(gameVersionBadge)}
+              </span>
+              <span class="meta-stat" title="Entorno">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                ${escapeHtml(environmentStr)}
+              </span>
+              <span class="meta-stat loader-stat" title="Modloader compatible">
+                ${loaderSvg}
+                <span>${escapeHtml(loaderBadgeStr)}</span>
+              </span>
+            </div>
+          </div>
+        `;
+      } else {
+        card.innerHTML = `
+          <div class="mod-card-top">
+            <img src="${escapeHtml(iconSrc)}" class="mod-card-icon" alt="Icon" onerror="this.src='https://mc-heads.net/avatar/Steve/48'">
+            <div class="mod-card-body">
+              <div class="mod-card-title-row">
+                <span class="mod-card-title" title="${escapeHtml(item.title || item.name)}">${escapeHtml(item.title || item.name)}</span>
+                <span class="badge ${sourceClass}">${escapeHtml(sourceName.toUpperCase())}</span>
+              </div>
+              <div class="mod-card-author">de ${escapeHtml(item.author || 'Autor')}</div>
+              <div class="mod-card-desc" title="${escapeHtml(item.summary || item.description)}">${escapeHtml(item.summary || item.description || 'Sin descripción disponible.')}</div>
+            </div>
+          </div>
+          <div class="mod-card-footer">
+            <span class="hint">${escapeHtml(formattedDownloads)} descargas</span>
+            ${installedActionHtml}
+          </div>
+        `;
+      }
+
+      card.style.cursor = 'pointer';
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('button') || e.target.closest('a') || e.target.closest('.btn-download-content')) return;
+        openModDetailModal(item);
+      });
+
+      container.appendChild(card);
+    });
+
+    // Wire listeners for download buttons
+    container.querySelectorAll('.btn-download-content').forEach((btn) => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const target = e.currentTarget;
+        const projectId = target.getAttribute('data-id');
+        const itemSource = target.getAttribute('data-source');
+        const itemTitle = target.getAttribute('data-title');
+        const itemIcon = target.getAttribute('data-icon') || '';
+
+        target.disabled = true;
+        target.innerHTML = '<span>Descargando...</span>';
+
+        appendLog(`[Descarga] Obteniendo "${itemTitle}" (${catLabel || 'Proyecto'})...`, 'info');
+
+        try {
+          const targetInstance = activeProfileRef?.instancePath || null;
+          const res = await api.content.download({
+            projectId,
+            source: itemSource,
+            contentType: currentContentType,
+            mcVersion,
+            loader,
+            instancePath: targetInstance,
+            iconUrl: itemIcon,
+            title: itemTitle
+          });
+
+          if (res.success) {
+            if (currentContentType === 'modpacks') {
+              const packName = res.profile?.name || res.item?.profile?.name || itemTitle;
+              appendLog(`[Modpack] ¡Modpack "${packName}" instalado con éxito como nueva instancia!`, 'success');
+              target.innerHTML = '<span>Instalado</span>';
+              try {
+                const newProfileId = res.profile?.id || res.item?.profile?.id;
+                if (newProfileId) {
+                  await api.profiles.setActive(newProfileId);
+                }
+                await loadProfiles();
+                switchMainView('profiles');
+              } catch (uiErr) {
+                console.warn('[Modpack UI] Advertencia al refrescar vista de instancias:', uiErr);
+                appendLog(`[Modpack UI] Advertencia al refrescar vista de instancias: ${uiErr.message}`, 'warn');
+              }
+            } else {
+              appendLog(`[Descarga] ¡"${itemTitle}" instalado con éxito! Archivo: ${res.fileName}`, 'success');
+              target.className = 'badge-catalog-updated';
+              target.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Actualizado</span>`;
+              target.disabled = true;
+              await loadInstalledMods();
+            }
+          } else {
+            throw new Error(res.error || 'Error desconocido al descargar.');
+          }
+        } catch (err) {
+          target.disabled = false;
+          target.innerHTML = '<span>Reintentar</span>';
+          appendLog(`[Descarga Error] ${err.message}`, 'error');
+          alert(`Error al descargar ${itemTitle}: ${err.message}`);
+        }
+      });
+    });
+  }
+
   if (btnCatalogViewList) {
     btnCatalogViewList.addEventListener('click', () => {
       catalogViewMode = 'list';
       btnCatalogViewList.classList.add('active');
       if (btnCatalogViewGrid) btnCatalogViewGrid.classList.remove('active');
-      if (modsSearchResults) {
+      if (lastCatalogResults.length > 0) {
+        renderCatalogItems(lastCatalogResults, modsSearchResults, lastCatalogInstalledMap, lastCatalogActiveProfileRef, lastCatalogMcVersion, lastCatalogLoader, lastCatalogCatLabel);
+      } else if (modsSearchResults) {
         modsSearchResults.className = 'catalog-list-view';
       }
     });
@@ -4465,7 +4762,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       catalogViewMode = 'grid';
       btnCatalogViewGrid.classList.add('active');
       if (btnCatalogViewList) btnCatalogViewList.classList.remove('active');
-      if (modsSearchResults) {
+      if (lastCatalogResults.length > 0) {
+        renderCatalogItems(lastCatalogResults, modsSearchResults, lastCatalogInstalledMap, lastCatalogActiveProfileRef, lastCatalogMcVersion, lastCatalogLoader, lastCatalogCatLabel);
+      } else if (modsSearchResults) {
         modsSearchResults.className = 'catalog-grid';
       }
     });
@@ -4822,217 +5121,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (m.name) installedMap.set(m.name.toLowerCase(), m);
       });
 
-      modsSearchResults.innerHTML = '';
-      results.forEach((item) => {
-        const card = document.createElement('div');
-        card.className = catalogViewMode === 'list' ? 'catalog-mod-row' : 'mod-card';
+      lastCatalogResults = results;
+      lastCatalogInstalledMap = installedMap;
+      lastCatalogActiveProfileRef = activeProfileRef;
+      lastCatalogMcVersion = mcVersion;
+      lastCatalogLoader = loader;
+      lastCatalogCatLabel = catLabel;
 
-        const sourceClass = item.source === 'curseforge' ? 'badge-curseforge' : 'badge-modrinth';
-        const sourceName = item.source === 'curseforge' ? 'CurseForge' : 'Modrinth';
-        const iconSrc = item.iconUrl || 'https://raw.githubusercontent.com/FortAwesome/Font-Awesome/6.x/svgs/solid/cube.svg';
-        const formattedDownloads = formatDownloads(item.downloads);
-        const relativeDate = formatRelativeDate(item.dateModified);
-        const formattedSize = item.fileSize ? formatFileSize(item.fileSize) : '';
-
-        // Comprobación de instalación en tiempo real
-        const isInstalled = installedMap.has(String(item.id).toLowerCase()) ||
-                            installedMap.has((item.slug || '').toLowerCase()) ||
-                            installedMap.has((item.title || '').toLowerCase());
-        const installedMod = isInstalled ? (installedMap.get(String(item.id).toLowerCase()) || installedMap.get((item.slug || '').toLowerCase()) || installedMap.get((item.title || '').toLowerCase())) : null;
-        const isOutdated = isInstalled && installedMod && (
-          (installedMod.fileId && item.latestFileId && String(installedMod.fileId) !== String(item.latestFileId)) ||
-          (installedMod.version && item.latestVersion && installedMod.version !== item.latestVersion)
-        );
-
-        let actionButtonText = 'Instalar';
-        if (currentContentType === 'resourcepacks') actionButtonText = 'Descargar';
-        else if (currentContentType === 'shaders') actionButtonText = 'Descargar';
-        else if (currentContentType === 'modpacks') actionButtonText = 'Instalar Pack';
-
-        let installedActionHtml = '';
-        if (!isInstalled) {
-          installedActionHtml = `
-            <button type="button" class="btn btn-small btn-install-catalog btn-download-content" data-id="${escapeHtml(item.id)}" data-source="${escapeHtml(item.source)}" data-title="${escapeHtml(item.title)}" data-icon="${escapeHtml(item.iconUrl || '')}">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
-              <span>${actionButtonText}</span>
-            </button>
-          `;
-        } else if (isOutdated) {
-          installedActionHtml = `
-            <button type="button" class="btn btn-small btn-catalog-update btn-download-content" data-id="${escapeHtml(item.id)}" data-source="${escapeHtml(item.source)}" data-title="${escapeHtml(item.title)}" data-icon="${escapeHtml(item.iconUrl || '')}">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 11 12 6 7 11"/><line x1="12" y1="6" x2="12" y2="18"/></svg>
-              <span>Actualizar</span>
-            </button>
-          `;
-        } else {
-          installedActionHtml = `
-            <div class="badge-catalog-updated">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-              <span>Actualizado</span>
-            </div>
-          `;
-        }
-
-        // Categorías
-        const categoriesList = Array.isArray(item.categories) ? item.categories.slice(0, 4) : [];
-        const categoryPillsHtml = categoriesList.length > 0
-          ? categoriesList.map((c) => `<span class="category-pill-tag">${escapeHtml(c)}</span>`).join('')
-          : `<span class="category-pill-tag">${escapeHtml(catLabel)}</span>`;
-
-        // Versiones de Minecraft compatibles
-        const gVers = Array.isArray(item.gameVersions) && item.gameVersions.length > 0 ? item.gameVersions : [mcVersion || '1.21.1'];
-        const gameVersionBadge = gVers.length > 1 ? `${gVers[0]} +${gVers.length - 1}` : gVers[0];
-
-        // Modloader compatible
-        const itemLoaders = Array.isArray(item.loaders) && item.loaders.length > 0 ? item.loaders : [loader || 'NeoForge'];
-        const primaryLoader = itemLoaders[0];
-        const loaderBadgeStr = itemLoaders.length > 1 ? `${primaryLoader} +${itemLoaders.length - 1}` : primaryLoader;
-        const loaderSvg = getLoaderSvgIcon(primaryLoader);
-
-        // Entorno (Client / Server)
-        let environmentStr = 'Client and Server';
-        if (item.clientSide === 'required' && item.serverSide === 'unsupported') environmentStr = 'Client';
-        else if (item.serverSide === 'required' && item.clientSide === 'unsupported') environmentStr = 'Server';
-
-        if (catalogViewMode === 'list') {
-          card.innerHTML = `
-            <div class="mod-row-left">
-              <img src="${escapeHtml(iconSrc)}" class="mod-row-thumb" alt="Icon" onerror="this.src='https://mc-heads.net/avatar/Steve/64'">
-            </div>
-            <div class="mod-row-center">
-              <div class="mod-row-header">
-                <span class="mod-source-icon ${sourceClass}">${escapeHtml(sourceName)}</span>
-                <h3 class="mod-row-title" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</h3>
-                <span class="mod-row-author">por <strong>${escapeHtml(item.author)}</strong></span>
-              </div>
-              <p class="mod-row-desc">${escapeHtml(item.summary || 'Sin descripción disponible.')}</p>
-              <div class="mod-row-categories">
-                ${categoryPillsHtml}
-              </div>
-            </div>
-            <div class="mod-row-right">
-              <div class="mod-row-action-top">
-                ${installedActionHtml}
-              </div>
-              <div class="mod-row-meta-bottom">
-                <span class="meta-stat" title="Descargas">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
-                  ${escapeHtml(formattedDownloads)}
-                </span>
-                <span class="meta-stat" title="Última actualización">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                  ${escapeHtml(relativeDate)}
-                </span>
-                ${formattedSize ? `
-                <span class="meta-stat" title="Tamaño del archivo">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-                  ${escapeHtml(formattedSize)}
-                </span>` : ''}
-                <span class="meta-stat" title="Versión compatible de Minecraft">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="8" cy="12" r="1.5"/><circle cx="16" cy="12" r="1.5"/></svg>
-                  ${escapeHtml(gameVersionBadge)}
-                </span>
-                <span class="meta-stat" title="Entorno">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-                  ${escapeHtml(environmentStr)}
-                </span>
-                <span class="meta-stat loader-stat" title="Modloader compatible">
-                  ${loaderSvg}
-                  <span>${escapeHtml(loaderBadgeStr)}</span>
-                </span>
-              </div>
-            </div>
-          `;
-        } else {
-          card.innerHTML = `
-            <div class="mod-card-top">
-              <img src="${escapeHtml(iconSrc)}" class="mod-card-icon" alt="Icon" onerror="this.src='https://mc-heads.net/avatar/Steve/48'">
-              <div class="mod-card-body">
-                <div class="mod-card-title-row">
-                  <span class="mod-card-title" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</span>
-                  <span class="badge ${sourceClass}">${escapeHtml(sourceName.toUpperCase())}</span>
-                </div>
-                <div class="mod-card-author">de ${escapeHtml(item.author)}</div>
-                <div class="mod-card-desc" title="${escapeHtml(item.summary)}">${escapeHtml(item.summary || 'Sin descripción disponible.')}</div>
-              </div>
-            </div>
-            <div class="mod-card-footer">
-              <span class="hint">${escapeHtml(formattedDownloads)} descargas</span>
-              ${installedActionHtml}
-            </div>
-          `;
-        }
-
-        card.style.cursor = 'pointer';
-        card.addEventListener('click', (e) => {
-          if (e.target.closest('button') || e.target.closest('a') || e.target.closest('.btn-download-content')) return;
-          openModDetailModal(item);
-        });
-
-        modsSearchResults.appendChild(card);
-      });
-
-      document.querySelectorAll('.btn-download-content').forEach((btn) => {
-        btn.addEventListener('click', async (e) => {
-          e.stopPropagation();
-          const target = e.currentTarget;
-          const projectId = target.getAttribute('data-id');
-          const itemSource = target.getAttribute('data-source');
-          const itemTitle = target.getAttribute('data-title');
-          const itemIcon = target.getAttribute('data-icon') || '';
-
-          target.disabled = true;
-          target.innerHTML = '<span>Descargando...</span>';
-
-          appendLog(`[Descarga] Obteniendo "${itemTitle}" (${catLabel})...`, 'info');
-
-          try {
-            const targetInstance = activeProfileRef?.instancePath || null;
-            const res = await api.content.download({
-              projectId,
-              source: itemSource,
-              contentType: currentContentType,
-              mcVersion,
-              loader,
-              instancePath: targetInstance,
-              iconUrl: itemIcon,
-              title: itemTitle
-            });
-
-            if (res.success) {
-              if (currentContentType === 'modpacks') {
-                const packName = res.profile?.name || res.item?.profile?.name || itemTitle;
-                appendLog(`[Modpack] ¡Modpack "${packName}" instalado con éxito como nueva instancia!`, 'success');
-                target.innerHTML = '<span>Instalado</span>';
-                try {
-                  const newProfileId = res.profile?.id || res.item?.profile?.id;
-                  if (newProfileId) {
-                    await api.profiles.setActive(newProfileId);
-                  }
-                  await loadProfiles();
-                  switchMainView('profiles');
-                } catch (uiErr) {
-                  console.warn('[Modpack UI] Advertencia al refrescar vista de instancias:', uiErr);
-                  appendLog(`[Modpack UI] Advertencia al refrescar vista de instancias: ${uiErr.message}`, 'warn');
-                }
-              } else {
-                appendLog(`[Descarga] ¡"${itemTitle}" instalado con éxito! Archivo: ${res.fileName}`, 'success');
-                target.className = 'badge-catalog-updated';
-                target.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Actualizado</span>`;
-                target.disabled = true;
-                await loadInstalledMods();
-              }
-            } else {
-              throw new Error(res.error || 'Error desconocido al descargar.');
-            }
-          } catch (err) {
-            target.disabled = false;
-            target.innerHTML = '<span>Reintentar</span>';
-            appendLog(`[Descarga Error] ${err.message}`, 'error');
-            alert(`Error al descargar ${itemTitle}: ${err.message}`);
-          }
-        });
-      });
+      renderCatalogItems(results, modsSearchResults, installedMap, activeProfileRef, mcVersion, loader, catLabel);
     } catch (err) {
       modsSearchResults.innerHTML = `<div class="empty-state">Error al buscar ${catLabel.toLowerCase()}: ${err.message}</div>`;
       appendLog(`[Catálogo Error] ${err.message}`, 'error');
@@ -5421,7 +5517,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       // 4. Galería de Capturas
-      const screenshots = details.gallery || (details.screenshots || []).map((s) => ({ url: s, title: 'Captura' }));
+      const rawGallery = details.gallery || details.screenshots || [];
+      const screenshots = Array.isArray(rawGallery) ? rawGallery : [];
       if (detailGalleryCount) detailGalleryCount.textContent = screenshots.length;
       if (detailGalleryGrid) {
         if (screenshots.length === 0) {
@@ -5429,17 +5526,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else {
           detailGalleryGrid.innerHTML = '';
           screenshots.forEach((item) => {
-            const shotUrl = item.url;
-            if (!shotUrl) return;
+            const imgUrl = typeof item === 'string' ? item : (item.raw_url || item.url || item.thumbnailUrl);
+            if (!imgUrl) return;
+            const itemTitle = (typeof item === 'object' && item.title) ? item.title : 'Captura';
             const itemDiv = document.createElement('div');
             itemDiv.className = 'gallery-grid-item';
-            itemDiv.innerHTML = `<img src="${escapeHtml(shotUrl)}" alt="${escapeHtml(item.title || 'Captura')}" loading="lazy" />`;
+            itemDiv.innerHTML = `<img src="${escapeHtml(imgUrl)}" alt="${escapeHtml(itemTitle)}" loading="lazy" />`;
             itemDiv.addEventListener('click', () => {
               if (lightboxImage && imageLightbox) {
-                lightboxImage.src = shotUrl;
+                lightboxImage.src = imgUrl;
                 imageLightbox.classList.add('active');
               } else {
-                api.system.openExternal(shotUrl);
+                api.system.openExternal(imgUrl);
               }
             });
             detailGalleryGrid.appendChild(itemDiv);

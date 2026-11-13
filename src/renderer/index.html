@@ -191,18 +191,6 @@
             <p class="view-subtitle">Perfiles independientes con sus propios mods, configuraciones y mundos.</p>
           </div>
           <div class="toolbar-actions">
-            <button id="btn-export-profile-code" class="btn btn-secondary" title="Genera un código corto (ej. SHUBA-9F2A) para compartir esta instancia">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" x2="12" y1="2" y2="15"/></svg>
-              <span>📤 Compartir Código</span>
-            </button>
-            <button id="btn-import-profile-code" class="btn btn-secondary" title="Descarga e instala una instancia con todos sus mods usando un código corto">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-              <span>📥 Importar Código</span>
-            </button>
-            <button id="btn-sync-cloud-instances" class="btn btn-secondary" title="Sincronizar instancia con perfil de amigos en GitHub">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-              <span>🔄 Sincronizar con Amigo</span>
-            </button>
             <button id="btn-import-modpack-instances" class="btn btn-secondary" title="Importar Modpack CurseForge (.zip) o Modrinth (.mrpack)">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
               <span>Importar Modpack</span>
@@ -450,14 +438,6 @@
                   <span>Opciones</span>
                 </button>
                 <div id="instance-options-menu" class="dropdown-menu-popover">
-                  <button id="btn-publish-profile-mods" class="dropdown-item-btn" title="Publicar este perfil para amigos en GitHub (.shubasync.json)">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/><polyline points="12 13 12 7 9 10"/><polyline points="12 7 15 10"/></svg>
-                    <span>Publicar Perfil</span>
-                  </button>
-                  <button id="btn-sync-profile-mods" class="dropdown-item-btn" title="Sincronizar esta instancia con perfil de un amigo en GitHub">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-                    <span>Sincronizar Perfil Amigo</span>
-                  </button>
                   <button id="btn-purge-duplicates" class="dropdown-item-btn" title="Detecta y elimina versiones antiguas duplicadas de un mismo mod">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
                     <span>Purgar Duplicados</span>
@@ -2457,17 +2437,6 @@
             <input type="text" id="input-profile-ram-max" class="text-input" value="8G">
           </div>
         </div>
-
-        <div class="toggle-row" style="margin-top: 10px; margin-bottom: 10px;" id="row-create-shubaclient-ui">
-          <label class="switch-container">
-            <input type="checkbox" id="check-create-shubaclient-ui" checked>
-            <span class="switch-slider"></span>
-          </label>
-          <div class="toggle-info">
-            <strong>✨ Activar Interfaz In-Game ShubaClient (Menú 3D, Wardrobe, Social & Host World)</strong>
-            <small>Inyecta la interfaz oficial de SHUBATECH con menú principal 3D, vestidor de skins (Wardrobe), panel social y sistema P2P Host World con optimización Sodium/ModernFix.</small>
-          </div>
-        </div>
       </div>
       <div class="modal-footer">
         <button id="btn-cancel-modal" class="btn btn-secondary">Cancelar</button>
@@ -2573,17 +2542,6 @@
           <div class="form-group flex-1">
             <label for="input-edit-profile-ram-max">RAM Máxima:</label>
             <input type="text" id="input-edit-profile-ram-max" class="text-input" value="8G">
-          </div>
-        </div>
-
-        <div class="toggle-row" style="margin-top: 10px; margin-bottom: 10px;" id="row-edit-shubaclient-ui">
-          <label class="switch-container">
-            <input type="checkbox" id="check-edit-shubaclient-ui" checked>
-            <span class="switch-slider"></span>
-          </label>
-          <div class="toggle-info">
-            <strong>✨ Activar Interfaz In-Game ShubaClient (Menú 3D, Wardrobe, Social & Host World)</strong>
-            <small>Inyecta la interfaz oficial de SHUBATECH con menú principal 3D, vestidor de skins (Wardrobe), panel social y sistema P2P Host World con optimización Sodium/ModernFix.</small>
           </div>
         </div>
       </div>

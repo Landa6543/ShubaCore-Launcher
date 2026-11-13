@@ -182,16 +182,12 @@ async function runTests() {
   // ----------------------------------------------------
   // 6. VERIFICACIÓN DE CONTROLES EN LA INTERFAZ (DOM)
   // ----------------------------------------------------
-  console.log('▶ [6/6] Verificando switches en la interfaz (General, Crear y Editar)...');
+  console.log('▶ [6/6] Verificando switches en la interfaz (General)...');
   const indexHtml = fs.readFileSync(path.join(__dirname, '../src/renderer/index.html'), 'utf8');
   assert.ok(indexHtml.includes('id="check-enable-shubaclient-ui"'), 'Switch global en ajustes generales debe existir');
-  assert.ok(indexHtml.includes('id="check-create-shubaclient-ui"'), 'Switch en modal de crear instancia debe existir');
-  assert.ok(indexHtml.includes('id="check-edit-shubaclient-ui"'), 'Switch en modal de editar instancia debe existir');
 
   const rendererJs = fs.readFileSync(path.join(__dirname, '../src/renderer/renderer.js'), 'utf8');
   assert.ok(rendererJs.includes('check-enable-shubaclient-ui'), 'renderer.js debe conectar el switch global');
-  assert.ok(rendererJs.includes('check-create-shubaclient-ui'), 'renderer.js debe conectar el switch de creación');
-  assert.ok(rendererJs.includes('check-edit-shubaclient-ui'), 'renderer.js debe conectar el switch de edición');
 
   const launchManagerJs = fs.readFileSync(path.join(__dirname, '../src/main/launcher/LaunchManager.js'), 'utf8');
   assert.ok(launchManagerJs.includes('ClientModPatcher'), 'LaunchManager debe invocar ClientModPatcher');

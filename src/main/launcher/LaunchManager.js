@@ -125,18 +125,18 @@ Client.prototype.startMinecraft = function(launchArguments) {
   // 1. REQUISITO OBLIGATORIO: Prohibir cualquier -javaagent o skin-agent antes del spawn de javaw.exe
   finalArgs = finalArgs.filter((arg) => typeof arg === 'string' && !arg.includes('-javaagent:') && !arg.includes('skin-agent') && !arg.includes('agent.jar'));
 
-  // 2. REQUISITO OBLIGATORIO: Descartar banderas --add-opens no deseadas en Vanilla, pero conservar --add-exports oficiales de Mojang
+  // 2. REQUISITO OBLIGATORIO: Descartar banderas --add-opens y --add-exports en Vanilla
   const isVanilla = this.options?.loader === 'vanilla' || (!this.options?.version?.custom && !this.options?.forge && this.options?.loader !== 'neoforge');
   if (isVanilla) {
     const cleaned = [];
     for (let i = 0; i < finalArgs.length; i++) {
       const arg = finalArgs[i];
       if (typeof arg === 'string') {
-        if (arg === '--add-opens') {
+        if (arg === '--add-opens' || arg === '--add-exports' || arg === '--add-modules') {
           i++; // Omitir el valor asociado (ej: java.base/java.lang=ALL-UNNAMED)
           continue;
         }
-        if (arg.startsWith('--add-opens=')) {
+        if (arg.startsWith('--add-opens=') || arg.startsWith('--add-exports=') || arg.startsWith('--add-modules=')) {
           continue;
         }
       }
@@ -468,12 +468,15 @@ class LaunchManager {
         getControllerMapManager().ensureMappingFile(instancePath);
       } catch (_) {}
 
-      // 5d. Asegurar options.txt forzando lang:es_es y autoJump:false
+      // 5d. Solo inicializar options.txt si no existe en la instancia (evita reescribir y duplicar vanilla en cada arranque)
       try {
-        const { getHudOptionsManager } = require('../hud/HudOptionsManager');
-        getHudOptionsManager().prepareInstanceOptions(instancePath);
+        const optsFile = path.join(instancePath, 'options.txt');
+        if (!fs.existsSync(optsFile)) {
+          const { getHudOptionsManager } = require('../hud/HudOptionsManager');
+          getHudOptionsManager().prepareInstanceOptions(instancePath);
+        }
       } catch (optErr) {
-        logger.warn(`[LaunchManager] Aviso preparando options.txt: ${optErr.message}`);
+        logger.warn(`[LaunchManager] Aviso preparando options.txt inicial: ${optErr.message}`);
       }
 
       // 5e. REQUISITO 1: Purga total de <instanceDir>/natives/ y extracción exclusiva de nativos x64
@@ -488,9 +491,9 @@ class LaunchManager {
       // REQUISITO 3: Quitar -Xmx y -Xms de cleanedJvmArgs para que MCLC no duplique la RAM (dejar sólo el par de opts.memory)
       cleanedJvmArgs = cleanedJvmArgs.filter((arg) => !arg.startsWith('-Xmx') && !arg.startsWith('-Xms'));
 
-      // Si la instancia es Vanilla, descartar banderas --add-opens innecesarias (pero conservar --add-exports oficiales de Mojang)
+      // Si la instancia es Vanilla, descartar todas las banderas --add-opens y --add-exports
       if (isVanilla) {
-        cleanedJvmArgs = cleanedJvmArgs.filter((arg) => typeof arg === 'string' && !arg.startsWith('--add-opens'));
+        cleanedJvmArgs = cleanedJvmArgs.filter((arg) => typeof arg === 'string' && !arg.startsWith('--add-opens') && !arg.startsWith('--add-exports') && !arg.startsWith('--add-modules'));
       }
 
       // Filtrar flags exclusivas de JPMS / NeoForge (--module-path y ALL-MODULE-PATH) si el loader es Fabric, Quilt o Vanilla
@@ -657,22 +660,9 @@ class LaunchManager {
         const optsFile = path.join(instancePath, 'options.txt');
         if (fs.existsSync(optsFile)) {
           let content = fs.readFileSync(optsFile, 'utf8');
+          let modified = false;
 
-          // Resetear protected graphics mode o presets forzados por cierres previos
-          if (content.includes('graphicsPreset:"protected"') || content.includes('graphicsPreset:"safe"')) {
-            content = content.replace(/graphicsPreset:"(protected|safe)"/g, 'graphicsPreset:"custom"');
-          }
-          if (content.includes('preferredGraphicsBackend:"protected"')) {
-            content = content.replace(/preferredGraphicsBackend:"protected"/g, 'preferredGraphicsBackend:"vulkan"');
-          }
-
-          // REQUISITO 3: Limpiar resourcePacks para evitar duplicar "vanilla" (evita Reloading ResourceManager: vanilla, vanilla)
-          content = content
-            .replace(/resourcePacks:\s*\[\s*"vanilla"\s*\]/g, 'resourcePacks:[]')
-            .replace(/resourcePacks:\s*\[\s*'vanilla'\s*\]/g, 'resourcePacks:[]')
-            .replace(/"vanilla",\s*"vanilla"/g, '"vanilla"');
-
-          if (content.includes('Shuba')) {
+          if (content.includes('ShubaSkinOverride') || content.includes('ShubaCoreSplash')) {
             content = content
               .replace(/"file\/ShubaSkinOverride",?/g, '')
               .replace(/,?"file\/ShubaSkinOverride"/g, '')
@@ -684,9 +674,13 @@ class LaunchManager {
               .replace(/,?"ShubaCoreSplash"/g, '')
               .replace(/\[\s*,/g, '[')
               .replace(/,\s*\]/g, ']');
+            modified = true;
           }
-          fs.writeFileSync(optsFile, content, 'utf8');
-          logger.info(`[LaunchManager] ✅ options.txt y directorio de instancia saneados en: ${optsFile}`);
+
+          if (modified) {
+            fs.writeFileSync(optsFile, content, 'utf8');
+            logger.info(`[LaunchManager] ✅ options.txt saneado en: ${optsFile}`);
+          }
         }
       } catch (cleanErr) {
         logger.warn(`[LaunchManager] Aviso al purgar archivos temporales y resourcepacks: ${cleanErr.message}`);
@@ -830,17 +824,13 @@ class LaunchManager {
   _checkGameStartedLog(line, sessionId, profileName) {
     if (this.hasGameStarted) return;
 
-    // REQUISITO 2: Detectar que el juego está listo ÚNICAMENTE por stdout genuino
-    // tras estabilizar Vulkan/OpenGL, carga de atlas de texturas o motor de sonido.
-    // Cero interferencia durante la creación del swapchain en la GPU.
+    // Detectar que el juego está listo en el menú principal
+    // PROHIBIDO disparar durante creación de atlas/texturas o swapchain Vulkan en la GPU
     const isReady =
       line.includes('Sound engine started') ||
-      (line.includes('Created: ') && (line.includes('atlas') || line.includes('textures') || line.includes('minecraft:textures/atlas/'))) ||
-      line.includes('Reloading ResourceManager completed') ||
       line.includes('Narrator library for') ||
-      line.includes('Finished reloading') ||
-      line.includes('Loaded 0 textures') ||
-      line.includes('Loaded 1 textures');
+      line.includes('Backend library: LWJGL') ||
+      line.includes('Setting user:');
 
     if (isReady) {
       this._handleGameWindowReady(sessionId, profileName);

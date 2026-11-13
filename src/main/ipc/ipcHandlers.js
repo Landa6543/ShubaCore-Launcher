@@ -101,9 +101,6 @@ function registerIpcHandlers(mainWindow) {
           try {
             mainWindow.webContents.setBackgroundThrottling(true);
             mainWindow.webContents.send('app:freeze-ui', true);
-            if (mainWindow.webContents.session) {
-              mainWindow.webContents.session.clearCache().catch(() => {});
-            }
           } catch (_) {}
           mainWindow.hide();
         }
