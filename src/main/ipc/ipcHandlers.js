@@ -4,7 +4,7 @@
  * Connects the Electron Main Process with the Preload Bridge securely
  */
 
-const { ipcMain, dialog, shell } = require('electron');
+const { app, ipcMain, dialog, shell, BrowserWindow } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -2048,7 +2048,9 @@ function registerIpcHandlers(mainWindow) {
   // ==========================================
   // FONDO PERSONALIZADO DE LA INTERFAZ
   // ==========================================
-  const customBgDir = path.join(app.getPath('userData'), 'custom-bg');
+  const customBgDir = (app && typeof app.getPath === 'function')
+    ? path.join(app.getPath('userData'), 'custom-bg')
+    : path.join(configManager.getInstanceDirectory(), 'custom-bg');
   if (!fs.existsSync(customBgDir)) {
     try { fs.mkdirSync(customBgDir, { recursive: true }); } catch (_) {}
   }
