@@ -3453,6 +3453,29 @@ document.addEventListener('DOMContentLoaded', async () => {
       container.innerHTML = '<div class="empty-state">No hay datapacks instalados en esta instancia todavía.</div>';
     }
   }
+
+  // --- GESTOR DE SHADERS INSTALADOS ---
+  async function loadInstalledShaders() {
+    const targetInstance = currentActiveProfile?.instancePath || null;
+    const container = document.getElementById('shaders-installed-list');
+    const badgeCount = document.getElementById('badge-subtab-shaders');
+    const headerBadge = document.getElementById('installed-shaders-count-badge');
+    if (!container) return;
+
+    container.innerHTML = '<div class="empty-state">Buscando shaders instalados en shaderpacks/...</div>';
+
+    try {
+      const shaders = await api.instancePacks.list({ instancePath: targetInstance, type: 'shaders' });
+      const list = Array.isArray(shaders) ? shaders : [];
+      if (badgeCount) badgeCount.textContent = list.length;
+      if (headerBadge) headerBadge.textContent = `${list.length} shader${list.length === 1 ? '' : 's'}`;
+
+      if (list.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state" style="padding: 30px 20px;">
+            <p style="font-size: 14px; margin-bottom: 6px;">No hay shaders instalados en esta instancia todavía.</p>
+            <small style="color: var(--text-dim);">Haz clic en "➕ Buscar Shaders en Catálogo" para explorar e instalar shaders compatibles.</small>
+          </div>
         `;
         return;
       }
