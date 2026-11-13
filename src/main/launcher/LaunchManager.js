@@ -116,6 +116,55 @@ Handler.prototype.getNatives = async function() {
   return origGetNatives.call(this);
 };
 
+// Interceptar startMinecraft de MCLC para filtrar args finales antes del spawn de javaw.exe
+const origStartMinecraft = Client.prototype.startMinecraft;
+Client.prototype.startMinecraft = function(launchArguments) {
+  let finalArgs = Array.isArray(launchArguments) ? [...launchArguments] : [];
+
+  // 1. REQUISITO OBLIGATORIO: Prohibir cualquier -javaagent o skin-agent antes del spawn de javaw.exe
+  finalArgs = finalArgs.filter((arg) => typeof arg === 'string' && !arg.includes('-javaagent:') && !arg.includes('skin-agent') && !arg.includes('agent.jar'));
+
+  // 2. REQUISITO OBLIGATORIO: Descartar banderas --add-opens no deseadas en Vanilla, pero conservar --add-exports oficiales de Mojang
+  const isVanilla = this.options?.loader === 'vanilla' || (!this.options?.version?.custom && !this.options?.forge && this.options?.loader !== 'neoforge');
+  if (isVanilla) {
+    const cleaned = [];
+    for (let i = 0; i < finalArgs.length; i++) {
+      const arg = finalArgs[i];
+      if (typeof arg === 'string') {
+        if (arg === '--add-opens') {
+          i++; // Omitir el valor asociado (ej: java.base/java.lang=ALL-UNNAMED)
+          continue;
+        }
+        if (arg.startsWith('--add-opens=')) {
+          continue;
+        }
+      }
+      cleaned.push(arg);
+    }
+    finalArgs = cleaned;
+  }
+
+  // 3. REQUISITO OBLIGATORIO: Dejar UN SOLO par de -Xms y -Xmx
+  let seenXms = false;
+  let seenXmx = false;
+  const deduped = [];
+  for (const arg of finalArgs) {
+    if (typeof arg === 'string') {
+      if (arg.startsWith('-Xms')) {
+        if (seenXms) continue;
+        seenXms = true;
+      } else if (arg.startsWith('-Xmx')) {
+        if (seenXmx) continue;
+        seenXmx = true;
+      }
+    }
+    deduped.push(arg);
+  }
+  finalArgs = deduped;
+
+  return origStartMinecraft.call(this, finalArgs);
+};
+
 class LaunchManager {
   constructor() {
     this.configManager = getConfigManager();
@@ -353,8 +402,9 @@ class LaunchManager {
         logger.info(`[NeoForge JVM] Inyectados ${parsedLoaderJvmArgs.length} argumentos JVM unificados desde ${customVersionName}.json`);
       }
 
-      // Flags obligatorias de reflexión para UnionFileSystem y BootstrapLauncher en Java 21
-      const mandatoryReflectionFlags = [
+      // REQUISITO 3: NO agregar flags --add-opens ni --add-exports cuando la instancia sea vanilla
+      const isVanilla = loader === 'vanilla' || (!customVersionName && loader !== 'neoforge' && loader !== 'forge');
+      const mandatoryReflectionFlags = isVanilla ? [] : [
         '--add-opens=java.base/java.lang.invoke=ALL-UNNAMED',
         '--add-opens=java.base/java.nio=ALL-UNNAMED',
         '--add-opens=java.base/java.lang=ALL-UNNAMED',
@@ -377,7 +427,7 @@ class LaunchManager {
             continue;
           }
           // PROHIBIDO cualquier -javaagent: en los argumentos JVM (elimina crash 3221225477)
-          if (a.startsWith('-javaagent:') || a.startsWith('-javaagent') || a.includes('skin-agent') || a.includes('controller-agent') || a.includes('agent.jar')) {
+          if (a.includes('-javaagent:') || a.includes('skin-agent') || a.includes('controller-agent') || a.includes('agent.jar')) {
             continue;
           }
           if (!seenArgs.has(a)) {
@@ -402,13 +452,21 @@ class LaunchManager {
       }
 
       // 5e. REQUISITO 1: Purga total de <instanceDir>/natives/ y extracción exclusiva de nativos x64
-      const instanceNativesDir = this._prepareCleanNatives(instancePath, sharedRoot);
+      const instanceNativesDir = this._prepareCleanNatives(instancePath, sharedRoot, mcVersion, customVersionName);
 
       // 5f. REQUISITO 2: Verificar integridad de assets (evitar crash de lwjgl_freetype con unifont) y asegurar es_es.json
       await this._verifyAndFixAssets(sharedRoot, mcVersion, customVersionName);
 
       // Inyectar rutas limpias de nativos en las flags de Java (reemplazando cualquier ruta anterior)
       let cleanedJvmArgs = finalJvmArgs.filter((arg) => !arg.startsWith('-Djava.library.path=') && !arg.startsWith('-Dorg.lwjgl.librarypath='));
+
+      // REQUISITO 3: Quitar -Xmx y -Xms de cleanedJvmArgs para que MCLC no duplique la RAM (dejar sólo el par de opts.memory)
+      cleanedJvmArgs = cleanedJvmArgs.filter((arg) => !arg.startsWith('-Xmx') && !arg.startsWith('-Xms'));
+
+      // Si la instancia es Vanilla, descartar banderas --add-opens innecesarias (pero conservar --add-exports oficiales de Mojang)
+      if (isVanilla) {
+        cleanedJvmArgs = cleanedJvmArgs.filter((arg) => typeof arg === 'string' && !arg.startsWith('--add-opens'));
+      }
 
       // Filtrar flags exclusivas de JPMS / NeoForge (--module-path y ALL-MODULE-PATH) si el loader es Fabric, Quilt o Vanilla
       if (loader === 'fabric' || loader === 'quilt' || loader === 'vanilla') {
@@ -425,8 +483,7 @@ class LaunchManager {
       cleanedJvmArgs = cleanedJvmArgs.filter((arg) => {
         if (typeof arg !== 'string') return false;
         const trimmed = arg.trim();
-        if (trimmed.startsWith('-javaagent:') || trimmed.startsWith('-javaagent')) return false;
-        if (trimmed.includes('skin-agent') || trimmed.includes('controller-agent') || trimmed.includes('agent.jar')) return false;
+        if (trimmed.includes('-javaagent:') || trimmed.includes('skin-agent') || trimmed.includes('controller-agent') || trimmed.includes('agent.jar')) return false;
         return true;
       });
 
@@ -519,59 +576,48 @@ class LaunchManager {
       // ClientModPatcher live injection eliminado.
       const isShubaClientEnabled = false;
 
-      // AUTO-PURGA OBLIGATORIA: Eliminar ShubaSkinOverride y ShubaCoreSplash de disco y options.txt antes del spawn de javaw.exe
+      // REQUISITO 1: BORRAR skin-agent.jar DEL DISCO SI EXISTE
       try {
-        const rpDir = path.join(instancePath, 'resourcepacks');
-        const badPacks = [
-          path.join(rpDir, 'ShubaSkinOverride'),
-          path.join(rpDir, 'ShubaSkinOverride.zip'),
-          path.join(rpDir, 'ShubaCoreSplash'),
-          path.join(rpDir, 'ShubaCoreSplash.zip')
+        const badAgentFiles = [
+          path.join(sharedRoot, 'runtime', 'skin-agent.jar'),
+          path.join(sharedRoot, 'skin-agent.jar'),
+          'C:\\Users\\soybe\\AppData\\Roaming\\.shubacore\\runtime\\skin-agent.jar'
         ];
-        for (const bad of badPacks) {
-          if (fs.existsSync(bad)) {
+        for (const f of badAgentFiles) {
+          if (fs.existsSync(f)) {
             try {
-              fs.rmSync(bad, { recursive: true, force: true });
-              logger.info(`[LaunchManager] ✅ Paquete incompatible purgado de disco: ${bad}`);
+              fs.rmSync(f, { force: true });
+              logger.info(`[LaunchManager] ✅ skin-agent.jar eliminado de: ${f}`);
             } catch (_) {}
           }
         }
+      } catch (_) {}
+
+      // REQUISITO 2: BORRAR ShubaSkinOverride Y LIMPIAR options.txt ANTES DE LANZAR
+      try {
+        const rpDir = path.join(instancePath, 'resourcepacks');
+        fs.rmSync(path.join(rpDir, 'ShubaSkinOverride'), { recursive: true, force: true });
+        fs.rmSync(path.join(rpDir, 'ShubaCoreSplash'), { recursive: true, force: true });
+        fs.rmSync(path.join(rpDir, 'ShubaSkinOverride.zip'), { force: true });
+        fs.rmSync(path.join(rpDir, 'ShubaCoreSplash.zip'), { force: true });
 
         const optsFile = path.join(instancePath, 'options.txt');
         if (fs.existsSync(optsFile)) {
-          const content = fs.readFileSync(optsFile, 'utf8');
-          if (content.includes('ShubaSkinOverride') || content.includes('ShubaCoreSplash')) {
-            const lines = content.split(/\r?\n/);
-            let modified = false;
-            for (let i = 0; i < lines.length; i++) {
-              const trimmed = lines[i].trim();
-              if (trimmed.startsWith('resourcePacks:') || trimmed.startsWith('incompatibleResourcePacks:')) {
-                const colonIdx = lines[i].indexOf(':');
-                const key = lines[i].slice(0, colonIdx);
-                const valStr = lines[i].slice(colonIdx + 1).trim();
-                try {
-                  if (valStr.startsWith('[') && valStr.endsWith(']')) {
-                    const packs = JSON.parse(valStr);
-                    const filtered = packs.filter((p) =>
-                      p !== 'file/ShubaSkinOverride' &&
-                      p !== 'ShubaSkinOverride' &&
-                      p !== 'file/ShubaCoreSplash' &&
-                      p !== 'ShubaCoreSplash'
-                    );
-                    lines[i] = `${key}:${JSON.stringify(filtered)}`;
-                  } else {
-                    lines[i] = `${key}:[]`;
-                  }
-                } catch (_) {
-                  lines[i] = `${key}:[]`;
-                }
-                modified = true;
-              }
-            }
-            if (modified) {
-              fs.writeFileSync(optsFile, lines.join('\n') + '\n', 'utf8');
-              logger.info(`[LaunchManager] ✅ options.txt saneado (purgados ShubaSkinOverride y ShubaCoreSplash) en: ${optsFile}`);
-            }
+          let content = fs.readFileSync(optsFile, 'utf8');
+          if (content.includes('Shuba')) {
+            content = content
+              .replace(/"file\/ShubaSkinOverride",?/g, '')
+              .replace(/,?"file\/ShubaSkinOverride"/g, '')
+              .replace(/"ShubaSkinOverride",?/g, '')
+              .replace(/,?"ShubaSkinOverride"/g, '')
+              .replace(/"file\/ShubaCoreSplash",?/g, '')
+              .replace(/,?"file\/ShubaCoreSplash"/g, '')
+              .replace(/"ShubaCoreSplash",?/g, '')
+              .replace(/,?"ShubaCoreSplash"/g, '')
+              .replace(/\[\s*,/g, '[')
+              .replace(/,\s*\]/g, ']');
+            fs.writeFileSync(optsFile, content, 'utf8');
+            logger.info(`[LaunchManager] ✅ options.txt saneado sin residuos de Shuba en: ${optsFile}`);
           }
         }
       } catch (cleanErr) {
@@ -663,7 +709,31 @@ class LaunchManager {
     }
 
     clientLauncher.on('debug', (e) => {
-      this._emit('launch:debug', e);
+      let text = typeof e === 'string' ? e : String(e);
+      if (text.includes('Launching with arguments')) {
+        const idx = text.indexOf('Launching with arguments');
+        const prefix = text.substring(0, idx + 'Launching with arguments'.length);
+        const argsStr = text.substring(idx + 'Launching with arguments'.length).trim();
+        let tokens = argsStr.split(/\s+/).filter((a) => !a.includes('-javaagent:') && !a.includes('skin-agent') && !a.includes('agent.jar'));
+        if (text.includes('net.minecraft.client.main.Main') && !text.includes('cpw.mods') && !text.includes('neoforge') && !text.includes('forge')) {
+          tokens = tokens.filter((a) => !a.startsWith('--add-opens') && !a.startsWith('--add-exports'));
+        }
+        let seenMs = false;
+        let seenMx = false;
+        const dedupedTokens = [];
+        for (const tk of tokens) {
+          if (tk.startsWith('-Xms')) {
+            if (seenMs) continue;
+            seenMs = true;
+          } else if (tk.startsWith('-Xmx')) {
+            if (seenMx) continue;
+            seenMx = true;
+          }
+          dedupedTokens.push(tk);
+        }
+        text = `${prefix}: ${dedupedTokens.join(' ')}`;
+      }
+      this._emit('launch:debug', text);
     });
 
     clientLauncher.on('data', (e) => {
@@ -950,9 +1020,10 @@ class LaunchManager {
 
   /**
    * REQUISITO 1: Purga total de <instanceDir>/natives/ y extracción exclusiva
-   * de los .jar que terminen exactamente en -natives-windows.jar (64 bits)
+   * de los .jar nativos oficiales de 64 bits para la versión de Minecraft lanzada.
+   * Compatible con estructuras anidadas de LWJGL 3.3/3.4 (windows/x64/...) y alias FreeType/SDL/OpenAL.
    */
-  _prepareCleanNatives(instancePath, sharedRoot) {
+  _prepareCleanNatives(instancePath, sharedRoot, mcVersion = null, customVersionName = null) {
     const instanceNativesDir = path.join(instancePath, 'natives');
     if (fs.existsSync(instanceNativesDir)) {
       try {
@@ -964,8 +1035,56 @@ class LaunchManager {
     fs.mkdirSync(instanceNativesDir, { recursive: true });
 
     const librariesRoot = path.join(sharedRoot, 'libraries');
-    if (fs.existsSync(librariesRoot)) {
-      const AdmZip = require('adm-zip');
+    if (!fs.existsSync(librariesRoot)) {
+      return instanceNativesDir;
+    }
+
+    const AdmZip = require('adm-zip');
+    const targetJars = new Set();
+
+    // 1. Resolver librerías nativas exactas desde el JSON de la versión
+    const targetVersion = customVersionName || mcVersion;
+    if (targetVersion) {
+      const versionsToCheck = [targetVersion];
+      const verJsonPath = path.join(sharedRoot, 'versions', targetVersion, `${targetVersion}.json`);
+      if (fs.existsSync(verJsonPath)) {
+        try {
+          const vData = JSON.parse(fs.readFileSync(verJsonPath, 'utf8'));
+          if (vData.inheritsFrom && !versionsToCheck.includes(vData.inheritsFrom)) {
+            versionsToCheck.push(vData.inheritsFrom);
+          }
+        } catch (_) {}
+      }
+
+      for (const vName of versionsToCheck) {
+        const vFile = path.join(sharedRoot, 'versions', vName, `${vName}.json`);
+        if (!fs.existsSync(vFile)) continue;
+        try {
+          const vJson = JSON.parse(fs.readFileSync(vFile, 'utf8'));
+          if (Array.isArray(vJson.libraries)) {
+            for (const lib of vJson.libraries) {
+              const libName = (lib.name || '').toLowerCase();
+              if (libName.includes('arm64') || libName.includes('x86')) continue;
+
+              const relPath =
+                lib.downloads?.artifact?.path ||
+                lib.downloads?.classifiers?.['natives-windows']?.path ||
+                lib.downloads?.classifiers?.['natives-windows-64']?.path;
+
+              if (relPath && (libName.includes('natives-windows') || relPath.includes('natives-windows'))) {
+                const fullJar = path.join(librariesRoot, relPath);
+                if (fs.existsSync(fullJar)) {
+                  targetJars.add(fullJar);
+                }
+              }
+            }
+          }
+        } catch (_) {}
+      }
+    }
+
+    // 2. Si no se encontraron librerías desde el JSON, o como refuerzo, buscar nativos x64 en librariesRoot
+    if (targetJars.size === 0) {
       const findNativeJars = (dir) => {
         let results = [];
         try {
@@ -976,7 +1095,6 @@ class LaunchManager {
               results = results.concat(findNativeJars(full));
             } else if (entry.isFile()) {
               const lowerName = entry.name.toLowerCase();
-              // Regla estricta: debe terminar exactamente en -natives-windows.jar (64 bits) y no tener arm64 ni x86
               if (lowerName.endsWith('-natives-windows.jar') && !lowerName.includes('arm64') && !lowerName.includes('x86')) {
                 results.push(full);
               }
@@ -985,24 +1103,48 @@ class LaunchManager {
         } catch (_) {}
         return results;
       };
+      const found = findNativeJars(librariesRoot);
+      for (const j of found) targetJars.add(j);
+    }
 
-      const nativeJars = findNativeJars(librariesRoot);
-      logger.info(`[LaunchManager] Extrayendo ${nativeJars.length} jars de nativos oficiales 64-bit Windows en: ${instanceNativesDir}`);
-      for (const jarPath of nativeJars) {
-        try {
-          const zip = new AdmZip(jarPath);
-          const zipEntries = zip.getEntries();
-          for (const zEntry of zipEntries) {
-            if (!zEntry.isDirectory && zEntry.entryName.toLowerCase().endsWith('.dll') && !zEntry.entryName.includes('/')) {
-              const dest = path.join(instanceNativesDir, zEntry.name);
-              fs.writeFileSync(dest, zEntry.getData());
-            }
+    logger.info(`[LaunchManager] Extrayendo DLLs de ${targetJars.size} jars de nativos oficiales 64-bit Windows en: ${instanceNativesDir}`);
+
+    let extractedCount = 0;
+    for (const jarPath of targetJars) {
+      try {
+        const zip = new AdmZip(jarPath);
+        const zipEntries = zip.getEntries();
+        for (const zEntry of zipEntries) {
+          if (zEntry.isDirectory) continue;
+          const entryNameLower = zEntry.entryName.toLowerCase();
+          if (!entryNameLower.endsWith('.dll')) continue;
+          if (entryNameLower.includes('arm64') || entryNameLower.includes('x86') || entryNameLower.includes('ia32')) continue;
+
+          const baseName = path.basename(zEntry.entryName);
+          const dest = path.join(instanceNativesDir, baseName);
+          const data = zEntry.getData();
+          fs.writeFileSync(dest, data);
+          extractedCount++;
+
+          // Alias de compatibilidad indispensables para LWJGL, FreeType, SDL3 y OpenAL
+          const lowerBase = baseName.toLowerCase();
+          if (lowerBase === 'freetype.dll') {
+            fs.writeFileSync(path.join(instanceNativesDir, 'lwjgl_freetype.dll'), data);
+          } else if (lowerBase === 'lwjgl_freetype.dll') {
+            fs.writeFileSync(path.join(instanceNativesDir, 'freetype.dll'), data);
+          } else if (lowerBase === 'sdl3.dll') {
+            fs.writeFileSync(path.join(instanceNativesDir, 'lwjgl_sdl.dll'), data);
+          } else if (lowerBase === 'openal.dll') {
+            fs.writeFileSync(path.join(instanceNativesDir, 'OpenAL32.dll'), data);
+            fs.writeFileSync(path.join(instanceNativesDir, 'OpenAL64.dll'), data);
           }
-        } catch (zipErr) {
-          logger.warn(`[LaunchManager] Aviso extrayendo nativos de ${path.basename(jarPath)}: ${zipErr.message}`);
         }
+      } catch (zipErr) {
+        logger.warn(`[LaunchManager] Aviso extrayendo nativos de ${path.basename(jarPath)}: ${zipErr.message}`);
       }
     }
+
+    logger.info(`[LaunchManager] ✅ Extracción de nativos completada: ${extractedCount} DLLs activas en ${instanceNativesDir}`);
     return instanceNativesDir;
   }
 

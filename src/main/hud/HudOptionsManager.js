@@ -168,45 +168,19 @@ class HudOptionsManager {
         }
         if (trimmed.startsWith('autoJump:')) hasAutoJump = true;
 
-        // Limpieza de paquetes incompatibles de resourcePacks e incompatibleResourcePacks
-        if (trimmed.startsWith('resourcePacks:') && (trimmed.includes('ShubaSkinOverride') || trimmed.includes('ShubaCoreSplash'))) {
-          const valStr = trimmed.slice('resourcePacks:'.length).trim();
-          try {
-            if (valStr.startsWith('[') && valStr.endsWith(']')) {
-              const currentPacks = JSON.parse(valStr);
-              const filtered = currentPacks.filter((p) =>
-                p !== 'file/ShubaSkinOverride' &&
-                p !== 'ShubaSkinOverride' &&
-                p !== 'file/ShubaCoreSplash' &&
-                p !== 'ShubaCoreSplash'
-              );
-              lines[i] = `resourcePacks:${JSON.stringify(filtered)}`;
-            } else {
-              lines[i] = 'resourcePacks:[]';
-            }
-          } catch (_) {
-            lines[i] = 'resourcePacks:[]';
-          }
-          modified = true;
-        }
-        if (trimmed.startsWith('incompatibleResourcePacks:') && (trimmed.includes('ShubaSkinOverride') || trimmed.includes('ShubaCoreSplash'))) {
-          const valStr = trimmed.slice('incompatibleResourcePacks:'.length).trim();
-          try {
-            if (valStr.startsWith('[') && valStr.endsWith(']')) {
-              const currentPacks = JSON.parse(valStr);
-              const filtered = currentPacks.filter((p) =>
-                p !== 'file/ShubaSkinOverride' &&
-                p !== 'ShubaSkinOverride' &&
-                p !== 'file/ShubaCoreSplash' &&
-                p !== 'ShubaCoreSplash'
-              );
-              lines[i] = `incompatibleResourcePacks:${JSON.stringify(filtered)}`;
-            } else {
-              lines[i] = 'incompatibleResourcePacks:[]';
-            }
-          } catch (_) {
-            lines[i] = 'incompatibleResourcePacks:[]';
-          }
+        // Limpieza de paquetes incompatibles de resourcePacks e incompatibleResourcePacks y cualquier config legada
+        if (trimmed.includes('ShubaSkinOverride') || trimmed.includes('ShubaCoreSplash')) {
+          lines[i] = lines[i]
+            .replace(/"file\/ShubaSkinOverride",?/g, '')
+            .replace(/,?"file\/ShubaSkinOverride"/g, '')
+            .replace(/"ShubaSkinOverride",?/g, '')
+            .replace(/,?"ShubaSkinOverride"/g, '')
+            .replace(/"file\/ShubaCoreSplash",?/g, '')
+            .replace(/,?"file\/ShubaCoreSplash"/g, '')
+            .replace(/"ShubaCoreSplash",?/g, '')
+            .replace(/,?"ShubaCoreSplash"/g, '')
+            .replace(/\[\s*,/g, '[')
+            .replace(/,\s*\]/g, ']');
           modified = true;
         }
       }
