@@ -7,6 +7,7 @@
 
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const { app } = require('electron');
 const { Client } = require('minecraft-launcher-core');
 const Handler = require('minecraft-launcher-core/components/handler');
@@ -487,6 +488,9 @@ class LaunchManager {
         return true;
       });
 
+      // REQUISITO 3: Diagnóstico de crash HotSpot VM (hs_err_pid)
+      const hsErrPattern = path.join(instancePath, 'hs_err_pid%p.log');
+      cleanedJvmArgs.unshift(`-XX:ErrorFile=${hsErrPattern}`);
       cleanedJvmArgs.push(`-Djava.library.path=${instanceNativesDir}`);
       cleanedJvmArgs.push(`-Dorg.lwjgl.librarypath=${instanceNativesDir}`);
 
@@ -593,7 +597,7 @@ class LaunchManager {
         }
       } catch (_) {}
 
-      // REQUISITO 2: BORRAR ShubaSkinOverride Y LIMPIAR options.txt ANTES DE LANZAR
+      // REQUISITO 2: BORRAR ShubaSkinOverride, PURGAR .lock Y LIMPIAR options.txt ANTES DE LANZAR
       try {
         const rpDir = path.join(instancePath, 'resourcepacks');
         fs.rmSync(path.join(rpDir, 'ShubaSkinOverride'), { recursive: true, force: true });
@@ -601,9 +605,28 @@ class LaunchManager {
         fs.rmSync(path.join(rpDir, 'ShubaSkinOverride.zip'), { force: true });
         fs.rmSync(path.join(rpDir, 'ShubaCoreSplash.zip'), { force: true });
 
+        // Purgar archivos temporales de bloqueo (.lock/.tmp) en la instancia
+        try {
+          const instanceFiles = fs.readdirSync(instancePath);
+          for (const f of instanceFiles) {
+            if (f.endsWith('.lock') || f === '.lock' || f.endsWith('.tmp')) {
+              try { fs.rmSync(path.join(instancePath, f), { force: true, recursive: true }); } catch (_) {}
+            }
+          }
+        } catch (_) {}
+
         const optsFile = path.join(instancePath, 'options.txt');
         if (fs.existsSync(optsFile)) {
           let content = fs.readFileSync(optsFile, 'utf8');
+
+          // Resetear protected graphics mode o presets forzados por cierres previos
+          if (content.includes('graphicsPreset:"protected"') || content.includes('graphicsPreset:"safe"')) {
+            content = content.replace(/graphicsPreset:"(protected|safe)"/g, 'graphicsPreset:"custom"');
+          }
+          if (content.includes('preferredGraphicsBackend:"protected"')) {
+            content = content.replace(/preferredGraphicsBackend:"protected"/g, 'preferredGraphicsBackend:"vulkan"');
+          }
+
           if (content.includes('Shuba')) {
             content = content
               .replace(/"file\/ShubaSkinOverride",?/g, '')
@@ -616,12 +639,12 @@ class LaunchManager {
               .replace(/,?"ShubaCoreSplash"/g, '')
               .replace(/\[\s*,/g, '[')
               .replace(/,\s*\]/g, ']');
-            fs.writeFileSync(optsFile, content, 'utf8');
-            logger.info(`[LaunchManager] ✅ options.txt saneado sin residuos de Shuba en: ${optsFile}`);
           }
+          fs.writeFileSync(optsFile, content, 'utf8');
+          logger.info(`[LaunchManager] ✅ options.txt y directorio de instancia saneados en: ${optsFile}`);
         }
       } catch (cleanErr) {
-        logger.warn(`[LaunchManager] Aviso al purgar resourcepacks incompatibles: ${cleanErr.message}`);
+        logger.warn(`[LaunchManager] Aviso al purgar archivos temporales y resourcepacks: ${cleanErr.message}`);
       }
 
       // 7. ShubaCore Pro - Limpieza de memoria Standby (Anti-Stuttering) antes del despegue
@@ -655,14 +678,7 @@ class LaunchManager {
       this.runningProcesses.set(sessionId, sessionInfo);
       this.isLaunching = false;
 
-      // Garantizar Prioridad Normal para evitar que Java ahogue al driver de GPU (DWM/NVIDIA)
-      try {
-        const os = require('os');
-        if (os.constants?.priority?.PRIORITY_NORMAL !== undefined && gameProcess.pid) {
-          os.setPriority(gameProcess.pid, os.constants.priority.PRIORITY_NORMAL);
-        }
-      } catch (_) {}
-
+      // REQUISITO 2: Cero manipulación de prioridad ni sondas HWND durante inicialización Vulkan
       // Registrar timestamp de último juego en el perfil
       this.profileManager.updateProfile(activeProfile.id, { lastPlayed: new Date().toISOString() });
 
@@ -769,19 +785,19 @@ class LaunchManager {
   _checkGameStartedLog(line, sessionId, profileName) {
     if (this.hasGameStarted) return;
 
-    // Retrasar detección de ventana lista hasta que los recursos y audio estén inicializados
-    const gameReadySignatures = [
-      'Sound engine started',
-      'Sound engine started.',
-      'Created: ',
-      'Backend library: LWJGL',
-      'OpenAL initialized.',
-      'Narrator library for',
-      'Reloading ResourceManager: Default',
-      'Reloading ResourceManager: Vanilla'
-    ];
+    // REQUISITO 2: Detectar que el juego está listo ÚNICAMENTE por stdout genuino
+    // tras estabilizar Vulkan/OpenGL, carga de atlas de texturas o motor de sonido.
+    // Cero interferencia durante la creación del swapchain en la GPU.
+    const isReady =
+      line.includes('Sound engine started') ||
+      (line.includes('Created: ') && (line.includes('atlas') || line.includes('textures') || line.includes('minecraft:textures/atlas/'))) ||
+      line.includes('Reloading ResourceManager completed') ||
+      line.includes('Narrator library for') ||
+      line.includes('Finished reloading') ||
+      line.includes('Loaded 0 textures') ||
+      line.includes('Loaded 1 textures');
 
-    if (gameReadySignatures.some((sig) => line.includes(sig))) {
+    if (isReady) {
       this._handleGameWindowReady(sessionId, profileName);
     }
   }
@@ -794,13 +810,13 @@ class LaunchManager {
     logger.info(`¡La ventana de Minecraft (${profileName || 'Sesión'}) se ha creado y el juego está listo!`);
     logger.info('===========================================================');
 
-    // Retrasar el inicio de ControllerBridge 8 segundos tras abrir la ventana para no interferir con OpenGL y fuentes
+    // Retrasar el inicio de ControllerBridge 15 segundos tras abrir la ventana para no interferir con Vulkan, Swapchain y fuentes
     if (process.platform === 'win32') {
       if (this.controllerBridgeTimer) {
         clearTimeout(this.controllerBridgeTimer);
         this.controllerBridgeTimer = null;
       }
-      logger.info('[Mando] Esperando 8 segundos a que Minecraft estabilice OpenGL y fuentes antes de activar el mando...');
+      logger.info('[Mando] Esperando 15 segundos a que Minecraft estabilice swapchain Vulkan y texturas antes de activar el mando...');
       this.controllerBridgeTimer = setTimeout(() => {
         if (this.runningProcesses.has(sessionId)) {
           try {
@@ -809,12 +825,12 @@ class LaunchManager {
             const pid = session?.pid;
             const instPath = session?.instancePath || this.lastInstancePath;
             getControllerBridge().start(instPath, pid);
-            logger.info(`[Mando] Puente XInput/Gamepad activo para Minecraft (PID: ${pid || 'auto'}) tras 8s de estabilización`);
+            logger.info(`[Mando] Puente XInput/Gamepad activo para Minecraft (PID: ${pid || 'auto'}) tras 15s de estabilización`);
           } catch (bridgeErr) {
             logger.warn(`[LaunchManager] Aviso al iniciar puente de mandos Win32: ${bridgeErr.message}`);
           }
         }
-      }, 8000);
+      }, 15000);
     }
 
     // Emitir evento para que ipcHandlers / main.js oculte la ventana y congele interfaz
@@ -832,7 +848,7 @@ class LaunchManager {
         logger.info(`Tiempo de espera cumplido: la sesión ${sessionId} está activa y estable.`);
         this._handleGameWindowReady(sessionId, profileName);
       }
-    }, 14000);
+    }, 35000);
 
     const handleSessionClose = (code) => {
       clearTimeout(fallbackTimer);
@@ -841,6 +857,14 @@ class LaunchManager {
         this.controllerBridgeTimer = null;
       }
       if (!this.runningProcesses.has(sessionId)) return;
+
+      const session = this.runningProcesses.get(sessionId);
+      const instancePath = session?.instancePath || this.lastInstancePath;
+
+      // REQUISITO 3: Diagnosticar crash nativo (3221225477 / 0xC0000005) inspeccionando hs_err_pid
+      if (code === 3221225477 || code === -1073741819 || code !== 0) {
+        this._checkAndReportHsErr(instancePath, code);
+      }
 
       this.runningProcesses.delete(sessionId);
       logger.info(`[LaunchManager] Sesión ${sessionId} (PID ${gameProcess.pid}) finalizada con código: ${code}. Sesiones activas restantes: ${this.runningProcesses.size}`);
@@ -1000,6 +1024,76 @@ class LaunchManager {
     }
     this._openPathSafely(logsDir);
     return { success: true, path: logsDir };
+  }
+
+  /**
+   * REQUISITO 3: Inspecciona y reporta en consola el Problematic Frame
+   * del volcado hs_err_pid*.log si ocurre una violación de acceso nativa (código 3221225477 / 0xC0000005)
+   */
+  _checkAndReportHsErr(instancePath, code) {
+    try {
+      const candidateDirs = [instancePath, this.lastInstancePath, this.sharedRoot, process.cwd()].filter(Boolean);
+      let latestFile = null;
+      let latestMtime = 0;
+
+      for (const dir of candidateDirs) {
+        if (!fs.existsSync(dir)) continue;
+        try {
+          const files = fs.readdirSync(dir);
+          for (const f of files) {
+            if (f.startsWith('hs_err_pid') && f.endsWith('.log')) {
+              const full = path.join(dir, f);
+              const stat = fs.statSync(full);
+              if (stat.mtimeMs > latestMtime) {
+                latestMtime = stat.mtimeMs;
+                latestFile = full;
+              }
+            }
+          }
+        } catch (_) {}
+      }
+
+      if (!latestFile) {
+        logger.warn(`[LaunchManager] No se encontró archivo hs_err_pid*.log en la instancia para el crash ${code}`);
+        return;
+      }
+
+      const content = fs.readFileSync(latestFile, 'utf8');
+      const lines = content.split(/\r?\n/);
+      const crashReportLines = [];
+      let capturing = false;
+
+      for (let i = 0; i < lines.length; i++) {
+        const l = lines[i];
+        if (l.includes('EXCEPTION_ACCESS_VIOLATION') || l.includes('SIGSEGV') || l.includes('fatal error has been detected')) {
+          capturing = true;
+        }
+        if (capturing) {
+          crashReportLines.push(l);
+          if (l.includes('Problematic frame:')) {
+            if (lines[i + 1]) crashReportLines.push(lines[i + 1]);
+            if (lines[i + 2] && lines[i + 2].startsWith('#')) crashReportLines.push(lines[i + 2]);
+            break;
+          }
+          if (crashReportLines.length > 25) break;
+        }
+      }
+
+      if (crashReportLines.length > 0) {
+        logger.error(`[DIAGNÓSTICO CRASH JVM] Volcado de error nativo detectado (${path.basename(latestFile)}):`);
+        this._emit('launch:debug', `==================== DETECCIÓN DE CRASH NATIVO (${path.basename(latestFile)}) ====================`);
+        for (const cl of crashReportLines) {
+          const cleanLine = cl.replace(/^#\s?/, '').trim();
+          if (cleanLine) {
+            logger.error(`[Crash Frame] ${cleanLine}`);
+            this._emit('launch:debug', `[Crash Frame] ${cleanLine}`);
+          }
+        }
+        this._emit('launch:debug', `===================================================================================`);
+      }
+    } catch (err) {
+      logger.warn(`[LaunchManager] Aviso leyendo hs_err_pid: ${err.message}`);
+    }
   }
 
   openCrashReports(instancePath = null) {
@@ -1229,7 +1323,7 @@ class LaunchManager {
       const objects = indexData.objects || {};
       const toDownload = [];
 
-      // 2. Comprobar existencia y tamaño exacto de cada objeto
+      // 2. Comprobar existencia, tamaño exacto y SHA-1 estricto (especialmente en fuentes/unifont)
       for (const [name, obj] of Object.entries(objects)) {
         if (!obj || !obj.hash || typeof obj.size !== 'number') continue;
         const hash = obj.hash;
@@ -1240,16 +1334,28 @@ class LaunchManager {
 
         let needsDownload = false;
         try {
-          const stat = fs.statSync(objPath);
-          if (stat.size !== expectedSize || stat.size === 0) {
+          if (!fs.existsSync(objPath)) {
             needsDownload = true;
-            try { fs.unlinkSync(objPath); } catch (_) {}
+          } else {
+            const stat = fs.statSync(objPath);
+            if (stat.size !== expectedSize || stat.size === 0) {
+              needsDownload = true;
+            } else if (name.includes('font') || name.includes('unifont')) {
+              // Verificación estricta de hash SHA-1 para paquetes de fuentes (evita Access Violation en FreeType)
+              const fileBuf = fs.readFileSync(objPath);
+              const calculatedHash = crypto.createHash('sha1').update(fileBuf).digest('hex');
+              if (calculatedHash.toLowerCase() !== hash.toLowerCase()) {
+                logger.warn(`[LaunchManager] ⚠️ Asset de fuente con SHA-1 corrupto: "${name}" (${calculatedHash} !== ${hash}). Re-descargando.`);
+                needsDownload = true;
+              }
+            }
           }
         } catch (_) {
           needsDownload = true;
         }
 
         if (needsDownload) {
+          try { if (fs.existsSync(objPath)) fs.unlinkSync(objPath); } catch (_) {}
           toDownload.push({ name, hash, expectedSize, prefix, objDir, objPath });
         }
       }
@@ -1300,7 +1406,19 @@ class LaunchManager {
               file.close(() => {
                 try {
                   const s = fs.statSync(item.objPath);
-                  resolve(s.size === item.expectedSize);
+                  if (s.size !== item.expectedSize) {
+                    try { fs.unlinkSync(item.objPath); } catch (_) {}
+                    return resolve(false);
+                  }
+                  if (item.name.includes('font') || item.name.includes('unifont')) {
+                    const dlBuf = fs.readFileSync(item.objPath);
+                    const dlHash = crypto.createHash('sha1').update(dlBuf).digest('hex');
+                    if (dlHash.toLowerCase() !== item.hash.toLowerCase()) {
+                      try { fs.unlinkSync(item.objPath); } catch (_) {}
+                      return resolve(false);
+                    }
+                  }
+                  resolve(true);
                 } catch (_) {
                   resolve(false);
                 }

@@ -4584,8 +4584,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   api.events.on('launch:debug', (line) => {
-    if (line.includes('Launching') || line.includes('Version') || line.includes('Natives')) {
-      appendLog(`[Debug] ${line}`, 'info');
+    if (line.includes('Launching') || line.includes('Version') || line.includes('Natives') || line.includes('Crash') || line.includes('DETECCIÓN DE CRASH') || line.includes('Problematic frame')) {
+      const level = (line.includes('Crash') || line.includes('Problematic frame') || line.includes('DETECCIÓN')) ? 'error' : 'info';
+      appendLog(`[Debug] ${line}`, level);
     }
   });
 
