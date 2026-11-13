@@ -7,6 +7,7 @@ release/
 
 # Archivos de datos locales y pruebas
 .shubacore-data/
+test/.test*/
 test/.test-data/
 test/.test-mod-instance/
 test/.test-profiles/

@@ -4666,3 +4666,609 @@ body.app-frozen *::after {
   background: rgba(0, 0, 0, 0.3);
   flex-shrink: 0;
 }
+
+/* ========================================================
+   REDISEÑO EXPLORAR CATÁLOGO A PANTALLA COMPLETA (PARTE 2/3)
+   ======================================================== */
+
+/* 1. Cabecera Contextual de Instancia */
+.catalog-instance-context-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 18px;
+  background: linear-gradient(90deg, rgba(30, 41, 59, 0.85) 0%, rgba(15, 23, 42, 0.95) 100%);
+  border-bottom: 1px solid rgba(56, 189, 248, 0.25);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  flex-shrink: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.catalog-instance-context-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.catalog-context-thumb {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: #090a0d;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  flex-shrink: 0;
+}
+
+.catalog-context-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.catalog-context-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #38bdf8;
+  font-weight: 600;
+}
+
+.catalog-context-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.catalog-context-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+}
+
+/* 2. Barra de Búsqueda y Filtros Inteligentes */
+.catalog-search-primary-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.catalog-search-box-large {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 8px 4px 12px;
+  transition: border-color 0.15s ease;
+}
+
+.catalog-search-box-large:focus-within {
+  border-color: #f97316;
+  box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.3);
+}
+
+.catalog-search-box-large input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 13.5px;
+  min-width: 0;
+}
+
+.catalog-actions-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Chips de Filtros Activos */
+.catalog-active-filter-chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  width: 100%;
+  padding: 4px 0 2px 0;
+  box-sizing: border-box;
+}
+
+.catalog-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 3px 10px;
+  font-size: 11.5px;
+  color: #e2e8f0;
+  transition: all 0.15s ease;
+}
+
+.catalog-filter-chip:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.catalog-filter-chip .chip-remove-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #94a3b8;
+  font-size: 13px;
+  line-height: 1;
+  padding: 0 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s;
+}
+
+.catalog-filter-chip .chip-remove-btn:hover {
+  color: #ef4444;
+}
+
+/* Barra de Controles Inteligentes */
+.catalog-smart-controls-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  padding: 4px 0;
+  box-sizing: border-box;
+  flex-wrap: wrap;
+}
+
+.catalog-controls-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.select-catalog-type {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+}
+
+.catalog-controls-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.catalog-count-badge {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.catalog-controls-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.view-mode-toggle-group {
+  display: inline-flex;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px;
+}
+
+.btn-icon-toggle {
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  padding: 5px 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.btn-icon-toggle:hover {
+  color: var(--text-primary);
+}
+
+.btn-icon-toggle.active {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+/* Panel de Filtros Avanzados */
+.catalog-advanced-filters-panel {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 10px 14px;
+  background: rgba(15, 17, 23, 0.6);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  box-sizing: border-box;
+  flex-wrap: wrap;
+  animation: fadeInDown 0.2s ease;
+}
+
+.advanced-filter-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.advanced-filter-item label {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* 3. Filas de Resultados al 100% de Ancho (Estilo CurseForge Completo) */
+.catalog-list-view {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.catalog-mod-row {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  width: 100% !important;
+  min-height: 84px !important;
+  padding: 12px 18px !important;
+  box-sizing: border-box !important;
+  background-color: var(--bg-surface) !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: 10px !important;
+  transition: all 0.15s ease !important;
+  cursor: pointer !important;
+}
+
+.catalog-mod-row:hover {
+  background-color: var(--bg-surface-hover) !important;
+  border-color: #4b5563 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+/* Izquierda: Miniatura 64x64px con GIFs en vivo */
+.mod-row-left {
+  flex-shrink: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.mod-row-thumb {
+  width: 64px !important;
+  height: 64px !important;
+  border-radius: 8px !important;
+  object-fit: cover !important;
+  background-color: #0b0c0f !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  display: block !important;
+}
+
+/* Centro: Información Principal */
+.mod-row-center {
+  flex: 1 !important;
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+}
+
+.mod-row-header {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-wrap: wrap !important;
+}
+
+.mod-source-icon {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.mod-row-title {
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  margin: 0 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.mod-row-author {
+  font-size: 12px !important;
+  color: var(--text-dim) !important;
+  white-space: nowrap !important;
+}
+
+.mod-row-author strong {
+  color: var(--text-secondary);
+}
+
+.mod-row-desc {
+  font-size: 12.5px !important;
+  color: #cbd5e1 !important;
+  line-height: 1.4 !important;
+  margin: 0 !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.mod-row-categories {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  flex-wrap: wrap !important;
+  margin-top: 2px !important;
+}
+
+.category-pill-tag {
+  font-size: 11px !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #94a3b8 !important;
+  padding: 2px 8px !important;
+  border-radius: 12px !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  white-space: nowrap !important;
+}
+
+/* Derecha: Acciones y Metadatos */
+.mod-row-right {
+  flex-shrink: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  min-width: 260px !important;
+}
+
+.mod-row-action-top {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.btn-install-catalog {
+  background: #ea580c !important;
+  color: #ffffff !important;
+  border: 1px solid #c2410c !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  padding: 6px 16px !important;
+  border-radius: 6px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+.btn-install-catalog:hover {
+  background: #f97316 !important;
+  border-color: #ea580c !important;
+}
+
+.btn-catalog-update {
+  background: #059669 !important;
+  color: #ffffff !important;
+  border: 1px solid #047857 !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  padding: 6px 16px !important;
+  border-radius: 6px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+.btn-catalog-update:hover {
+  background: #10b981 !important;
+}
+
+.badge-catalog-updated {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  color: #10b981 !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  padding: 5px 12px !important;
+  background: rgba(16, 185, 129, 0.1) !important;
+  border: 1px solid rgba(16, 185, 129, 0.25) !important;
+  border-radius: 6px !important;
+}
+
+.mod-row-meta-bottom {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  flex-wrap: wrap !important;
+  justify-content: flex-end !important;
+}
+
+.meta-stat {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  font-size: 11.5px !important;
+  color: #94a3b8 !important;
+  white-space: nowrap !important;
+}
+
+.meta-stat svg {
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.meta-stat.loader-stat {
+  color: #cbd5e1 !important;
+  font-weight: 500 !important;
+}
+
+/* ========================================================
+   MODAL DE DETALLE DEL PROYECTO (5 PESTAÑAS ESTILO CURSEFORGE)
+   ======================================================== */
+.detail-section-block {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.detail-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.detail-deps-list,
+.detail-changelogs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.detail-dep-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+}
+
+.detail-dep-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.detail-changelog-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+}
+
+.detail-changelog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.detail-changelog-ver {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #38bdf8;
+}
+
+.detail-changelog-date {
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+
+.detail-changelog-body {
+  font-size: 12.5px;
+  color: #cbd5e1;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.mod-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.gallery-grid-item {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  aspect-ratio: 16 / 9;
+  cursor: pointer;
+  background: #000000;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.gallery-grid-item:hover {
+  transform: scale(1.02);
+  border-color: #f97316;
+}
+
+.gallery-grid-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+

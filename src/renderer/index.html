@@ -245,45 +245,35 @@
         </div>
       </section>
 
-      <!-- VISTA 2: EXPLORAR CATÁLOGO (MODS, MODPACKS, TEXTURAS, SHADERS) -->
+      <!-- VISTA 2: EXPLORAR CATÁLOGO (MODS, MODPACKS, TEXTURAS, SHADERS) - ESTILO COMPLETO CURSEFORGE -->
       <section id="view-catalog" class="view-panel view-container catalog-view hidden">
-        <div class="view-toolbar catalog-toolbar">
-          <div class="catalog-filters-row">
-            <div class="category-pills">
-              <button class="cat-pill active" data-cat="mods">Mods</button>
-              <button class="cat-pill" data-cat="modpacks">Modpacks</button>
-              <button class="cat-pill" data-cat="resourcepacks">Texturas</button>
-              <button class="cat-pill" data-cat="shaders">Shaders</button>
-              <button id="pill-cat-github" class="cat-pill pill-github" data-cat="github" title="Ver mods custom de GitHub">🔥 Mods Custom (GitHub)</button>
-            </div>
-            <div class="catalog-select-filters">
-              <select id="select-mod-sort" class="select-input select-filter" title="Ordenar catálogo">
-                <option value="popular" selected>Más Populares (Descargas)</option>
-                <option value="updated">Actualizados Recientemente</option>
-                <option value="name">Nombre (A-Z)</option>
-              </select>
-              <select id="select-mod-category" class="select-input select-filter" title="Filtrar por categoría">
-                <option value="all" selected>Todas las categorías</option>
-                <option value="optimization">Rendimiento y Optimización</option>
-                <option value="adventure">Aventura y RPG</option>
-                <option value="technology">Tecnología y Magia</option>
-                <option value="worldgen">Mundo, Biomas y Estructuras</option>
-                <option value="utility">Utilidades e Interfaz (UI/Minimap)</option>
-                <option value="library">Librerías y APIs</option>
-              </select>
-            </div>
-            <div class="catalog-search-group">
-              <div class="search-input-box">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-                <input type="text" id="input-mod-search" placeholder="Buscar en CurseForge, Modrinth o GitHub...">
-                <button id="btn-search-mods" class="btn btn-compact">Buscar</button>
+        <!-- 1. Cabecera Contextual de Instancia (Modo "Añadir contenido a instancia") -->
+        <div id="catalog-instance-context-bar" class="catalog-instance-context-bar" style="display: none;">
+          <div class="catalog-instance-context-left">
+            <img id="catalog-context-icon" class="catalog-context-thumb" src="assets/logo.png" alt="Instancia" onerror="this.onerror=null;this.src='assets/logo.png';" />
+            <div class="catalog-context-info">
+              <span class="catalog-context-label">Añadiendo contenido a la instancia:</span>
+              <div class="catalog-context-title-row">
+                <h3 id="catalog-context-title" class="catalog-context-name">Nombre de la Instancia</h3>
+                <span id="catalog-context-badge" class="badge badge-loader">Minecraft 1.21.1 · NeoForge</span>
               </div>
-              <select id="select-mod-source" class="select-input select-source">
-                <option value="both" selected>CurseForge + Modrinth</option>
-                <option value="modrinth">Modrinth</option>
-                <option value="curseforge">CurseForge</option>
-                <option value="github">🔥 Mods Custom (GitHub)</option>
-              </select>
+            </div>
+          </div>
+          <button type="button" id="btn-close-catalog-context" class="btn btn-secondary btn-compact" title="Volver al Gestor de Instancia">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5"/><polyline points="12 19 5 12 12 5"/></svg>
+            <span>Volver a la Instancia</span>
+          </button>
+        </div>
+
+        <!-- 2. Barra Superior de Búsqueda y Botones de Acción -->
+        <div class="view-toolbar catalog-toolbar">
+          <div class="catalog-search-primary-row">
+            <div class="search-input-box catalog-search-box-large">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+              <input type="text" id="input-mod-search" placeholder="🔍 Busca mods, modpacks, shaders, texturas..." autocomplete="off">
+              <button id="btn-search-mods" class="btn btn-primary btn-compact">Buscar</button>
+            </div>
+            <div class="catalog-actions-group">
               <button id="btn-refresh-github-mods" class="btn btn-secondary btn-compact" title="Refrescar mods desde GitHub" style="display: none;">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
                 <span>Refrescar</span>
@@ -298,16 +288,115 @@
               </button>
             </div>
           </div>
+
+          <!-- Chips de Filtros Activos (con botón ✕ para descartar) -->
+          <div id="catalog-active-filter-chips" class="catalog-active-filter-chips">
+            <!-- Rellenado dinámicamente: [⚙ NeoForge ✕], [🎮 1.21.1 ✕], [🏷 Categoría ✕] -->
+          </div>
+
+          <!-- Barra de Controles Inteligentes (Tipo, Conteo, Ordenación, Filtros y Toggle Vista) -->
+          <div class="catalog-smart-controls-bar">
+            <div class="catalog-controls-left">
+              <select id="select-catalog-content-type" class="select-input select-catalog-type" title="Tipo de Contenido">
+                <option value="mods" selected>Mods ▾</option>
+                <option value="resourcepacks">Resource Packs ▾</option>
+                <option value="shaders">Shaders ▾</option>
+                <option value="modpacks">Modpacks ▾</option>
+                <option value="github">🔥 Mods Custom (GitHub) ▾</option>
+              </select>
+              <!-- Hidden compatibility category-pills for internal references -->
+              <div class="category-pills" style="display: none;">
+                <button class="cat-pill active" data-cat="mods">Mods</button>
+                <button class="cat-pill" data-cat="modpacks">Modpacks</button>
+                <button class="cat-pill" data-cat="resourcepacks">Texturas</button>
+                <button class="cat-pill" data-cat="shaders">Shaders</button>
+                <button id="pill-cat-github" class="cat-pill pill-github" data-cat="github">🔥 Mods Custom (GitHub)</button>
+              </div>
+            </div>
+            <div class="catalog-controls-center">
+              <span id="catalog-results-count" class="catalog-count-badge">0 proyectos encontrados</span>
+            </div>
+            <div class="catalog-controls-right">
+              <select id="select-mod-sort" class="select-input select-filter" title="Ordenar catálogo">
+                <option value="popular" selected>⇅ Ordenar: Destacado</option>
+                <option value="updated">⇅ Más Recientes</option>
+                <option value="downloads">⇅ Más Descargados</option>
+                <option value="name">⇅ Nombre (A-Z)</option>
+              </select>
+              <button type="button" id="btn-toggle-advanced-filters" class="btn btn-secondary btn-compact" title="Mostrar/Ocultar Filtros Avanzados">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span>⏳ Filtros</span>
+              </button>
+              <div class="view-mode-toggle-group">
+                <button type="button" id="btn-catalog-view-list" class="btn-icon-toggle active" title="Vista de Filas Anchas (100% ancho)">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                </button>
+                <button type="button" id="btn-catalog-view-grid" class="btn-icon-toggle" title="Vista en Cuadrícula">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Panel Plegable de Filtros Avanzados -->
+          <div id="catalog-advanced-filters-panel" class="catalog-advanced-filters-panel" style="display: none;">
+            <div class="advanced-filter-item">
+              <label for="select-mod-category">Categoría:</label>
+              <select id="select-mod-category" class="select-input select-filter" title="Filtrar por categoría">
+                <option value="all" selected>Todas las categorías</option>
+                <option value="optimization">Rendimiento y Optimización</option>
+                <option value="adventure">Aventura y RPG</option>
+                <option value="technology">Tecnología y Magia</option>
+                <option value="worldgen">Mundo, Biomas y Estructuras</option>
+                <option value="utility">Utilidades e Interfaz (UI/Minimap)</option>
+                <option value="library">Librerías y APIs</option>
+              </select>
+            </div>
+            <div class="advanced-filter-item">
+              <label for="select-mod-source">Plataforma:</label>
+              <select id="select-mod-source" class="select-input select-source" title="Filtrar por plataforma">
+                <option value="both" selected>CurseForge + Modrinth</option>
+                <option value="modrinth">Solo Modrinth</option>
+                <option value="curseforge">Solo CurseForge</option>
+                <option value="github">🔥 Mods Custom (GitHub)</option>
+              </select>
+            </div>
+            <div class="advanced-filter-item">
+              <label for="select-catalog-loader">Modloader:</label>
+              <select id="select-catalog-loader" class="select-input select-filter" title="Filtrar por Modloader">
+                <option value="active" selected>Seguir instancia activa</option>
+                <option value="neoforge">NeoForge</option>
+                <option value="forge">Forge</option>
+                <option value="fabric">Fabric</option>
+                <option value="quilt">Quilt</option>
+                <option value="all">Cualquiera / Todos</option>
+              </select>
+            </div>
+            <div class="advanced-filter-item">
+              <label for="select-catalog-mcversion">Versión Minecraft:</label>
+              <select id="select-catalog-mcversion" class="select-input select-filter" title="Filtrar por versión de Minecraft">
+                <option value="active" selected>Seguir instancia activa</option>
+                <option value="1.21.4">1.21.4</option>
+                <option value="1.21.1">1.21.1</option>
+                <option value="1.20.1">1.20.1</option>
+                <option value="1.19.2">1.19.2</option>
+                <option value="1.18.2">1.18.2</option>
+                <option value="1.16.5">1.16.5</option>
+                <option value="1.12.2">1.12.2</option>
+                <option value="all">Todas las versiones</option>
+              </select>
+            </div>
+          </div>
         </div>
 
-        <!-- Nivel Central: Scrollable (aquí adentro va únicamente el contenido y grid del catálogo) -->
+        <!-- Nivel Central: Scrollable al 100% de Ancho -->
         <div class="catalog-content-scroll">
-          <div class="catalog-header-meta">
+          <div class="catalog-header-meta" style="display: none;">
             <span id="results-headline" class="catalog-meta-title">Proyectos Populares</span>
             <span id="results-subhint" class="catalog-meta-sub">Compatibles con la versión activa</span>
           </div>
 
-          <div id="mods-search-results" class="catalog-grid">
+          <div id="mods-search-results" class="catalog-list-view">
             <div class="empty-state">Cargando proyectos...</div>
           </div>
         </div>
@@ -2360,7 +2449,7 @@
     </div>
   </div>
 
-  <!-- MODAL: DETALLE DEL PROYECTO Y SELECTOR DE VERSIONES (ESTILO CURSEFORGE/MODRINTH) -->
+  <!-- MODAL: DETALLE DEL PROYECTO Y SELECTOR DE VERSIONES (ESTILO CURSEFORGE/MODRINTH - 5 PESTAÑAS) -->
   <div id="modal-mod-detail" class="modal-overlay">
     <div class="modal-content card mod-detail-modal-card">
       <div class="modal-header mod-detail-header">
@@ -2375,6 +2464,10 @@
           </div>
         </div>
         <div class="mod-detail-header-right">
+          <button type="button" id="btn-detail-install-top" class="btn btn-install-catalog btn-small" title="Instalar en la instancia activa">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+            <span id="detail-install-top-label">Instalar</span>
+          </button>
           <button type="button" id="btn-open-mod-web" class="btn btn-secondary btn-small" title="Ver en la web oficial">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
             <span>Sitio Web</span>
@@ -2383,29 +2476,53 @@
         </div>
       </div>
 
-      <!-- Barra de Pestañas de Detalle -->
+      <!-- Barra de 5 Pestañas de Detalle Estilo CurseForge -->
       <div class="mod-detail-tabs">
-        <button type="button" id="tab-detail-desc" class="mod-detail-tab active">Descripción y Capturas</button>
-        <button type="button" id="tab-detail-versions" class="mod-detail-tab">Versiones y Archivos (<span id="detail-versions-count">0</span>)</button>
+        <button type="button" id="tab-detail-summary" class="mod-detail-tab active">Resumen</button>
+        <button type="button" id="tab-detail-content" class="mod-detail-tab">Contenido (<span id="detail-dependencies-count">0</span>)</button>
+        <button type="button" id="tab-detail-changelog" class="mod-detail-tab">Registro de cambios</button>
+        <button type="button" id="tab-detail-gallery" class="mod-detail-tab">Galería (<span id="detail-gallery-count">0</span>)</button>
+        <button type="button" id="tab-detail-versions" class="mod-detail-tab">Versiones (<span id="detail-versions-count">0</span>)</button>
+        <!-- Compatibility alias for previous tab listener -->
+        <button type="button" id="tab-detail-desc" style="display: none;"></button>
       </div>
 
       <div class="modal-body mod-detail-body-area">
-        <!-- Panel 1: Descripción y Galería de Capturas -->
-        <div id="panel-detail-desc" class="mod-detail-panel active">
-          <!-- Galería de Capturas -->
-          <div id="detail-gallery-container" class="mod-gallery-container" style="display: none;">
-            <h4 class="detail-section-title">Galería de Imágenes</h4>
-            <div id="detail-gallery-scroll" class="mod-gallery-scroll"></div>
-          </div>
-
-          <!-- Resumen y Cuerpo -->
+        <!-- Panel 1: Resumen (HTML / Markdown enriquecido con banners e imágenes) -->
+        <div id="panel-detail-summary" class="mod-detail-panel active">
           <div class="mod-summary-box">
             <p id="detail-mod-summary"></p>
           </div>
           <div id="detail-mod-body" class="mod-full-description"></div>
         </div>
 
-        <!-- Panel 2: Lista de Versiones y Selector -->
+        <!-- Panel 2: Contenido (Dependencias y Archivos relacionados) -->
+        <div id="panel-detail-content" class="mod-detail-panel" style="display: none;">
+          <div class="detail-section-block">
+            <h4 class="detail-section-title">Dependencias y Librerías Requeridas</h4>
+            <div id="detail-dependencies-list" class="detail-deps-list">
+              <div class="empty-state">No se requieren dependencias adicionales.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel 3: Registro de Cambios (Changelog de Versiones) -->
+        <div id="panel-detail-changelog" class="mod-detail-panel" style="display: none;">
+          <div id="detail-changelogs-list" class="detail-changelogs-list">
+            <div class="empty-state">Consultando registros de cambios...</div>
+          </div>
+        </div>
+
+        <!-- Panel 4: Galería de Capturas -->
+        <div id="panel-detail-gallery" class="mod-detail-panel" style="display: none;">
+          <div id="detail-gallery-container" class="mod-gallery-container">
+            <div id="detail-gallery-grid" class="mod-gallery-grid"></div>
+          </div>
+          <!-- Hidden compatibility scroll container -->
+          <div id="detail-gallery-scroll" style="display: none;"></div>
+        </div>
+
+        <!-- Panel 5: Lista de Versiones y Selector -->
         <div id="panel-detail-versions" class="mod-detail-panel" style="display: none;">
           <div class="versions-header-filter" style="display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap;">
             <span class="versions-filter-hint">Archivos compatibles con <strong id="detail-compat-badge">Minecraft 1.21.1 (NeoForge)</strong>:</span>
@@ -2421,6 +2538,9 @@
             <div class="empty-state">Consultando versiones disponibles...</div>
           </div>
         </div>
+
+        <!-- Hidden compatibility panel for old desc reference -->
+        <div id="panel-detail-desc" style="display: none;"></div>
       </div>
 
       <div class="modal-footer mod-detail-footer">
