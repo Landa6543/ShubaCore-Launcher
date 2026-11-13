@@ -239,20 +239,44 @@ class LaunchManager {
     try {
       // 1. Validar autenticación activa y auto-renovar tokens si es necesario
       if (this.authManager && typeof this.authManager.ensureValidSession === 'function') {
-        await this.authManager.ensureValidSession();
+        try {
+          await this.authManager.ensureValidSession();
+        } catch (authErr) {
+          logger.warn(`[LaunchManager] Aviso al validar sesión previa: ${authErr.message}`);
+        }
       }
-      const auth = this.authManager.getMCLCAuth();
-      const currentAccount = this.authManager.getCurrentAccount();
-      logger.info(`Jugador autenticado: ${auth.name} (${currentAccount.type.toUpperCase()})`);
+      let auth = this.authManager ? this.authManager.getMCLCAuth() : null;
+      const currentAccount = this.authManager ? this.authManager.getCurrentAccount() : null;
 
-      // MECANISMO 1: Passthrough de UUID Oficial para Modo Offline con Skin Premium
-      const { getSkinManager } = require('../skins/SkinManager');
-      const skinMgr = getSkinManager();
-      const skinInfo = skinMgr.getCurrentSkinInfo(auth.name);
+      // REQUISITO 2: Soporte Offline (No-Premium) y Multicuenta sin errores 401 ni bloqueos
+      const isOfflineAccount = !currentAccount ||
+        (currentAccount.type !== 'msa' && currentAccount.type !== 'premium') ||
+        !auth ||
+        !auth.access_token ||
+        typeof auth.access_token !== 'string' ||
+        auth.access_token.startsWith('offline_');
 
-      if (currentAccount.type === 'offline' && skinInfo && skinInfo.clonedUuid) {
-        auth.uuid = skinInfo.clonedUuid;
-        logger.info(`⚡ [LaunchManager] [MECANISMO 1] Passthrough de UUID Oficial activado: "${auth.name}" usará UUID Mojang: ${auth.uuid}`);
+      if (isOfflineAccount) {
+        const playerName = (auth && auth.name) || (currentAccount && (currentAccount.username || currentAccount.name)) || 'Jugador';
+        const { generateOfflineUUID } = require('../auth/OfflineAuth');
+        const offlineUuid = generateOfflineUUID(playerName);
+
+        auth = {
+          access_token: '0',
+          client_token: offlineUuid.replace(/-/g, ''),
+          uuid: offlineUuid,
+          name: playerName,
+          user_properties: '{}',
+          meta: {
+            type: 'legacy',
+            xuid: '0',
+            clientId: '0',
+            demo: false
+          }
+        };
+        logger.info(`⚡ [LaunchManager] [Modo Offline] Jugador: "${playerName}" | UUID v3: ${offlineUuid} | Token: 0 | UserType: legacy`);
+      } else {
+        logger.info(`Jugador autenticado (Premium): ${auth.name} (${(currentAccount.type || 'msa').toUpperCase()})`);
       }
 
       // 2. Obtener el perfil de instancia activa
@@ -488,6 +512,16 @@ class LaunchManager {
         return true;
       });
 
+      // REQUISITO 2: En cuentas Offline, desactivar llamadas a APIs de Mojang/Microsoft para arranque 100% limpio
+      if (isOfflineAccount) {
+        cleanedJvmArgs.push(
+          '-Dminecraft.api.env=custom',
+          '-Dminecraft.api.auth.host=http://127.0.0.1:0',
+          '-Dminecraft.api.account.host=http://127.0.0.1:0',
+          '-Dminecraft.api.services.host=http://127.0.0.1:0'
+        );
+      }
+
       // REQUISITO 3: Diagnóstico de crash HotSpot VM (hs_err_pid)
       const hsErrPattern = path.join(instancePath, 'hs_err_pid%p.log');
       cleanedJvmArgs.unshift(`-XX:ErrorFile=${hsErrPattern}`);
@@ -499,14 +533,13 @@ class LaunchManager {
       // 6. Configurar opciones completas de MCLC
       const customLaunchArgs = [...(overrideOptions.customLaunchArgs || [])];
 
-      // Entrada directa al mundo con QuickPlay de Mojang si se especificó
-      if (overrideOptions.quickPlaySingleplayer) {
-        customLaunchArgs.push('--quickPlaySingleplayer', overrideOptions.quickPlaySingleplayer);
-        logger.info(`⚡ [QuickPlay] Lanzando con entrada directa al mundo: "${overrideOptions.quickPlaySingleplayer}"`);
+      // REQUISITO 3: Entrada directa al mundo con QuickPlay sólo si el usuario especificó un mundo real (evitar flags vacíos)
+      if (typeof overrideOptions.quickPlaySingleplayer === 'string' && overrideOptions.quickPlaySingleplayer.trim().length > 0) {
+        customLaunchArgs.push('--quickPlaySingleplayer', overrideOptions.quickPlaySingleplayer.trim());
+        logger.info(`⚡ [QuickPlay] Lanzando con entrada directa al mundo: "${overrideOptions.quickPlaySingleplayer.trim()}"`);
       }
 
       // Silenciar telemetría y llamadas de cuenta en modo offline pasando --userProperties {}
-      const isOfflineAccount = !currentAccount || currentAccount.type === 'offline';
       if (isOfflineAccount) {
         if (!customLaunchArgs.includes('--userProperties')) {
           customLaunchArgs.push('--userProperties', '{}');
@@ -626,6 +659,12 @@ class LaunchManager {
           if (content.includes('preferredGraphicsBackend:"protected"')) {
             content = content.replace(/preferredGraphicsBackend:"protected"/g, 'preferredGraphicsBackend:"vulkan"');
           }
+
+          // REQUISITO 3: Limpiar resourcePacks para evitar duplicar "vanilla" (evita Reloading ResourceManager: vanilla, vanilla)
+          content = content
+            .replace(/resourcePacks:\s*\[\s*"vanilla"\s*\]/g, 'resourcePacks:[]')
+            .replace(/resourcePacks:\s*\[\s*'vanilla'\s*\]/g, 'resourcePacks:[]')
+            .replace(/"vanilla",\s*"vanilla"/g, '"vanilla"');
 
           if (content.includes('Shuba')) {
             content = content
@@ -1323,7 +1362,7 @@ class LaunchManager {
       const objects = indexData.objects || {};
       const toDownload = [];
 
-      // 2. Comprobar existencia, tamaño exacto y SHA-1 estricto (especialmente en fuentes/unifont)
+      // 2. Comprobar existencia, tamaño exacto y SHA-1 estricto (especialmente en fuentes/unifont o > 1MB)
       for (const [name, obj] of Object.entries(objects)) {
         if (!obj || !obj.hash || typeof obj.size !== 'number') continue;
         const hash = obj.hash;
@@ -1331,6 +1370,7 @@ class LaunchManager {
         const prefix = hash.substring(0, 2);
         const objDir = path.join(objectsDir, prefix);
         const objPath = path.join(objDir, hash);
+        const isFontOrLarge = name.includes('font') || name.includes('unifont') || expectedSize > 1048576;
 
         let needsDownload = false;
         try {
@@ -1340,12 +1380,12 @@ class LaunchManager {
             const stat = fs.statSync(objPath);
             if (stat.size !== expectedSize || stat.size === 0) {
               needsDownload = true;
-            } else if (name.includes('font') || name.includes('unifont')) {
-              // Verificación estricta de hash SHA-1 para paquetes de fuentes (evita Access Violation en FreeType)
+            } else if (isFontOrLarge) {
+              // Verificación estricta de hash SHA-1 para paquetes de fuentes y archivos mayores a 1MB
               const fileBuf = fs.readFileSync(objPath);
               const calculatedHash = crypto.createHash('sha1').update(fileBuf).digest('hex');
               if (calculatedHash.toLowerCase() !== hash.toLowerCase()) {
-                logger.warn(`[LaunchManager] ⚠️ Asset de fuente con SHA-1 corrupto: "${name}" (${calculatedHash} !== ${hash}). Re-descargando.`);
+                logger.warn(`[LaunchManager] ⚠️ Asset corrupto (SHA-1 incorrecto): "${name}" (${calculatedHash} !== ${hash}). Re-descargando.`);
                 needsDownload = true;
               }
             }
@@ -1355,8 +1395,8 @@ class LaunchManager {
         }
 
         if (needsDownload) {
-          try { if (fs.existsSync(objPath)) fs.unlinkSync(objPath); } catch (_) {}
-          toDownload.push({ name, hash, expectedSize, prefix, objDir, objPath });
+          try { fs.rmSync(objPath, { force: true }); } catch (_) {}
+          toDownload.push({ name, hash, expectedSize, prefix, objDir, objPath, isFontOrLarge });
         }
       }
 
@@ -1366,16 +1406,17 @@ class LaunchManager {
         const esHash = esLangObj.hash;
         const esPrefix = esHash.substring(0, 2);
         const esPath = path.join(objectsDir, esPrefix, esHash);
+        const isLarge = esLangObj.size > 1048576;
         try {
           const s = fs.statSync(esPath);
           if (s.size === 0 || s.size !== esLangObj.size) {
             if (!toDownload.some((d) => d.hash === esHash)) {
-              toDownload.push({ name: 'minecraft/lang/es_es.json', hash: esHash, expectedSize: esLangObj.size, prefix: esPrefix, objDir: path.join(objectsDir, esPrefix), objPath: esPath });
+              toDownload.push({ name: 'minecraft/lang/es_es.json', hash: esHash, expectedSize: esLangObj.size, prefix: esPrefix, objDir: path.join(objectsDir, esPrefix), objPath: esPath, isFontOrLarge: isLarge });
             }
           }
         } catch (_) {
           if (!toDownload.some((d) => d.hash === esHash)) {
-            toDownload.push({ name: 'minecraft/lang/es_es.json', hash: esHash, expectedSize: esLangObj.size, prefix: esPrefix, objDir: path.join(objectsDir, esPrefix), objPath: esPath });
+            toDownload.push({ name: 'minecraft/lang/es_es.json', hash: esHash, expectedSize: esLangObj.size, prefix: esPrefix, objDir: path.join(objectsDir, esPrefix), objPath: esPath, isFontOrLarge: isLarge });
           }
         }
       }
@@ -1398,7 +1439,7 @@ class LaunchManager {
           const file = fs.createWriteStream(item.objPath);
           const req = https.get(url, (res) => {
             if (res.statusCode !== 200) {
-              try { fs.unlinkSync(item.objPath); } catch (_) {}
+              try { fs.rmSync(item.objPath, { force: true }); } catch (_) {}
               return resolve(false);
             }
             res.pipe(file);
@@ -1407,31 +1448,32 @@ class LaunchManager {
                 try {
                   const s = fs.statSync(item.objPath);
                   if (s.size !== item.expectedSize) {
-                    try { fs.unlinkSync(item.objPath); } catch (_) {}
+                    try { fs.rmSync(item.objPath, { force: true }); } catch (_) {}
                     return resolve(false);
                   }
-                  if (item.name.includes('font') || item.name.includes('unifont')) {
+                  if (item.isFontOrLarge) {
                     const dlBuf = fs.readFileSync(item.objPath);
                     const dlHash = crypto.createHash('sha1').update(dlBuf).digest('hex');
                     if (dlHash.toLowerCase() !== item.hash.toLowerCase()) {
-                      try { fs.unlinkSync(item.objPath); } catch (_) {}
+                      try { fs.rmSync(item.objPath, { force: true }); } catch (_) {}
                       return resolve(false);
                     }
                   }
                   resolve(true);
                 } catch (_) {
+                  try { fs.rmSync(item.objPath, { force: true }); } catch (_) {}
                   resolve(false);
                 }
               });
             });
           });
           req.on('error', () => {
-            try { fs.unlinkSync(item.objPath); } catch (_) {}
+            try { fs.rmSync(item.objPath, { force: true }); } catch (_) {}
             resolve(false);
           });
           req.setTimeout(15000, () => {
             req.destroy();
-            try { fs.unlinkSync(item.objPath); } catch (_) {}
+            try { fs.rmSync(item.objPath, { force: true }); } catch (_) {}
             resolve(false);
           });
         });
