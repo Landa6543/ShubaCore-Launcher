@@ -312,20 +312,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnOpenDataPacksFolder = document.getElementById('btn-open-datapacks-folder');
   const btnRefreshDataPacks = document.getElementById('btn-refresh-datapacks');
 
-  if (subtabInstanceDataPacks) {
-    subtabInstanceDataPacks.addEventListener('click', () => {
-      document.querySelectorAll('.instance-subtab-btn').forEach(b => b.classList.remove('active'));
-      subtabInstanceDataPacks.classList.add('active');
-      document.querySelectorAll('.instance-subpanel').forEach(p => p.style.display = 'none');
-      if (subpanelInstanceDataPacks) subpanelInstanceDataPacks.style.display = 'block';
-    });
-  }
-
   if (btnOpenDataPacksFolder) {
     btnOpenDataPacksFolder.addEventListener('click', async () => {
       if (currentActiveProfile?.instancePath) {
         const dpDir = path.join(currentActiveProfile.instancePath, 'datapacks');
         await api.system?.openPath(dpDir).catch(() => {});
+      }
+    });
+  }
+
+  if (btnRefreshDataPacks) {
+    btnRefreshDataPacks.addEventListener('click', () => {
+      if (typeof loadInstalledDataPacks === 'function') {
+        loadInstalledDataPacks();
       }
     });
   }
@@ -687,7 +686,12 @@ document.addEventListener('DOMContentLoaded', async () => {
           }
         } catch (e) { console.warn('[switchTab] Error en performModSearch:', e); }
       } else if (viewName === 'mods') {
-        try { loadInstalledMods(); } catch (e) { console.warn('[switchTab] Error en loadInstalledMods:', e); }
+        try {
+          switchInstanceSubtab(currentInstanceSubtab || 'mods');
+        } catch (e) {
+          console.warn('[switchTab] Error en switchInstanceSubtab:', e);
+          try { loadInstalledMods(); } catch (_) {}
+        }
       } else if (viewName === 'servers') {
         try { loadDedicatedServers(); } catch (e) { console.warn('[switchTab] Error en loadDedicatedServers:', e); }
       } else if (viewName === 'screenshots') {
@@ -1817,7 +1821,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       profilesGrid.innerHTML = '';
 
       if (profiles.length === 0) {
-        profilesGrid.innerHTML = '<div class="empty-state">No hay perfiles de Minecraft creados aún. Haz clic en "Nueva Instancia" arriba.</div>';
+        profilesGrid.innerHTML = `
+          <div class="empty-state" style="padding: 40px 20px; text-align: center;">
+            <p style="font-size: 15px; margin-bottom: 12px; color: var(--text-primary);">No hay perfiles de Minecraft creados aún.</p>
+            <button id="btn-create-instance-empty" class="btn btn-primary" style="margin: 0 auto;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              <span>+ Crear Nueva Instancia</span>
+            </button>
+          </div>
+        `;
+        const btnEmptyCreate = document.getElementById('btn-create-instance-empty');
+        if (btnEmptyCreate) btnEmptyCreate.addEventListener('click', openCreateProfileModal);
         return;
       }
 
@@ -2087,20 +2101,43 @@ document.addEventListener('DOMContentLoaded', async () => {
   // =======================================================
   // CREACIÓN DE INSTANCIAS
   // =======================================================
-  async function openCreateProfileModal() {
+  function openCreateProfileModal() {
+    if (!modalCreateProfile) return;
     modalCreateProfile.classList.add('active');
+    modalCreateProfile.style.setProperty('display', 'flex', 'important');
+    if (inputProfileName) inputProfileName.value = '';
     if (inputCreateProfileIcon) inputCreateProfileIcon.value = '';
     if (createProfileIconPreview) createProfileIconPreview.src = 'assets/logo.png';
     // REGLA OBLIGATORIA: Siempre por defecto en Vanilla y última versión estable de Minecraft
     if (selectProfileLoader) selectProfileLoader.value = 'vanilla';
-    if (selectProfileMc && allCachedMcVersions && allCachedMcVersions.length > 0) {
-      selectProfileMc.value = allCachedMcVersions[0];
+    if (selectProfileMc) {
+      if (!selectProfileMc.options || selectProfileMc.options.length === 0) {
+        if (typeof loadVersionsList === 'function') {
+          loadVersionsList().then(() => {
+            if (allCachedMcVersions && allCachedMcVersions.length > 0) {
+              selectProfileMc.value = allCachedMcVersions[0];
+            }
+          }).catch(() => {});
+        }
+      } else if (allCachedMcVersions && allCachedMcVersions.length > 0) {
+        selectProfileMc.value = allCachedMcVersions[0];
+      }
     }
-    await updateLoaderVersionsInModal();
+    updateLoaderVersionsInModal().catch(() => {});
   }
 
   function closeCreateProfileModal() {
+    if (!modalCreateProfile) return;
     modalCreateProfile.classList.remove('active');
+    modalCreateProfile.style.setProperty('display', 'none', 'important');
+  }
+
+  if (modalCreateProfile) {
+    modalCreateProfile.addEventListener('click', (e) => {
+      if (e.target === modalCreateProfile) {
+        closeCreateProfileModal();
+      }
+    });
   }
 
   if (btnOpenCreateModal) btnOpenCreateModal.addEventListener('click', openCreateProfileModal);
@@ -2126,36 +2163,50 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   async function updateLoaderVersionsInModal() {
-    const mc = selectProfileMc.value;
-    const loader = selectProfileLoader.value;
+    const mc = selectProfileMc ? selectProfileMc.value : '1.21.1';
+    const loader = selectProfileLoader ? (selectProfileLoader.value || 'vanilla').toLowerCase() : 'vanilla';
 
-    loaderFetchingIndicator.style.display = 'inline';
-    selectProfileLoaderVersion.disabled = true;
-    selectProfileLoaderVersion.innerHTML = '<option value="">Consultando versiones...</option>';
+    if (loader === 'vanilla') {
+      if (loaderFetchingIndicator) loaderFetchingIndicator.style.display = 'none';
+      if (selectProfileLoaderVersion) {
+        selectProfileLoaderVersion.innerHTML = '<option value="">Vanilla (Sin loader)</option>';
+        selectProfileLoaderVersion.disabled = false;
+      }
+      return;
+    }
+
+    if (loaderFetchingIndicator) loaderFetchingIndicator.style.display = 'inline';
+    if (selectProfileLoaderVersion) {
+      selectProfileLoaderVersion.disabled = true;
+      selectProfileLoaderVersion.innerHTML = '<option value="">Consultando versiones...</option>';
+    }
 
     try {
       const versions = await api.loaders.getVersions(loader, mc);
-      selectProfileLoaderVersion.innerHTML = '';
-
-      if (versions.length === 0 || loader === 'vanilla') {
-        const opt = document.createElement('option');
-        opt.value = '';
-        opt.textContent = 'Vanilla (Sin loader)';
-        selectProfileLoaderVersion.appendChild(opt);
-      } else {
-        versions.forEach((v, index) => {
+      if (selectProfileLoaderVersion) {
+        selectProfileLoaderVersion.innerHTML = '';
+        if (!versions || versions.length === 0) {
           const opt = document.createElement('option');
-          const cleanVersion = String(v).split(' ')[0].trim();
-          opt.value = cleanVersion;
-          opt.textContent = `${cleanVersion} ${index === 0 ? '(Recomendada)' : ''}`;
+          opt.value = '';
+          opt.textContent = `No hay versiones de ${loader} para MC ${mc}`;
           selectProfileLoaderVersion.appendChild(opt);
-        });
+        } else {
+          versions.forEach((v, index) => {
+            const opt = document.createElement('option');
+            const cleanVersion = String(typeof v === 'object' ? (v.version || v.id) : v).split(' ')[0].trim();
+            opt.value = cleanVersion;
+            opt.textContent = `${cleanVersion} ${index === 0 ? '(Recomendada)' : ''}`;
+            selectProfileLoaderVersion.appendChild(opt);
+          });
+        }
       }
     } catch (e) {
-      selectProfileLoaderVersion.innerHTML = '<option value="21.1.265">21.1.265 (Recomendada)</option>';
+      if (selectProfileLoaderVersion) {
+        selectProfileLoaderVersion.innerHTML = `<option value="">Error al consultar versiones de ${loader}</option>`;
+      }
     } finally {
-      loaderFetchingIndicator.style.display = 'none';
-      selectProfileLoaderVersion.disabled = false;
+      if (loaderFetchingIndicator) loaderFetchingIndicator.style.display = 'none';
+      if (selectProfileLoaderVersion) selectProfileLoaderVersion.disabled = false;
     }
   }
 
@@ -3139,6 +3190,19 @@ document.addEventListener('DOMContentLoaded', async () => {
       renderFilteredInstalledMods();
 
       // Actualizar contadores de sub-pestañas en segundo plano
+      if (targetInstance && window.api?.system?.readDir) {
+        const dpDir = path.join(targetInstance, 'datapacks');
+        window.api.system.readDir(dpDir).then((items) => {
+          const badge = document.getElementById('badge-subtab-datapacks');
+          if (badge) {
+            const count = (items || []).filter(item => {
+              const name = typeof item === 'string' ? item : (item.name || '');
+              return name.endsWith('.zip') || (item.isDirectory && !name.startsWith('.'));
+            }).length;
+            badge.textContent = count;
+          }
+        }).catch(() => {});
+      }
       if (api.instancePacks) {
         api.instancePacks.list({ instancePath: targetInstance, type: 'shaders' }).then((sh) => {
           const badge = document.getElementById('badge-subtab-shaders');
@@ -3154,6 +3218,36 @@ document.addEventListener('DOMContentLoaded', async () => {
           const badge = document.getElementById('badge-subtab-worlds');
           if (badge) badge.textContent = Array.isArray(w) ? w.length : 0;
         }).catch(() => {});
+      }
+
+      // Comprobación de actualizaciones en segundo plano (asíncrona y no bloqueante)
+      if (targetInstance && currentActiveProfile?.loader && currentActiveProfile.loader !== 'vanilla') {
+        const mcVer = currentActiveProfile.mcVersion || '1.21.1';
+        const ldr = currentActiveProfile.loader;
+        api.mods.checkUpdates({
+          instancePath: targetInstance,
+          mcVersion: mcVer,
+          loader: ldr,
+          channel: 'release'
+        }).then((res) => {
+          if (res && Array.isArray(res.updates)) {
+            activeAvailableUpdates = res.updates;
+            const countSpan = document.getElementById('updates-available-count');
+            if (countSpan) countSpan.textContent = activeAvailableUpdates.length;
+            if (btnUpdateAllMods) {
+              if (activeAvailableUpdates.length > 0) {
+                btnUpdateAllMods.classList.add('has-updates');
+              } else {
+                btnUpdateAllMods.classList.remove('has-updates');
+              }
+            }
+            if (currentActiveProfile && currentActiveProfile.instancePath === targetInstance) {
+              renderFilteredInstalledMods();
+            }
+          }
+        }).catch((err) => {
+          console.debug('[CheckUpdates Background]', err.message);
+        });
       }
 
       // 2. Resolver iconos faltantes en segundo plano
@@ -3214,6 +3308,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  const btnAddMoreModsHeader = document.getElementById('btn-add-more-mods-header');
+  if (btnAddMoreModsHeader) {
+    btnAddMoreModsHeader.addEventListener('click', () => {
+      openCatalogForInstance(currentActiveProfile);
+    });
+  }
+
   if (btnOpenModsFolder) {
     btnOpenModsFolder.addEventListener('click', async () => {
       const targetInstance = currentActiveProfile?.instancePath || null;
@@ -3221,8 +3322,40 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  // Menú Desplegable [⋮ Opciones] del Banner de Instancia
+  const btnInstanceOptionsDropdown = document.getElementById('btn-instance-options-dropdown');
+  const instanceOptionsMenu = document.getElementById('instance-options-menu');
+
+  if (btnInstanceOptionsDropdown && instanceOptionsMenu) {
+    btnInstanceOptionsDropdown.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = instanceOptionsMenu.classList.contains('active');
+      if (isOpen) {
+        instanceOptionsMenu.classList.remove('active');
+        instanceOptionsMenu.style.display = 'none';
+      } else {
+        instanceOptionsMenu.classList.add('active');
+        instanceOptionsMenu.style.display = 'flex';
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!instanceOptionsMenu.contains(e.target) && e.target !== btnInstanceOptionsDropdown) {
+        instanceOptionsMenu.classList.remove('active');
+        instanceOptionsMenu.style.display = 'none';
+      }
+    });
+
+    instanceOptionsMenu.querySelectorAll('.dropdown-item-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        instanceOptionsMenu.classList.remove('active');
+        instanceOptionsMenu.style.display = 'none';
+      });
+    });
+  }
+
   // =======================================================
-  // SUB-PESTAÑAS DE INSTANCIA (MODS | SHADERS | TEXTURAS | MUNDOS)
+  // SUB-PESTAÑAS DE INSTANCIA (MODS | DATAPACKS | SHADERS | TEXTURAS | MUNDOS)
   // =======================================================
   let currentInstanceSubtab = 'mods';
   let currentManagingWorldFolderName = null;
@@ -3236,6 +3369,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const subpanels = {
       mods: document.getElementById('subpanel-instance-mods'),
+      datapacks: document.getElementById('subpanel-instance-datapacks'),
       shaders: document.getElementById('subpanel-instance-shaders'),
       resourcepacks: document.getElementById('subpanel-instance-resourcepacks'),
       worlds: document.getElementById('subpanel-instance-worlds'),
@@ -3245,13 +3379,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     Object.keys(subpanels).forEach((k) => {
       if (subpanels[k]) {
         const isActive = (k === tabName);
-        subpanels[k].style.display = isActive ? 'flex' : 'none';
+        subpanels[k].style.setProperty('display', isActive ? 'flex' : 'none', 'important');
         subpanels[k].classList.toggle('active', isActive);
       }
     });
 
     if (tabName === 'mods') {
       loadInstalledMods();
+    } else if (tabName === 'datapacks') {
+      loadInstalledDataPacks();
     } else if (tabName === 'shaders') {
       loadInstalledShaders();
     } else if (tabName === 'resourcepacks') {
@@ -3270,28 +3406,53 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
-  // --- GESTOR DE SHADERS INSTALADOS ---
-  async function loadInstalledShaders() {
+  // --- GESTOR DE DATAPACKS INSTALADOS ---
+  async function loadInstalledDataPacks() {
     const targetInstance = currentActiveProfile?.instancePath || null;
-    const container = document.getElementById('shaders-installed-list');
-    const badgeCount = document.getElementById('badge-subtab-shaders');
-    const headerBadge = document.getElementById('installed-shaders-count-badge');
+    const container = document.getElementById('datapacks-installed-list');
+    const badgeCount = document.getElementById('badge-subtab-datapacks');
+    const headerBadge = document.getElementById('installed-datapacks-count-badge');
     if (!container) return;
 
-    container.innerHTML = '<div class="empty-state">Buscando shaders instalados en shaderpacks/...</div>';
+    container.innerHTML = '<div class="empty-state">Buscando data packs instalados en datapacks/...</div>';
 
     try {
-      const shaders = await api.instancePacks.list({ instancePath: targetInstance, type: 'shaders' });
-      const list = Array.isArray(shaders) ? shaders : [];
+      let list = [];
+      if (targetInstance && window.api?.system?.readDir) {
+        const dpDir = path.join(targetInstance, 'datapacks');
+        const items = await window.api.system.readDir(dpDir).catch(() => []);
+        list = (items || []).filter((item) => {
+          const name = typeof item === 'string' ? item : (item.name || '');
+          return name.endsWith('.zip') || (item.isDirectory && !name.startsWith('.'));
+        });
+      }
+
       if (badgeCount) badgeCount.textContent = list.length;
-      if (headerBadge) headerBadge.textContent = `${list.length} shader${list.length === 1 ? '' : 's'}`;
+      if (headerBadge) headerBadge.textContent = `${list.length} datapack${list.length === 1 ? '' : 's'}`;
 
       if (list.length === 0) {
-        container.innerHTML = `
-          <div class="empty-state" style="padding: 30px 20px;">
-            <p style="font-size: 14px; margin-bottom: 6px;">No hay shaders instalados en esta instancia todavía.</p>
-            <small style="color: var(--text-dim);">Haz clic en "➕ Buscar Shaders en Catálogo" para explorar e instalar shaders compatibles.</small>
+        container.innerHTML = '<div class="empty-state">No hay datapacks instalados en esta instancia todavía.</div>';
+        return;
+      }
+
+      container.innerHTML = list.map((item) => {
+        const name = typeof item === 'string' ? item : item.name;
+        return `
+          <div class="installed-mod-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+              <div>
+                <strong style="color: var(--text-primary); font-size: 13.5px;">${escapeHtml(name)}</strong>
+                <div style="font-size: 11.5px; color: var(--text-dim);">Data Pack local</div>
+              </div>
+            </div>
           </div>
+        `;
+      }).join('');
+    } catch (_) {
+      container.innerHTML = '<div class="empty-state">No hay datapacks instalados en esta instancia todavía.</div>';
+    }
+  }
         `;
         return;
       }
@@ -4504,8 +4665,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             }).catch(() => {});
           }
 
+          card.style.cursor = 'pointer';
           card.addEventListener('click', (e) => {
-            if (e.target.closest('.btn-download-gh-mod')) return;
+            if (e.target.closest('button') || e.target.closest('a') || e.target.closest('.btn-download-gh-mod')) return;
             openModDetailModal({
               ...item,
               title: item.title || item.name,
@@ -4778,8 +4940,9 @@ document.addEventListener('DOMContentLoaded', async () => {
           `;
         }
 
+        card.style.cursor = 'pointer';
         card.addEventListener('click', (e) => {
-          if (e.target.closest('.btn-download-content')) return;
+          if (e.target.closest('button') || e.target.closest('a') || e.target.closest('.btn-download-content')) return;
           openModDetailModal(item);
         });
 
@@ -4958,12 +5121,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   // MODAL DE DETALLE DE PROYECTO Y SELECTOR DE VERSIONES (5 PESTAÑAS)
   // =======================================================
   function closeModDetailModal() {
-    if (modalModDetail) modalModDetail.classList.remove('active');
+    if (modalModDetail) {
+      modalModDetail.classList.remove('active');
+      modalModDetail.style.setProperty('display', 'none', 'important');
+    }
     currentProjectDetail = null;
   }
 
   if (btnCloseModDetail) btnCloseModDetail.addEventListener('click', closeModDetailModal);
   if (btnDismissModDetail) btnDismissModDetail.addEventListener('click', closeModDetailModal);
+  if (modalModDetail) {
+    modalModDetail.addEventListener('click', (e) => {
+      if (e.target === modalModDetail) {
+        closeModDetailModal();
+      }
+    });
+  }
 
   function switchDetailTab(activeTabName) {
     const detailTabs = [
@@ -5004,6 +5177,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     currentProjectDetail = item;
 
     modalModDetail.classList.add('active');
+    modalModDetail.style.setProperty('display', 'flex', 'important');
     switchDetailTab('summary');
 
     const activeProfileRef = catalogContextProfile || currentActiveProfile;

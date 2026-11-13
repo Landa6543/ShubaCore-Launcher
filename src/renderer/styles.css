@@ -1103,10 +1103,9 @@ select option, .select-input option, .catalog-select option, .dark-select option
 /* 3. Regla Exacta para .catalog-grid */
 .catalog-grid {
   display: grid !important;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)) !important;
-  grid-auto-rows: 135px !important;
-  align-content: start !important;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)) !important;
   gap: 16px !important;
+  align-content: start !important;
   width: 100% !important;
   max-width: none !important;
   box-sizing: border-box !important;
@@ -1146,10 +1145,11 @@ select option, .select-input option, .catalog-select option, .dark-select option
   padding: 40px 0 !important;
 }
 
-/* 3. Regla Exacta para .mod-card */
+/* 3. Regla Exacta para .mod-card (Estilo CurseForge Grid) */
 .mod-card {
   width: 100% !important;
-  height: 135px !important;
+  min-height: 175px !important;
+  height: auto !important;
   display: flex !important;
   flex-direction: column !important;
   justify-content: space-between !important;
@@ -1158,13 +1158,17 @@ select option, .select-input option, .catalog-select option, .dark-select option
   background-color: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 12px 14px !important;
-  transition: all 0.15s ease;
+  padding: 14px 16px !important;
+  gap: 10px !important;
+  transition: all 0.2s ease;
+  cursor: pointer !important;
 }
 
 .mod-card:hover {
   background-color: var(--bg-surface-hover);
-  border-color: #353b47;
+  border-color: #4b5563;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
 }
 
 .mod-card-top {
@@ -1173,7 +1177,6 @@ select option, .select-input option, .catalog-select option, .dark-select option
   align-items: flex-start !important;
   min-width: 0 !important;
   width: 100% !important;
-  flex: 1 !important;
   overflow: hidden !important;
 }
 
@@ -1192,7 +1195,7 @@ select option, .select-input option, .catalog-select option, .dark-select option
   min-width: 0 !important;
   display: flex !important;
   flex-direction: column !important;
-  gap: 2px !important;
+  gap: 3px !important;
   overflow: hidden !important;
 }
 
@@ -1204,8 +1207,8 @@ select option, .select-input option, .catalog-select option, .dark-select option
 }
 
 .mod-card-title {
-  font-size: 13.5px !important;
-  font-weight: 600 !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
   color: var(--text-primary) !important;
   white-space: nowrap !important;
   overflow: hidden !important;
@@ -1215,7 +1218,7 @@ select option, .select-input option, .catalog-select option, .dark-select option
 }
 
 .mod-card-author {
-  font-size: 11px !important;
+  font-size: 11.5px !important;
   color: var(--text-dim) !important;
   white-space: nowrap !important;
   overflow: hidden !important;
@@ -1223,15 +1226,16 @@ select option, .select-input option, .catalog-select option, .dark-select option
 }
 
 .mod-card-desc {
-  font-size: 11.5px !important;
+  font-size: 12px !important;
   color: var(--text-secondary) !important;
-  line-height: 1.35 !important;
+  line-height: 1.4 !important;
   display: -webkit-box !important;
   -webkit-line-clamp: 2 !important;
   -webkit-box-orient: vertical !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
-  margin-top: 1px !important;
+  margin: 0 !important;
+  flex: 1 !important;
 }
 
 .mod-card-footer {
@@ -1239,9 +1243,10 @@ select option, .select-input option, .catalog-select option, .dark-select option
   justify-content: space-between !important;
   align-items: center !important;
   width: 100% !important;
-  padding-top: 6px !important;
-  border-top: 1px solid rgba(255, 255, 255, 0.04) !important;
+  padding-top: 10px !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
   flex-shrink: 0 !important;
+  gap: 8px !important;
 }
 
 /* Nivel Inferior (Fijo abajo del todo, flex-shrink: 0; width: 100%; height: 56px; border-top: 1px solid #262b33; background: #12151a;) */
@@ -2123,18 +2128,21 @@ input:checked + .switch-slider:before {
 
 /* Modales */
 .modal-overlay {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  background: rgba(0, 0, 0, 0.75);
   backdrop-filter: blur(4px);
-  display: none;
+  display: none !important;
   align-items: center;
   justify-content: center;
-  z-index: 2000;
+  z-index: 99999 !important;
 }
 
 .modal-overlay.active {
-  display: flex;
+  display: flex !important;
 }
 
 .modal-content {
@@ -3082,7 +3090,7 @@ input:checked + .switch-slider:before {
    CONTENEDORES DE SUB-PANELES DE INSTANCIA
    ========================================================================== */
 .instance-subpanel {
-  display: none;
+  display: none !important;
   width: 100%;
   box-sizing: border-box;
   flex: 1 1 0%;
@@ -3105,6 +3113,7 @@ input:checked + .switch-slider:before {
   box-sizing: border-box;
 }
 
+#subpanel-instance-datapacks,
 #subpanel-instance-shaders,
 #subpanel-instance-resourcepacks,
 #subpanel-instance-worlds {
@@ -3120,11 +3129,68 @@ input:checked + .switch-slider:before {
   box-sizing: border-box;
 }
 
+#datapacks-installed-list,
 #shaders-installed-list,
 #resourcepacks-installed-list,
 #worlds-installed-list {
   width: 100%;
   box-sizing: border-box;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Dropdown Menú Opciones en Banner de Instancia */
+.instance-options-dropdown-container {
+  position: relative;
+  display: inline-block;
+}
+
+.instance-options-dropdown-container .dropdown-menu-popover {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  background: #14171e;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.65);
+  z-index: 1000;
+  min-width: 230px;
+  flex-direction: column;
+  padding: 6px;
+  gap: 2px;
+}
+
+.instance-options-dropdown-container .dropdown-menu-popover.active {
+  display: flex !important;
+}
+
+.dropdown-item-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.dropdown-item-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--accent-emerald, #10b981);
+}
+
+.dropdown-item-btn svg {
+  flex-shrink: 0;
+  stroke: currentColor;
+}
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -4627,8 +4693,7 @@ body.app-frozen *::after {
 }
 
 .titlebar,
-.app-container,
-.modal-overlay {
+.app-container {
   position: relative;
   z-index: 2;
 }

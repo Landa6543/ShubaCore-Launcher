@@ -2542,37 +2542,41 @@ class ModManager {
       }
     }
 
-    // 7. PASO 5: Comprobación individual de mods Modrinth con projectId no capturados por SHA-1
+    // 7. PASO 5: Comprobación individual de mods Modrinth con projectId no capturados por SHA-1 (por lotes con Promise.allSettled)
     const modrinthModsToCheck = modsList.filter((m) => m.source === 'modrinth' && m.projectId && !updatesMap.has(m.fileName));
-    for (const m of modrinthModsToCheck.slice(0, 30)) {
-      try {
-        const latest = await this._resolveModrinthFile(m.projectId, mcVersion, normalizedLoader, candidateChannel);
-        if (latest && latest.downloadUrl) {
-          const isDifferentFile = (latest.fileId && m.fileId && String(latest.fileId) !== String(m.fileId)) ||
-                                  (latest.fileName && latest.fileName !== m.fileName);
-          const isDifferentVer = latest.versionNumber && m.version && m.version !== 'custom' && latest.versionNumber !== m.version;
+    const batchSize = 10;
+    for (let i = 0; i < modrinthModsToCheck.length; i += batchSize) {
+      const batch = modrinthModsToCheck.slice(i, i + batchSize);
+      await Promise.allSettled(batch.map(async (m) => {
+        try {
+          const latest = await this._resolveModrinthFile(m.projectId, mcVersion, normalizedLoader, candidateChannel);
+          if (latest && latest.downloadUrl) {
+            const isDifferentFile = (latest.fileId && m.fileId && String(latest.fileId) !== String(m.fileId)) ||
+                                    (latest.fileName && latest.fileName !== m.fileName);
+            const isDifferentVer = latest.versionNumber && m.version && m.version !== 'custom' && latest.versionNumber !== m.version;
 
-          if (isDifferentFile || isDifferentVer) {
-            const curVer = m.version || this._extractVersionFromFileName(m.fileName);
-            updatesMap.set(m.fileName, {
-              currentFileName: m.fileName,
-              currentFileId: m.fileId || '',
-              currentVersion: curVer,
-              name: m.displayName || m.name || this._cleanJarName(m.fileName),
-              projectId: m.projectId,
-              source: 'modrinth',
-              latestFile: {
-                fileId: String(latest.fileId),
-                fileName: latest.fileName,
-                displayName: latest.displayName,
-                versionNumber: latest.versionNumber || this._extractVersionFromFileName(latest.fileName),
-                downloadUrl: latest.downloadUrl
-              }
-            });
-            logger.info(`[Update Available Modrinth Version] "${m.name}": v${curVer} -> v${latest.versionNumber}`);
+            if (isDifferentFile || isDifferentVer) {
+              const curVer = m.version || this._extractVersionFromFileName(m.fileName);
+              updatesMap.set(m.fileName, {
+                currentFileName: m.fileName,
+                currentFileId: m.fileId || '',
+                currentVersion: curVer,
+                name: m.displayName || m.name || this._cleanJarName(m.fileName),
+                projectId: m.projectId,
+                source: 'modrinth',
+                latestFile: {
+                  fileId: String(latest.fileId),
+                  fileName: latest.fileName,
+                  displayName: latest.displayName,
+                  versionNumber: latest.versionNumber || this._extractVersionFromFileName(latest.fileName),
+                  downloadUrl: latest.downloadUrl
+                }
+              });
+              logger.info(`[Update Available Modrinth Version] "${m.name}": v${curVer} -> v${latest.versionNumber}`);
+            }
           }
-        }
-      } catch (_) {}
+        } catch (_) {}
+      }));
     }
 
     const updates = Array.from(updatesMap.values());
