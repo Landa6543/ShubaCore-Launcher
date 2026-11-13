@@ -6,6 +6,82 @@
 
 document.addEventListener('DOMContentLoaded', async () => {
   const api = window.shubaCoreAPI;
+
+  function getLoaderIcon(loader, size = 16) {
+    const norm = String(loader || 'vanilla').toLowerCase().trim();
+    if (norm.includes('neoforge')) {
+      return `<svg width="${size}" height="${size}" viewBox="0 0 32 32" fill="none" class="loader-svg loader-svg-neoforge" xmlns="http://www.w3.org/2000/svg"><path d="M4 6L11 11L16 6L21 11L28 6L26 21L16 28L6 21L4 6Z" fill="#EA580C"/><path d="M11 11L16 17L21 11L25 19L16 26L7 19L11 11Z" fill="#F97316"/><path d="M13 14L16 18L19 14L22 20L16 25L10 20L13 14Z" fill="#FFFFFF"/><path d="M16 22L14 19H18L16 22Z" fill="#1E293B"/><circle cx="12.5" cy="16.5" r="1.5" fill="#1E293B"/><circle cx="19.5" cy="16.5" r="1.5" fill="#1E293B"/></svg>`;
+    }
+    if (norm.includes('forge')) {
+      return `<svg width="${size}" height="${size}" viewBox="0 0 32 32" fill="none" class="loader-svg loader-svg-forge" xmlns="http://www.w3.org/2000/svg"><path d="M5 7C5 5.9 5.9 5 7 5H25C26.1 5 27 5.9 27 7V11C27 12.1 26.1 13 25 13H23L22 17H24C25.1 17 26 17.9 26 19V21H6V19C6 17.9 6.9 17 8 17H10L9 13H7C5.9 13 5 12.1 5 11V7Z" fill="#3B82F6"/><path d="M8 8H24V10H8V8Z" fill="#93C5FD"/><path d="M11 13H21L20 17H12L11 13Z" fill="#2563EB"/><path d="M4 22C4 21.4 4.4 21 5 21H27C27.6 21 28 21.4 28 22V26C28 26.6 27.6 27 27 27H5C4.4 27 4 26.6 4 26V22Z" fill="#1D4ED8"/><path d="M14 11L17 7L19 11H14Z" fill="#F59E0B"/></svg>`;
+    }
+    if (norm.includes('fabric')) {
+      return `<svg width="${size}" height="${size}" viewBox="0 0 32 32" fill="none" class="loader-svg loader-svg-fabric" xmlns="http://www.w3.org/2000/svg"><path d="M8 6C8 4.34 9.34 3 11 3H22C23.66 3 25 4.34 25 6V22C25 24.21 23.21 26 21 26H11C9.34 26 8 27.34 8 29H6V6C6 4.34 7.34 3 9 3H10" stroke="#D4B996" stroke-width="2" stroke-linecap="round"/><path d="M9 5H22C22.55 5 23 5.45 23 6V21C23 21.55 22.55 22 22 22H11C9.34 22 8 23.34 8 25V6C8 5.45 8.45 5 9 5Z" fill="#F5EBE6" stroke="#C8AC89" stroke-width="1.5"/><line x1="11" y1="9" x2="20" y2="9" stroke="#A88B68" stroke-width="1.5" stroke-linecap="round"/><line x1="11" y1="13" x2="18" y2="13" stroke="#A88B68" stroke-width="1.5" stroke-linecap="round"/><line x1="11" y1="17" x2="16" y2="17" stroke="#A88B68" stroke-width="1.5" stroke-linecap="round"/><path d="M26 4C23 7 20 12 18 19L17 23L21 22C23 18 25 11 26 4Z" fill="#EAB308" stroke="#CA8A04" stroke-width="1"/></svg>`;
+    }
+    if (norm.includes('quilt')) {
+      return `<svg width="${size}" height="${size}" viewBox="0 0 32 32" fill="none" class="loader-svg loader-svg-quilt" xmlns="http://www.w3.org/2000/svg"><rect x="16" y="3" width="9" height="9" transform="rotate(45 16 3)" fill="#A855F7"/><rect x="7" y="12" width="9" height="9" transform="rotate(45 7 12)" fill="#EC4899"/><rect x="25" y="12" width="9" height="9" transform="rotate(45 25 12)" fill="#D946EF"/><rect x="16" y="21" width="9" height="9" transform="rotate(45 16 21)" fill="#8B5CF6"/><circle cx="16" cy="16" r="3.5" fill="#FFFFFF"/></svg>`;
+    }
+    return `<svg width="${size}" height="${size}" viewBox="0 0 32 32" fill="none" class="loader-svg loader-svg-vanilla" xmlns="http://www.w3.org/2000/svg"><polygon points="16,3 29,10.5 16,18 3,10.5" fill="#5BA736"/><polygon points="16,5 26,10.5 16,16 6,10.5" fill="#72C442"/><polygon points="3,10.5 16,18 16,29 3,21.5" fill="#866043"/><polygon points="16,18 29,10.5 29,21.5 16,29" fill="#5C3F28"/><path d="M3 10.5L16 18L29 10.5L29 14L26 15L24 13L21 16L18 14L16 19L14 15L11 17L9 14L6 16L3 13.5V10.5Z" fill="#4C8A2C"/></svg>`;
+  }
+
+  function getLoaderBadge(loader, size = 14) {
+    const norm = String(loader || 'vanilla').toLowerCase().trim();
+    let key = 'vanilla';
+    let label = 'Vanilla';
+    if (norm.includes('neoforge')) { key = 'neoforge'; label = 'NeoForge'; }
+    else if (norm.includes('forge')) { key = 'forge'; label = 'Forge'; }
+    else if (norm.includes('fabric')) { key = 'fabric'; label = 'Fabric'; }
+    else if (norm.includes('quilt')) { key = 'quilt'; label = 'Quilt'; }
+    return `<span class="badge-loader-official badge-loader-${key}">${getLoaderIcon(key, size)}<span>${label}</span></span>`;
+  }
+  window.getLoaderIcon = getLoaderIcon;
+  window.getLoaderBadge = getLoaderBadge;
+
+  // =========================================================================
+  // FUNCIONES AUXILIARES: TIEMPO JUGADO, FECHA Y LOADER BADGES OFICIALES
+  // =========================================================================
+  function formatPlaytime(seconds) {
+    if (!seconds || isNaN(seconds)) return '0 min';
+    const sec = parseInt(seconds, 10);
+    const hrs = Math.floor(sec / 3600);
+    const mins = Math.floor((sec % 3600) / 60);
+    if (hrs > 0) return `${hrs}h ${mins}m`;
+    return `${mins} min`;
+  }
+
+  function formatDatePretty(dateVal) {
+    if (!dateVal) return 'Nunca';
+    try {
+      const d = new Date(dateVal);
+      if (isNaN(d.getTime())) return String(dateVal);
+      const now = new Date();
+      const isToday = d.toDateString() === now.toDateString();
+      if (isToday) {
+        return `Hoy ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+      }
+      return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+    } catch (_) {
+      return String(dateVal);
+    }
+  }
+
+  function resolveModEnvironment(mod) {
+    if (mod.environment) {
+      const e = String(mod.environment).toLowerCase();
+      if (e === 'client' || e === 'client_only') return 'client';
+      if (e === 'server' || e === 'server_only') return 'server';
+      if (e === 'both' || e === '*') return 'both';
+    }
+    const name = ((mod.displayName || '') + ' ' + (mod.fileName || '') + ' ' + (mod.name || '')).toLowerCase();
+    if (/(sodium|iris|rubidium|oculus|embeddium|entityculling|ferritecore|immediatelyfast|modernfix|krypton|lithium|fps|hud|optifine|zoom|replaymod|customskinloader|appleskin|jei|rei|emi|mousewheelie|controlling|smoothboot|dynamiclights|shulkerboxtooltip|notenoughanimations|waveycapes|skinview|ambient|cloth)/i.test(name)) {
+      return 'client';
+    }
+    if (/(carpet|luckperms|spark|voicechat|viaversion|geyser|floodgate)/i.test(name)) {
+      return 'both';
+    }
+    return 'both';
+  }
+
   if (!api) {
     console.error('ShubaCore Preload API no está disponible.');
     return;
@@ -213,6 +289,47 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnPublishProfileMods = document.getElementById('btn-publish-profile-mods');
   const btnSyncProfileMods = document.getElementById('btn-sync-profile-mods');
   const modsInstalledList = document.getElementById('mods-installed-list');
+  const installedModsTbody = document.getElementById('installed-mods-tbody');
+  const installedModsEmptyState = document.getElementById('installed-mods-empty-state');
+  const selectInstalledModsEnv = document.getElementById('select-installed-mods-env');
+  const btnInstanceHeaderLaunch = document.getElementById('btn-instance-header-launch');
+
+  if (btnInstanceHeaderLaunch) {
+    btnInstanceHeaderLaunch.addEventListener('click', () => {
+      if (btnLaunch) btnLaunch.click();
+    });
+  }
+
+  if (selectInstalledModsEnv) {
+    selectInstalledModsEnv.addEventListener('change', () => {
+      renderFilteredInstalledMods();
+    });
+  }
+
+  // Subtab Data Packs navigation
+  const subtabInstanceDataPacks = document.getElementById('subtab-instance-datapacks');
+  const subpanelInstanceDataPacks = document.getElementById('subpanel-instance-datapacks');
+  const btnOpenDataPacksFolder = document.getElementById('btn-open-datapacks-folder');
+  const btnRefreshDataPacks = document.getElementById('btn-refresh-datapacks');
+
+  if (subtabInstanceDataPacks) {
+    subtabInstanceDataPacks.addEventListener('click', () => {
+      document.querySelectorAll('.instance-subtab-btn').forEach(b => b.classList.remove('active'));
+      subtabInstanceDataPacks.classList.add('active');
+      document.querySelectorAll('.instance-subpanel').forEach(p => p.style.display = 'none');
+      if (subpanelInstanceDataPacks) subpanelInstanceDataPacks.style.display = 'block';
+    });
+  }
+
+  if (btnOpenDataPacksFolder) {
+    btnOpenDataPacksFolder.addEventListener('click', async () => {
+      if (currentActiveProfile?.instancePath) {
+        const dpDir = path.join(currentActiveProfile.instancePath, 'datapacks');
+        await api.system?.openPath(dpDir).catch(() => {});
+      }
+    });
+  }
+
   let activeAvailableUpdates = [];
   let currentInstalledModsList = [];
   let currentModsViewMode = 'list';
@@ -577,6 +694,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         try { loadScreenshotsInstancesFilter(); } catch (e) { console.warn('[switchTab] Error en filtro capturas:', e); }
         try { loadScreenshotsGallery(); } catch (e) { console.warn('[switchTab] Error en loadScreenshotsGallery:', e); }
       } else if (viewName === 'skins') {
+        try { renderDefaultSkinsGrid(); renderUserSavedSkinsGrid(); } catch (_) {}
+
         try { initSkinViewer3D(); } catch (e) { console.warn('[switchTab] Error en initSkinViewer3D:', e); }
       } else if (viewName === 'controller') {
         try { if (typeof loadControllerView === 'function') loadControllerView(); } catch (e) { console.warn('[switchTab] Error en loadControllerView:', e); }
@@ -1112,6 +1231,279 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (btnAnimRun) btnAnimRun.addEventListener('click', () => setSkinAnimation('run'));
   if (btnAnimRotate) btnAnimRotate.addEventListener('click', () => toggleSkinAutoRotate());
 
+  
+  // =========================================================================
+  // VESTIDOR 3D: CONTROLES FLOTANTES, CAPAS, ÉLITROS, PAUSA Y SEGUIR CURSOR
+  // =========================================================================
+  const OFFICIAL_CAPES = {
+    vanilla: 'https://textures.minecraft.net/texture/41434c4f69f2e7c3e1e93ae1fa46b3fcf5eeae16c148ec78917e76cb4be704e6',
+    migrator: 'https://textures.minecraft.net/texture/2340c0e03dd6644d682c91c62923537d6f84f791232b761f249d65a88c',
+    '15th': 'https://textures.minecraft.net/texture/593d6d5c6be3662d989f6aa6a3c9a59b20d757d53b26fae3d1dd3924f728c009',
+    pancape: 'https://textures.minecraft.net/texture/6e19194ec710321a6f672322a36a9daea4f02a014902a77f9872584e27f050ff',
+    cherry: 'https://textures.minecraft.net/texture/277c0f16f3d4cb99f196cc7024f0c4ee828ad6bfb1ef407a5180cefb6cc1a93e',
+    tiktok: 'https://textures.minecraft.net/texture/55b3eb3dbe3b4e6378e930f7e1b6f6580f4f7d4323cb1fe3fa47cb4e5a9539d',
+    twitch: 'https://textures.minecraft.net/texture/2a6d71b8ee83fcf634ad2a8e8e7cff62f9eb66bb4f17cffec77e85df6ecbb7',
+    none: null
+  };
+
+  const DEFAULT_SKINS = [
+    { name: 'Steve', model: 'default', url: 'https://launchercontent.mojang.com/default-skins/steve.png' },
+    { name: 'Alex', model: 'slim', url: 'https://launchercontent.mojang.com/default-skins/alex.png' },
+    { name: 'Ari', model: 'slim', url: 'https://launchercontent.mojang.com/default-skins/ari.png' },
+    { name: 'Efe', model: 'slim', url: 'https://launchercontent.mojang.com/default-skins/efe.png' },
+    { name: 'Makena', model: 'slim', url: 'https://launchercontent.mojang.com/default-skins/makena.png' },
+    { name: 'Noor', model: 'slim', url: 'https://launchercontent.mojang.com/default-skins/noor.png' },
+    { name: 'Sunny', model: 'slim', url: 'https://launchercontent.mojang.com/default-skins/sunny.png' },
+    { name: 'Zuri', model: 'default', url: 'https://launchercontent.mojang.com/default-skins/zuri.png' },
+    { name: 'Kai', model: 'default', url: 'https://launchercontent.mojang.com/default-skins/kai.png' }
+  ];
+
+  let currentActiveCapeUrl = OFFICIAL_CAPES.vanilla;
+  let isElytraMode = false;
+  let isAnimationPaused = false;
+  let isFollowCursorActive = false;
+
+  function loadCapeIn3DViewer(capeUrl, asElytra = isElytraMode) {
+    if (!skinViewer3D) return;
+    try {
+      currentActiveCapeUrl = capeUrl;
+      if (!capeUrl) {
+        if (skinViewer3D.playerObject && skinViewer3D.playerObject.cape) {
+          skinViewer3D.playerObject.cape.visible = false;
+        }
+        return;
+      }
+      skinViewer3D.loadCape(capeUrl, { backEquipment: asElytra ? 'elytra' : 'cape' });
+      if (skinViewer3D.playerObject && skinViewer3D.playerObject.cape) {
+        skinViewer3D.playerObject.cape.visible = true;
+      }
+    } catch (err) {
+      console.warn('[SkinViewer 3D] Error al cargar capa/élitros:', err);
+    }
+  }
+
+  // 1. Selector de Capas Flotante
+  const btnSkinCapesToggle = document.getElementById('btn-skin-capes-toggle');
+  const skinCapesDropdown = document.getElementById('skin-capes-dropdown');
+  const btnUploadCustomCape = document.getElementById('btn-upload-custom-cape');
+
+  if (btnSkinCapesToggle && skinCapesDropdown) {
+    btnSkinCapesToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      skinCapesDropdown.classList.toggle('hidden');
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.skin-pill-dropdown-container')) {
+        skinCapesDropdown.classList.add('hidden');
+      }
+    });
+
+    skinCapesDropdown.querySelectorAll('.cape-dropdown-item[data-cape]').forEach((item) => {
+      item.addEventListener('click', () => {
+        const capeKey = item.getAttribute('data-cape');
+        const capeUrl = OFFICIAL_CAPES[capeKey] || null;
+        loadCapeIn3DViewer(capeUrl);
+        skinCapesDropdown.classList.add('hidden');
+      });
+    });
+  }
+
+  if (btnUploadCustomCape) {
+    btnUploadCustomCape.addEventListener('click', async () => {
+      skinCapesDropdown?.classList.add('hidden');
+      const res = await api.skins?.selectFile?.().catch(() => null);
+      if (res && !res.canceled && res.path) {
+        const fileUrl = `file:///${res.path.replace(/\\/g, '/')}`;
+        loadCapeIn3DViewer(fileUrl);
+      }
+    });
+  }
+
+  // 2. Toggle Élitros 3D
+  const btnSkinElytraToggle = document.getElementById('btn-skin-elytra-toggle');
+  if (btnSkinElytraToggle) {
+    btnSkinElytraToggle.addEventListener('click', () => {
+      isElytraMode = !isElytraMode;
+      btnSkinElytraToggle.classList.toggle('active', isElytraMode);
+      if (!currentActiveCapeUrl) {
+        currentActiveCapeUrl = OFFICIAL_CAPES.vanilla;
+      }
+      loadCapeIn3DViewer(currentActiveCapeUrl, isElytraMode);
+    });
+  }
+
+  // 3. Toggle Pausa de Animación
+  const btnSkinPauseToggle = document.getElementById('btn-skin-pause-toggle');
+  if (btnSkinPauseToggle) {
+    btnSkinPauseToggle.addEventListener('click', () => {
+      if (!skinViewer3D) return;
+      isAnimationPaused = !isAnimationPaused;
+      if (skinViewer3D.animation) {
+        skinViewer3D.animation.paused = isAnimationPaused;
+      }
+      btnSkinPauseToggle.classList.toggle('active', isAnimationPaused);
+      const span = btnSkinPauseToggle.querySelector('span');
+      if (span) span.textContent = isAnimationPaused ? '▶ Reanudar' : '⏸ Pausa';
+    });
+  }
+
+  // 4. Toggle Seguir Cursor
+  const btnSkinFollowCursorToggle = document.getElementById('btn-skin-follow-cursor-toggle');
+  if (btnSkinFollowCursorToggle) {
+    btnSkinFollowCursorToggle.addEventListener('click', () => {
+      isFollowCursorActive = !isFollowCursorActive;
+      btnSkinFollowCursorToggle.classList.toggle('active', isFollowCursorActive);
+      if (!isFollowCursorActive && skinViewer3D?.playerObject?.skin?.head) {
+        skinViewer3D.playerObject.skin.head.rotation.y = 0;
+        skinViewer3D.playerObject.skin.head.rotation.x = 0;
+      }
+    });
+
+    const canvasWrapper = document.querySelector('.skin-canvas-3d-wrapper');
+    if (canvasWrapper) {
+      canvasWrapper.addEventListener('mousemove', (e) => {
+        if (!isFollowCursorActive || !skinViewer3D?.playerObject?.skin?.head) return;
+        const rect = canvasWrapper.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const dx = Math.max(-1, Math.min(1, (e.clientX - cx) / (rect.width / 2)));
+        const dy = Math.max(-1, Math.min(1, (e.clientY - cy) / (rect.height / 2)));
+        skinViewer3D.playerObject.skin.head.rotation.y = dx * 0.55;
+        skinViewer3D.playerObject.skin.head.rotation.x = dy * 0.35;
+      });
+
+      canvasWrapper.addEventListener('mouseleave', () => {
+        if (!isFollowCursorActive || !skinViewer3D?.playerObject?.skin?.head) return;
+        skinViewer3D.playerObject.skin.head.rotation.y = 0;
+        skinViewer3D.playerObject.skin.head.rotation.x = 0;
+      });
+    }
+  }
+
+  // 5. Botón Reset Cámara
+  const btnSkinResetCamera = document.getElementById('btn-skin-reset-camera');
+  if (btnSkinResetCamera) {
+    btnSkinResetCamera.addEventListener('click', () => {
+      if (skinViewer3D) {
+        skinViewer3D.camera.position.set(0, 0, 70);
+        skinViewer3D.controls.reset();
+      }
+    });
+  }
+
+  // 6. Renderizar Skins por Defecto
+  function renderDefaultSkinsGrid() {
+    const grid = document.getElementById('default-skins-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    DEFAULT_SKINS.forEach((skin) => {
+      const card = document.createElement('div');
+      card.className = 'skin-grid-card';
+      card.title = `Usar skin ${skin.name} (${skin.model === 'slim' ? 'Alex 3px' : 'Steve 4px'})`;
+      card.innerHTML = `
+        <img src="https://mc-heads.net/avatar/${encodeURIComponent(skin.name)}/48" class="skin-card-thumb-canvas" alt="${skin.name}" onerror="this.src='https://mc-heads.net/avatar/Steve/48'">
+        <span class="skin-card-name">${skin.name}</span>
+        <span class="skin-card-badge">${skin.model === 'slim' ? 'Delgado' : 'Clásico'}</span>
+      `;
+
+      card.addEventListener('click', () => {
+        document.querySelectorAll('.skin-grid-card').forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        setSkinModelType(skin.model);
+        loadSkinIn3DViewer(skin.url);
+        renderSkinFaceToCanvas(skin.url, vestidorFaceCanvas);
+        if (skinPreviewLabel) skinPreviewLabel.textContent = skin.name;
+        if (skinAppliedStatus) skinAppliedStatus.textContent = `Skin por defecto (${skin.name}) seleccionada`;
+        pendingSkinData = { type: 'mojang', value: skin.name };
+      });
+
+      grid.appendChild(card);
+    });
+  }
+
+  // 7. Renderizar Mis Skins Guardadas (con persistencia en localStorage)
+  function renderUserSavedSkinsGrid() {
+    const grid = document.getElementById('user-saved-skins-grid');
+    if (!grid) return;
+
+    // Preservar la tarjeta de subir skin
+    const uploadCard = document.getElementById('card-upload-new-skin');
+    grid.innerHTML = '';
+    if (uploadCard) grid.appendChild(uploadCard);
+
+    let saved = [];
+    try {
+      saved = JSON.parse(localStorage.getItem('shuba_user_saved_skins') || '[]');
+    } catch (_) { saved = []; }
+
+    const countBadge = document.getElementById('user-saved-skins-count');
+    if (countBadge) countBadge.textContent = `${saved.length} skin${saved.length === 1 ? '' : 's'}`;
+
+    saved.forEach((item, index) => {
+      const card = document.createElement('div');
+      card.className = 'skin-grid-card';
+      card.title = `Skin guardada ${item.name || 'Custom'}`;
+      card.innerHTML = `
+        <img src="${item.dataUrl || item.url || 'https://mc-heads.net/avatar/Steve/48'}" class="skin-card-thumb-canvas" alt="Skin" onerror="this.src='https://mc-heads.net/avatar/Steve/48'">
+        <span class="skin-card-name">${escapeHtml(item.name || 'Skin ' + (index + 1))}</span>
+        <span class="skin-card-badge">${item.model === 'slim' ? 'Delgado' : 'Clásico'}</span>
+      `;
+
+      card.addEventListener('click', () => {
+        document.querySelectorAll('.skin-grid-card').forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        if (item.model) setSkinModelType(item.model);
+        loadSkinIn3DViewer(item.dataUrl || item.url);
+        renderSkinFaceToCanvas(item.dataUrl || item.url, vestidorFaceCanvas);
+        if (skinPreviewLabel) skinPreviewLabel.textContent = item.name || 'Guardada';
+        if (skinAppliedStatus) skinAppliedStatus.textContent = 'Skin guardada seleccionada (lista para aplicar)';
+        if (item.filePath) {
+          pendingSkinData = { type: 'file', value: item.filePath };
+        } else if (item.mojangUser) {
+          pendingSkinData = { type: 'mojang', value: item.mojangUser };
+        }
+      });
+
+      grid.appendChild(card);
+    });
+  }
+
+  // Subir skin desde archivo local en la tarjeta
+  const cardUploadNewSkin = document.getElementById('card-upload-new-skin');
+  if (cardUploadNewSkin) {
+    cardUploadNewSkin.addEventListener('click', async () => {
+      const res = await api.skins?.selectFile?.().catch(() => null);
+      if (res && !res.canceled && res.path) {
+        inputLocalSkinPath.value = res.path;
+        const fileUrl = `file:///${res.path.replace(/\\/g, '/')}`;
+        renderSkinFaceToCanvas(fileUrl, vestidorFaceCanvas);
+        loadSkinIn3DViewer(fileUrl);
+        if (skinPreviewLabel) skinPreviewLabel.textContent = path.basename(res.path);
+        if (skinAppliedStatus) skinAppliedStatus.textContent = 'Archivo PNG seleccionado (listo para aplicar)';
+        pendingSkinData = { type: 'file', value: res.path };
+
+        // Guardar en lista de Mis Skins
+        try {
+          const list = JSON.parse(localStorage.getItem('shuba_user_saved_skins') || '[]');
+          const skinName = path.basename(res.path).replace(/\.png$/i, '');
+          if (!list.some(s => s.filePath === res.path)) {
+            list.unshift({ name: skinName, filePath: res.path, url: fileUrl, dataUrl: fileUrl, model: currentModelType });
+            if (list.length > 20) list.pop();
+            localStorage.setItem('shuba_user_saved_skins', JSON.stringify(list));
+            renderUserSavedSkinsGrid();
+          }
+        } catch (_) {}
+      }
+    });
+  }
+
+  // Inicializar grids al cargar pestaña skins
+  renderDefaultSkinsGrid();
+  renderUserSavedSkinsGrid();
+
+
   // =======================================================
   // VESTIDOR DE SKINS (CLONAR MOJANG Y SUBIR PNG LOCAL)
   // =======================================================
@@ -1409,7 +1801,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         activeProfileName.textContent = currentActiveProfile.name;
         const loaderUpper = (currentActiveProfile.loader || 'NeoForge').toUpperCase();
         activeProfileBadge.textContent = loaderUpper;
-        activeProfileBadge.className = `badge badge-${(currentActiveProfile.loader || 'neoforge').toLowerCase()}`;
+        activeProfileBadge.innerHTML = getLoaderBadge(currentActiveProfile.loader, 14);
+        activeProfileBadge.className = 'active-profile-badge-wrap';
         activeProfileMc.textContent = currentActiveProfile.mcVersion;
         activeProfileLoaderVer.textContent = (currentActiveProfile.loaderVersion || '').split(' ')[0].trim();
         activeProfileFolder.textContent = `instances/${currentActiveProfile.id}`;
@@ -1461,7 +1854,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 </div>
               </div>
             </div>
-            <span class="badge badge-${pLoaderLower}">${pLoaderUpper}</span>
+            ${getLoaderBadge(p.loader, 14)}
           </div>
 
           <div class="instance-card-actions">
@@ -2433,19 +2826,28 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function renderFilteredInstalledMods() {
-    if (!modsInstalledList) return;
+    if (!modsInstalledList && !installedModsTbody) return;
 
     const searchTerm = (inputSearchInstalledMods ? inputSearchInstalledMods.value.trim().toLowerCase() : '');
     const sortBy = (selectInstalledModsSort ? selectInstalledModsSort.value : 'name');
+    const envFilter = (selectInstalledModsEnv ? selectInstalledModsEnv.value : 'all');
 
-    // 1. Filtrado local en tiempo real
+    // 1. Filtrado local en tiempo real (por búsqueda y por entorno)
     let filtered = currentInstalledModsList.filter((mod) => {
-      if (!searchTerm) return true;
       const fn = (mod.fileName || '').toLowerCase();
       const dn = (mod.displayName || '').toLowerCase();
       const n = (mod.name || '').toLowerCase();
       const auth = (mod.author || '').toLowerCase();
-      return fn.includes(searchTerm) || dn.includes(searchTerm) || n.includes(searchTerm) || auth.includes(searchTerm);
+      const matchesSearch = !searchTerm || fn.includes(searchTerm) || dn.includes(searchTerm) || n.includes(searchTerm) || auth.includes(searchTerm);
+      if (!matchesSearch) return false;
+
+      if (envFilter !== 'all') {
+        const modEnv = resolveModEnvironment(mod);
+        if (envFilter === 'client' && modEnv !== 'client') return false;
+        if (envFilter === 'server' && modEnv !== 'server') return false;
+        if (envFilter === 'both' && modEnv !== 'both') return false;
+      }
+      return true;
     });
 
     // 2. Ordenamiento configurable
@@ -2478,12 +2880,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const badgeSubtabMods = document.getElementById('badge-subtab-mods');
     if (badgeSubtabMods) badgeSubtabMods.textContent = currentInstalledModsList.length;
 
-    if (filtered.length === 0) {
-      const msg = searchTerm ? 'No se encontraron mods que coincidan con la búsqueda.' : 'No hay mods instalados en esta instancia todavía.';
-      modsInstalledList.innerHTML = `<div class="empty-state">${escapeHtml(msg)}</div>`;
-      return;
-    }
-
     // Si hay actualizaciones disponibles, ordenar los mods afectados arriba del todo
     if (activeAvailableUpdates.length > 0) {
       filtered.sort((a, b) => {
@@ -2495,145 +2891,109 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
     }
 
-    modsInstalledList.innerHTML = '';
-    const targetInstance = currentActiveProfile?.instancePath || null;
-
-    filtered.forEach((mod) => {
-      const rawFileName = mod.fileName ?? 'mod.jar';
-      const modTitle = resolveModTitle(mod, rawFileName);
-      const modAuthor = mod.author ? `por ${mod.author}` : '';
-
-      const source = (mod.source ?? 'custom').toLowerCase();
-      const sourceLabel = source === 'curseforge' ? 'CURSEFORGE' : (source === 'modrinth' ? 'MODRINTH' : 'CUSTOM');
-      const sourceClass = source === 'curseforge' ? 'badge-curseforge' : (source === 'modrinth' ? 'badge-modrinth' : 'badge-idle');
-
-      const isChecked = mod.enabled !== false ? 'checked' : '';
-
-      // Comprobar actualización disponible
-      const modUpdate = activeAvailableUpdates.find((u) => u.currentFileName === rawFileName || (u.projectId && String(u.projectId) === String(mod.projectId)));
-      let cleanNewV = '';
-      if (modUpdate) {
-        const rawNew = (modUpdate.latestFile.versionNumber || modUpdate.latestFile.displayName || '').trim();
-        cleanNewV = rawNew.replace(/^v+/i, '').trim();
-      }
-      const updateBtn = modUpdate
-        ? `<button class="btn btn-small btn-update-mod" data-filename="${escapeHtml(rawFileName)}" title="Actualizar a la versión ${escapeHtml(cleanNewV ? 'v' + cleanNewV : 'más reciente')}">
-             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
-             <span>Actualizar${cleanNewV ? ' a v' + escapeHtml(cleanNewV) : ''}</span>
-           </button>`
-        : '';
-
-      // Icono o fallback SVG estilizado
-      const iconHtml = mod.iconUrl
-        ? `<img src="${escapeHtml(mod.iconUrl)}" alt="${escapeHtml(modTitle)}" onerror="this.style.display='none'; if (this.nextElementSibling) this.nextElementSibling.style.display='block';" /><svg class="mod-avatar-fallback" style="display:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>`
-        : `<svg class="mod-avatar-fallback" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>`;
-
-      // Botón de detalle
-      const inspectBtn = mod.projectId
-        ? `<button class="btn btn-small btn-secondary btn-inspect-mod" data-projectid="${escapeHtml(String(mod.projectId))}" data-source="${escapeHtml(source)}" data-title="${escapeHtml(modTitle)}" data-icon="${escapeHtml(mod.iconUrl || '')}" data-author="${escapeHtml(mod.author || '')}" data-summary="${escapeHtml(mod.summary || '')}" title="Ver detalles y capturas">
-             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-           </button>`
-        : '';
-
-      const deleteBtn = `<button class="btn btn-small btn-danger btn-delete-mod" data-filename="${escapeHtml(rawFileName)}" title="Eliminar mod">
-                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                         </button>`;
-
-      if (currentModsViewMode === 'grid') {
-        const card = document.createElement('div');
-        card.className = 'installed-mod-grid-card';
-        card.innerHTML = `
-          <div class="grid-card-top">
-            <div class="grid-card-icon-title">
-              <div class="grid-card-avatar">${iconHtml}</div>
-              <div class="grid-card-info">
-                <span class="grid-card-title" title="${escapeHtml(modTitle)}">${escapeHtml(modTitle)}</span>
-                ${modAuthor ? `<span class="grid-card-author">${escapeHtml(modAuthor)}</span>` : ''}
-                <span class="grid-card-filename" title="${escapeHtml(rawFileName)}">${escapeHtml(rawFileName)}</span>
-              </div>
-            </div>
-            <label class="switch-container" title="Habilitar / Deshabilitar">
-              <input type="checkbox" class="mod-toggle-check" data-filename="${escapeHtml(rawFileName)}" ${isChecked}>
-              <span class="switch-slider"></span>
-            </label>
-          </div>
-          <div class="grid-card-bottom">
-            <div class="grid-card-tags">
-              <span class="badge ${sourceClass}">${sourceLabel}</span>
-              ${mod.sizeFormatted ? `<span class="badge badge-idle">${escapeHtml(mod.sizeFormatted)}</span>` : ''}
-            </div>
-            <div class="grid-card-actions">
-              ${updateBtn}
-              ${inspectBtn}
-              ${deleteBtn}
-            </div>
-          </div>
-        `;
-        card.addEventListener('click', (e) => {
-          if (e.target.closest('.switch-container') || e.target.closest('.btn-update-mod') || e.target.closest('.btn-delete-mod')) {
-            return;
-          }
-          openModDetailModal({
-            id: mod.projectId,
-            source: source,
-            title: modTitle,
-            iconUrl: mod.iconUrl,
-            author: mod.author,
-            summary: mod.summary || mod.description || '',
-            fileName: rawFileName,
-            sizeFormatted: mod.sizeFormatted
-          });
-        });
-        modsInstalledList.appendChild(card);
+    // RENDERIZADO EN TABLA DE 5 COLUMNAS AL 100% DE ANCHO
+    if (installedModsTbody) {
+      installedModsTbody.innerHTML = '';
+      if (filtered.length === 0) {
+        if (installedModsEmptyState) {
+          installedModsEmptyState.classList.remove('hidden');
+          installedModsEmptyState.textContent = searchTerm ? 'No se encontraron mods que coincidan con la búsqueda.' : 'No hay mods instalados en esta instancia todavía.';
+        }
       } else {
-        const row = document.createElement('div');
-        row.className = 'installed-mod-row';
-        row.innerHTML = `
-          <div class="installed-mod-left">
-            <label class="switch-container" title="Habilitar / Deshabilitar">
-              <input type="checkbox" class="mod-toggle-check" data-filename="${escapeHtml(rawFileName)}" ${isChecked}>
-              <span class="switch-slider"></span>
-            </label>
-            <div class="mod-avatar-box">${iconHtml}</div>
-            <div class="mod-info-col">
-              <div class="installed-mod-name-row">
-                <span class="installed-mod-name">${escapeHtml(modTitle)}</span>
-                ${modAuthor ? `<span class="installed-mod-author">${escapeHtml(modAuthor)}</span>` : ''}
-              </div>
-              <div class="installed-mod-meta-row">
-                <span class="installed-mod-filename">${escapeHtml(rawFileName)}</span>
-                ${mod.sizeFormatted ? `<span class="installed-mod-size">· ${escapeHtml(mod.sizeFormatted)}</span>` : ''}
-              </div>
-            </div>
-          </div>
-          <div class="installed-mod-right">
-            ${updateBtn}
-            <span class="badge ${sourceClass}">${sourceLabel}</span>
-            ${inspectBtn}
-            ${deleteBtn}
-          </div>
-        `;
-        row.addEventListener('click', (e) => {
-          if (e.target.closest('.switch-container') || e.target.closest('.btn-update-mod') || e.target.closest('.btn-delete-mod')) {
-            return;
+        if (installedModsEmptyState) installedModsEmptyState.classList.add('hidden');
+
+        filtered.forEach((mod) => {
+          const rawFileName = mod.fileName ?? 'mod.jar';
+          const modTitle = resolveModTitle(mod, rawFileName);
+          const authorText = mod.author || '—';
+          const isChecked = mod.enabled !== false;
+          const modEnv = resolveModEnvironment(mod);
+          const modUpdate = activeAvailableUpdates.find((u) => u.currentFileName === rawFileName || (u.projectId && String(u.projectId) === String(mod.projectId)));
+
+          let envBadgeHtml = '';
+          if (modEnv === 'client') {
+            envBadgeHtml = `<span class="env-badge-tag env-client" title="Solo Cliente">🖥️ Cliente</span>`;
+          } else if (modEnv === 'server') {
+            envBadgeHtml = `<span class="env-badge-tag env-server" title="Solo Servidor">🗄️ Servidor</span>`;
+          } else {
+            envBadgeHtml = `<span class="env-badge-tag env-both" title="Cliente y Servidor">🔄 Ambos</span>`;
           }
-          openModDetailModal({
-            id: mod.projectId,
-            source: source,
-            title: modTitle,
-            iconUrl: mod.iconUrl,
-            author: mod.author,
-            summary: mod.summary || mod.description || '',
-            fileName: rawFileName,
-            sizeFormatted: mod.sizeFormatted
+
+          let actionHtml = '';
+          if (modUpdate) {
+            const rawNew = (modUpdate.latestFile.versionNumber || modUpdate.latestFile.displayName || '').trim();
+            const cleanNewV = rawNew.replace(/^v+/i, '').trim();
+            actionHtml = `<button class="btn btn-small btn-primary btn-update-mod" data-filename="${escapeHtml(rawFileName)}" title="Actualizar a la versión más reciente">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+              <span>Actualizar${cleanNewV ? ' v' + escapeHtml(cleanNewV) : ''}</span>
+            </button>`;
+          } else {
+            actionHtml = `<span class="badge-uptodate">✓ Al día</span>`;
+          }
+
+          const iconHtml = mod.iconUrl
+            ? `<img src="${escapeHtml(mod.iconUrl)}" alt="${escapeHtml(modTitle)}" class="mod-table-avatar" onerror="this.style.display='none'; if (this.nextElementSibling) this.nextElementSibling.style.display='block';" /><svg class="mod-table-avatar-fallback" style="display:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>`
+            : `<svg class="mod-table-avatar-fallback" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>`;
+
+          const tr = document.createElement('tr');
+          if (!isChecked) tr.classList.add('mod-disabled');
+          tr.innerHTML = `
+            <td class="col-mod-name">
+              <div class="mod-cell-primary">
+                ${iconHtml}
+                <div class="mod-cell-info">
+                  <span class="mod-cell-title" title="${escapeHtml(modTitle)}">${escapeHtml(modTitle)}</span>
+                  <span class="mod-cell-file" title="${escapeHtml(rawFileName)}">${escapeHtml(rawFileName)}${mod.sizeFormatted ? ' · ' + escapeHtml(mod.sizeFormatted) : ''}</span>
+                </div>
+              </div>
+            </td>
+            <td class="col-mod-action">${actionHtml}</td>
+            <td class="col-mod-author"><span class="mod-cell-author-text" title="${escapeHtml(authorText)}">${escapeHtml(authorText)}</span></td>
+            <td class="col-mod-env">${envBadgeHtml}</td>
+            <td class="col-mod-toggle">
+              <div class="mod-cell-controls">
+                <label class="switch-toggle-orange" title="Habilitar / Deshabilitar mod">
+                  <input type="checkbox" class="mod-toggle-check" data-filename="${escapeHtml(rawFileName)}" ${isChecked ? 'checked' : ''}>
+                  <span class="switch-slider-orange"></span>
+                </label>
+                <button class="btn btn-small btn-danger btn-delete-mod" data-filename="${escapeHtml(rawFileName)}" title="Eliminar mod">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                </button>
+              </div>
+            </td>
+          `;
+
+          tr.addEventListener('click', (e) => {
+            if (e.target.closest('.switch-toggle-orange') || e.target.closest('.btn-update-mod') || e.target.closest('.btn-delete-mod')) {
+              return;
+            }
+            openModDetailModal({
+              id: mod.projectId,
+              source: mod.source || 'custom',
+              title: modTitle,
+              iconUrl: mod.iconUrl,
+              author: mod.author,
+              summary: mod.summary || mod.description || '',
+              fileName: rawFileName,
+              sizeFormatted: mod.sizeFormatted
+            });
           });
+
+          installedModsTbody.appendChild(tr);
         });
-        modsInstalledList.appendChild(row);
       }
-    });
+    }
+
+    if (modsInstalledList) {
+      modsInstalledList.innerHTML = '';
+      if (filtered.length === 0) {
+        const msg = searchTerm ? 'No se encontraron mods que coincidan con la búsqueda.' : 'No hay mods instalados en esta instancia todavía.';
+        modsInstalledList.innerHTML = `<div class="empty-state">${escapeHtml(msg)}</div>`;
+      }
+    }
 
     // Eventos de botones
-    modsInstalledList.querySelectorAll('.btn-update-mod').forEach((btn) => {
+    document.querySelectorAll('.btn-update-mod').forEach((btn) => {
       btn.addEventListener('click', async (e) => {
         e.stopPropagation();
         const fn = e.currentTarget.getAttribute('data-filename');
@@ -2681,7 +3041,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       sw.addEventListener('click', (e) => e.stopPropagation());
     });
 
-    modsInstalledList.querySelectorAll('.mod-toggle-check').forEach((chk) => {
+    document.querySelectorAll('.mod-toggle-check').forEach((chk) => {
       chk.addEventListener('click', (e) => e.stopPropagation());
       chk.addEventListener('change', async (e) => {
         const fn = e.target.getAttribute('data-filename');
@@ -2708,7 +3068,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
     });
 
-    modsInstalledList.querySelectorAll('.btn-delete-mod').forEach((btn) => {
+    document.querySelectorAll('.btn-delete-mod').forEach((btn) => {
       btn.addEventListener('click', async (e) => {
         e.stopPropagation();
         const fn = e.currentTarget.getAttribute('data-filename');
@@ -2742,15 +3102,34 @@ document.addEventListener('DOMContentLoaded', async () => {
       // 1. Actualizar barra de contexto
       if (currentActiveProfile) {
         if (installedModsInstanceName) installedModsInstanceName.textContent = currentActiveProfile.name || 'Instancia Activa';
-        const loaderCap = (currentActiveProfile.loader || 'neoforge').charAt(0).toUpperCase() + (currentActiveProfile.loader || 'neoforge').slice(1);
-        if (instanceContextBadge) instanceContextBadge.textContent = `Minecraft ${currentActiveProfile.mcVersion || '1.21.1'} · ${loaderCap}`;
+        const ctxBadge = document.getElementById('instance-context-badge');
+        if (ctxBadge) {
+          ctxBadge.innerHTML = getLoaderBadge(currentActiveProfile.loader, 14);
+        }
+        const ctxMc = document.getElementById('instance-context-meta-mc');
+        if (ctxMc) ctxMc.textContent = `MC ${currentActiveProfile.mcVersion || '1.21.1'}`;
+
+        const ctxLast = document.getElementById('instance-context-meta-lastplayed');
+        if (ctxLast) {
+          ctxLast.textContent = currentActiveProfile.lastPlayed ? `Última: ${formatDatePretty(currentActiveProfile.lastPlayed)}` : 'Última: Nunca';
+        }
+        const ctxPlaytime = document.getElementById('instance-context-meta-playtime');
+        if (ctxPlaytime) {
+          ctxPlaytime.textContent = currentActiveProfile.totalPlayTime ? `${formatPlaytime(currentActiveProfile.totalPlayTime)} jugados` : '0 min jugados';
+        }
+
+        const pIcon = currentActiveProfile.icon || 'assets/logo.png';
         if (instanceContextIcon) {
-          const pIcon = currentActiveProfile.icon || 'assets/logo.png';
           instanceContextIcon.onerror = () => {
             instanceContextIcon.onerror = null;
             instanceContextIcon.src = 'assets/logo.png';
           };
           instanceContextIcon.src = pIcon;
+        }
+
+        const bannerBackdrop = document.getElementById('instance-banner-backdrop');
+        if (bannerBackdrop) {
+          bannerBackdrop.style.backgroundImage = `url("${pIcon}")`;
         }
       }
 

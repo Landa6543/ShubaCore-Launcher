@@ -2768,7 +2768,7 @@ class ModManager {
     }
 
     // Guardar y configurar icono oficial del modpack
-    await this._saveModpackIcon({ zip, instancePath, createdProfile, iconUrl });
+    await this._saveModpackIcon({ zip, instancePath, createdProfile, iconUrl, modrinthIndex: indexJson });
 
     // Overrides (overrides/ y client-overrides/)
     const overridesPrefixes = ['overrides/', 'client-overrides/', 'client_overrides/'];
@@ -2884,7 +2884,7 @@ class ModManager {
     }
 
     // Guardar y configurar icono oficial del modpack
-    await this._saveModpackIcon({ zip, instancePath, createdProfile, iconUrl });
+    await this._saveModpackIcon({ zip, instancePath, createdProfile, iconUrl, cfManifest: manifest });
 
     // Paso B: Extraer overrides/ (o el directorio indicado en manifest.overrides) y client-overrides/
     const overridesDirName = (manifest.overrides || 'overrides').replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
@@ -3060,23 +3060,35 @@ class ModManager {
     };
   }
 
-  async _saveModpackIcon({ zip, instancePath, createdProfile, iconUrl = null }) {
+  async _saveModpackIcon({ zip, instancePath, createdProfile, iconUrl = null, cfManifest = null, modrinthIndex = null }) {
     try {
       let iconSaved = false;
       const localIconPath = path.join(instancePath, 'icon.png');
 
-      // 1. Buscar en el zip si trae icon.png, logo.png, pack.png o overrides/icon.png
+      // 1. Buscar en el archivo comprimido (.zip / .mrpack / .shubapack)
       if (zip) {
-        const iconEntry = zip.getEntries().find((e) => !e.isDirectory && (
-          e.entryName === 'icon.png' ||
-          e.entryName === 'logo.png' ||
-          e.entryName === 'pack.png' ||
-          e.entryName.toLowerCase().endsWith('/icon.png')
-        ));
+        const iconEntry = zip.getEntries().find((e) => {
+          if (e.isDirectory) return false;
+          const lowName = e.entryName.toLowerCase().replace(/\\/g, '/');
+          return (
+            lowName === 'icon.png' ||
+            lowName === 'pack.png' ||
+            lowName === 'logo.png' ||
+            lowName === 'instance.png' ||
+            lowName === 'manifest-icon.png' ||
+            lowName.endsWith('/icon.png') ||
+            lowName.endsWith('/pack.png') ||
+            lowName.endsWith('/logo.png') ||
+            lowName.endsWith('/instance.png') ||
+            lowName.endsWith('/manifest-icon.png') ||
+            /(icon|pack|logo|instance)\.(png|jpg|jpeg|webp)$/i.test(path.basename(lowName))
+          );
+        });
+
         if (iconEntry) {
           fs.writeFileSync(localIconPath, iconEntry.getData());
           iconSaved = true;
-          logger.info(`[Modpack] Icono extraído del paquete a: ${localIconPath}`);
+          logger.info(`[Modpack] Icono oficial extraído del paquete a: ${localIconPath}`);
         }
       }
 
@@ -3095,7 +3107,56 @@ class ModManager {
         }
       }
 
-      // 3. Escribir metadatos en instance.json y actualizar perfil en ProfileManager
+      // 3. Fallback CurseForge API: si viene un manifest.json con projectID
+      if (!iconSaved && cfManifest && cfManifest.projectID) {
+        try {
+          const apiKey = this._getCurseForgeKey();
+          const cfRes = await fetch(`${CURSEFORGE_API_URL}/mods/${cfManifest.projectID}`, {
+            headers: { 'x-api-key': apiKey, Accept: 'application/json', 'User-Agent': USER_AGENT }
+          });
+          if (cfRes.ok) {
+            const cfJson = await cfRes.json();
+            const remoteUrl = cfJson.data?.logo?.thumbnailUrl || cfJson.data?.logo?.url;
+            if (remoteUrl) {
+              const imgRes = await fetch(remoteUrl);
+              if (imgRes.ok) {
+                const buf = Buffer.from(await imgRes.arrayBuffer());
+                fs.writeFileSync(localIconPath, buf);
+                iconSaved = true;
+                logger.info(`[Modpack] Icono oficial de CurseForge obtenido para ProjectID ${cfManifest.projectID} a: ${localIconPath}`);
+              }
+            }
+          }
+        } catch (cfErr) {
+          logger.debug(`[Modpack] Consulta fallback CurseForge icono omitida: ${cfErr.message}`);
+        }
+      }
+
+      // 4. Fallback Modrinth API: si viene un modrinth.index.json
+      if (!iconSaved && modrinthIndex && (modrinthIndex.project_id || modrinthIndex.name)) {
+        try {
+          const mrTarget = modrinthIndex.project_id || encodeURIComponent(modrinthIndex.name);
+          const mrRes = await fetch(`https://api.modrinth.com/v2/project/${mrTarget}`, {
+            headers: { 'User-Agent': USER_AGENT }
+          });
+          if (mrRes.ok) {
+            const mrJson = await mrRes.json();
+            if (mrJson.icon_url) {
+              const imgRes = await fetch(mrJson.icon_url);
+              if (imgRes.ok) {
+                const buf = Buffer.from(await imgRes.arrayBuffer());
+                fs.writeFileSync(localIconPath, buf);
+                iconSaved = true;
+                logger.info(`[Modpack] Icono oficial de Modrinth obtenido a: ${localIconPath}`);
+              }
+            }
+          }
+        } catch (mrErr) {
+          logger.debug(`[Modpack] Consulta fallback Modrinth icono omitida: ${mrErr.message}`);
+        }
+      }
+
+      // 5. Escribir metadatos en instance.json y actualizar perfil en ProfileManager
       let finalIcon = 'assets/logo.png';
       if (fs.existsSync(localIconPath)) {
         try {

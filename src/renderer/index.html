@@ -417,31 +417,42 @@
 
       <!-- VISTA 3: GESTOR DE MODS DE LA INSTANCIA -->
       <section id="view-mods" class="view-panel view-container hidden">
-        <!-- 1. Barra de Contexto de la Instancia -->
-        <div class="instance-context-header">
-          <div class="instance-context-left">
-            <img id="instance-context-icon" class="instance-context-icon" src="assets/logo.png" alt="Instancia" onerror="this.onerror=null;this.src='assets/logo.png';" />
-            <div class="instance-context-info">
-              <div class="instance-context-title-row">
-                <h2 id="installed-mods-instance-name" class="instance-context-name">Perfil Activo</h2>
-                <span id="instance-context-badge" class="badge badge-loader">Minecraft 1.21.1 · NeoForge</span>
+        <!-- 1. Barra de Banner y Contexto de la Instancia -->
+        <div class="instance-banner-header">
+          <div class="instance-banner-backdrop" id="instance-banner-backdrop"></div>
+          <div class="instance-banner-content">
+            <div class="instance-banner-main">
+              <img id="instance-context-icon" class="instance-context-icon" src="assets/logo.png" alt="Instancia" onerror="this.onerror=null;this.src='assets/logo.png';" />
+              <div class="instance-context-info">
+                <div class="instance-context-title-row">
+                  <h2 id="installed-mods-instance-name" class="instance-context-name">Perfil Activo</h2>
+                  <div id="instance-context-badge"></div>
+                </div>
+                <div class="instance-context-meta-row">
+                  <span id="instance-context-meta-mc" class="instance-meta-chip">MC 1.21.1</span>
+                  <span class="meta-sep">·</span>
+                  <span id="instance-context-meta-mods" class="instance-meta-chip"><span id="installed-mods-count">0</span> mods instalados</span>
+                  <span class="meta-sep">·</span>
+                  <span id="instance-context-meta-lastplayed" class="instance-meta-chip">Última partida: Nunca</span>
+                  <span class="meta-sep">·</span>
+                  <span id="instance-context-meta-playtime" class="instance-meta-chip">0 min jugados</span>
+                </div>
               </div>
-              <p class="instance-context-meta"><span id="installed-mods-count">0</span> mods instalados en esta instancia</p>
             </div>
-          </div>
-          <div class="instance-context-quick-actions">
-            <button id="btn-open-playit-tunnel-mods" class="btn btn-secondary" title="Abrir Túnel LAN P2P con PlayIt.gg para invitar amigos a jugar">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-              <span>🌐 Túnel LAN PlayIt</span>
-            </button>
-            <button id="btn-add-more-mods" class="btn btn-primary" title="Explorar y descargar más mods para esta instancia">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              <span>+ Añadir más Mods</span>
-            </button>
-            <button id="btn-open-mods-folder" class="btn btn-secondary" title="Abrir carpeta /mods en el explorador de archivos">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-              <span>Abrir Carpeta de Mods</span>
-            </button>
+            <div class="instance-banner-actions">
+              <button id="btn-instance-header-launch" class="btn btn-launch-header" title="Jugar con esta instancia ahora">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+                <span>JUGAR</span>
+              </button>
+              <button id="btn-open-playit-tunnel-mods" class="btn btn-secondary" title="Abrir Túnel LAN P2P con PlayIt.gg para invitar amigos a jugar">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                <span>🌐 Túnel LAN PlayIt</span>
+              </button>
+              <button id="btn-open-mods-folder" class="btn btn-secondary" title="Abrir carpeta /mods en el explorador de archivos">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                <span>Carpeta de Mods</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -474,12 +485,18 @@
         </div>
 
         <!-- Barra de Sub-Pestañas de la Instancia -->
-        <div class="instance-subtabs-nav">
-          <button id="subtab-instance-mods" class="instance-subtab-btn active" data-subtab="mods">
+        <div class="instance-subtabs-nav-bar">
+          <div class="instance-subtabs-nav">
+            <button id="subtab-instance-mods" class="instance-subtab-btn active" data-subtab="mods">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19.439 7.85c-.049-.955-.595-1.81-1.494-2.147-.946-.356-2.02.046-2.528.851A3.5 3.5 0 0 1 12 8a3.5 3.5 0 0 1-3.417-1.446c-.508-.805-1.582-1.207-2.528-.851-.899.337-1.445 1.192-1.494 2.147-.05 1.01.42 2.02 1.194 2.658A3.5 3.5 0 0 1 7 14c0 1.258-.655 2.364-1.637 2.992-.774.638-1.244 1.648-1.194 2.658.049.955.595 1.81 1.494 2.147.946.356 2.02-.046 2.528-.851A3.5 3.5 0 0 1 12 19.5a3.5 3.5 0 0 1 3.417 1.446c.508.805 1.582 1.207 2.528.851.899-.337 1.445-1.192 1.494-2.147.05-1.01-.42-2.02-1.194-2.658A3.5 3.5 0 0 1 17 14c0-1.258.655-2.364 1.637-2.992.774-.638 1.244-1.648 1.194-2.658Z"/></svg>
             <span>Mods</span>
             <span id="badge-subtab-mods" class="badge-count">0</span>
-          </button>
+            </button>
+            <button id="subtab-instance-datapacks" class="instance-subtab-btn" data-subtab="datapacks">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+              <span>Data Packs</span>
+              <span id="badge-subtab-datapacks" class="badge-count">0</span>
+            </button>
           <button id="subtab-instance-shaders" class="instance-subtab-btn" data-subtab="shaders">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
             <span>Shaders</span>
@@ -498,7 +515,14 @@
           <button id="subtab-instance-hud" class="instance-subtab-btn" data-subtab="hud" title="Ajustes nativos de options.txt (Fullbright, Sprint, Nubes, Sombras, VSync)">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
             <span>Optimizaciones (options.txt)</span>
-          </button>
+            </button>
+          </div>
+          <div class="instance-subtabs-actions">
+            <button id="btn-add-more-mods" class="btn btn-primary" title="Explorar y añadir contenido a esta instancia">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              <span>+ Añadir contenido</span>
+            </button>
+          </div>
         </div>
 
         <!-- SUB-PANEL 1: MODS -->
@@ -511,6 +535,15 @@
           </div>
 
           <div class="control-bar-filters">
+            <div class="control-select-group">
+              <label for="select-installed-mods-env">Entorno (Env):</label>
+              <select id="select-installed-mods-env" class="catalog-select">
+                <option value="all" selected>Todos los entornos</option>
+                <option value="client">Solo Cliente</option>
+                <option value="both">Cliente y Servidor</option>
+                <option value="server">Solo Servidor</option>
+              </select>
+            </div>
             <div class="control-select-group">
               <label for="select-installed-mods-sort">Ordenar por:</label>
               <select id="select-installed-mods-sort" class="catalog-select">
@@ -588,10 +621,46 @@
         </div>
 
         <div class="installed-mods-container">
-          <div id="mods-installed-list" class="installed-mods-list view-list">
-            <div class="empty-state">No hay mods instalados en este perfil todavía.</div>
+          <div class="installed-mods-table-wrapper">
+            <table class="instance-mods-table">
+              <thead>
+                <tr>
+                  <th class="col-mod-name">Complemento</th>
+                  <th class="col-mod-action">Acción</th>
+                  <th class="col-mod-author">Autor</th>
+                  <th class="col-mod-env">Env</th>
+                  <th class="col-mod-toggle">Activo</th>
+                </tr>
+              </thead>
+              <tbody id="installed-mods-tbody"></tbody>
+            </table>
+            <div id="installed-mods-empty-state" class="empty-state hidden">No hay mods instalados en esta instancia todavía.</div>
           </div>
+          <div id="mods-installed-list" class="installed-mods-list view-list" style="display: none;"></div>
         </div>
+        </div>
+
+        <!-- SUB-PANEL: DATA PACKS -->
+        <div id="subpanel-instance-datapacks" class="instance-subpanel" style="display: none;">
+          <div class="installed-mods-actions-bar" style="border: none; padding: 0; background: transparent;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-weight: 600; color: var(--text-primary); font-size: 14px;">Data Packs Instalados</span>
+              <span id="installed-datapacks-count-badge" class="badge badge-secondary">0 datapacks</span>
+            </div>
+            <div class="toolbar-actions">
+              <button id="btn-open-datapacks-folder" class="btn btn-secondary btn-small" title="Abrir carpeta datapacks en el explorador">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                <span>Abrir Carpeta</span>
+              </button>
+              <button id="btn-refresh-datapacks" class="btn btn-secondary btn-small" title="Refrescar lista de datapacks">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+                <span>Refrescar</span>
+              </button>
+            </div>
+          </div>
+          <div id="datapacks-installed-list" class="installed-mods-list view-list">
+            <div class="empty-state">No hay datapacks instalados en esta instancia todavía.</div>
+          </div>
         </div>
 
         <!-- SUB-PANEL 2: SHADERS -->
@@ -1460,96 +1529,168 @@
       <section id="view-skins" class="view-panel view-container hidden">
         <div class="view-toolbar">
           <div>
-            <h2 class="view-title">Vestidor de Skins</h2>
-            <p class="view-subtitle">Sistema 100% nativo de skins para Vanilla y Modloaders (sin mods requeridos).</p>
+            <h2 class="view-title">Vestidor de Skins & Capas 3D</h2>
+            <p class="view-subtitle">Personalización visual 100% nativa para Minecraft Vanilla y Modloaders con soporte para Élitros y Capas oficiales.</p>
           </div>
           <div class="toolbar-actions">
-            <button id="btn-remove-skin" class="btn btn-danger btn-compact">
+            <button id="btn-remove-skin" class="btn btn-danger btn-compact" title="Restaurar skin por defecto de Minecraft">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
               <span>Quitar Skin</span>
             </button>
-            <button id="btn-save-skin" class="btn btn-primary btn-compact">
+            <button id="btn-save-skin" class="btn btn-primary-orange btn-compact" title="Aplicar skin a tu jugador">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
               <span>Guardar y Aplicar</span>
             </button>
           </div>
         </div>
 
-        <div class="skins-studio-grid">
-          <!-- Tarjeta de Visor 3D Interactivo (skinview3d) -->
-          <div class="skin-preview-card skin-preview-card-3d">
-            <div class="skin-preview-header" style="flex-wrap: wrap; gap: 8px;">
-              <div>
-                <span class="card-section-title">Visor 3D Interactivo</span>
-                <span id="skin-preview-label" class="badge badge-idle" style="margin-left: 6px;">Steve</span>
-              </div>
-              <!-- Selector de Tipo de Cuerpo -->
-              <div class="skin-model-selector-group">
-                <button id="btn-model-classic" class="btn-model-toggle active" data-model="default" title="Brazos clásicos de 4 píxeles">
-                  💪 Clásico (Steve 4px)
-                </button>
-                <button id="btn-model-slim" class="btn-model-toggle" data-model="slim" title="Brazos delgados de 3 píxeles">
-                  ⚡ Delgado (Alex 3px)
-                </button>
-              </div>
-            </div>
-
+        <div class="skins-redesign-layout">
+          <!-- LADO IZQUIERDO: VISOR 3D FLOTANTE ALTO -->
+          <div class="skin-viewer-left-col">
             <div class="skin-canvas-3d-wrapper">
-              <canvas id="skinview-3d-canvas" width="300" height="420" class="skinview-3d-canvas"></canvas>
+              <div class="skin-canvas-top-hints">
+                <span class="skin-hint-pill">🖱 Arrastra para rotar · 🖱 Scroll para zoom</span>
+              </div>
               <div class="skin-face-inset">
                 <canvas id="vestidor-face-canvas" width="56" height="56" class="skin-face-canvas"></canvas>
                 <small>Cara</small>
               </div>
-              <div class="skin-3d-hint">Gira 360° con el mouse · Zoom con la rueda</div>
+
+              <canvas id="skinview-3d-canvas" width="340" height="460" class="skinview-3d-canvas"></canvas>
+
+              <!-- BARRA DE CONTROLES FLOTANTES (PÍLDORA REDONDEADA) -->
+              <div class="skin-floating-controls-pill">
+                <div class="skin-pill-dropdown-container">
+                  <button id="btn-skin-capes-toggle" class="btn-floating-pill" title="Elegir capa oficial o custom">
+                    <span>🧥 Capas ▾</span>
+                  </button>
+                  <div id="skin-capes-dropdown" class="skin-capes-dropdown hidden">
+                    <div class="capes-dropdown-title">Seleccionar Capa</div>
+                    <button class="cape-dropdown-item" data-cape="vanilla">
+                      <span class="cape-item-icon">🌟</span>
+                      <span class="cape-item-label">Capa Vanilla</span>
+                    </button>
+                    <button class="cape-dropdown-item" data-cape="migrator">
+                      <span class="cape-item-icon">🦅</span>
+                      <span class="cape-item-label">Migrator</span>
+                    </button>
+                    <button class="cape-dropdown-item" data-cape="15th">
+                      <span class="cape-item-icon">🎂</span>
+                      <span class="cape-item-label">15º Aniversario</span>
+                    </button>
+                    <button class="cape-dropdown-item" data-cape="pancape">
+                      <span class="cape-item-icon">🥞</span>
+                      <span class="cape-item-label">Pancape</span>
+                    </button>
+                    <button class="cape-dropdown-item" data-cape="cherry">
+                      <span class="cape-item-icon">🌸</span>
+                      <span class="cape-item-label">Cereza (Cherry)</span>
+                    </button>
+                    <button class="cape-dropdown-item" data-cape="tiktok">
+                      <span class="cape-item-icon">🎵</span>
+                      <span class="cape-item-label">TikTok Follower</span>
+                    </button>
+                    <button class="cape-dropdown-item" data-cape="twitch">
+                      <span class="cape-item-icon">💜</span>
+                      <span class="cape-item-label">Twitch Purple</span>
+                    </button>
+                    <div class="capes-dropdown-divider"></div>
+                    <button id="btn-upload-custom-cape" class="cape-dropdown-item">
+                      <span class="cape-item-icon">➕</span>
+                      <span class="cape-item-label">Subir Capa (.png)</span>
+                    </button>
+                    <button class="cape-dropdown-item cape-item-none" data-cape="none">
+                      <span class="cape-item-icon">❌</span>
+                      <span class="cape-item-label">Sin Capa</span>
+                    </button>
+                  </div>
+                </div>
+
+                <button id="btn-skin-elytra-toggle" class="btn-floating-pill" title="Alternar entre Capa y Élitros 3D">
+                  <span>🪽 Élitros</span>
+                </button>
+                <button id="btn-skin-pause-toggle" class="btn-floating-pill" title="Pausar o reanudar animación 3D">
+                  <span>⏸ Pausa</span>
+                </button>
+                <button id="btn-skin-follow-cursor-toggle" class="btn-floating-pill" title="Hacer que la cabeza siga el cursor">
+                  <span>👀 Seguir Cursor</span>
+                </button>
+              </div>
             </div>
 
-            <!-- Controles de Animación en Vivo -->
-            <div class="skin-3d-controls-bar">
-              <button id="btn-anim-idle" class="btn btn-secondary btn-compact" title="Posición quieta">
-                🧍 Quieto
+            <!-- BARRA INFERIOR DEL VISOR 3D -->
+            <div class="skin-bottom-action-bar">
+              <div class="skin-bottom-profile-meta">
+                <span class="skin-active-user-badge">Perfil: <strong id="skin-modal-username">Jugador</strong></span>
+                <span id="skin-applied-status" class="hint">Skin por defecto</span>
+              </div>
+              <div class="skin-model-selector-group">
+                <button id="btn-model-classic" class="btn-model-toggle active" data-model="default" title="Brazos clásicos de 4px">
+                  💪 Clásico (4px)
+                </button>
+                <button id="btn-model-slim" class="btn-model-toggle" data-model="slim" title="Brazos delgados de 3px">
+                  ⚡ Delgado (3px)
+                </button>
+              </div>
+              <button id="btn-skin-reset-camera" class="btn btn-secondary btn-compact" title="Resetear ángulo y zoom de la cámara">
+                🔄 Reset
               </button>
-              <button id="btn-anim-walk" class="btn btn-secondary btn-compact active" title="Caminar">
-                🚶 Caminar
-              </button>
-              <button id="btn-anim-run" class="btn btn-secondary btn-compact" title="Correr">
-                🏃 Correr
-              </button>
-              <button id="btn-anim-rotate" class="btn btn-secondary btn-compact" title="Rotación automática">
-                🔄 Auto-Rotar
-              </button>
-            </div>
-
-            <div class="skin-info-footer">
-              <span>Usuario asignado: <strong id="skin-modal-username">Jugador</strong></span>
-              <small id="skin-applied-status" class="hint">Sin skin personalizada aún</small>
             </div>
           </div>
 
-          <!-- Opciones de Configuración de Skin -->
-          <div class="skin-options-column">
-            <!-- Opción 1: Clonar de Mojang -->
-            <div class="settings-card">
-              <h3 class="settings-card-title">Clonar Skin de Jugador Premium (API Oficial Mojang)</h3>
-              <p class="settings-card-desc">Descarga las texturas oficiales de cualquier cuenta Premium de Minecraft sin APIs externas caídas.</p>
+          <!-- LADO DERECHO: MIS SKINS, SKINS POR DEFECTO Y CLONAR MOJANG -->
+          <div class="skin-right-col">
+            <!-- SECCIÓN 1: MIS SKINS GUARDADAS -->
+            <div class="skin-section-card">
+              <div class="skin-section-header">
+                <div>
+                  <h3 class="skin-section-title">Mis Skins</h3>
+                  <p class="skin-section-subtitle">Skins que has usado o subido localmente.</p>
+                </div>
+                <span id="user-saved-skins-count" class="badge badge-secondary">0 skins</span>
+              </div>
+              <div id="user-saved-skins-grid" class="skins-grid-container">
+                <!-- Tarjeta Subir Skin -->
+                <div id="card-upload-new-skin" class="skin-grid-card skin-card-upload" title="Subir un archivo .PNG local">
+                  <div class="skin-card-upload-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  </div>
+                  <span>+ Subir Skin (.png)</span>
+                  <input type="file" id="input-skin-file-hidden" accept=".png" style="display: none;" />
+                </div>
+              </div>
+            </div>
+
+            <!-- SECCIÓN 2: SKINS POR DEFECTO DE MINECRAFT -->
+            <div class="skin-section-card">
+              <div class="skin-section-header">
+                <div>
+                  <h3 class="skin-section-title">Skins por Defecto</h3>
+                  <p class="skin-section-subtitle">Las 9 skins oficiales de Minecraft (clásicas y slim).</p>
+                </div>
+                <span class="badge badge-idle">9 oficiales</span>
+              </div>
+              <div id="default-skins-grid" class="skins-grid-container"></div>
+            </div>
+
+            <!-- SECCIÓN 3: CLONAR DE MOJANG (PREMIUM) -->
+            <div class="skin-section-card">
+              <div class="skin-section-header">
+                <div>
+                  <h3 class="skin-section-title">Clonar Skin de Jugador Premium</h3>
+                  <p class="skin-section-subtitle">Descarga las texturas oficiales desde la API de Mojang.</p>
+                </div>
+              </div>
               <div class="input-group">
-                <input type="text" id="input-mojang-skin-clone" class="text-input" placeholder="Nombre de usuario Mojang (ej. Notch, Technoblade)">
+                <input type="text" id="input-mojang-skin-clone" class="text-input" placeholder="Nombre de usuario (ej. Notch, Technoblade)">
                 <button id="btn-preview-mojang-skin" class="btn btn-secondary">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
                   <span>Obtener</span>
                 </button>
               </div>
-            </div>
-
-            <!-- Opción 2: Archivo Local .PNG -->
-            <div class="settings-card">
-              <h3 class="settings-card-title">Subir Archivo .PNG Local</h3>
-              <p class="settings-card-desc">Formatos compatibles: skins modernas 64x64 o skins clásicas 64x32.</p>
-              <div class="input-group">
-                <input type="text" id="input-local-skin-path" class="text-input" placeholder="Ningún archivo seleccionado" readonly>
-                <button id="btn-select-local-skin" class="btn btn-secondary">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-                  <span>Examinar PNG</span>
-                </button>
+              <div style="display: none;">
+                <input type="text" id="input-local-skin-path" readonly>
+                <button id="btn-select-local-skin"></button>
               </div>
             </div>
           </div>

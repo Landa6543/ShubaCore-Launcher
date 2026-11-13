@@ -197,9 +197,50 @@ class PackPorter {
     const targetInstancePath = newProfile.instancePath;
     logger.info(`[PackPorter] Nueva instancia creada en: ${targetInstancePath}`);
 
-    // 2. Extraer carpetas /config, /resourcepacks, /shaderpacks
-    if (onProgress) onProgress({ step: 3, total: 5, message: 'Restaurando configuraciones, texturas y shaders...' });
+    // 2. Extraer icono del modpack si existe (icon.png, pack.png, etc.)
     const entries = zip.getEntries();
+    const iconEntry = entries.find((e) => {
+      if (e.isDirectory) return false;
+      const low = e.entryName.toLowerCase().replace(/\\/g, '/');
+      return (
+        low === 'icon.png' ||
+        low === 'pack.png' ||
+        low === 'logo.png' ||
+        low === 'instance.png' ||
+        low.endsWith('/icon.png') ||
+        low.endsWith('/pack.png') ||
+        low.endsWith('/logo.png')
+      );
+    });
+
+    const localIconPath = path.join(targetInstancePath, 'icon.png');
+    if (iconEntry) {
+      fs.writeFileSync(localIconPath, iconEntry.getData());
+    } else if (manifest.icon && manifest.icon.startsWith('data:image/')) {
+      try {
+        const b64 = manifest.icon.split(',')[1];
+        if (b64) fs.writeFileSync(localIconPath, Buffer.from(b64, 'base64'));
+      } catch (_) {}
+    }
+
+    if (fs.existsSync(localIconPath)) {
+      try {
+        const b64 = fs.readFileSync(localIconPath).toString('base64');
+        const iconDataUrl = `data:image/png;base64,${b64}`;
+        newProfile.icon = iconDataUrl;
+        this.profileManager.updateProfile(newProfile.id, { icon: iconDataUrl });
+        const instJsonFile = path.join(targetInstancePath, 'instance.json');
+        let instJson = {};
+        if (fs.existsSync(instJsonFile)) {
+          try { instJson = JSON.parse(fs.readFileSync(instJsonFile, 'utf8')); } catch (_) {}
+        }
+        instJson.icon = 'icon.png';
+        fs.writeFileSync(instJsonFile, JSON.stringify(instJson, null, 2), 'utf8');
+      } catch (_) {}
+    }
+
+    // 3. Extraer carpetas /config, /resourcepacks, /shaderpacks
+    if (onProgress) onProgress({ step: 3, total: 5, message: 'Restaurando configuraciones, texturas y shaders...' });
 
     for (const entry of entries) {
       if (entry.isDirectory || entry.entryName === 'shubapack.json') continue;

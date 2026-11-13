@@ -5272,3 +5272,679 @@ body.app-frozen *::after {
   }
 }
 
+
+
+/* ==========================================================================
+   PARTE 3/3: ICONOS OFICIALES DE MODLOADERS, TABLA DE 5 COLUMNAS Y VESTIDOR 3D
+   ========================================================================== */
+
+/* 1. Iconos Oficiales Dinámicos para Todos los Modloaders */
+.loader-svg {
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.badge-loader-official {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+}
+
+.badge-loader-neoforge {
+  background: rgba(234, 88, 12, 0.16);
+  border: 1px solid rgba(234, 88, 12, 0.45);
+  color: #fb923c;
+}
+
+.badge-loader-forge {
+  background: rgba(59, 130, 246, 0.16);
+  border: 1px solid rgba(59, 130, 246, 0.45);
+  color: #60a5fa;
+}
+
+.badge-loader-fabric {
+  background: rgba(212, 185, 150, 0.16);
+  border: 1px solid rgba(212, 185, 150, 0.45);
+  color: #e2d5c3;
+}
+
+.badge-loader-quilt {
+  background: rgba(168, 85, 247, 0.16);
+  border: 1px solid rgba(168, 85, 247, 0.45);
+  color: #c084fc;
+}
+
+.badge-loader-vanilla {
+  background: rgba(34, 197, 94, 0.16);
+  border: 1px solid rgba(34, 197, 94, 0.45);
+  color: #4ade80;
+}
+
+/* 2. Banner difuminado de Cabecera en Gestor de Instancia */
+.instance-banner-header {
+  position: relative;
+  border-radius: var(--radius-lg, 12px);
+  overflow: hidden;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  margin-bottom: 14px;
+  background: var(--bg-surface, #141721);
+}
+
+.instance-banner-backdrop {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  filter: blur(28px);
+  opacity: 0.18;
+  transform: scale(1.15);
+  pointer-events: none;
+}
+
+.instance-banner-content {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  gap: 16px;
+  z-index: 1;
+}
+
+.instance-banner-main {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.instance-context-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 5px;
+  font-size: 12px;
+  color: var(--text-secondary, #94a3b8);
+}
+
+.instance-meta-chip {
+  display: inline-flex;
+  align-items: center;
+}
+
+.meta-sep {
+  color: var(--text-dim, #64748b);
+  font-weight: 700;
+}
+
+.instance-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.btn-launch-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff;
+  font-size: 13.5px;
+  font-weight: 800;
+  padding: 9px 20px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  letter-spacing: 0.04em;
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.35);
+  cursor: pointer;
+  transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn-launch-header:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.1);
+  box-shadow: 0 0 22px rgba(16, 185, 129, 0.5);
+}
+
+/* Subtabs bar con botón derecho */
+.instance-subtabs-nav-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  padding-bottom: 4px;
+}
+
+.instance-subtabs-actions {
+  flex-shrink: 0;
+}
+
+/* 3. Tabla de Mods de Instancia al 100% de Ancho (5 Columnas) */
+.installed-mods-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-md, 8px);
+  background: var(--bg-surface, #141721);
+}
+
+.instance-mods-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 13px;
+}
+
+.instance-mods-table thead tr {
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+}
+
+.instance-mods-table thead th {
+  padding: 12px 14px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim, #64748b);
+}
+
+.col-mod-name { width: 44%; }
+.col-mod-action { width: 16%; }
+.col-mod-author { width: 16%; }
+.col-mod-env { width: 12%; }
+.col-mod-toggle { width: 12%; text-align: right; }
+
+.instance-mods-table tbody tr {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  transition: background 0.15s ease;
+}
+
+.instance-mods-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.instance-mods-table tbody tr.mod-disabled {
+  opacity: 0.55;
+}
+
+.instance-mods-table td {
+  padding: 12px 14px;
+  vertical-align: middle;
+}
+
+.mod-cell-primary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.mod-table-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: #1e2230;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+}
+
+.mod-table-avatar-fallback {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  padding: 7px;
+  flex-shrink: 0;
+  background: #1e2230;
+  color: var(--text-dim, #64748b);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+}
+
+.mod-cell-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mod-cell-title {
+  font-weight: 600;
+  color: var(--text-primary, #f1f5f9);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mod-cell-file {
+  font-size: 11.5px;
+  color: var(--text-dim, #64748b);
+  font-family: var(--font-mono, monospace);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.badge-uptodate {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: #4ade80;
+}
+
+.mod-cell-author-text {
+  font-size: 12px;
+  color: var(--text-secondary, #94a3b8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.env-badge-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.env-client {
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: #60a5fa;
+}
+
+.env-both {
+  background: rgba(168, 85, 247, 0.12);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  color: #c084fc;
+}
+
+.env-server {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #fbbf24;
+}
+
+.mod-cell-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* Switch naranja para habilitar/deshabilitar mods */
+.switch-toggle-orange {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+  flex-shrink: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.switch-toggle-orange input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.switch-slider-orange {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background-color: #334155;
+  transition: 0.2s;
+  border-radius: 20px;
+}
+
+.switch-slider-orange:before {
+  position: absolute;
+  content: "";
+  height: 14px;
+  width: 14px;
+  left: 3px;
+  bottom: 3px;
+  background-color: #ffffff;
+  transition: 0.2s;
+  border-radius: 50%;
+}
+
+.switch-toggle-orange input:checked + .switch-slider-orange {
+  background-color: #ea580c;
+  box-shadow: 0 0 10px rgba(234, 88, 12, 0.45);
+}
+
+.switch-toggle-orange input:checked + .switch-slider-orange:before {
+  transform: translateX(16px);
+}
+
+/* 4. Rediseño del Vestidor de Skins con Fondo Estelar y Barra Flotante */
+.skins-redesign-layout {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.skin-viewer-left-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.skin-canvas-3d-wrapper {
+  position: relative;
+  width: 100%;
+  min-height: 460px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 25%, #1e1b4b 0%, #0f172a 55%, #030712 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.skin-canvas-top-hints {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  pointer-events: none;
+}
+
+.skin-hint-pill {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(8px);
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.skinview-3d-canvas {
+  width: 100% !important;
+  height: 460px !important;
+  display: block;
+}
+
+/* Barra de Controles Flotante (Píldora Redondeada en el Canvas) */
+.skin-floating-controls-pill {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(15, 23, 42, 0.88);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 30px;
+  padding: 4px 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  z-index: 5;
+}
+
+.btn-floating-pill {
+  background: transparent;
+  border: none;
+  color: #cbd5e1;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 20px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.btn-floating-pill:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.btn-floating-pill.active {
+  background: #ea580c;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(234, 88, 12, 0.4);
+}
+
+.skin-pill-dropdown-container {
+  position: relative;
+}
+
+.skin-capes-dropdown {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 0;
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  padding: 6px;
+  min-width: 190px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.capes-dropdown-title {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim, #64748b);
+  padding: 4px 8px;
+}
+
+.cape-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  color: #e2e8f0;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  width: 100%;
+}
+
+.cape-dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.capes-dropdown-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 4px 0;
+}
+
+.skin-bottom-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--bg-surface, #141721);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+
+.skin-bottom-profile-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.skin-active-user-badge {
+  font-size: 12.5px;
+  color: var(--text-primary, #f1f5f9);
+}
+
+.btn-primary-orange {
+  background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 0 14px rgba(234, 88, 12, 0.3);
+}
+
+.btn-primary-orange:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 0 20px rgba(234, 88, 12, 0.45);
+}
+
+/* Columna Derecha: Secciones de Skins */
+.skin-right-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.skin-section-card {
+  background: var(--bg-surface, #141721);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-lg, 12px);
+  padding: 16px;
+}
+
+.skin-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.skin-section-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary, #f1f5f9);
+}
+
+.skin-section-subtitle {
+  margin: 2px 0 0 0;
+  font-size: 11.5px;
+  color: var(--text-secondary, #94a3b8);
+}
+
+.skins-grid-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(105px, 1fr));
+  gap: 10px;
+}
+
+.skin-grid-card {
+  position: relative;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: 10px;
+  padding: 10px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.skin-grid-card:hover {
+  transform: translateY(-2px);
+  border-color: #ea580c;
+  background: rgba(234, 88, 12, 0.05);
+}
+
+.skin-grid-card.active {
+  border-color: #ea580c;
+  background: rgba(234, 88, 12, 0.1);
+  box-shadow: 0 0 12px rgba(234, 88, 12, 0.25);
+}
+
+.skin-card-thumb-canvas {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  background: #1e2230;
+  image-rendering: pixelated;
+}
+
+.skin-card-name {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-primary, #f1f5f9);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+.skin-card-badge {
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-dim, #64748b);
+}
+
+.skin-card-upload {
+  border: 2px dashed rgba(255, 255, 255, 0.15);
+  background: transparent;
+  justify-content: center;
+  min-height: 110px;
+}
+
+.skin-card-upload:hover {
+  border-color: #ea580c;
+  border-style: solid;
+}
+
+.skin-card-upload-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ea580c;
+}
