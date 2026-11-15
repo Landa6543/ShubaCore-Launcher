@@ -762,6 +762,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     { btn: tabViewCatalog, view: viewCatalog, name: 'catalog', id: 'view-catalog' },
     { btn: tabViewMods, view: viewMods, name: 'mods', id: 'view-mods' },
     { btn: tabViewServers, view: viewServers, name: 'servers', id: 'view-servers' },
+    { btn: document.getElementById('tab-view-friends'), view: document.getElementById('view-friends'), name: 'friends', id: 'view-friends' },
     { btn: tabViewScreenshots, view: viewScreenshots, name: 'screenshots', id: 'view-screenshots' },
     { btn: tabViewSkins, view: viewSkins, name: 'skins', id: 'view-skins' },
     { btn: tabViewSettings, view: viewSettings, name: 'settings', id: 'view-settings' },
@@ -849,6 +850,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       } else if (viewName === 'servers') {
         try { loadDedicatedServers(); } catch (e) { console.warn('[switchTab] Error en loadDedicatedServers:', e); }
+      } else if (viewName === 'friends') {
+        try { loadFriendsView(); } catch (e) { console.warn('[switchTab] Error en loadFriendsView:', e); }
       } else if (viewName === 'screenshots') {
         try { loadScreenshotsInstancesFilter(); } catch (e) { console.warn('[switchTab] Error en filtro capturas:', e); }
         try { loadScreenshotsGallery(); } catch (e) { console.warn('[switchTab] Error en loadScreenshotsGallery:', e); }
@@ -8031,6 +8034,327 @@ document.addEventListener('DOMContentLoaded', async () => {
       serverInstallProgressText.textContent = message;
     }
   });
+
+  // =======================================================
+  // RED SOCIAL & AMIGOS SHUBACORE (SUPABASE)
+  // =======================================================
+  const viewFriends = document.getElementById('view-friends');
+  const tabViewFriends = document.getElementById('tab-view-friends');
+  const friendsBadgeCount = document.getElementById('friends-badge-count');
+  const friendsGuestBanner = document.getElementById('friends-guest-banner');
+  const btnOpenAccountFromFriends = document.getElementById('btn-open-account-from-friends');
+  const friendsLoggedContainer = document.getElementById('friends-logged-container');
+  const inputSearchAddFriend = document.getElementById('input-search-add-friend');
+  const btnSendFriendRequest = document.getElementById('btn-send-friend-request');
+  const friendAddFeedback = document.getElementById('friend-add-feedback');
+  const btnRefreshFriends = document.getElementById('btn-refresh-friends');
+  const tabSocialFriends = document.getElementById('tab-social-friends');
+  const tabSocialPending = document.getElementById('tab-social-pending');
+  const friendsCountPill = document.getElementById('friends-count-pill');
+  const pendingCountPill = document.getElementById('pending-count-pill');
+  const panelSocialFriends = document.getElementById('panel-social-friends');
+  const panelSocialPending = document.getElementById('panel-social-pending');
+  const friendsListContainer = document.getElementById('friends-list-container');
+  const friendsEmptyState = document.getElementById('friends-empty-state');
+  const incomingRequestsContainer = document.getElementById('incoming-requests-container');
+  const incomingEmpty = document.getElementById('incoming-empty');
+  const outgoingRequestsContainer = document.getElementById('outgoing-requests-container');
+  const outgoingEmpty = document.getElementById('outgoing-empty');
+
+  let currentSocialSubtab = 'friends';
+
+  function switchSocialSubtab(tab) {
+    currentSocialSubtab = tab;
+    if (tab === 'pending') {
+      if (tabSocialPending) tabSocialPending.classList.add('active');
+      if (tabSocialFriends) tabSocialFriends.classList.remove('active');
+      if (panelSocialPending) panelSocialPending.style.display = 'flex';
+      if (panelSocialFriends) panelSocialFriends.style.display = 'none';
+    } else {
+      if (tabSocialFriends) tabSocialFriends.classList.add('active');
+      if (tabSocialPending) tabSocialPending.classList.remove('active');
+      if (panelSocialFriends) panelSocialFriends.style.display = 'flex';
+      if (panelSocialPending) panelSocialPending.style.display = 'none';
+    }
+  }
+
+  if (tabSocialFriends) tabSocialFriends.addEventListener('click', () => switchSocialSubtab('friends'));
+  if (tabSocialPending) tabSocialPending.addEventListener('click', () => switchSocialSubtab('pending'));
+
+  if (btnOpenAccountFromFriends) {
+    btnOpenAccountFromFriends.addEventListener('click', () => {
+      if (accountStatus) accountStatus.click();
+    });
+  }
+
+  if (btnRefreshFriends) {
+    btnRefreshFriends.addEventListener('click', () => {
+      loadFriendsView();
+    });
+  }
+
+  async function loadFriendsView() {
+    try {
+      const sess = await api.auth.getSavedSession().catch(() => null);
+      const shubaAcc = sess?.shubacoreAccount || await api.auth.getShubaCoreAccount().catch(() => null);
+
+      if (!shubaAcc || !shubaAcc.id) {
+        if (friendsGuestBanner) friendsGuestBanner.style.display = 'block';
+        if (friendsLoggedContainer) friendsLoggedContainer.style.display = 'none';
+        if (friendsBadgeCount) friendsBadgeCount.style.display = 'none';
+        return;
+      }
+
+      if (friendsGuestBanner) friendsGuestBanner.style.display = 'none';
+      if (friendsLoggedContainer) friendsLoggedContainer.style.display = 'flex';
+
+      const [friends, pending] = await Promise.all([
+        api.friends.getList().catch(() => []),
+        api.friends.getPending().catch(() => ({ incoming: [], outgoing: [] }))
+      ]);
+
+      const incomingCount = pending?.incoming?.length || 0;
+      const outgoingCount = pending?.outgoing?.length || 0;
+      const totalPending = incomingCount + outgoingCount;
+
+      if (friendsCountPill) friendsCountPill.textContent = String(friends.length);
+      if (pendingCountPill) pendingCountPill.textContent = String(totalPending);
+
+      if (friendsBadgeCount) {
+        if (incomingCount > 0) {
+          friendsBadgeCount.textContent = String(incomingCount);
+          friendsBadgeCount.style.display = 'inline-block';
+        } else {
+          friendsBadgeCount.style.display = 'none';
+        }
+      }
+
+      renderFriendsList(friends);
+      renderPendingRequests(pending);
+    } catch (err) {
+      console.warn('[loadFriendsView] Error:', err);
+    }
+  }
+
+  function renderFriendsList(friends) {
+    if (!friendsListContainer) return;
+    friendsListContainer.innerHTML = '';
+
+    if (!Array.isArray(friends) || friends.length === 0) {
+      if (friendsEmptyState) friendsEmptyState.style.display = 'block';
+      return;
+    }
+
+    if (friendsEmptyState) friendsEmptyState.style.display = 'none';
+
+    friends.forEach((friend) => {
+      const card = document.createElement('div');
+      card.className = 'friend-card';
+
+      const isPlaying = friend.status === 'playing';
+      const isOnline = isPlaying || friend.status === 'online';
+      const statusClass = isPlaying ? 'playing' : (isOnline ? 'online' : 'offline');
+      const statusText = isPlaying ? 'Jugando a Minecraft' : (isOnline ? 'En línea' : 'Desconectado');
+
+      const isPrem = friend.accountType === 'premium' || Boolean(friend.msGamertag);
+
+      card.innerHTML = `
+        <div class="friend-header">
+          <div class="friend-avatar-wrap">
+            <canvas class="friend-avatar-canvas" width="44" height="44"></canvas>
+          </div>
+          <div class="friend-info">
+            <div class="friend-top-row">
+              <span class="friend-name">${escapeHtml(friend.displayName || friend.username)}</span>
+              ${isPrem ? '<span class="badge badge-success" style="font-size: 9.5px; padding: 1px 5px;">PREMIUM</span>' : '<span class="badge badge-offline" style="font-size: 9.5px; padding: 1px 5px;">SHUBA</span>'}
+            </div>
+            <span class="friend-user-handle">@${escapeHtml(friend.username)}</span>
+            <div class="status-pill">
+              <span class="status-dot-circle ${statusClass}"></span>
+              <span style="color: ${isPlaying ? '#a78bfa' : (isOnline ? '#10b981' : 'var(--text-dim)')};">${statusText}</span>
+            </div>
+          </div>
+          <button class="btn btn-secondary btn-small btn-remove-friend" data-id="${friend.friendId}" data-name="${escapeHtml(friend.username)}" title="Eliminar de amigos" style="padding: 4px 8px; opacity: 0.6;">
+            ✕
+          </button>
+        </div>
+      `;
+
+      if (isPlaying && friend.currentGame && friend.currentGame.server) {
+        const gameDiv = document.createElement('div');
+        gameDiv.className = 'friend-game-badge';
+        gameDiv.innerHTML = `
+          <div style="display: flex; flex-direction: column; gap: 2px;">
+            <strong style="color: #fff;">${escapeHtml(friend.currentGame.worldName || 'Mundo LAN')}</strong>
+            <span style="font-size: 10.5px; opacity: 0.85;">MC ${escapeHtml(friend.currentGame.mc || '')} · ${escapeHtml(friend.currentGame.loader || '')}</span>
+          </div>
+          <button class="btn btn-primary btn-small btn-join-game" data-server="${escapeHtml(friend.currentGame.server)}">
+            <span>🚀 Unirse</span>
+          </button>
+        `;
+        card.appendChild(gameDiv);
+      }
+
+      const canvas = card.querySelector('.friend-avatar-canvas');
+      const skinUrl = friend.skinUrl || `https://mc-heads.net/skin/${encodeURIComponent(friend.username)}`;
+      if (canvas) renderSkinFaceToCanvas(skinUrl, canvas);
+
+      const btnRemove = card.querySelector('.btn-remove-friend');
+      if (btnRemove) {
+        btnRemove.addEventListener('click', async () => {
+          if (!confirm(`¿Eliminar a @${friend.username} de tus amigos?`)) return;
+          try {
+            await api.friends.remove(friend.friendId);
+            appendLog(`[Social] Amistad con @${friend.username} eliminada.`, 'info');
+            loadFriendsView();
+          } catch (err) {
+            alert('Error al eliminar: ' + err.message);
+          }
+        });
+      }
+
+      friendsListContainer.appendChild(card);
+    });
+  }
+
+  function renderPendingRequests(pending) {
+    const incoming = pending?.incoming || [];
+    const outgoing = pending?.outgoing || [];
+
+    if (incomingRequestsContainer) {
+      incomingRequestsContainer.innerHTML = '';
+      if (incoming.length === 0) {
+        if (incomingEmpty) incomingEmpty.style.display = 'block';
+      } else {
+        if (incomingEmpty) incomingEmpty.style.display = 'none';
+        incoming.forEach((req) => {
+          const row = document.createElement('div');
+          row.className = 'request-card';
+          row.innerHTML = `
+            <div class="request-user-col">
+              <div class="friend-avatar-wrap" style="width: 36px; height: 36px;">
+                <canvas class="req-avatar" width="36" height="36"></canvas>
+              </div>
+              <div>
+                <strong style="font-size: 13px; color: var(--text-primary); display: block;">${escapeHtml(req.sender.displayName || req.sender.username)}</strong>
+                <span style="font-size: 11px; color: var(--text-dim);">@${escapeHtml(req.sender.username)}</span>
+              </div>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn btn-primary btn-small btn-accept-req" data-id="${req.id}" style="padding: 4px 10px;">✔ Aceptar</button>
+              <button class="btn btn-secondary btn-small btn-reject-req" data-id="${req.id}" style="padding: 4px 10px;">✕ Rechazar</button>
+            </div>
+          `;
+
+          const canvas = row.querySelector('.req-avatar');
+          const skinUrl = req.sender.skinUrl || `https://mc-heads.net/skin/${encodeURIComponent(req.sender.username)}`;
+          if (canvas) renderSkinFaceToCanvas(skinUrl, canvas);
+
+          const btnAccept = row.querySelector('.btn-accept-req');
+          const btnReject = row.querySelector('.btn-reject-req');
+
+          if (btnAccept) {
+            btnAccept.addEventListener('click', async () => {
+              btnAccept.disabled = true;
+              await api.friends.acceptRequest(req.id);
+              appendLog(`[Social] ¡Ahora eres amigo de @${req.sender.username}!`, 'success');
+              loadFriendsView();
+            });
+          }
+          if (btnReject) {
+            btnReject.addEventListener('click', async () => {
+              btnReject.disabled = true;
+              await api.friends.rejectRequest(req.id);
+              loadFriendsView();
+            });
+          }
+
+          incomingRequestsContainer.appendChild(row);
+        });
+      }
+    }
+
+    if (outgoingRequestsContainer) {
+      outgoingRequestsContainer.innerHTML = '';
+      if (outgoing.length === 0) {
+        if (outgoingEmpty) outgoingEmpty.style.display = 'block';
+      } else {
+        if (outgoingEmpty) outgoingEmpty.style.display = 'none';
+        outgoing.forEach((req) => {
+          const row = document.createElement('div');
+          row.className = 'request-card';
+          row.innerHTML = `
+            <div class="request-user-col">
+              <div class="friend-avatar-wrap" style="width: 36px; height: 36px;">
+                <canvas class="req-avatar" width="36" height="36"></canvas>
+              </div>
+              <div>
+                <strong style="font-size: 13px; color: var(--text-primary); display: block;">${escapeHtml(req.target.displayName || req.target.username)}</strong>
+                <span style="font-size: 11px; color: var(--text-dim);">@${escapeHtml(req.target.username)} · Solicitud enviada</span>
+              </div>
+            </div>
+            <button class="btn btn-secondary btn-small btn-cancel-req" data-id="${req.id}" style="padding: 4px 10px;">✕ Cancelar</button>
+          `;
+
+          const canvas = row.querySelector('.req-avatar');
+          const skinUrl = req.target.skinUrl || `https://mc-heads.net/skin/${encodeURIComponent(req.target.username)}`;
+          if (canvas) renderSkinFaceToCanvas(skinUrl, canvas);
+
+          const btnCancel = row.querySelector('.btn-cancel-req');
+          if (btnCancel) {
+            btnCancel.addEventListener('click', async () => {
+              btnCancel.disabled = true;
+              await api.friends.rejectRequest(req.id);
+              loadFriendsView();
+            });
+          }
+
+          outgoingRequestsContainer.appendChild(row);
+        });
+      }
+    }
+  }
+
+  // Enviar Solicitud de Amistad
+  if (btnSendFriendRequest) {
+    btnSendFriendRequest.addEventListener('click', async () => {
+      const userToSearch = (inputSearchAddFriend?.value || '').trim();
+      if (!userToSearch) {
+        showFriendFeedback('Ingresa el nombre de usuario de tu amigo.', 'error');
+        return;
+      }
+
+      btnSendFriendRequest.disabled = true;
+      try {
+        const res = await api.friends.sendRequest(userToSearch);
+        if (res && res.success) {
+          if (res.autoAccepted) {
+            showFriendFeedback(`¡@${userToSearch} también te había agregado! Ahora son amigos.`, 'success');
+          } else {
+            showFriendFeedback(`¡Solicitud enviada con éxito a @${userToSearch}!`, 'success');
+          }
+          if (inputSearchAddFriend) inputSearchAddFriend.value = '';
+          await loadFriendsView();
+        } else {
+          showFriendFeedback(res?.error || 'No se pudo enviar la solicitud.', 'error');
+        }
+      } catch (err) {
+        showFriendFeedback(err.message || 'Error inesperado.', 'error');
+      } finally {
+        btnSendFriendRequest.disabled = false;
+      }
+    });
+  }
+
+  function showFriendFeedback(msg, type = 'info') {
+    if (!friendAddFeedback) return;
+    friendAddFeedback.textContent = msg;
+    friendAddFeedback.className = type === 'success' ? 'auth-alert success' : 'auth-alert error';
+    friendAddFeedback.style.display = 'block';
+    setTimeout(() => {
+      if (friendAddFeedback) friendAddFeedback.style.display = 'none';
+    }, 5000);
+  }
 
   // =======================================================
   // GALERÍA DE CAPTURAS DE PANTALLA (F2)

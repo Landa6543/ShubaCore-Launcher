@@ -2889,6 +2889,136 @@ input:checked + .switch-slider:before {
 }
 
 /* ==========================================================================
+   ESTILOS: RED SOCIAL Y AMIGOS SHUBACORE
+   ========================================================================== */
+.friend-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.friend-card:hover {
+  border-color: rgba(16, 185, 129, 0.4);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.friend-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.friend-avatar-wrap {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: #000;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.friend-avatar-canvas {
+  width: 44px;
+  height: 44px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+.friend-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.friend-top-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.friend-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.friend-user-handle {
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.status-dot-circle {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-dot-circle.online {
+  background-color: #10b981;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+}
+
+.status-dot-circle.playing {
+  background-color: #8b5cf6;
+  box-shadow: 0 0 8px rgba(139, 92, 246, 0.8);
+  animation: authPulse 2s infinite;
+}
+
+.status-dot-circle.offline {
+  background-color: var(--text-dim);
+}
+
+.friend-game-badge {
+  background: rgba(139, 92, 246, 0.12);
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  font-size: 11.5px;
+  color: #c4b5fd;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.request-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.request-user-col {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+/* ==========================================================================
    ESTILOS: VISOR DE IMÁGENES LIGHTBOX
    ========================================================================== */
 .image-lightbox-overlay {

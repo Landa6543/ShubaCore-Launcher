@@ -39,11 +39,13 @@ const { getControllerAgentManager } = require('../controller/ControllerAgentMana
 const { getControllerMapManager } = require('../controller/ControllerMapManager');
 const { getControllerBridge } = require('../controller/ControllerBridge');
 const { getDiskCleanerManager } = require('../system/DiskCleanerManager');
+const { getSupabaseManager } = require('../supabase/SupabaseManager');
 const { defaultLogger: logger } = require('../utils/logger');
 
 function registerIpcHandlers(mainWindow) {
   const configManager = getConfigManager();
   const authManager = getAuthManager();
+  const supabaseManager = getSupabaseManager();
   const profileManager = getProfileManager();
   const launchManager = getLaunchManager();
   const modManager = getModManager();
@@ -447,6 +449,50 @@ function registerIpcHandlers(mainWindow) {
 
   ipcMain.handle('auth:unlink-shubacore-ms', async () => {
     return await authManager.unlinkShubaCoreMicrosoft();
+  });
+
+  // ==========================================
+  // SISTEMA DE AMIGOS Y PRESENCIA (SHUBACORE SOCIAL)
+  // ==========================================
+  ipcMain.handle('friends:search', async (event, query) => {
+    const shubaUser = authManager.getShubaCoreAccount();
+    return await supabaseManager.searchUsers(query, shubaUser?.id);
+  });
+
+  ipcMain.handle('friends:send-request', async (event, targetUsername) => {
+    const shubaUser = authManager.getShubaCoreAccount();
+    if (!shubaUser?.id) return { success: false, error: 'Debes iniciar sesión en ShubaCore Network.' };
+    return await supabaseManager.sendFriendRequest(shubaUser.id, targetUsername);
+  });
+
+  ipcMain.handle('friends:get-list', async () => {
+    const shubaUser = authManager.getShubaCoreAccount();
+    if (!shubaUser?.id) return [];
+    return await supabaseManager.getFriends(shubaUser.id);
+  });
+
+  ipcMain.handle('friends:get-pending', async () => {
+    const shubaUser = authManager.getShubaCoreAccount();
+    if (!shubaUser?.id) return { incoming: [], outgoing: [] };
+    return await supabaseManager.getPendingRequests(shubaUser.id);
+  });
+
+  ipcMain.handle('friends:accept-request', async (event, requestId) => {
+    const shubaUser = authManager.getShubaCoreAccount();
+    if (!shubaUser?.id) return { success: false, error: 'Debes iniciar sesión en ShubaCore Network.' };
+    return await supabaseManager.acceptFriendRequest(requestId, shubaUser.id);
+  });
+
+  ipcMain.handle('friends:reject-request', async (event, requestId) => {
+    const shubaUser = authManager.getShubaCoreAccount();
+    if (!shubaUser?.id) return { success: false, error: 'Debes iniciar sesión en ShubaCore Network.' };
+    return await supabaseManager.rejectOrCancelRequest(requestId, shubaUser.id);
+  });
+
+  ipcMain.handle('friends:remove', async (event, friendId) => {
+    const shubaUser = authManager.getShubaCoreAccount();
+    if (!shubaUser?.id) return { success: false, error: 'Debes iniciar sesión en ShubaCore Network.' };
+    return await supabaseManager.removeFriend(shubaUser.id, friendId);
   });
 
   // ==========================================

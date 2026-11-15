@@ -119,7 +119,12 @@ class SupabaseManager {
           id: data.user.id,
           username: cleanUser,
           displayName: rawUser,
-          accountType: 'shubacore'
+          accountType: 'shubacore',
+          tokens: data.session ? {
+            access_token: data.session.access_token,
+            refresh_token: data.session.refresh_token,
+            expires_at: data.session.expires_at
+          } : null
         },
         session: data.session
       };
@@ -171,7 +176,12 @@ class SupabaseManager {
           skinUrl: profile?.skin_url || null,
           skinModel: profile?.skin_model || 'classic',
           msGamertag: profile?.ms_gamertag || null,
-          msUuid: profile?.ms_uuid || null
+          msUuid: profile?.ms_uuid || null,
+          tokens: data.session ? {
+            access_token: data.session.access_token,
+            refresh_token: data.session.refresh_token,
+            expires_at: data.session.expires_at
+          } : null
         },
         session: data.session
       };
@@ -246,6 +256,326 @@ class SupabaseManager {
         })
         .eq('id', userId);
     } catch (_) {}
+  }
+
+  /**
+   * Asegura que el cliente Supabase tenga la sesión restaurada
+   */
+  async ensureSession() {
+    if (!this.client) return false;
+    try {
+      const { data: current } = await this.client.auth.getSession();
+      if (current?.session?.access_token) return true;
+
+      // Leer tokens de auth-session.json
+      const appData = process.env.APPDATA || (process.platform === 'darwin' ? path.join(process.env.HOME, 'Library', 'Application Support') : path.join(process.env.HOME, '.config'));
+      const sessionPath = path.join(appData, '.shubacore', 'auth-session.json');
+      if (fs.existsSync(sessionPath)) {
+        const raw = fs.readFileSync(sessionPath, 'utf8');
+        const parsed = JSON.parse(raw);
+        const tokens = parsed?.shubacoreAccount?.tokens;
+        if (tokens?.access_token && tokens?.refresh_token) {
+          const { error } = await this.client.auth.setSession({
+            access_token: tokens.access_token,
+            refresh_token: tokens.refresh_token
+          });
+          if (!error) return true;
+        }
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  /**
+   * Buscar usuarios por nombre en la red ShubaCore
+   */
+  async searchUsers(query, excludeUserId = null) {
+    if (!this.client) return [];
+    const cleanQuery = String(query || '').trim().toLowerCase();
+    if (!cleanQuery || cleanQuery.length < 2) return [];
+
+    try {
+      let req = this.client
+        .from('profiles')
+        .select('id, username, display_name, account_type, ms_gamertag, skin_url, status, last_seen')
+        .or(`username.ilike.%${cleanQuery}%,display_name.ilike.%${cleanQuery}%`)
+        .limit(10);
+
+      if (excludeUserId) {
+        req = req.neq('id', excludeUserId);
+      }
+
+      const { data, error } = await req;
+      if (error) {
+        logger.warn('[Supabase] Error en búsqueda de usuarios:', error.message);
+        return [];
+      }
+      return data || [];
+    } catch (err) {
+      logger.error('[Supabase] Excepción en searchUsers:', err);
+      return [];
+    }
+  }
+
+  /**
+   * Enviar solicitud de amistad a un usuario por nombre de usuario
+   */
+  async sendFriendRequest(currentUserId, targetUsername) {
+    if (!this.client || !currentUserId) return { success: false, error: 'No has iniciado sesión.' };
+    const cleanTarget = String(targetUsername || '').trim().toLowerCase().replace(/^@/, '');
+    if (!cleanTarget) return { success: false, error: 'Ingresa un nombre de usuario válido.' };
+
+    await this.ensureSession();
+
+    try {
+      // 1. Localizar perfil destino
+      const { data: targetProfile, error: targetErr } = await this.client
+        .from('profiles')
+        .select('id, username, display_name, account_type, skin_url')
+        .eq('username', cleanTarget)
+        .single();
+
+      if (targetErr || !targetProfile) {
+        return { success: false, error: `El usuario "${cleanTarget}" no fue encontrado en ShubaCore.` };
+      }
+
+      if (targetProfile.id === currentUserId) {
+        return { success: false, error: 'No puedes enviarte una solicitud de amistad a ti mismo.' };
+      }
+
+      // 2. Verificar relación previa
+      const { data: existing, error: existErr } = await this.client
+        .from('friendships')
+        .select('*')
+        .or(`and(user_id.eq.${currentUserId},friend_id.eq.${targetProfile.id}),and(user_id.eq.${targetProfile.id},friend_id.eq.${currentUserId})`);
+
+      if (existing && existing.length > 0) {
+        const relation = existing[0];
+        if (relation.status === 'accepted') {
+          return { success: false, error: `Ya eres amigo de @${targetProfile.display_name || targetProfile.username}.` };
+        }
+        if (relation.status === 'pending') {
+          if (relation.user_id === currentUserId) {
+            return { success: false, error: 'Ya enviaste una solicitud a este jugador. Espera a que la acepte.' };
+          } else {
+            // El otro usuario ya le había enviado una solicitud -> Aceptar automáticamente
+            await this.client
+              .from('friendships')
+              .update({ status: 'accepted', updated_at: new Date().toISOString() })
+              .eq('id', relation.id);
+            return { success: true, autoAccepted: true, target: targetProfile };
+          }
+        }
+      }
+
+      // 3. Crear solicitud
+      const { data: newFriendship, error: insertErr } = await this.client
+        .from('friendships')
+        .insert({
+          user_id: currentUserId,
+          friend_id: targetProfile.id,
+          status: 'pending'
+        })
+        .select()
+        .single();
+
+      if (insertErr) {
+        return { success: false, error: insertErr.message };
+      }
+
+      logger.info(`[Supabase] Solicitud de amistad enviada: ${currentUserId} -> ${targetProfile.username}`);
+      return { success: true, target: targetProfile, friendshipId: newFriendship.id };
+    } catch (err) {
+      logger.error('[Supabase] Error al enviar solicitud:', err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * Obtener lista de amigos aceptados con perfil y estado en tiempo real
+   */
+  async getFriends(currentUserId) {
+    if (!this.client || !currentUserId) return [];
+    await this.ensureSession();
+
+    try {
+      const { data: friendships, error } = await this.client
+        .from('friendships')
+        .select('id, user_id, friend_id, status, created_at, updated_at, sender:profiles!friendships_user_id_fkey(id, username, display_name, account_type, ms_gamertag, skin_url, status, current_game, last_seen), receiver:profiles!friendships_friend_id_fkey(id, username, display_name, account_type, ms_gamertag, skin_url, status, current_game, last_seen)')
+        .eq('status', 'accepted')
+        .or(`user_id.eq.${currentUserId},friend_id.eq.${currentUserId}`);
+
+      if (error) {
+        logger.warn('[Supabase] Error al obtener amigos:', error.message);
+        return [];
+      }
+
+      const friends = (friendships || []).map(f => {
+        const isSender = f.user_id === currentUserId;
+        const profile = isSender ? f.receiver : f.sender;
+        return {
+          friendshipId: f.id,
+          friendId: profile?.id,
+          username: profile?.username,
+          displayName: profile?.display_name || profile?.username,
+          accountType: profile?.account_type,
+          msGamertag: profile?.ms_gamertag,
+          skinUrl: profile?.skin_url,
+          status: profile?.status || 'offline',
+          currentGame: profile?.current_game || null,
+          lastSeen: profile?.last_seen,
+          since: f.created_at
+        };
+      });
+
+      return friends;
+    } catch (err) {
+      logger.error('[Supabase] Excepción en getFriends:', err);
+      return [];
+    }
+  }
+
+  /**
+   * Obtener solicitudes de amistad pendientes (entrantes y salientes)
+   */
+  async getPendingRequests(currentUserId) {
+    if (!this.client || !currentUserId) return { incoming: [], outgoing: [] };
+    await this.ensureSession();
+
+    try {
+      // Entrantes: friend_id = currentUserId
+      const { data: incomingRows, error: incErr } = await this.client
+        .from('friendships')
+        .select('id, user_id, status, created_at, sender:profiles!friendships_user_id_fkey(id, username, display_name, account_type, skin_url)')
+        .eq('friend_id', currentUserId)
+        .eq('status', 'pending');
+
+      // Salientes: user_id = currentUserId
+      const { data: outgoingRows, error: outErr } = await this.client
+        .from('friendships')
+        .select('id, friend_id, status, created_at, receiver:profiles!friendships_friend_id_fkey(id, username, display_name, account_type, skin_url)')
+        .eq('user_id', currentUserId)
+        .eq('status', 'pending');
+
+      const incoming = (incomingRows || []).map(r => ({
+        id: r.id,
+        createdAt: r.created_at,
+        sender: {
+          id: r.sender?.id,
+          username: r.sender?.username,
+          displayName: r.sender?.display_name || r.sender?.username,
+          skinUrl: r.sender?.skin_url,
+          accountType: r.sender?.account_type
+        }
+      }));
+
+      const outgoing = (outgoingRows || []).map(r => ({
+        id: r.id,
+        createdAt: r.created_at,
+        target: {
+          id: r.receiver?.id,
+          username: r.receiver?.username,
+          displayName: r.receiver?.display_name || r.receiver?.username,
+          skinUrl: r.receiver?.skin_url,
+          accountType: r.receiver?.account_type
+        }
+      }));
+
+      return { incoming, outgoing };
+    } catch (err) {
+      logger.error('[Supabase] Excepción en getPendingRequests:', err);
+      return { incoming: [], outgoing: [] };
+    }
+  }
+
+  /**
+   * Aceptar solicitud de amistad
+   */
+  async acceptFriendRequest(requestId, currentUserId) {
+    if (!this.client || !requestId) return { success: false, error: 'Parámetros inválidos' };
+    await this.ensureSession();
+
+    try {
+      const { error } = await this.client
+        .from('friendships')
+        .update({ status: 'accepted', updated_at: new Date().toISOString() })
+        .eq('id', requestId)
+        .eq('friend_id', currentUserId);
+
+      if (error) throw error;
+      logger.info(`[Supabase] Solicitud ${requestId} aceptada por ${currentUserId}`);
+      return { success: true };
+    } catch (err) {
+      logger.error('[Supabase] Error al aceptar amistad:', err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * Rechazar o cancelar solicitud de amistad
+   */
+  async rejectOrCancelRequest(requestId, currentUserId) {
+    if (!this.client || !requestId) return { success: false, error: 'Parámetros inválidos' };
+    await this.ensureSession();
+
+    try {
+      const { error } = await this.client
+        .from('friendships')
+        .delete()
+        .eq('id', requestId)
+        .or(`user_id.eq.${currentUserId},friend_id.eq.${currentUserId}`);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (err) {
+      logger.error('[Supabase] Error al cancelar/rechazar solicitud:', err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * Eliminar un amigo
+   */
+  async removeFriend(currentUserId, friendId) {
+    if (!this.client || !currentUserId || !friendId) return { success: false };
+    await this.ensureSession();
+
+    try {
+      const { error } = await this.client
+        .from('friendships')
+        .delete()
+        .or(`and(user_id.eq.${currentUserId},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${currentUserId})`);
+
+      if (error) throw error;
+      logger.info(`[Supabase] Amistad eliminada entre ${currentUserId} y ${friendId}`);
+      return { success: true };
+    } catch (err) {
+      logger.error('[Supabase] Error al eliminar amigo:', err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * Suscribirse a cambios en tiempo real (Realtime Channel)
+   */
+  subscribeRealtime(currentUserId, onUpdate) {
+    if (!this.client || !currentUserId) return null;
+    try {
+      const channel = this.client
+        .channel(`shubacore_social_${currentUserId}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'friendships' }, () => {
+          if (typeof onUpdate === 'function') onUpdate({ table: 'friendships' });
+        })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, () => {
+          if (typeof onUpdate === 'function') onUpdate({ table: 'profiles' });
+        })
+        .subscribe();
+
+      return channel;
+    } catch (err) {
+      logger.warn('[Supabase] No se pudo conectar a Realtime:', err.message);
+      return null;
+    }
   }
 }
 

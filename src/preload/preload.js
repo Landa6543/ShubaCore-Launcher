@@ -118,6 +118,19 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
   },
 
   // ==========================================
+  // SISTEMA DE AMIGOS Y SOCIAL (SUPABASE)
+  // ==========================================
+  friends: {
+    search: (query) => ipcRenderer.invoke('friends:search', query),
+    sendRequest: (targetUsername) => ipcRenderer.invoke('friends:send-request', targetUsername),
+    getList: () => ipcRenderer.invoke('friends:get-list'),
+    getPending: () => ipcRenderer.invoke('friends:get-pending'),
+    acceptRequest: (requestId) => ipcRenderer.invoke('friends:accept-request', requestId),
+    rejectRequest: (requestId) => ipcRenderer.invoke('friends:reject-request', requestId),
+    remove: (friendId) => ipcRenderer.invoke('friends:remove', friendId)
+  },
+
+  // ==========================================
   // DETECCIÓN Y OPTIMIZACIÓN JVM / GESTOR RUNTIMES
   // ==========================================
   jvm: {
