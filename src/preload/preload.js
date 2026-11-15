@@ -114,7 +114,9 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
     logoutShubaCore: () => ipcRenderer.invoke('auth:logout-shubacore'),
     getShubaCoreAccount: () => ipcRenderer.invoke('auth:get-shubacore-account'),
     linkShubaCoreMs: () => ipcRenderer.invoke('auth:link-shubacore-ms'),
-    unlinkShubaCoreMs: () => ipcRenderer.invoke('auth:unlink-shubacore-ms')
+    unlinkShubaCoreMs: () => ipcRenderer.invoke('auth:unlink-shubacore-ms'),
+    linkShubaCoreOffline: (offlineUsername) => ipcRenderer.invoke('auth:link-shubacore-offline', offlineUsername),
+    setShubaCoreLaunchMode: (mode) => ipcRenderer.invoke('auth:set-shubacore-launch-mode', mode)
   },
 
   // ==========================================

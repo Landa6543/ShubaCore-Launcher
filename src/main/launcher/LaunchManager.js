@@ -803,6 +803,9 @@ class LaunchManager {
         // Comprobar si la ventana del juego ya está lista
         this._checkGameStartedLog(line, sessionId, profileName);
 
+        // Detectar si el jugador abrió un servidor LAN con ShubaHost / e4mc
+        this._checkShubaHostServer(line, sessionId, profileName);
+
         // Almacenar en buffer circular en memoria (máximo 2000 líneas)
         this.recentLogsBuffer.push(line);
         if (this.recentLogsBuffer.length > 2000) {
@@ -836,6 +839,19 @@ class LaunchManager {
 
     if (isReady) {
       this._handleGameWindowReady(sessionId, profileName);
+    }
+  }
+
+  _checkShubaHostServer(line, sessionId, profileName) {
+    const match = line.match(/(?:Domain assigned:|\[ShubaHost\](?:\s+Servidor activo en:|\s+Hosted at:))\s*([a-zA-Z0-9.\-_:]+)/i);
+    if (match && match[1]) {
+      const serverAddress = match[1].trim();
+      logger.info(`🌐 [ShubaHost] Servidor LAN público activo detectado: "${serverAddress}"`);
+      this._emit('shubahost:hosted', {
+        sessionId,
+        profile: profileName,
+        server: serverAddress
+      });
     }
   }
 

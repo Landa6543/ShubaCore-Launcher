@@ -121,6 +121,14 @@ function registerIpcHandlers(mainWindow) {
     } else if (eventName === 'launch:close') {
       const remainingSessions = launchManager.getRunningCount();
       if (remainingSessions === 0) {
+        // Restablecer presencia de ShubaCore a 'online' sin partida
+        try {
+          const session = authManager._readSessionFile?.();
+          if (session && session.shubacoreAccount && session.shubacoreAccount.id) {
+            authManager.supabaseManager?.updatePresence(session.shubacoreAccount.id, 'online', null).catch(() => {});
+          }
+        } catch (_) {}
+
         if (launchBehavior === 'hide' || launchBehavior === 'keep') {
           if (mainWindow && !mainWindow.isDestroyed()) {
             logger.info('[SHUBATECH] Todas las sesiones de Minecraft han finalizado. Descongelando y restaurando ventana de ShubaCore.');
@@ -140,6 +148,21 @@ function registerIpcHandlers(mainWindow) {
         }
       } else {
         logger.info(`[SHUBATECH] Una sesión de Minecraft ha finalizado. Quedan ${remainingSessions} sesión(es) activa(s).`);
+      }
+    } else if (eventName === 'shubahost:hosted') {
+      try {
+        const session = authManager._readSessionFile?.();
+        if (session && session.shubacoreAccount && session.shubacoreAccount.id) {
+          const activeProf = profileManager.getActive();
+          authManager.supabaseManager?.updatePresence(session.shubacoreAccount.id, 'playing', {
+            server: data.server,
+            worldName: activeProf?.name || 'Mundo LAN',
+            mc: activeProf?.mcVersion || '',
+            loader: activeProf?.loader || ''
+          }).catch(e => logger.warn('[ShubaHost] Error al publicar presencia en Supabase:', e));
+        }
+      } catch (err) {
+        logger.warn('[ShubaHost] Error al gestionar evento shubahost:hosted:', err);
       }
     }
 
@@ -449,6 +472,14 @@ function registerIpcHandlers(mainWindow) {
 
   ipcMain.handle('auth:unlink-shubacore-ms', async () => {
     return await authManager.unlinkShubaCoreMicrosoft();
+  });
+
+  ipcMain.handle('auth:link-shubacore-offline', async (event, offlineUsername) => {
+    return await authManager.linkShubaCoreOffline(offlineUsername);
+  });
+
+  ipcMain.handle('auth:set-shubacore-launch-mode', async (event, mode) => {
+    return authManager.setShubaCoreLaunchMode(mode);
   });
 
   // ==========================================

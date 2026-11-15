@@ -120,6 +120,8 @@ class SupabaseManager {
           username: cleanUser,
           displayName: rawUser,
           accountType: 'shubacore',
+          offlineUsername: rawUser,
+          offlineUuid: null,
           tokens: data.session ? {
             access_token: data.session.access_token,
             refresh_token: data.session.refresh_token,
@@ -173,6 +175,8 @@ class SupabaseManager {
           username: profile?.username || cleanUser,
           displayName: profile?.display_name || rawUser,
           accountType: profile?.account_type || 'shubacore',
+          offlineUsername: profile?.offline_username || profile?.display_name || rawUser,
+          offlineUuid: profile?.offline_uuid || null,
           skinUrl: profile?.skin_url || null,
           skinModel: profile?.skin_model || 'classic',
           msGamertag: profile?.ms_gamertag || null,
@@ -237,6 +241,36 @@ class SupabaseManager {
       return { success: true };
     } catch (err) {
       logger.error('[Supabase] Error al desvincular Microsoft:', err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * Vincula una identidad de jugador No-Premium (Offline Nickname) al perfil de ShubaCore
+   */
+  async linkOffline(userId, offlineUsername) {
+    if (!this.client || !userId) return { success: false, error: 'Usuario no identificado' };
+    const clean = String(offlineUsername || '').trim();
+    if (!clean || clean.length < 2) return { success: false, error: 'El nombre debe tener al menos 2 caracteres.' };
+
+    const { generateOfflineUUID } = require('../auth/OfflineAuth');
+    const offlineUuid = generateOfflineUUID(clean);
+
+    try {
+      const { error } = await this.client
+        .from('profiles')
+        .update({
+          offline_username: clean,
+          offline_uuid: offlineUuid,
+          last_seen: new Date().toISOString()
+        })
+        .eq('id', userId);
+
+      if (error) throw error;
+      logger.info(`[Supabase] Cuenta Offline vinculada a perfil (${userId}): ${clean} (${offlineUuid})`);
+      return { success: true, offlineUsername: clean, offlineUuid };
+    } catch (err) {
+      logger.error('[Supabase] Error al vincular cuenta offline:', err);
       return { success: false, error: err.message };
     }
   }

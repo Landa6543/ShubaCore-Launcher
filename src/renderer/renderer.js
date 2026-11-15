@@ -266,6 +266,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   const shubacoreMsUnlinked = document.getElementById('shubacore-ms-unlinked');
   const shubacoreMsLinked = document.getElementById('shubacore-ms-linked');
   const shubacoreLinkedGamertag = document.getElementById('shubacore-linked-gamertag');
+  const shubacoreCurrentOfflineName = document.getElementById('shubacore-current-offline-name');
+  const inputShubacoreOfflineName = document.getElementById('input-shubacore-offline-name');
+  const btnShubacoreSaveOfflineName = document.getElementById('btn-shubacore-save-offline-name');
+  const shubacoreLaunchModeSelector = document.getElementById('shubacore-launch-mode-selector');
+  const radioModeOffline = document.getElementById('radio-mode-offline');
+  const radioModePremium = document.getElementById('radio-mode-premium');
   const btnShubacoreLinkMs = document.getElementById('btn-shubacore-link-ms');
   const btnShubacoreUnlinkMs = document.getElementById('btn-shubacore-unlink-ms');
   const btnShubacoreUseAccount = document.getElementById('btn-shubacore-use-account');
@@ -966,6 +972,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const isPrem = shubaAcc.accountType === 'premium' || Boolean(shubaAcc.msGamertag) || Boolean(sess?.microsoftAccount?.username);
         const gamertag = shubaAcc.msGamertag || sess?.microsoftAccount?.username;
+        const offNick = shubaAcc.offlineUsername || shubaAcc.displayName || shubaAcc.username || 'Jugador';
+
+        if (shubacoreCurrentOfflineName) shubacoreCurrentOfflineName.textContent = offNick;
+        if (inputShubacoreOfflineName && (!inputShubacoreOfflineName.value || document.activeElement !== inputShubacoreOfflineName)) {
+          inputShubacoreOfflineName.value = offNick;
+        }
 
         if (shubacoreAccountBadge) {
           if (isPrem) {
@@ -987,12 +999,25 @@ document.addEventListener('DOMContentLoaded', async () => {
           if (shubacoreMsLinked) shubacoreMsLinked.style.display = 'block';
           if (shubacoreMsUnlinked) shubacoreMsUnlinked.style.display = 'none';
           if (shubacoreLinkedGamertag) shubacoreLinkedGamertag.textContent = gamertag;
+
+          if (shubacoreLaunchModeSelector) shubacoreLaunchModeSelector.style.display = 'block';
+          const currentMode = shubaAcc.activeLaunchMode || 'offline';
+          if (radioModePremium && radioModeOffline) {
+            if (currentMode === 'premium') {
+              radioModePremium.checked = true;
+            } else {
+              radioModeOffline.checked = true;
+            }
+          }
         } else {
           if (shubacoreMsLinked) shubacoreMsLinked.style.display = 'none';
           if (shubacoreMsUnlinked) shubacoreMsUnlinked.style.display = 'block';
+          if (shubacoreLaunchModeSelector) shubacoreLaunchModeSelector.style.display = 'none';
         }
 
-        const skinUrl = shubaAcc.skinUrl || `https://mc-heads.net/skin/${encodeURIComponent(uName)}`;
+        const activeMode = shubaAcc.activeLaunchMode || (isPrem ? 'premium' : 'offline');
+        const skinName = (activeMode === 'premium' && gamertag) ? gamertag : offNick;
+        const skinUrl = shubaAcc.skinUrl || `https://mc-heads.net/skin/${encodeURIComponent(skinName)}`;
         if (shubacoreAvatar) renderSkinFaceToCanvas(skinUrl, shubacoreAvatar);
 
         const isCurrentActive = Boolean(sess && sess.activeMode === 'shubacore');
@@ -1171,6 +1196,48 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
   }
+
+  if (btnShubacoreSaveOfflineName) {
+    btnShubacoreSaveOfflineName.addEventListener('click', async () => {
+      const nick = (inputShubacoreOfflineName?.value || '').trim();
+      if (!nick || nick.length < 3) {
+        alert('El nickname en el juego debe tener al menos 3 caracteres.');
+        return;
+      }
+      btnShubacoreSaveOfflineName.disabled = true;
+      try {
+        const res = await api.auth.linkShubaCoreOffline(nick);
+        if (res && res.success) {
+          const sess = await api.auth.getSavedSession();
+          await updatePlayerBadge(sess.account, sess);
+          await refreshShubaCoreAccountState();
+          appendLog(`[Auth] Nickname en el juego actualizado a: ${nick}`, 'success');
+        } else {
+          alert('Error: ' + (res?.error || 'No se pudo guardar el nickname.'));
+        }
+      } catch (err) {
+        alert('Error: ' + err.message);
+      } finally {
+        btnShubacoreSaveOfflineName.disabled = false;
+      }
+    });
+  }
+
+  const radioLaunchModes = document.querySelectorAll('input[name="shubacore-launch-mode"]');
+  radioLaunchModes.forEach((radio) => {
+    radio.addEventListener('change', async () => {
+      if (!radio.checked) return;
+      try {
+        await api.auth.setShubaCoreLaunchMode(radio.value);
+        const sess = await api.auth.getSavedSession();
+        await updatePlayerBadge(sess.account, sess);
+        await refreshShubaCoreAccountState();
+        appendLog(`[Auth] Modo de entrada configurado como: ${radio.value === 'premium' ? 'Microsoft (Premium)' : 'No-Premium'}`, 'info');
+      } catch (err) {
+        console.warn('Error al cambiar modo de lanzamiento:', err);
+      }
+    });
+  });
 
   if (tabShubacore) {
     tabShubacore.addEventListener('click', (e) => {
@@ -1417,6 +1484,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const session = explicitSession || await api.auth.getSavedSession().catch(() => null);
 
     const isShubaCore = Boolean(session && session.activeMode === 'shubacore' && session.shubacoreAccount);
+    const isShubaMsLinked = Boolean(isShubaCore && (session.shubacoreAccount.accountType === 'premium' || session.shubacoreAccount.msGamertag));
+    const shubaLaunchMode = session.shubacoreAccount?.activeLaunchMode || (isShubaMsLinked ? 'premium' : 'offline');
 
     const isPremium = Boolean(
       (session &&
@@ -1425,15 +1494,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         session.microsoftAccount.mcAccessToken &&
         !String(session.microsoftAccount.mcAccessToken).startsWith('offline_') &&
         session.microsoftAccount.uuid) ||
-      (isShubaCore && session.shubacoreAccount.accountType === 'premium')
+      (isShubaCore && isShubaMsLinked && shubaLaunchMode === 'premium')
     );
 
     let accName = 'Jugador';
     let accUuid = '-';
 
     if (isShubaCore) {
-      accName = session.shubacoreAccount.displayName || session.shubacoreAccount.username || 'Jugador';
-      accUuid = session.shubacoreAccount.msUuid || session.shubacoreAccount.id || '-';
+      if (shubaLaunchMode === 'premium' && (session.microsoftAccount?.username || session.shubacoreAccount.msGamertag)) {
+        accName = session.microsoftAccount?.username || session.shubacoreAccount.msGamertag;
+        accUuid = session.microsoftAccount?.uuid || session.shubacoreAccount.msUuid || '-';
+      } else {
+        accName = session.shubacoreAccount.offlineUsername || session.shubacoreAccount.displayName || session.shubacoreAccount.username || 'Jugador';
+        accUuid = session.shubacoreAccount.offlineUuid || session.shubacoreAccount.id || '-';
+      }
     } else if (isPremium) {
       accName = session.microsoftAccount?.username || session.microsoftAccount?.name || account.name || account.username || 'Jugador';
       accUuid = session.microsoftAccount?.uuid || account.uuid || '-';
@@ -1470,7 +1544,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           badge.style.setProperty('color', '#a78bfa', 'important');
           badge.style.setProperty('border', '1px solid rgba(139, 92, 246, 0.45)', 'important');
         } else {
-          badge.textContent = 'SHUBACORE';
+          badge.textContent = isShubaMsLinked ? 'SHUBACORE (NO-PREMIUM)' : 'SHUBACORE';
           badge.className = 'badge badge-success';
           badge.style.setProperty('background', 'rgba(16, 185, 129, 0.15)', 'important');
           badge.style.setProperty('color', '#10b981', 'important');
@@ -8136,6 +8210,71 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  async function launchJoinGame(serverAddress, gameInfo = {}) {
+    if (!serverAddress) return;
+
+    if (btnLaunch && btnLaunch.disabled) {
+      alert('Ya hay un lanzamiento en curso o una partida activa.');
+      return;
+    }
+
+    appendLog('===========================================================', 'info');
+    appendLog(`[ShubaCore Social] 🚀 Unirse a la partida: ${serverAddress} (${gameInfo.worldName || 'Mundo ShubaHost'})...`, 'info');
+
+    try {
+      const allProfiles = await api.profiles.list().catch(() => []);
+      if (gameInfo.mc && Array.isArray(allProfiles) && allProfiles.length > 0) {
+        const exactMatch = allProfiles.find(p => p.mcVersion === gameInfo.mc && (!gameInfo.loader || p.loader === gameInfo.loader));
+        const mcMatch = allProfiles.find(p => p.mcVersion === gameInfo.mc);
+        const bestProfile = exactMatch || mcMatch;
+        if (bestProfile && bestProfile.id !== currentActiveProfile?.id) {
+          appendLog(`[ShubaCore Social] Cambiando automáticamente al perfil compatible "${bestProfile.name}" (${bestProfile.mcVersion})...`, 'info');
+          await api.profiles.setActive(bestProfile.id);
+          currentActiveProfile = bestProfile;
+          if (selectProfile) selectProfile.value = bestProfile.id;
+        }
+      }
+
+      if (btnLaunch) btnLaunch.disabled = true;
+      if (btnLaunchText) btnLaunchText.textContent = 'CONECTANDO...';
+      if (launchBadge) {
+        launchBadge.textContent = 'Unirse';
+        launchBadge.className = 'badge badge-launching';
+      }
+
+      if (dockLaunchProgress) dockLaunchProgress.style.display = 'flex';
+      if (progressBar) progressBar.style.width = '20%';
+      if (progressTaskLabel) progressTaskLabel.textContent = `Conectando con ${serverAddress}...`;
+      if (progressPercentLabel) progressPercentLabel.textContent = '20%';
+
+      const launchRes = await api.launcher.launch({
+        instancePath: currentActiveProfile?.instancePath || null,
+        mcVersion: currentActiveProfile?.mcVersion,
+        loader: currentActiveProfile?.loader,
+        loaderVersion: currentActiveProfile?.loaderVersion,
+        memoryMin: inputMinRam?.value?.trim() || '2G',
+        memoryMax: inputMaxRam?.value?.trim() || '8G',
+        javaSelection: currentActiveProfile?.javaSelection || selectGlobalJava?.value || 'auto',
+        javaPath: currentActiveProfile?.javaPath || inputCustomJava?.value || '',
+        quickPlayMultiplayer: serverAddress
+      });
+
+      if (!launchRes.success) {
+        throw new Error(launchRes.error || 'Fallo al iniciar Minecraft.');
+      }
+      appendLog(`[ShubaCore Social] ¡Minecraft iniciado con éxito! Conexión directa a ${serverAddress} establecida.`, 'success');
+    } catch (err) {
+      appendLog(`[ShubaCore Social Error] No se pudo unir a la partida: ${err.message}`, 'error');
+      alert(`No se pudo conectar a la partida: ${err.message}`);
+      if (launchBadge) {
+        launchBadge.textContent = 'Error';
+        launchBadge.className = 'badge badge-idle';
+      }
+      if (dockLaunchProgress) dockLaunchProgress.style.display = 'none';
+      if (typeof updateLaunchUIState === 'function') updateLaunchUIState(activeSessionsCount);
+    }
+  }
+
   function renderFriendsList(friends) {
     if (!friendsListContainer) return;
     friendsListContainer.innerHTML = '';
@@ -8192,6 +8331,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             <span>🚀 Unirse</span>
           </button>
         `;
+        const btnJoin = gameDiv.querySelector('.btn-join-game');
+        if (btnJoin) {
+          btnJoin.addEventListener('click', async () => {
+            btnJoin.disabled = true;
+            try {
+              await launchJoinGame(friend.currentGame.server, friend.currentGame);
+            } finally {
+              btnJoin.disabled = false;
+            }
+          });
+        }
         card.appendChild(gameDiv);
       }
 
