@@ -18,13 +18,13 @@ const NEWS_SOURCES = [
 
 const DEFAULT_ANNOUNCEMENTS = [
   {
-    id: 'shuba-110-release',
+    id: 'shuba-111-release',
     tag: 'LANZAMIENTO',
     badgeClass: 'badge-primary',
-    title: '¡ShubaCore Pro v1.1.0 ya está disponible!',
-    date: '11 Nov 2026',
+    title: '¡ShubaCore Pro v1.1.1 ya está disponible!',
+    date: '15 Nov 2026',
     author: 'SHUBATECH Core Team',
-    summary: 'Actualización masiva: Compartir e importar modpacks por código corto (ej. SHUBA-9F2A), Auto-Optimizador de Hardware, Visor 3D de Skins y Servidores Dedicados en 1 clic.',
+    summary: 'Actualización v1.1.1: Filtro de Solo Servidor 100% operativo, selector de plataformas Modrinth/CurseForge, modal interno de anuncios, eliminación total de clips y optimizaciones nativas.',
     link: 'https://github.com/Landa6543/ShubaCore-Launcher'
   },
   {
@@ -32,7 +32,7 @@ const DEFAULT_ANNOUNCEMENTS = [
     tag: 'CATÁLOGO',
     badgeClass: 'badge-success',
     title: 'Sincronizador y Mods Custom en GitHub Activos',
-    date: '11 Nov 2026',
+    date: '15 Nov 2026',
     author: 'SHUBATECH',
     summary: 'Puedes explorar y subir mods privados directamente a Landa6543/ShubaCore-Mods con extracción automática de iconos e instalación instantánea.',
     link: 'https://github.com/Landa6543/ShubaCore-Mods'

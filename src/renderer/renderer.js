@@ -6337,7 +6337,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   api.events.on('updater:update-not-available', (info) => {
-    const msg = info?.message || `El launcher está en la versión más reciente (${info?.version ? 'v' + info.version : 'v1.1.0'}).`;
+    const msg = info?.message || `El launcher está en la versión más reciente (${info?.version ? 'v' + info.version : 'v1.1.1'}).`;
     appendLog(`[AutoUpdater] ${msg}`, 'info');
     if (launcherUpdateStatus) launcherUpdateStatus.style.display = 'flex';
     if (launcherUpdateStatusText) launcherUpdateStatusText.textContent = msg;

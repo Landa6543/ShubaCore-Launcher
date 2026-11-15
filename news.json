@@ -1,0 +1,22 @@
+[
+  {
+    "id": "shuba-111-release",
+    "tag": "LANZAMIENTO",
+    "badgeClass": "badge-primary",
+    "title": "¡ShubaCore Pro v1.1.1 ya está disponible!",
+    "date": "15 Nov 2026",
+    "author": "SHUBATECH Core Team",
+    "summary": "Actualización v1.1.1: Filtro de Solo Servidor 100% operativo, selector de plataformas Modrinth/CurseForge, modal interno de anuncios, eliminación total de clips y optimizaciones nativas.",
+    "link": "https://github.com/Landa6543/ShubaCore-Launcher"
+  },
+  {
+    "id": "shuba-mods-catalog",
+    "tag": "CATÁLOGO",
+    "badgeClass": "badge-success",
+    "title": "Sincronizador y Mods Custom en GitHub Activos",
+    "date": "15 Nov 2026",
+    "author": "SHUBATECH",
+    "summary": "Puedes explorar y subir mods privados directamente a Landa6543/ShubaCore-Mods con extracción automática de iconos e instalación instantánea.",
+    "link": "https://github.com/Landa6543/ShubaCore-Mods"
+  }
+]
