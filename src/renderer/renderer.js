@@ -249,10 +249,33 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Modal de Gestión de Cuenta
   const modalAccountManager = document.getElementById('modal-account-manager');
   const btnCloseAccountModal = document.getElementById('btn-close-account-modal');
-  const tabOffline = document.getElementById('tab-offline');
+  const tabShubacore = document.getElementById('tab-shubacore');
   const tabPremium = document.getElementById('tab-premium');
-  const formOffline = document.getElementById('form-offline');
+  const tabOffline = document.getElementById('tab-offline');
+  const formShubacore = document.getElementById('form-shubacore');
   const formPremium = document.getElementById('form-premium');
+  const formOffline = document.getElementById('form-offline');
+
+  // Elementos de Cuenta ShubaCore Network
+  const shubacoreLoggedView = document.getElementById('shubacore-logged-view');
+  const shubacoreGuestView = document.getElementById('shubacore-guest-view');
+  const shubacoreAvatar = document.getElementById('shubacore-avatar');
+  const shubacoreDisplayUsername = document.getElementById('shubacore-display-username');
+  const shubacoreAccountBadge = document.getElementById('shubacore-account-badge');
+  const shubacoreUserId = document.getElementById('shubacore-user-id');
+  const shubacoreMsUnlinked = document.getElementById('shubacore-ms-unlinked');
+  const shubacoreMsLinked = document.getElementById('shubacore-ms-linked');
+  const shubacoreLinkedGamertag = document.getElementById('shubacore-linked-gamertag');
+  const btnShubacoreLinkMs = document.getElementById('btn-shubacore-link-ms');
+  const btnShubacoreUseAccount = document.getElementById('btn-shubacore-use-account');
+  const btnShubacoreLogout = document.getElementById('btn-shubacore-logout');
+  const btnSubmodeLogin = document.getElementById('btn-submode-login');
+  const btnSubmodeRegister = document.getElementById('btn-submode-register');
+  const shubacoreUsernameInput = document.getElementById('shubacore-username-input');
+  const shubacorePasswordInput = document.getElementById('shubacore-password-input');
+  const shubacoreAuthAlert = document.getElementById('shubacore-auth-alert');
+  const btnShubacoreSubmit = document.getElementById('btn-shubacore-submit');
+
   const inputOfflineUser = document.getElementById('offline-username');
   const btnLoginOffline = document.getElementById('btn-login-offline');
   const previewOfflineUuid = document.getElementById('preview-offline-uuid');
@@ -900,21 +923,217 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // =======================================================
-  // GESTOR DE CUENTAS (OFFLINE Y MICROSOFT)
+  // GESTOR DE CUENTAS (SHUBACORE, MICROSOFT Y OFFLINE)
   // =======================================================
   function switchAccountModalTab(tab) {
+    if (tabShubacore) tabShubacore.classList.remove('active');
+    if (tabPremium) tabPremium.classList.remove('active');
+    if (tabOffline) tabOffline.classList.remove('active');
+    if (formShubacore) formShubacore.classList.remove('active');
+    if (formPremium) formPremium.classList.remove('active');
+    if (formOffline) formOffline.classList.remove('active');
+
     if (tab === 'premium') {
       if (tabPremium) tabPremium.classList.add('active');
-      if (tabOffline) tabOffline.classList.remove('active');
       if (formPremium) formPremium.classList.add('active');
-      if (formOffline) formOffline.classList.remove('active');
       refreshMicrosoftAccountState();
-    } else {
+    } else if (tab === 'offline') {
       if (tabOffline) tabOffline.classList.add('active');
-      if (tabPremium) tabPremium.classList.remove('active');
       if (formOffline) formOffline.classList.add('active');
-      if (formPremium) formPremium.classList.remove('active');
+    } else {
+      if (tabShubacore) tabShubacore.classList.add('active');
+      if (formShubacore) formShubacore.classList.add('active');
+      refreshShubaCoreAccountState();
     }
+  }
+
+  async function refreshShubaCoreAccountState() {
+    try {
+      const sess = await api.auth.getSavedSession().catch(() => null);
+      const shubaAcc = sess?.shubacoreAccount || await api.auth.getShubaCoreAccount().catch(() => null);
+
+      if (shubaAcc && (shubaAcc.username || shubaAcc.displayName)) {
+        if (shubacoreLoggedView) shubacoreLoggedView.style.display = 'flex';
+        if (shubacoreGuestView) shubacoreGuestView.style.display = 'none';
+
+        const uName = shubaAcc.displayName || shubaAcc.username;
+        if (shubacoreDisplayUsername) shubacoreDisplayUsername.textContent = `@${uName}`;
+        if (shubacoreUserId) shubacoreUserId.textContent = `ID: ${shubaAcc.id || '-'}`;
+
+        const isPrem = shubaAcc.accountType === 'premium' || Boolean(shubaAcc.msGamertag) || Boolean(sess?.microsoftAccount?.username);
+        const gamertag = shubaAcc.msGamertag || sess?.microsoftAccount?.username;
+
+        if (shubacoreAccountBadge) {
+          if (isPrem) {
+            shubacoreAccountBadge.textContent = 'SHUBACORE ★ PREMIUM';
+            shubacoreAccountBadge.className = 'badge badge-premium';
+            shubacoreAccountBadge.style.background = 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(139, 92, 246, 0.25))';
+            shubacoreAccountBadge.style.color = '#a78bfa';
+            shubacoreAccountBadge.style.border = '1px solid rgba(139, 92, 246, 0.4)';
+          } else {
+            shubacoreAccountBadge.textContent = 'SHUBACORE';
+            shubacoreAccountBadge.className = 'badge badge-success';
+            shubacoreAccountBadge.style.background = 'rgba(16, 185, 129, 0.15)';
+            shubacoreAccountBadge.style.color = '#10b981';
+            shubacoreAccountBadge.style.border = '1px solid rgba(16, 185, 129, 0.35)';
+          }
+        }
+
+        if (isPrem && gamertag) {
+          if (shubacoreMsLinked) shubacoreMsLinked.style.display = 'block';
+          if (shubacoreMsUnlinked) shubacoreMsUnlinked.style.display = 'none';
+          if (shubacoreLinkedGamertag) shubacoreLinkedGamertag.textContent = gamertag;
+        } else {
+          if (shubacoreMsLinked) shubacoreMsLinked.style.display = 'none';
+          if (shubacoreMsUnlinked) shubacoreMsUnlinked.style.display = 'block';
+        }
+
+        const skinUrl = shubaAcc.skinUrl || `https://mc-heads.net/skin/${encodeURIComponent(uName)}`;
+        if (shubacoreAvatar) renderSkinFaceToCanvas(skinUrl, shubacoreAvatar);
+
+        const isCurrentActive = Boolean(sess && sess.activeMode === 'shubacore');
+        if (btnShubacoreUseAccount) {
+          if (isCurrentActive) {
+            btnShubacoreUseAccount.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> <span>✔ Cuenta Activa</span>';
+            btnShubacoreUseAccount.disabled = true;
+            btnShubacoreUseAccount.style.opacity = '0.65';
+          } else {
+            btnShubacoreUseAccount.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> <span>Usar esta cuenta para jugar</span>';
+            btnShubacoreUseAccount.disabled = false;
+            btnShubacoreUseAccount.style.opacity = '1';
+          }
+        }
+      } else {
+        if (shubacoreLoggedView) shubacoreLoggedView.style.display = 'none';
+        if (shubacoreGuestView) shubacoreGuestView.style.display = 'block';
+      }
+    } catch (err) {
+      console.warn('Error al verificar estado de ShubaCore:', err);
+    }
+  }
+
+  // Submodos Formulario ShubaCore (Login / Registro)
+  let shubacoreSubmode = 'login';
+  function setShubacoreSubmode(mode) {
+    shubacoreSubmode = mode;
+    if (mode === 'register') {
+      if (btnSubmodeRegister) btnSubmodeRegister.classList.add('active');
+      if (btnSubmodeLogin) btnSubmodeLogin.classList.remove('active');
+      if (btnShubacoreSubmit) btnShubacoreSubmit.querySelector('span').textContent = 'Crear Cuenta en 1 Clic';
+    } else {
+      if (btnSubmodeLogin) btnSubmodeLogin.classList.add('active');
+      if (btnSubmodeRegister) btnSubmodeRegister.classList.remove('active');
+      if (btnShubacoreSubmit) btnShubacoreSubmit.querySelector('span').textContent = 'Iniciar Sesión';
+    }
+    if (shubacoreAuthAlert) shubacoreAuthAlert.style.display = 'none';
+  }
+
+  if (btnSubmodeLogin) btnSubmodeLogin.addEventListener('click', () => setShubacoreSubmode('login'));
+  if (btnSubmodeRegister) btnSubmodeRegister.addEventListener('click', () => setShubacoreSubmode('register'));
+
+  function showShubacoreAlert(msg, type = 'error') {
+    if (!shubacoreAuthAlert) return;
+    shubacoreAuthAlert.className = `auth-alert ${type}`;
+    shubacoreAuthAlert.textContent = msg;
+    shubacoreAuthAlert.style.display = 'block';
+  }
+
+  if (btnShubacoreSubmit) {
+    btnShubacoreSubmit.addEventListener('click', async () => {
+      const username = (shubacoreUsernameInput?.value || '').trim();
+      const password = (shubacorePasswordInput?.value || '').trim();
+
+      if (!username || username.length < 3) {
+        showShubacoreAlert('El nombre de usuario debe tener al menos 3 caracteres.', 'error');
+        return;
+      }
+      if (!password || password.length < 6) {
+        showShubacoreAlert('La contraseña debe tener al menos 6 caracteres.', 'error');
+        return;
+      }
+
+      btnShubacoreSubmit.disabled = true;
+      const spanEl = btnShubacoreSubmit.querySelector('span');
+      const originalText = spanEl ? spanEl.textContent : '';
+      if (spanEl) spanEl.textContent = shubacoreSubmode === 'register' ? 'Creando cuenta...' : 'Conectando...';
+
+      try {
+        let res;
+        if (shubacoreSubmode === 'register') {
+          res = await api.auth.registerShubaCore(username, password);
+        } else {
+          res = await api.auth.loginShubaCore(username, password);
+        }
+
+        if (res && res.success) {
+          showShubacoreAlert(
+            shubacoreSubmode === 'register' ? '¡Cuenta creada con éxito! Bienvenido a ShubaCore Network.' : '¡Bienvenido de vuelta!',
+            'success'
+          );
+          if (shubacorePasswordInput) shubacorePasswordInput.value = '';
+          const sess = await api.auth.getSavedSession();
+          await updatePlayerBadge(sess.account, sess);
+          await refreshShubaCoreAccountState();
+          appendLog(`[ShubaCore Auth] Sesión iniciada como: @${res.user.displayName || res.user.username}`, 'success');
+        } else {
+          showShubacoreAlert(res?.error || 'No se pudo completar la operación.', 'error');
+        }
+      } catch (err) {
+        showShubacoreAlert(err.message || 'Error inesperado al conectar.', 'error');
+      } finally {
+        btnShubacoreSubmit.disabled = false;
+        if (spanEl) spanEl.textContent = originalText;
+      }
+    });
+  }
+
+  if (btnShubacoreUseAccount) {
+    btnShubacoreUseAccount.addEventListener('click', async () => {
+      btnShubacoreUseAccount.disabled = true;
+      try {
+        await api.auth.setActiveMode('shubacore');
+        const sess = await api.auth.getSavedSession();
+        await updatePlayerBadge(sess.account, sess);
+        await refreshShubaCoreAccountState();
+        appendLog(`[Auth] Jugando ahora con perfil ShubaCore: @${sess.shubacoreAccount?.displayName || sess.shubacoreAccount?.username}`, 'info');
+        if (modalAccountManager) modalAccountManager.classList.remove('active');
+      } catch (err) {
+        appendLog(`[Auth Error] ${err.message}`, 'error');
+      } finally {
+        btnShubacoreUseAccount.disabled = false;
+      }
+    });
+  }
+
+  if (btnShubacoreLogout) {
+    btnShubacoreLogout.addEventListener('click', async () => {
+      if (!confirm('¿Deseas cerrar sesión de tu cuenta ShubaCore?')) return;
+      btnShubacoreLogout.disabled = true;
+      try {
+        await api.auth.logoutShubaCore();
+        const sess = await api.auth.getSavedSession();
+        await updatePlayerBadge(sess.account, sess);
+        await refreshShubaCoreAccountState();
+        appendLog('[Auth] Sesión de ShubaCore cerrada.', 'info');
+      } catch (err) {
+        appendLog(`[Auth Error] ${err.message}`, 'error');
+      } finally {
+        btnShubacoreLogout.disabled = false;
+      }
+    });
+  }
+
+  if (btnShubacoreLinkMs) {
+    btnShubacoreLinkMs.addEventListener('click', () => {
+      btnLoginMicrosoft.click();
+    });
+  }
+
+  if (tabShubacore) {
+    tabShubacore.addEventListener('click', (e) => {
+      e.preventDefault();
+      switchAccountModalTab('shubacore');
+    });
   }
 
   async function refreshMicrosoftAccountState() {
@@ -965,14 +1184,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (modalAccountManager) modalAccountManager.classList.add('active');
       try {
         const saved = await api.auth.getSavedSession();
-        if (saved && saved.activeMode === 'microsoft') {
+        if (saved && saved.shubacoreAccount) {
+          switchAccountModalTab('shubacore');
+        } else if (saved && saved.activeMode === 'microsoft') {
           switchAccountModalTab('premium');
         } else {
-          switchAccountModalTab('offline');
+          switchAccountModalTab('shubacore');
         }
       } catch (_) {
-        switchAccountModalTab('offline');
+        switchAccountModalTab('shubacore');
       }
+      refreshShubaCoreAccountState();
       refreshMicrosoftAccountState();
     });
   }
@@ -1121,9 +1343,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       const loginRes = await api.auth.pollDeviceCode(codeRes.deviceCode, codeRes.interval || 5);
       if (loginRes.success && loginRes.account) {
         if (modalMsDeviceCode) modalMsDeviceCode.classList.remove('active');
-        await api.auth.setActiveMode('microsoft');
+        const sess = await api.auth.getSavedSession().catch(() => null);
+        if (sess && sess.shubacoreAccount) {
+          await api.auth.setActiveMode('shubacore');
+        } else {
+          await api.auth.setActiveMode('microsoft');
+        }
         await updatePlayerBadge(loginRes.account);
         await refreshMicrosoftAccountState();
+        await refreshShubaCoreAccountState();
         appendLog(`[Auth] ¡Sesión oficial de Microsoft iniciada para "${loginRes.account.name}"!`, 'success');
       } else if (loginRes.error && !loginRes.error.includes('cancelada')) {
         appendLog(`[Auth Microsoft Error] ${loginRes.error}`, 'error');
@@ -1145,22 +1373,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!account) return;
     const session = explicitSession || await api.auth.getSavedSession().catch(() => null);
 
+    const isShubaCore = Boolean(session && session.activeMode === 'shubacore' && session.shubacoreAccount);
+
     const isPremium = Boolean(
-      session &&
-      session.activeMode === 'microsoft' &&
-      session.microsoftAccount &&
-      session.microsoftAccount.mcAccessToken &&
-      !String(session.microsoftAccount.mcAccessToken).startsWith('offline_') &&
-      session.microsoftAccount.uuid
+      (session &&
+        session.activeMode === 'microsoft' &&
+        session.microsoftAccount &&
+        session.microsoftAccount.mcAccessToken &&
+        !String(session.microsoftAccount.mcAccessToken).startsWith('offline_') &&
+        session.microsoftAccount.uuid) ||
+      (isShubaCore && session.shubacoreAccount.accountType === 'premium')
     );
 
-    const accName = isPremium
-      ? (session.microsoftAccount.username || session.microsoftAccount.name || account.name || account.username || 'Jugador')
-      : (session?.offlineAccount?.username || account.name || account.username || 'Jugador');
+    let accName = 'Jugador';
+    let accUuid = '-';
 
-    const accUuid = isPremium
-      ? (session.microsoftAccount.uuid || account.uuid || '-')
-      : (session?.offlineAccount?.uuid || account.uuid || '-');
+    if (isShubaCore) {
+      accName = session.shubacoreAccount.displayName || session.shubacoreAccount.username || 'Jugador';
+      accUuid = session.shubacoreAccount.msUuid || session.shubacoreAccount.id || '-';
+    } else if (isPremium) {
+      accName = session.microsoftAccount?.username || session.microsoftAccount?.name || account.name || account.username || 'Jugador';
+      accUuid = session.microsoftAccount?.uuid || account.uuid || '-';
+    } else {
+      accName = session?.offlineAccount?.username || account.name || account.username || 'Jugador';
+      accUuid = session?.offlineAccount?.uuid || account.uuid || '-';
+    }
 
     if (playerName) playerName.textContent = accName;
     if (playerUuid) playerUuid.textContent = `UUID: ${accUuid}`;
@@ -1182,16 +1419,32 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (badge) {
       badge.id = 'account-status-badge';
-      if (isPremium) {
+      if (isShubaCore) {
+        if (isPremium) {
+          badge.textContent = 'SHUBACORE ★ PREMIUM';
+          badge.className = 'badge badge-premium';
+          badge.style.setProperty('background', 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(139, 92, 246, 0.25))', 'important');
+          badge.style.setProperty('color', '#a78bfa', 'important');
+          badge.style.setProperty('border', '1px solid rgba(139, 92, 246, 0.45)', 'important');
+        } else {
+          badge.textContent = 'SHUBACORE';
+          badge.className = 'badge badge-success';
+          badge.style.setProperty('background', 'rgba(16, 185, 129, 0.15)', 'important');
+          badge.style.setProperty('color', '#10b981', 'important');
+          badge.style.setProperty('border', '1px solid rgba(16, 185, 129, 0.35)', 'important');
+        }
+        badge.style.display = 'inline-block';
+      } else if (isPremium) {
         badge.textContent = 'PREMIUM';
         badge.className = 'badge badge-premium badge-microsoft';
-        badge.style.setProperty('background-color', 'rgba(16, 185, 129, 0.15)', 'important');
+        badge.style.setProperty('background', 'rgba(16, 185, 129, 0.15)', 'important');
         badge.style.setProperty('color', '#10b981', 'important');
         badge.style.setProperty('border', '1px solid rgba(16, 185, 129, 0.35)', 'important');
         badge.style.display = 'inline-block';
       } else {
         badge.textContent = 'OFFLINE';
         badge.className = 'badge badge-offline';
+        badge.style.removeProperty('background');
         badge.style.removeProperty('background-color');
         badge.style.removeProperty('color');
         badge.style.removeProperty('border');
@@ -1199,7 +1452,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     }
 
-    if (isPremium) {
+    if (isShubaCore) {
+      switchAccountModalTab('shubacore');
+    } else if (isPremium) {
       switchAccountModalTab('premium');
     } else {
       if (inputOfflineUser) inputOfflineUser.value = accName;

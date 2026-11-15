@@ -9,6 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const { createOfflineProfile, generateOfflineUUID } = require('./OfflineAuth');
 const { getMicrosoftDeviceAuth } = require('./MicrosoftDeviceAuth');
+const { getSupabaseManager } = require('../supabase/SupabaseManager');
 const { getConfigManager } = require('../config/ConfigManager');
 const { defaultLogger: logger } = require('../utils/logger');
 
@@ -16,6 +17,7 @@ class AuthManager {
   constructor() {
     this.configManager = getConfigManager();
     this.deviceAuth = getMicrosoftDeviceAuth();
+    this.supabaseManager = getSupabaseManager();
     this._savedSessionPromise = null;
     this._activeRefreshPromise = null;
     this._lastRefreshTimestamp = 0;
@@ -70,17 +72,23 @@ class AuthManager {
         const raw = fs.readFileSync(filePath, 'utf8');
         const parsed = JSON.parse(raw);
         if (parsed && typeof parsed === 'object') {
-          let activeMode = (parsed.activeMode === 'microsoft') ? 'microsoft' : 'offline';
+          let activeMode = (parsed.activeMode === 'microsoft') ? 'microsoft' : ((parsed.activeMode === 'shubacore') ? 'shubacore' : 'offline');
           let msAcc = parsed.microsoftAccount;
+          let shubaAcc = parsed.shubacoreAccount || null;
 
           // Validar cuenta Microsoft
           if (!msAcc || typeof msAcc !== 'object' || !msAcc.mcAccessToken || !msAcc.uuid || !msAcc.username) {
             msAcc = null;
           }
 
-          // Si no hay cuenta Microsoft conectada válida, el modo ACTIVO NUNCA puede ser 'microsoft'
-          if (!msAcc) {
-            activeMode = 'offline';
+          // Si el modo es microsoft pero no hay sesión válida, degradar
+          if (activeMode === 'microsoft' && !msAcc) {
+            activeMode = shubaAcc ? 'shubacore' : 'offline';
+          }
+
+          // Si el modo es shubacore pero no hay cuenta, degradar
+          if (activeMode === 'shubacore' && !shubaAcc) {
+            activeMode = msAcc ? 'microsoft' : 'offline';
           }
 
           // Normalizar cuenta Offline
@@ -96,7 +104,8 @@ class AuthManager {
           return {
             activeMode,
             offlineAccount: offAcc,
-            microsoftAccount: msAcc
+            microsoftAccount: msAcc,
+            shubacoreAccount: shubaAcc
           };
         }
       }
@@ -107,7 +116,8 @@ class AuthManager {
     return {
       activeMode: 'offline',
       offlineAccount: { username: 'Jugador', uuid: generateOfflineUUID('Jugador') },
-      microsoftAccount: null
+      microsoftAccount: null,
+      shubacoreAccount: null
     };
   }
 
@@ -247,6 +257,26 @@ class AuthManager {
    */
   getCurrentAccount() {
     const session = this._readSessionFile();
+    if (session.activeMode === 'shubacore' && session.shubacoreAccount) {
+      if (session.shubacoreAccount.accountType === 'premium' && session.microsoftAccount && this.isPremiumSession(session)) {
+        const ms = this._buildAccountFromSession(session.microsoftAccount);
+        return {
+          ...ms,
+          shubaUsername: session.shubacoreAccount.username,
+          shubaId: session.shubacoreAccount.id,
+          accountType: 'premium'
+        };
+      }
+      return {
+        type: 'shubacore',
+        name: session.shubacoreAccount.displayName || session.shubacoreAccount.username,
+        uuid: session.shubacoreAccount.msUuid || generateOfflineUUID(session.shubacoreAccount.username),
+        username: session.shubacoreAccount.username,
+        id: session.shubacoreAccount.id,
+        skinUrl: session.shubacoreAccount.skinUrl || null,
+        accountType: session.shubacoreAccount.accountType || 'shubacore'
+      };
+    }
     if (this.isPremiumSession(session)) {
       return this._buildAccountFromSession(session.microsoftAccount);
     }
@@ -257,21 +287,22 @@ class AuthManager {
   }
 
   /**
-   * Obtiene el modo de autenticación actual ('offline' | 'premium' | 'microsoft')
+   * Obtiene el modo de autenticación actual ('shubacore' | 'premium' | 'offline')
    */
   getAuthMode() {
     const session = this._readSessionFile();
+    if (session.activeMode === 'shubacore') return 'shubacore';
     return this.isPremiumSession(session) ? 'premium' : 'offline';
   }
 
   /**
-   * Cambia el modo activo ('microsoft' | 'offline') y persiste en auth-session.json
+   * Cambia el modo activo ('shubacore' | 'microsoft' | 'offline') y persiste en auth-session.json
    */
   setActiveMode(mode) {
     const session = this._readSessionFile();
-    const wantsMs = (mode === 'microsoft' || mode === 'premium');
-
-    if (wantsMs && session.microsoftAccount && session.microsoftAccount.mcAccessToken && session.microsoftAccount.uuid) {
+    if (mode === 'shubacore' && session.shubacoreAccount) {
+      session.activeMode = 'shubacore';
+    } else if ((mode === 'microsoft' || mode === 'premium') && session.microsoftAccount && session.microsoftAccount.mcAccessToken) {
       session.activeMode = 'microsoft';
     } else {
       session.activeMode = 'offline';
@@ -637,6 +668,27 @@ class AuthManager {
    */
   getMCLCAuth() {
     const session = this._readSessionFile();
+    if (session.activeMode === 'shubacore' && session.shubacoreAccount) {
+      if (session.shubacoreAccount.accountType === 'premium' && session.microsoftAccount && this.isPremiumSession(session)) {
+        return {
+          access_token: session.microsoftAccount.mcAccessToken,
+          client_token: session.microsoftAccount.uuid,
+          uuid: session.microsoftAccount.uuid,
+          name: session.microsoftAccount.username,
+          user_properties: '{}'
+        };
+      }
+      const shubaUser = session.shubacoreAccount.displayName || session.shubacoreAccount.username || 'Jugador';
+      const profile = createOfflineProfile(shubaUser);
+      return {
+        access_token: profile.access_token,
+        client_token: profile.client_token,
+        uuid: profile.uuid,
+        name: profile.name,
+        user_properties: '{}'
+      };
+    }
+
     if (this.isPremiumSession(session)) {
       return {
         access_token: session.microsoftAccount.mcAccessToken,
@@ -658,6 +710,72 @@ class AuthManager {
       }
     }
     return profile.mclcAuth;
+  }
+
+  /**
+   * Registro en ShubaCore Network (Supabase)
+   */
+  async registerShubaCore(username, password) {
+    const res = await this.supabaseManager.register(username, password);
+    if (!res.success) return res;
+
+    const session = this._readSessionFile();
+    session.shubacoreAccount = res.user;
+    session.activeMode = 'shubacore';
+
+    if (session.microsoftAccount && session.microsoftAccount.uuid) {
+      await this.supabaseManager.linkMicrosoft(res.user.id, session.microsoftAccount);
+      session.shubacoreAccount.accountType = 'premium';
+      session.shubacoreAccount.msGamertag = session.microsoftAccount.username;
+      session.shubacoreAccount.msUuid = session.microsoftAccount.uuid;
+    }
+
+    this._writeSessionFile(session);
+    return { success: true, user: session.shubacoreAccount };
+  }
+
+  /**
+   * Login en ShubaCore Network (Supabase)
+   */
+  async loginShubaCore(username, password) {
+    const res = await this.supabaseManager.login(username, password);
+    if (!res.success) return res;
+
+    const session = this._readSessionFile();
+    session.shubacoreAccount = res.user;
+    session.activeMode = 'shubacore';
+
+    if (session.microsoftAccount && session.microsoftAccount.uuid) {
+      await this.supabaseManager.linkMicrosoft(res.user.id, session.microsoftAccount);
+      session.shubacoreAccount.accountType = 'premium';
+      session.shubacoreAccount.msGamertag = session.microsoftAccount.username;
+      session.shubacoreAccount.msUuid = session.microsoftAccount.uuid;
+    }
+
+    this._writeSessionFile(session);
+    return { success: true, user: session.shubacoreAccount };
+  }
+
+  /**
+   * Cerrar sesión de ShubaCore
+   */
+  logoutShubaCore() {
+    const session = this._readSessionFile();
+    if (session.shubacoreAccount) {
+      this.supabaseManager.updatePresence(session.shubacoreAccount.id, 'offline').catch(() => {});
+    }
+    session.shubacoreAccount = null;
+    session.activeMode = session.microsoftAccount ? 'microsoft' : 'offline';
+    this._writeSessionFile(session);
+    return { success: true };
+  }
+
+  /**
+   * Obtiene la cuenta ShubaCore almacenada
+   */
+  getShubaCoreAccount() {
+    const session = this._readSessionFile();
+    return session.shubacoreAccount || null;
   }
 
   _formatUuid(uuid) {

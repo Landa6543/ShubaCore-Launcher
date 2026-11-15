@@ -1989,21 +1989,101 @@
     </main>
   </div>
 
-  <!-- MODAL: GESTOR DE CUENTAS (OFFLINE & MICROSOFT) -->
+  <!-- MODAL: GESTOR DE CUENTAS (SHUBACORE, MICROSOFT & OFFLINE) -->
   <div id="modal-account-manager" class="modal-overlay">
-    <div class="modal-content card" style="max-width: 440px;">
+    <div class="modal-content card" style="max-width: 460px;">
       <div class="modal-header">
         <h3>Cuenta de Jugador</h3>
         <button id="btn-close-account-modal" class="btn btn-small close-btn">✕</button>
       </div>
       <div class="modal-body">
         <div class="auth-tabs">
-          <button id="tab-offline" class="tab-btn active">No-Premium (Offline)</button>
-          <button id="tab-premium" class="tab-btn">Microsoft (Premium)</button>
+          <button id="tab-shubacore" class="tab-btn active">⭐ ShubaCore Network</button>
+          <button id="tab-premium" class="tab-btn">🎮 Microsoft</button>
+          <button id="tab-offline" class="tab-btn">👤 Offline</button>
+        </div>
+
+        <!-- Formulario ShubaCore Network (Supabase) -->
+        <div id="form-shubacore" class="auth-form active">
+          <!-- Vista Usuario Conectado -->
+          <div id="shubacore-logged-view" class="ms-active-card" style="display: none;">
+            <div class="ms-card-header">
+              <div class="ms-avatar-wrap">
+                <canvas id="shubacore-avatar" width="48" height="48" class="ms-active-avatar"></canvas>
+              </div>
+              <div class="ms-card-info">
+                <div class="ms-card-top-row">
+                  <span id="shubacore-display-username" class="ms-gamertag">Usuario</span>
+                  <span id="shubacore-account-badge" class="badge badge-success">SHUBACORE</span>
+                </div>
+                <div id="shubacore-user-id" class="ms-uuid">ID: 00000000-0000-0000-0000-000000000000</div>
+              </div>
+            </div>
+
+            <!-- Bloque de vinculación con Microsoft -->
+            <div id="shubacore-ms-unlinked" class="shuba-link-card">
+              <div style="font-size: 11.5px; color: var(--text-secondary); line-height: 1.4;">
+                ¿Tienes Minecraft comprado? Vincula tu cuenta de Microsoft para verificar tu perfil y jugar con amigos en cualquier servidor oficial.
+              </div>
+              <button id="btn-shubacore-link-ms" class="btn btn-microsoft btn-small" style="margin-top: 8px; width: 100%; justify-content: center;">
+                <svg width="14" height="14" viewBox="0 0 21 21"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>
+                <span>Vincular Cuenta Microsoft Oficial</span>
+              </button>
+            </div>
+
+            <div id="shubacore-ms-linked" class="shuba-link-card" style="display: none;">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <svg width="15" height="15" viewBox="0 0 21 21"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="11" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>
+                  <span id="shubacore-linked-gamertag" style="font-size: 12.5px; font-weight: 600; color: #10b981;">Gamertag</span>
+                </div>
+                <span class="badge badge-success">VERIFICADO (PREMIUM)</span>
+              </div>
+            </div>
+
+            <div class="ms-card-actions">
+              <button id="btn-shubacore-use-account" class="btn btn-primary btn-small">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                <span>Usar esta cuenta para jugar</span>
+              </button>
+              <button id="btn-shubacore-logout" class="btn btn-danger btn-small">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
+                <span>Cerrar Sesión</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Vista Formulario de Inicio de Sesión / Registro -->
+          <div id="shubacore-guest-view">
+            <p class="premium-desc">
+              Crea tu perfil en la Red ShubaCore con <strong>solo usuario y contraseña</strong> (sin correo real). Podrás agregar amigos y conectarte a sus partidas.
+            </p>
+
+            <div class="shubacore-subtabs">
+              <button id="btn-submode-login" class="shubacore-subtab-btn active" type="button">Iniciar Sesión</button>
+              <button id="btn-submode-register" class="shubacore-subtab-btn" type="button">Crear Cuenta</button>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 10px;">
+              <label for="shubacore-username-input">Nombre de Usuario:</label>
+              <input type="text" id="shubacore-username-input" class="text-input" placeholder="Ej. Alex_Shuba" maxlength="20" autocomplete="username">
+            </div>
+
+            <div class="form-group" style="margin-bottom: 10px;">
+              <label for="shubacore-password-input">Contraseña:</label>
+              <input type="password" id="shubacore-password-input" class="text-input" placeholder="Mínimo 6 caracteres" autocomplete="current-password">
+            </div>
+
+            <div id="shubacore-auth-alert" class="auth-alert" style="display: none;"></div>
+
+            <button id="btn-shubacore-submit" class="btn btn-primary" type="button" style="width: 100%; justify-content: center; margin-top: 10px; padding: 10px 14px;">
+              <span>Iniciar Sesión</span>
+            </button>
+          </div>
         </div>
 
         <!-- Formulario Offline -->
-        <div id="form-offline" class="auth-form active">
+        <div id="form-offline" class="auth-form">
           <div class="form-group">
             <label for="offline-username">Nombre de Usuario Offline:</label>
             <div class="input-group">

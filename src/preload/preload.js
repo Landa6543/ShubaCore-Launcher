@@ -108,7 +108,11 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
     cancelDeviceCode: () => ipcRenderer.invoke('auth:ms-cancel'),
     switchAccount: (uuid) => ipcRenderer.invoke('auth:switch-account', uuid),
     logoutMs: (uuid) => ipcRenderer.invoke('auth:logout-ms', uuid),
-    logout: () => ipcRenderer.invoke('auth:logout')
+    logout: () => ipcRenderer.invoke('auth:logout'),
+    registerShubaCore: (username, password) => ipcRenderer.invoke('auth:register-shubacore', { username, password }),
+    loginShubaCore: (username, password) => ipcRenderer.invoke('auth:login-shubacore', { username, password }),
+    logoutShubaCore: () => ipcRenderer.invoke('auth:logout-shubacore'),
+    getShubaCoreAccount: () => ipcRenderer.invoke('auth:get-shubacore-account')
   },
 
   // ==========================================

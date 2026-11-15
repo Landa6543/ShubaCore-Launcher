@@ -423,6 +423,25 @@ function registerIpcHandlers(mainWindow) {
   });
 
   // ==========================================
+  // AUTENTICACIÓN SHUBACORE NETWORK (SUPABASE)
+  // ==========================================
+  ipcMain.handle('auth:register-shubacore', async (event, { username, password }) => {
+    return await authManager.registerShubaCore(username, password);
+  });
+
+  ipcMain.handle('auth:login-shubacore', async (event, { username, password }) => {
+    return await authManager.loginShubaCore(username, password);
+  });
+
+  ipcMain.handle('auth:logout-shubacore', async () => {
+    return authManager.logoutShubaCore();
+  });
+
+  ipcMain.handle('auth:get-shubacore-account', async () => {
+    return authManager.getShubaCoreAccount();
+  });
+
+  // ==========================================
   // DETECCIÓN Y OPTIMIZACIÓN JVM / GESTOR RUNTIMES
   // ==========================================
   ipcMain.handle('jvm:detect', async (event, customJavaPath, targetMcVersion) => {
