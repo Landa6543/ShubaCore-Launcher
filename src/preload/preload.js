@@ -112,7 +112,9 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
     registerShubaCore: (username, password) => ipcRenderer.invoke('auth:register-shubacore', { username, password }),
     loginShubaCore: (username, password) => ipcRenderer.invoke('auth:login-shubacore', { username, password }),
     logoutShubaCore: () => ipcRenderer.invoke('auth:logout-shubacore'),
-    getShubaCoreAccount: () => ipcRenderer.invoke('auth:get-shubacore-account')
+    getShubaCoreAccount: () => ipcRenderer.invoke('auth:get-shubacore-account'),
+    linkShubaCoreMs: () => ipcRenderer.invoke('auth:link-shubacore-ms'),
+    unlinkShubaCoreMs: () => ipcRenderer.invoke('auth:unlink-shubacore-ms')
   },
 
   // ==========================================

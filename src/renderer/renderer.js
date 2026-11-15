@@ -267,6 +267,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const shubacoreMsLinked = document.getElementById('shubacore-ms-linked');
   const shubacoreLinkedGamertag = document.getElementById('shubacore-linked-gamertag');
   const btnShubacoreLinkMs = document.getElementById('btn-shubacore-link-ms');
+  const btnShubacoreUnlinkMs = document.getElementById('btn-shubacore-unlink-ms');
   const btnShubacoreUseAccount = document.getElementById('btn-shubacore-use-account');
   const btnShubacoreLogout = document.getElementById('btn-shubacore-logout');
   const btnSubmodeLogin = document.getElementById('btn-submode-login');
@@ -1124,8 +1125,47 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   if (btnShubacoreLinkMs) {
-    btnShubacoreLinkMs.addEventListener('click', () => {
-      btnLoginMicrosoft.click();
+    btnShubacoreLinkMs.addEventListener('click', async () => {
+      btnShubacoreLinkMs.disabled = true;
+      try {
+        const sess = await api.auth.getSavedSession();
+        if (sess && sess.microsoftAccount && sess.microsoftAccount.uuid) {
+          const linkRes = await api.auth.linkShubaCoreMs();
+          if (linkRes && linkRes.success) {
+            const updated = await api.auth.getSavedSession();
+            await updatePlayerBadge(updated.account, updated);
+            await refreshShubaCoreAccountState();
+            appendLog(`[Auth] ¡Cuenta de Microsoft (${sess.microsoftAccount.username}) vinculada a ShubaCore!`, 'success');
+            return;
+          }
+        }
+        btnLoginMicrosoft.click();
+      } catch (err) {
+        appendLog(`[Auth Error] ${err.message}`, 'error');
+      } finally {
+        btnShubacoreLinkMs.disabled = false;
+      }
+    });
+  }
+
+  if (btnShubacoreUnlinkMs) {
+    btnShubacoreUnlinkMs.addEventListener('click', async () => {
+      btnShubacoreUnlinkMs.disabled = true;
+      try {
+        const res = await api.auth.unlinkShubaCoreMs();
+        if (res && res.success) {
+          const sess = await api.auth.getSavedSession();
+          await updatePlayerBadge(sess.account, sess);
+          await refreshShubaCoreAccountState();
+          appendLog('[Auth] Microsoft desvinculado de ShubaCore. Ahora tu perfil funciona en Modo Libre.', 'info');
+        } else {
+          alert('No se pudo desvincular: ' + (res?.error || 'Desconocido'));
+        }
+      } catch (err) {
+        alert('Error: ' + err.message);
+      } finally {
+        btnShubacoreUnlinkMs.disabled = false;
+      }
     });
   }
 

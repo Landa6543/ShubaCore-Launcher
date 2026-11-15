@@ -207,6 +207,31 @@ class SupabaseManager {
   }
 
   /**
+   * Desvincula Microsoft del perfil de ShubaCore
+   */
+  async unlinkMicrosoft(userId) {
+    if (!this.client || !userId) return { success: false };
+    try {
+      const { error } = await this.client
+        .from('profiles')
+        .update({
+          ms_gamertag: null,
+          ms_uuid: null,
+          account_type: 'shubacore',
+          last_seen: new Date().toISOString()
+        })
+        .eq('id', userId);
+
+      if (error) throw error;
+      logger.info(`[Supabase] Microsoft desvinculado de cuenta ShubaCore (${userId})`);
+      return { success: true };
+    } catch (err) {
+      logger.error('[Supabase] Error al desvincular Microsoft:', err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
    * Actualiza el estado de presencia (En línea, Jugando, Offline)
    */
   async updatePresence(userId, status, currentGame = null) {

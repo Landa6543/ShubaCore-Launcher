@@ -69,6 +69,11 @@ console.log('====================================================');
     assert.strictEqual(mclcAuth.name, shubaUser2);
     console.log(`   ✔ AuthManager MCLC Auth verificado para: ${mclcAuth.name}`);
 
+    // Probar desvinculación y vinculación en SupabaseManager
+    const unlinkRes = await sb.unlinkMicrosoft(okLogin.user.id);
+    assert.strictEqual(unlinkRes.success, true, 'Desvinculación debe ser exitosa');
+    console.log('   ✔ Desvinculación de Microsoft verificada en Supabase');
+
     authMgr.logoutShubaCore();
     assert.strictEqual(authMgr.getShubaCoreAccount(), null, 'Logout debe limpiar la cuenta ShubaCore');
     console.log('   ✔ Logout de ShubaCore completado exitosamente');

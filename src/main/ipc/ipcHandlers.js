@@ -441,6 +441,14 @@ function registerIpcHandlers(mainWindow) {
     return authManager.getShubaCoreAccount();
   });
 
+  ipcMain.handle('auth:link-shubacore-ms', async () => {
+    return await authManager.linkShubaCoreMicrosoft();
+  });
+
+  ipcMain.handle('auth:unlink-shubacore-ms', async () => {
+    return await authManager.unlinkShubaCoreMicrosoft();
+  });
+
   // ==========================================
   // DETECCIÓN Y OPTIMIZACIÓN JVM / GESTOR RUNTIMES
   // ==========================================

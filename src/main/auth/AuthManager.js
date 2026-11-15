@@ -225,10 +225,14 @@ class AuthManager {
       }
     }
 
-    const isPremium = this.isPremiumSession(session);
     let activeAccount = null;
 
-    if (isPremium) {
+    if (session.activeMode === 'shubacore' && session.shubacoreAccount) {
+      activeAccount = this.getCurrentAccount();
+      const isPremShuba = session.shubacoreAccount.accountType === 'premium';
+      this.configManager.set('auth.currentUser', activeAccount);
+      this.configManager.set('auth.mode', isPremShuba ? 'premium' : 'offline');
+    } else if (session.activeMode === 'microsoft' && session.microsoftAccount && this.isPremiumSession(session)) {
       session.activeMode = 'microsoft';
       activeAccount = this._buildAccountFromSession(session.microsoftAccount);
       this.configManager.set('auth.currentUser', activeAccount);
@@ -242,11 +246,15 @@ class AuthManager {
 
     this._writeSessionFile(session);
 
+    const isPremium = (session.activeMode === 'microsoft') ||
+                      (session.activeMode === 'shubacore' && session.shubacoreAccount?.accountType === 'premium');
+
     return {
       success: true,
       activeMode: session.activeMode,
       offlineAccount: session.offlineAccount,
       microsoftAccount: session.microsoftAccount,
+      shubacoreAccount: session.shubacoreAccount,
       isPremium,
       account: activeAccount
     };
@@ -310,9 +318,13 @@ class AuthManager {
 
     this._writeSessionFile(session);
 
-    const isPremium = this.isPremiumSession(session);
     let activeAccount = null;
-    if (isPremium) {
+    if (session.activeMode === 'shubacore') {
+      activeAccount = this.getCurrentAccount();
+      const isPremShuba = session.shubacoreAccount.accountType === 'premium';
+      this.configManager.set('auth.currentUser', activeAccount);
+      this.configManager.set('auth.mode', isPremShuba ? 'premium' : 'offline');
+    } else if (session.activeMode === 'microsoft') {
       activeAccount = this._buildAccountFromSession(session.microsoftAccount);
       this.configManager.set('auth.currentUser', activeAccount);
       this.configManager.set('auth.mode', 'premium');
@@ -322,10 +334,16 @@ class AuthManager {
       this.configManager.set('auth.mode', 'offline');
     }
 
+    const isPremium = (session.activeMode === 'microsoft') ||
+                      (session.activeMode === 'shubacore' && session.shubacoreAccount?.accountType === 'premium');
+
     logger.info(`[AuthManager] Modo de sesión cambiado: ${session.activeMode} (isPremium: ${isPremium})`);
     return {
       success: true,
       activeMode: session.activeMode,
+      offlineAccount: session.offlineAccount,
+      microsoftAccount: session.microsoftAccount,
+      shubacoreAccount: session.shubacoreAccount,
       isPremium,
       account: activeAccount
     };
@@ -723,13 +741,6 @@ class AuthManager {
     session.shubacoreAccount = res.user;
     session.activeMode = 'shubacore';
 
-    if (session.microsoftAccount && session.microsoftAccount.uuid) {
-      await this.supabaseManager.linkMicrosoft(res.user.id, session.microsoftAccount);
-      session.shubacoreAccount.accountType = 'premium';
-      session.shubacoreAccount.msGamertag = session.microsoftAccount.username;
-      session.shubacoreAccount.msUuid = session.microsoftAccount.uuid;
-    }
-
     this._writeSessionFile(session);
     return { success: true, user: session.shubacoreAccount };
   }
@@ -745,14 +756,50 @@ class AuthManager {
     session.shubacoreAccount = res.user;
     session.activeMode = 'shubacore';
 
-    if (session.microsoftAccount && session.microsoftAccount.uuid) {
-      await this.supabaseManager.linkMicrosoft(res.user.id, session.microsoftAccount);
-      session.shubacoreAccount.accountType = 'premium';
-      session.shubacoreAccount.msGamertag = session.microsoftAccount.username;
-      session.shubacoreAccount.msUuid = session.microsoftAccount.uuid;
+    this._writeSessionFile(session);
+    return { success: true, user: session.shubacoreAccount };
+  }
+
+  /**
+   * Vincula la cuenta activa de Microsoft a la cuenta ShubaCore
+   */
+  async linkShubaCoreMicrosoft() {
+    const session = this._readSessionFile();
+    if (!session.shubacoreAccount) {
+      return { success: false, error: 'Inicia sesión en ShubaCore primero.' };
+    }
+    if (!session.microsoftAccount || !session.microsoftAccount.uuid) {
+      return { success: false, error: 'No hay ninguna cuenta de Microsoft conectada en el launcher.' };
     }
 
+    const res = await this.supabaseManager.linkMicrosoft(session.shubacoreAccount.id, session.microsoftAccount);
+    if (!res.success) return res;
+
+    session.shubacoreAccount.accountType = 'premium';
+    session.shubacoreAccount.msGamertag = session.microsoftAccount.username;
+    session.shubacoreAccount.msUuid = session.microsoftAccount.uuid;
     this._writeSessionFile(session);
+
+    return { success: true, user: session.shubacoreAccount };
+  }
+
+  /**
+   * Desvincula Microsoft de la cuenta ShubaCore
+   */
+  async unlinkShubaCoreMicrosoft() {
+    const session = this._readSessionFile();
+    if (!session.shubacoreAccount) {
+      return { success: false, error: 'No hay cuenta ShubaCore conectada.' };
+    }
+
+    const res = await this.supabaseManager.unlinkMicrosoft(session.shubacoreAccount.id);
+    if (!res.success) return res;
+
+    session.shubacoreAccount.accountType = 'shubacore';
+    session.shubacoreAccount.msGamertag = null;
+    session.shubacoreAccount.msUuid = null;
+    this._writeSessionFile(session);
+
     return { success: true, user: session.shubacoreAccount };
   }
 
