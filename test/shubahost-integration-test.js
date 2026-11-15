@@ -1,6 +1,8 @@
 const assert = require('assert');
 const path = require('path');
 const fs = require('fs');
+
+process.env.SHUBACORE_SESSION_FILE = path.join(__dirname, '.test-data', 'auth-session-shubahost.json');
 const { getAuthManager } = require('../src/main/auth/AuthManager');
 const { getLaunchManager } = require('../src/main/launcher/LaunchManager');
 

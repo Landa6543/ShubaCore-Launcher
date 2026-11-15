@@ -61,8 +61,11 @@ function createMainWindow() {
   // Cargar sesión persistente de usuario (auth-session.json) y auto-renovar tokens si es necesario
   try {
     const authManager = getAuthManager();
-    authManager.getSavedSession().then((session) => {
+    authManager.getSavedSession().then(async (session) => {
       logger.info(`[Auth] Sesión persistente restaurada. Modo activo: ${session.activeMode} (Usuario: ${session.account?.name || 'Ninguno'})`);
+      if (session.shubacoreAccount && session.shubacoreAccount.id) {
+        await authManager.supabaseManager?.ensureSession(session.shubacoreAccount.id).catch(() => {});
+      }
     }).catch((err) => {
       logger.warn('[Auth] Error al restaurar sesión persistente:', err.message);
     });

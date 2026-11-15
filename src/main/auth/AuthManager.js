@@ -46,6 +46,10 @@ class AuthManager {
    * Obtiene la ruta física del archivo auth-session.json en <userData>
    */
   _getSessionFilePath() {
+    if (process.env.SHUBACORE_SESSION_FILE) {
+      return process.env.SHUBACORE_SESSION_FILE;
+    }
+
     let userDataDir = null;
     try {
       const electron = require('electron');

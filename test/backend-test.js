@@ -13,6 +13,7 @@ if (fs.existsSync(testDataDir)) {
   fs.rmSync(testDataDir, { recursive: true, force: true });
 }
 fs.mkdirSync(testDataDir, { recursive: true });
+process.env.SHUBACORE_SESSION_FILE = path.join(testDataDir, 'auth-session-backend.json');
 
 console.log('====================================================');
 console.log('🧪 INICIANDO PRUEBAS DEL BACKEND DE SHUBACORE (SHUBATECH)');

@@ -7,6 +7,8 @@ const assert = require('assert');
 const path = require('path');
 const fs = require('fs');
 
+process.env.SHUBACORE_SESSION_FILE = path.join(__dirname, '.test-data', 'auth-session-concurrency.json');
+
 console.log('====================================================');
 console.log('🧪 PRUEBAS: CONCURRENCIA AUTH, MUTEX, 429 & SUBTABS');
 console.log('====================================================\n');

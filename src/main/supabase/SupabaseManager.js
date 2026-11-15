@@ -46,10 +46,39 @@ class SupabaseManager {
           autoRefreshToken: true
         }
       });
+
+      this.client.auth.onAuthStateChange((event, session) => {
+        if (session && session.user && (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN')) {
+          try {
+            const sessionPath = this._getSessionFilePath();
+            if (fs.existsSync(sessionPath)) {
+              const raw = fs.readFileSync(sessionPath, 'utf8');
+              const parsed = JSON.parse(raw);
+              if (parsed?.shubacoreAccount && parsed.shubacoreAccount.id === session.user.id) {
+                parsed.shubacoreAccount.tokens = {
+                  access_token: session.access_token,
+                  refresh_token: session.refresh_token,
+                  expires_at: session.expires_at
+                };
+                fs.writeFileSync(sessionPath, JSON.stringify(parsed, null, 2), 'utf8');
+              }
+            }
+          } catch (_) {}
+        }
+      });
+
       logger.info(`[Supabase] Conectado exitosamente a: ${this.url}`);
     } catch (err) {
       logger.error('[Supabase] Error al inicializar cliente:', err);
     }
+  }
+
+  _getSessionFilePath() {
+    if (process.env.SHUBACORE_SESSION_FILE) {
+      return process.env.SHUBACORE_SESSION_FILE;
+    }
+    const appData = process.env.APPDATA || (process.platform === 'darwin' ? path.join(process.env.HOME, 'Library', 'Application Support') : path.join(process.env.HOME, '.config'));
+    return path.join(appData, '.shubacore', 'auth-session.json');
   }
 
   _toVirtualEmail(username) {
@@ -321,8 +350,7 @@ class SupabaseManager {
       }
 
       // Obtener la cuenta y tokens guardados en auth-session.json
-      const appData = process.env.APPDATA || (process.platform === 'darwin' ? path.join(process.env.HOME, 'Library', 'Application Support') : path.join(process.env.HOME, '.config'));
-      const sessionPath = path.join(appData, '.shubacore', 'auth-session.json');
+      const sessionPath = this._getSessionFilePath();
       let savedUser = null;
       let tokens = null;
 
@@ -358,6 +386,9 @@ class SupabaseManager {
         });
         if (!error && data?.session) {
           return true;
+        }
+        if (error) {
+          logger.warn('[Supabase] Error al restaurar tokens de sesión:', error.message);
         }
       }
 
@@ -410,7 +441,10 @@ class SupabaseManager {
     const cleanTarget = String(targetUsername || '').trim().toLowerCase().replace(/^@/, '');
     if (!cleanTarget) return { success: false, error: 'Ingresa un nombre de usuario válido.' };
 
-    await this.ensureSession(currentUserId);
+    const sessionOk = await this.ensureSession(currentUserId);
+    if (!sessionOk) {
+      return { success: false, error: 'Tu sesión en ShubaCore no está activa o ha expirado. Por favor vuelve a iniciar sesión en el Gestor de Cuentas.' };
+    }
 
     try {
       // 1. Localizar perfil destino
@@ -481,7 +515,8 @@ class SupabaseManager {
    */
   async getFriends(currentUserId) {
     if (!this.client || !currentUserId) return [];
-    await this.ensureSession(currentUserId);
+    const sessionOk = await this.ensureSession(currentUserId);
+    if (!sessionOk) return [];
 
     try {
       const { data: friendships, error } = await this.client
@@ -525,7 +560,8 @@ class SupabaseManager {
    */
   async getPendingRequests(currentUserId) {
     if (!this.client || !currentUserId) return { incoming: [], outgoing: [] };
-    await this.ensureSession(currentUserId);
+    const sessionOk = await this.ensureSession(currentUserId);
+    if (!sessionOk) return { incoming: [], outgoing: [] };
 
     try {
       // Entrantes: friend_id = currentUserId
@@ -578,7 +614,8 @@ class SupabaseManager {
    */
   async acceptFriendRequest(requestId, currentUserId) {
     if (!this.client || !requestId) return { success: false, error: 'Parámetros inválidos' };
-    await this.ensureSession(currentUserId);
+    const sessionOk = await this.ensureSession(currentUserId);
+    if (!sessionOk) return { success: false, error: 'Sesión expirada. Por favor vuelve a iniciar sesión.' };
 
     try {
       const { error } = await this.client
@@ -601,7 +638,8 @@ class SupabaseManager {
    */
   async rejectOrCancelRequest(requestId, currentUserId) {
     if (!this.client || !requestId) return { success: false, error: 'Parámetros inválidos' };
-    await this.ensureSession(currentUserId);
+    const sessionOk = await this.ensureSession(currentUserId);
+    if (!sessionOk) return { success: false, error: 'Sesión expirada. Por favor vuelve a iniciar sesión.' };
 
     try {
       const { error } = await this.client
@@ -623,7 +661,8 @@ class SupabaseManager {
    */
   async removeFriend(currentUserId, friendId) {
     if (!this.client || !currentUserId || !friendId) return { success: false };
-    await this.ensureSession(currentUserId);
+    const sessionOk = await this.ensureSession(currentUserId);
+    if (!sessionOk) return { success: false, error: 'Sesión expirada.' };
 
     try {
       const { error } = await this.client
