@@ -7,8 +7,49 @@
 document.addEventListener('DOMContentLoaded', async () => {
   const api = window.shubaCoreAPI;
 
+  // Íconos oficiales de loaders (Modrinth tag/loader). Se descargan una vez, se guardan en localStorage
+  // y, mientras no estén disponibles, se usan los SVG de respaldo definidos abajo.
+  const LOADER_ICON_COLORS = { fabric: '#dbb69b', forge: '#959eef', neoforge: '#f99e6b', quilt: '#c796f9' };
+  let officialLoaderSvgs = {};
+  try { officialLoaderSvgs = JSON.parse(localStorage.getItem('shuba_loader_svgs_v1') || '{}') || {}; } catch (_) { officialLoaderSvgs = {}; }
+
+  function officialLoaderSvg(key, size) {
+    const raw = officialLoaderSvgs[key];
+    if (!raw || typeof raw !== 'string' || !raw.includes('<svg')) return null;
+    const color = LOADER_ICON_COLORS[key] || 'currentColor';
+    const sized = raw.replace(/<svg\b([^>]*)>/i, (m, attrs) => {
+      const clean = attrs.replace(/\s(width|height)="[^"]*"/gi, '');
+      return `<svg${clean} width="${size}" height="${size}" class="loader-svg loader-svg-${key}" style="color:${color}">`;
+    });
+    return sized;
+  }
+
+  async function refreshOfficialLoaderIcons() {
+    try {
+      const res = await api.app?.getLoaderIcons?.();
+      if (res && res.success && res.icons) {
+        officialLoaderSvgs = res.icons;
+        try { localStorage.setItem('shuba_loader_svgs_v1', JSON.stringify(res.icons)); } catch (_) {}
+        // Reemplazar los íconos ya dibujados en pantalla
+        document.querySelectorAll('.badge-loader-official').forEach((badge) => {
+          const m = badge.className.match(/badge-loader-(neoforge|forge|fabric|quilt)\b/);
+          const svgEl = badge.querySelector('svg');
+          if (!m || !svgEl) return;
+          const size = svgEl.getAttribute('width') || 14;
+          const html = officialLoaderSvg(m[1], size);
+          if (html) svgEl.outerHTML = html;
+        });
+      }
+    } catch (_) {}
+  }
+
   function getLoaderIcon(loader, size = 16) {
     const norm = String(loader || 'vanilla').toLowerCase().trim();
+    const officialKey = norm.includes('neoforge') ? 'neoforge' : norm.includes('forge') ? 'forge' : norm.includes('fabric') ? 'fabric' : norm.includes('quilt') ? 'quilt' : null;
+    if (officialKey) {
+      const official = officialLoaderSvg(officialKey, size);
+      if (official) return official;
+    }
     if (norm.includes('neoforge')) {
       return `<svg width="${size}" height="${size}" viewBox="0 0 32 32" fill="none" class="loader-svg loader-svg-neoforge" xmlns="http://www.w3.org/2000/svg"><path d="M4 6L11 11L16 6L21 11L28 6L26 21L16 28L6 21L4 6Z" fill="#EA580C"/><path d="M11 11L16 17L21 11L25 19L16 26L7 19L11 11Z" fill="#F97316"/><path d="M13 14L16 18L19 14L22 20L16 25L10 20L13 14Z" fill="#FFFFFF"/><path d="M16 22L14 19H18L16 22Z" fill="#1E293B"/><circle cx="12.5" cy="16.5" r="1.5" fill="#1E293B"/><circle cx="19.5" cy="16.5" r="1.5" fill="#1E293B"/></svg>`;
     }
@@ -36,6 +77,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   window.getLoaderIcon = getLoaderIcon;
   window.getLoaderBadge = getLoaderBadge;
+  setTimeout(refreshOfficialLoaderIcons, 1500);
 
   // =========================================================================
   // FUNCIONES AUXILIARES: TIEMPO JUGADO, FECHA Y LOADER BADGES OFICIALES
@@ -66,19 +108,86 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function resolveModEnvironment(mod) {
-    if (mod.environment) {
-      const e = String(mod.environment).toLowerCase();
-      if (e === 'client' || e === 'client_only') return 'client';
-      if (e === 'server' || e === 'server_only') return 'server';
-      if (e === 'both' || e === '*') return 'both';
+    if (!mod) return 'both';
+
+    // 1. Verificación explícita de campos de Modrinth o metadatos de JAR
+    const envVal = Array.isArray(mod.environment)
+      ? mod.environment.map(e => String(e).toLowerCase())
+      : [String(mod.environment || '').toLowerCase()];
+
+    if (envVal.some(e => e.includes('server_only') || e.includes('dedicated_server_only') || e === 'server')) {
+      return 'server';
     }
-    const name = ((mod.displayName || '') + ' ' + (mod.fileName || '') + ' ' + (mod.name || '')).toLowerCase();
-    if (/(sodium|iris|rubidium|oculus|embeddium|entityculling|ferritecore|immediatelyfast|modernfix|krypton|lithium|fps|hud|optifine|zoom|replaymod|customskinloader|appleskin|jei|rei|emi|mousewheelie|controlling|smoothboot|dynamiclights|shulkerboxtooltip|notenoughanimations|waveycapes|skinview|ambient|cloth)/i.test(name)) {
+    if (envVal.some(e => e.includes('client_only') || e === 'client')) {
       return 'client';
     }
-    if (/(carpet|luckperms|spark|voicechat|viaversion|geyser|floodgate)/i.test(name)) {
-      return 'both';
+
+    const cSide = String(mod.clientSide || mod.client_side || '').toLowerCase();
+    const sSide = String(mod.serverSide || mod.server_side || '').toLowerCase();
+    if (cSide === 'unsupported' && (sSide === 'required' || sSide === 'optional')) {
+      return 'server';
     }
+    if (sSide === 'unsupported' && (cSide === 'required' || cSide === 'optional')) {
+      return 'client';
+    }
+
+    // 2. Heurística avanzada por nombre, archivo, slug, modId y descripción
+    const text = (
+      (mod.displayName || '') + ' ' +
+      (mod.fileName || '') + ' ' +
+      (mod.name || '') + ' ' +
+      (mod.title || '') + ' ' +
+      (mod.slug || '') + ' ' +
+      (mod.projectId || '') + ' ' +
+      (mod.summary || '') + ' ' +
+      (mod.description || '') + ' ' +
+      (Array.isArray(mod.categories) ? mod.categories.join(' ') : '')
+    ).toLowerCase();
+
+    // Detección de Solo Servidor
+    const serverPatterns = [
+      /yung/i,
+      /better\s*(dungeon|nether|fortress|mineshaft|temple|ocean|monument|stronghold|witch|bridge|desert|jungle)/i,
+      /servercore/i,
+      /ai-improvements|aiimprovements/i,
+      /alltheleaks/i,
+      /chunky|pregen/i,
+      /dynmap|bluemap|pl3xmap|squaremap/i,
+      /luckperms|permissionsex|ftbranks/i,
+      /ledger|coreprotect|griefdefender|worldguard|flan/i,
+      /worldedit|fastasyncworldedit|\bfawe\b/i,
+      /geyser|floodgate|viaversion|viabackwards|viarewind/i,
+      /discordsrv|chatbridge/i,
+      /easyauth|simpleauth|authme|banhammer/i,
+      /themis|grimac|vulcan|matrix-anticheat|anticheat/i,
+      /clearlag|mobcap|entitylimiter|viewdistance|\bvmp\b|\bc2me\b/i,
+      /netherportalfix|letmedespawn|lithostitched|packetfixer/i,
+      /fastworkbench|fastfurnace/i,
+      /\bcarpet\b|fabric-carpet/i,
+      /\bspark\b|playeranalytics|\bservux\b|\brcon\b/i,
+      /server\s*(side|only|utility|tools|performance|optimization|manager)/i,
+      /dedicated\s*server/i,
+      /only\s*on\s*(the\s*)?server/i
+    ];
+    if (serverPatterns.some(p => p.test(text))) {
+      return 'server';
+    }
+
+    // Detección de Solo Cliente
+    const clientPatterns = [
+      /sodium|iris|rubidium|oculus|embeddium|entityculling|ferritecore|immediatelyfast|modernfix|krypton/i,
+      /optifine|zoom|replaymod|customskinloader|appleskin|mousewheelie|controlling|smoothboot|dynamiclights/i,
+      /shulkerboxtooltip|notenoughanimations|waveycapes|skinview|cloth-config|soundphysics|presencefootsteps/i,
+      /xaero|journeymap|voxelmap|resourceloader|custommainmenu|darkloading|fancymenu|borderless/i,
+      /\bneat\b|wthit|jade|\btoast\b|invtweaks|itemphysic|physicsmod|customcrosshair|fallingleaves/i,
+      /betterf3|visuality|drippy|torohealth|modmenu/i,
+      /client\s*(side|only|cosmetic|visual|hud|gui)/i,
+      /only\s*on\s*(the\s*)?client/i
+    ];
+    if (clientPatterns.some(p => p.test(text))) {
+      return 'client';
+    }
+
     return 'both';
   }
 
@@ -257,11 +366,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnCloseCatalogContext = document.getElementById('btn-close-catalog-context');
   const catalogActiveFilterChips = document.getElementById('catalog-active-filter-chips');
   const selectCatalogContentType = document.getElementById('select-catalog-content-type');
+  const selectCatalogPlatform = document.getElementById('select-catalog-platform');
   const catalogResultsCount = document.getElementById('catalog-results-count');
   const btnToggleAdvancedFilters = document.getElementById('btn-toggle-advanced-filters');
   const catalogAdvancedFiltersPanel = document.getElementById('catalog-advanced-filters-panel');
   const selectCatalogLoader = document.getElementById('select-catalog-loader');
   const selectCatalogMcVersion = document.getElementById('select-catalog-mcversion');
+  const selectCatalogEnvironment = document.getElementById('select-catalog-environment');
   const btnCatalogViewList = document.getElementById('btn-catalog-view-list');
   const btnCatalogViewGrid = document.getElementById('btn-catalog-view-grid');
   let catalogContextProfile = null;
@@ -292,6 +403,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const installedModsTbody = document.getElementById('installed-mods-tbody');
   const installedModsEmptyState = document.getElementById('installed-mods-empty-state');
   const selectInstalledModsEnv = document.getElementById('select-installed-mods-env');
+  const selectInstalledModsPlatform = document.getElementById('select-installed-mods-platform');
   const btnInstanceHeaderLaunch = document.getElementById('btn-instance-header-launch');
 
   if (btnInstanceHeaderLaunch) {
@@ -302,6 +414,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (selectInstalledModsEnv) {
     selectInstalledModsEnv.addEventListener('change', () => {
+      renderFilteredInstalledMods();
+    });
+  }
+
+  if (selectInstalledModsPlatform) {
+    selectInstalledModsPlatform.addEventListener('change', () => {
       renderFilteredInstalledMods();
     });
   }
@@ -489,6 +607,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   btnMinimize.addEventListener('click', () => api.system.minimize());
   btnMaximize.addEventListener('click', () => api.system.maximize());
   btnClose.addEventListener('click', () => api.system.close());
+
+  // Diálogo nativo universal de confirmación (utiliza Electron showMessageBox para evitar bloqueos)
+  async function showConfirmDialog(message, title = 'Confirmar acción', confirmText = 'Eliminar', cancelText = 'Cancelar') {
+    try {
+      if (api.dialog && typeof api.dialog.confirm === 'function') {
+        return await api.dialog.confirm({ message, title, confirmText, cancelText });
+      }
+    } catch (_) {}
+    return window.confirm(message);
+  }
 
   // =======================================================
   // RENDERIZADO DE SKIN EN CANVAS (CARA Y CUERPO 2D NATIVOS)
@@ -710,7 +838,7 @@ document.addEventListener('DOMContentLoaded', async () => {
               skinViewer3D.setSize(300, 440);
             }
             if (!lastLoadedSkinUrl) {
-              loadSkinIn3DViewer('https://launchercontent.mojang.com/default-skins/steve.png');
+              loadSkinIn3DViewer(DEFAULT_SKINS[0] ? DEFAULT_SKINS[0].dataUrl : 'https://mc-heads.net/skin/Steve');
             }
           } catch (e) {
             console.warn('[switchTab] Error en initSkinViewer3D:', e);
@@ -752,7 +880,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   navItems.forEach(({ btn, name }) => {
     if (btn) {
-      btn.addEventListener('click', () => switchTab(name));
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        switchTab(name);
+      });
     }
   });
 
@@ -1107,6 +1238,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderSkinFaceToCanvas(skinToRender, vestidorFaceCanvas);
     renderSkinBodyToCanvas(skinToRender, vestidorBodyCanvas);
     loadSkinIn3DViewer(skinToRender);
+    refreshAccountProfile(accName, isPremium ? session.microsoftAccount.mcAccessToken : null, isPremium);
   }
 
   // =======================================================
@@ -1260,6 +1392,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   // VESTIDOR 3D: CONTROLES FLOTANTES, CAPAS, ÉLITROS, PAUSA Y SEGUIR CURSOR
   // =========================================================================
   function createProceduralCape(theme) {
+    // Desactivado: nunca inventar capas. Solo se usan capas reales de la cuenta.
+    return null;
     try {
       const canvas = document.createElement('canvas');
       canvas.width = 64;
@@ -1330,44 +1464,133 @@ document.addEventListener('DOMContentLoaded', async () => {
     none: null
   };
 
-  const DEFAULT_SKINS = [
-    { name: 'Steve', model: 'default', url: 'https://launchercontent.mojang.com/default-skins/steve.png' },
-    { name: 'Alex', model: 'slim', url: 'https://launchercontent.mojang.com/default-skins/alex.png' },
-    { name: 'Ari', model: 'slim', url: 'https://launchercontent.mojang.com/default-skins/ari.png' },
-    { name: 'Efe', model: 'slim', url: 'https://launchercontent.mojang.com/default-skins/efe.png' },
-    { name: 'Makena', model: 'slim', url: 'https://launchercontent.mojang.com/default-skins/makena.png' },
-    { name: 'Noor', model: 'slim', url: 'https://launchercontent.mojang.com/default-skins/noor.png' },
-    { name: 'Sunny', model: 'slim', url: 'https://launchercontent.mojang.com/default-skins/sunny.png' },
-    { name: 'Zuri', model: 'default', url: 'https://launchercontent.mojang.com/default-skins/zuri.png' },
-    { name: 'Kai', model: 'default', url: 'https://launchercontent.mojang.com/default-skins/kai.png' }
-  ];
 
-  let currentActiveCapeUrl = OFFICIAL_CAPES.vanilla;
+  // Icono de instancia: normaliza el MIME de data URLs (JPEG/WEBP guardados como image/png) y rutas locales
+  function resolveInstanceIcon(icon, iconUrl) {
+    const raw = String(icon || iconUrl || '').trim();
+    if (!raw) return 'assets/logo.png';
+    if (raw.startsWith('data:image')) {
+      const b64 = raw.slice(raw.indexOf(',') + 1);
+      let mime = null;
+      if (b64.startsWith('/9j/')) mime = 'image/jpeg';
+      else if (b64.startsWith('UklGR')) mime = 'image/webp';
+      else if (b64.startsWith('iVBOR')) mime = 'image/png';
+      else if (b64.startsWith('R0lGOD')) mime = 'image/gif';
+      return mime ? `data:${mime};base64,${b64}` : raw;
+    }
+    if (/^https?:\/\//i.test(raw) || raw.startsWith('assets/')) return raw;
+    if (/^[a-zA-Z]:[\\/]/.test(raw)) return `file:///${raw.replace(/\\/g, '/')}`;
+    return 'assets/logo.png';
+  }
+
+  // Skins por defecto: se cargan desde el client.jar vía el proceso principal (texturas oficiales).
+  let DEFAULT_SKINS = [];
+  let accountSkin = null; // { dataUrl, model, name } skin real de la cuenta premium
+
+  async function loadDefaultSkins() {
+    try {
+      const res = await api.skins.getDefaultSkins();
+      DEFAULT_SKINS = (res && res.success && Array.isArray(res.skins)) ? res.skins : [];
+    } catch (_) {
+      DEFAULT_SKINS = [];
+    }
+    renderDefaultSkinsGrid();
+  }
+
+  let currentActiveCapeUrl = null;
   let isElytraMode = false;
   let isAnimationPaused = false;
   let isFollowCursorActive = false;
 
-  function loadCapeIn3DViewer(capeUrl, asElytra = isElytraMode) {
+  // Capas REALES de la cuenta (data URL) y textura vanilla de élitros. Todo viene del proceso principal.
+  let ownedCapes = [];
+  let vanillaElytraDataUrl = null;
+  let capeHidden = false;
+
+  function renderOwnedCapesDropdown() {
+    const list = document.getElementById('account-capes-list');
+    if (!list) return;
+    list.innerHTML = '';
+    if (ownedCapes.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'capes-dropdown-title';
+      empty.textContent = 'Esta cuenta no tiene capas';
+      list.appendChild(empty);
+      return;
+    }
+    ownedCapes.forEach((cape) => {
+      const btn = document.createElement('button');
+      btn.className = 'cape-dropdown-item';
+      btn.innerHTML = `<span class="cape-item-icon">🧥</span><span class="cape-item-label">${escapeHtml(cape.alias)}${cape.active ? ' ✓' : ''}</span>`;
+      btn.addEventListener('click', () => {
+        capeHidden = false;
+        currentActiveCapeUrl = cape.dataUrl;
+        applyCapeOrElytra();
+        skinCapesDropdown?.classList.add('hidden');
+      });
+      list.appendChild(btn);
+    });
+  }
+
+  async function refreshAccountProfile(accName, mcAccessToken, isPremium) {
+    ownedCapes = [];
+    accountSkin = null;
+    try {
+      const res = await api.skins.getAccountProfile(accName, isPremium ? mcAccessToken : null);
+      if (res && res.success) {
+        ownedCapes = res.capes || [];
+        if (res.skin && res.skin.dataUrl) {
+          accountSkin = { dataUrl: res.skin.dataUrl, model: res.skin.model, name: accName };
+        }
+      }
+    } catch (_) {}
+    const active = ownedCapes.find((c) => c.active) || ownedCapes[0] || null;
+    currentActiveCapeUrl = active ? active.dataUrl : null;
+    capeHidden = false;
+    renderOwnedCapesDropdown();
+    applyCapeOrElytra();
+    // La skin real de la cuenta premium debe ser la que se ve por defecto
+    if (isPremium && accountSkin) {
+      setSkinModelType(accountSkin.model === 'slim' ? 'slim' : 'default', false);
+      loadSkinIn3DViewer(accountSkin.dataUrl);
+      renderSkinFaceToCanvas(accountSkin.dataUrl, vestidorFaceCanvas);
+      renderSkinBodyToCanvas(accountSkin.dataUrl, vestidorBodyCanvas);
+      if (skinPreviewLabel) skinPreviewLabel.textContent = `${accName} (cuenta)`;
+      if (skinAppliedStatus) skinAppliedStatus.textContent = 'Skin oficial de tu cuenta premium';
+    }
+    renderUserSavedSkinsGrid();
+  }
+
+  async function applyCapeOrElytra() {
     if (!skinViewer3D) {
       initSkinViewer3D();
     }
     if (!skinViewer3D) return;
     try {
-      const resolvedCape = (typeof capeUrl === 'string' && OFFICIAL_CAPES[capeUrl]) ? OFFICIAL_CAPES[capeUrl] : capeUrl;
-      currentActiveCapeUrl = resolvedCape;
-      if (!resolvedCape) {
-        if (skinViewer3D.playerObject && skinViewer3D.playerObject.cape) {
-          skinViewer3D.playerObject.cape.visible = false;
+      let texture = capeHidden ? null : currentActiveCapeUrl;
+      if (isElytraMode && !texture && !capeHidden) {
+        if (!vanillaElytraDataUrl) {
+          const el = await api.skins.getVanillaElytra();
+          if (el && el.success) vanillaElytraDataUrl = el.dataUrl;
         }
+        texture = vanillaElytraDataUrl;
+      }
+      if (!texture) {
+        skinViewer3D.resetCape();
         return;
       }
-      skinViewer3D.loadCape(resolvedCape, { backEquipment: asElytra ? 'elytra' : 'cape' });
-      if (skinViewer3D.playerObject && skinViewer3D.playerObject.cape) {
-        skinViewer3D.playerObject.cape.visible = true;
-      }
+      skinViewer3D.loadCape(texture, { backEquipment: isElytraMode ? 'elytra' : 'cape' });
     } catch (err) {
       console.warn('[SkinViewer 3D] Error al cargar capa/élitros:', err);
     }
+  }
+
+  // Compatibilidad con llamadas antiguas: null = sin capa, string = capa personalizada
+  function loadCapeIn3DViewer(capeUrl, asElytra = isElytraMode) {
+    isElytraMode = asElytra;
+    currentActiveCapeUrl = capeUrl || null;
+    capeHidden = !capeUrl;
+    applyCapeOrElytra();
   }
 
   // 1. Selector de Capas Flotante
@@ -1387,11 +1610,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
 
-    skinCapesDropdown.querySelectorAll('.cape-dropdown-item[data-cape]').forEach((item) => {
+    skinCapesDropdown.querySelectorAll('.cape-dropdown-item[data-cape="none"]').forEach((item) => {
       item.addEventListener('click', () => {
-        const capeKey = item.getAttribute('data-cape');
-        const capeUrl = OFFICIAL_CAPES[capeKey] || null;
-        loadCapeIn3DViewer(capeUrl);
+        capeHidden = true;
+        applyCapeOrElytra();
         skinCapesDropdown.classList.add('hidden');
       });
     });
@@ -1414,10 +1636,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnSkinElytraToggle.addEventListener('click', () => {
       isElytraMode = !isElytraMode;
       btnSkinElytraToggle.classList.toggle('active', isElytraMode);
-      if (!currentActiveCapeUrl) {
-        currentActiveCapeUrl = OFFICIAL_CAPES.vanilla;
-      }
-      loadCapeIn3DViewer(currentActiveCapeUrl, isElytraMode);
+      applyCapeOrElytra();
     });
   }
 
@@ -1491,23 +1710,50 @@ document.addEventListener('DOMContentLoaded', async () => {
       card.className = 'skin-grid-card';
       card.title = `Usar skin ${skin.name} (${skin.model === 'slim' ? 'Alex 3px' : 'Steve 4px'})`;
       card.innerHTML = `
-        <img src="https://mc-heads.net/avatar/${encodeURIComponent(skin.name)}/48" class="skin-card-thumb-canvas" alt="${skin.name}" onerror="this.src='https://mc-heads.net/avatar/Steve/48'">
+        <img src="${skin.dataUrl}" class="skin-card-thumb-canvas" alt="${skin.name}">
         <span class="skin-card-name">${skin.name}</span>
         <span class="skin-card-badge">${skin.model === 'slim' ? 'Delgado' : 'Clásico'}</span>
       `;
+      // Miniatura: recortar solo la cara de la textura real
+      skinFaceDataUrl(skin.dataUrl).then((face) => {
+        const img = card.querySelector('img');
+        if (face && img) img.src = face;
+      });
 
       card.addEventListener('click', () => {
         document.querySelectorAll('.skin-grid-card').forEach(c => c.classList.remove('active'));
         card.classList.add('active');
-        setSkinModelType(skin.model);
-        loadSkinIn3DViewer(skin.url);
-        renderSkinFaceToCanvas(skin.url, vestidorFaceCanvas);
+        setSkinModelType(skin.model === 'slim' ? 'slim' : 'default');
+        loadSkinIn3DViewer(skin.dataUrl);
+        renderSkinFaceToCanvas(skin.dataUrl, vestidorFaceCanvas);
+        renderSkinBodyToCanvas(skin.dataUrl, vestidorBodyCanvas);
         if (skinPreviewLabel) skinPreviewLabel.textContent = skin.name;
         if (skinAppliedStatus) skinAppliedStatus.textContent = `Skin por defecto (${skin.name}) seleccionada`;
-        pendingSkinData = { type: 'mojang', value: skin.name };
+        // Se aplica como archivo PNG local (antes se intentaba clonar a un jugador llamado "Steve", "Ari"...)
+        pendingSkinData = { type: 'file', value: skin.filePath };
       });
 
       grid.appendChild(card);
+    });
+  }
+
+  // Recorta la cara (8x8 + capa exterior) de una textura de skin y la devuelve ampliada sin suavizado
+  function skinFaceDataUrl(dataUrl) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const c = document.createElement('canvas');
+          c.width = 48; c.height = 48;
+          const ctx = c.getContext('2d');
+          ctx.imageSmoothingEnabled = false;
+          ctx.drawImage(img, 8, 8, 8, 8, 0, 0, 48, 48);
+          ctx.drawImage(img, 40, 8, 8, 8, 0, 0, 48, 48);
+          resolve(c.toDataURL('image/png'));
+        } catch (_) { resolve(null); }
+      };
+      img.onerror = () => resolve(null);
+      img.src = dataUrl;
     });
   }
 
@@ -1526,6 +1772,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       saved = JSON.parse(localStorage.getItem('shuba_user_saved_skins') || '[]');
     } catch (_) { saved = []; }
 
+    // La skin real de la cuenta premium siempre va primero
+    if (accountSkin && accountSkin.dataUrl) {
+      saved = [{ name: `${accountSkin.name} (cuenta)`, dataUrl: accountSkin.dataUrl, model: accountSkin.model === 'slim' ? 'slim' : 'default', mojangUser: accountSkin.name, isAccountSkin: true }]
+        .concat(saved.filter((s) => !s.isAccountSkin));
+    }
+
     const countBadge = document.getElementById('user-saved-skins-count');
     if (countBadge) countBadge.textContent = `${saved.length} skin${saved.length === 1 ? '' : 's'}`;
 
@@ -1534,7 +1786,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       card.className = 'skin-grid-card';
       card.title = `Skin guardada ${item.name || 'Custom'}`;
       card.innerHTML = `
-        <img src="${item.dataUrl || item.url || 'https://mc-heads.net/avatar/Steve/48'}" class="skin-card-thumb-canvas" alt="Skin" onerror="this.src='https://mc-heads.net/avatar/Steve/48'">
+        <img src="${item.dataUrl || item.url || 'https://mc-heads.net/avatar/Steve/48'}" class="skin-card-thumb-canvas" alt="Skin" onerror="this.onerror=null; this.src='https://mc-heads.net/avatar/Steve/48';">
         <span class="skin-card-name">${escapeHtml(item.name || 'Skin ' + (index + 1))}</span>
         <span class="skin-card-badge">${item.model === 'slim' ? 'Delgado' : 'Clásico'}</span>
       `;
@@ -1588,7 +1840,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // Inicializar grids al cargar pestaña skins
-  renderDefaultSkinsGrid();
+  loadDefaultSkins();
   renderUserSavedSkinsGrid();
 
 
@@ -1926,12 +2178,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const pCleanVer = (p.loaderVersion || '').split(' ')[0].trim();
         const pRamMin = p.ramMin || p.memoryMin || '2G';
         const pRamMax = p.ramMax || p.memoryMax || '8G';
-        let pIcon = 'assets/logo.png';
-        if (p.icon && (p.icon.startsWith('data:image') || p.icon.startsWith('http://') || p.icon.startsWith('https://'))) {
-          pIcon = p.icon;
-        } else if (p.iconUrl && (p.iconUrl.startsWith('http://') || p.iconUrl.startsWith('https://'))) {
-          pIcon = p.iconUrl;
-        }
+        const pIcon = resolveInstanceIcon(p.icon, p.iconUrl);
 
         const card = document.createElement('div');
         card.className = `instance-card ${isActive ? 'active' : ''}`;
@@ -1940,7 +2187,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         card.innerHTML = `
           <div class="instance-card-header">
             <div class="instance-card-header-left">
-              <img src="${pIcon}" class="instance-card-avatar" alt="Icono" onerror="this.src='assets/logo.png'">
+              <img src="${pIcon}" class="instance-card-avatar" alt="Icono" onerror="this.onerror=null; this.src='assets/logo.png';">
               <div class="instance-card-info">
                 <h3 class="instance-card-title" title="${escapeHtml(p.name || 'Sin Nombre')}">${escapeHtml(p.name || 'Sin Nombre')}</h3>
                 <div class="instance-card-meta" title="MC ${escapeHtml(p.mcVersion || '1.21.1')} · ${escapeHtml(p.loader || 'NeoForge')} ${escapeHtml(pCleanVer)} · ${escapeHtml(pRamMin)}-${escapeHtml(pRamMax)}">
@@ -1957,9 +2204,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
           <div class="instance-card-actions">
             <div class="instance-card-actions-left">
-              <button class="btn btn-small ${isActive ? 'btn-primary' : 'btn-secondary'} btn-select-profile" data-id="${p.id}">
+              <button class="btn btn-small btn-primary btn-select-profile" data-id="${p.id}" title="Jugar con esta instancia">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>
-                <span>${isActive ? 'Jugar' : 'Seleccionar'}</span>
+                <span>Jugar</span>
               </button>
               <button class="btn btn-small btn-secondary btn-manage-mods" data-id="${p.id}" title="Ver mods de esta instancia">
                 <span>Mods</span>
@@ -2005,9 +2252,8 @@ document.addEventListener('DOMContentLoaded', async () => {
           const id = e.currentTarget.getAttribute('data-id');
           await api.profiles.setActive(id);
           await loadProfiles();
-          if (e.currentTarget.classList.contains('btn-primary')) {
-            btnLaunch.click();
-          }
+          // Jugar siempre lanza directamente la instancia elegida
+          if (btnLaunch && !btnLaunch.disabled) btnLaunch.click();
         });
       });
 
@@ -2054,7 +2300,8 @@ document.addEventListener('DOMContentLoaded', async () => {
           const id = e.currentTarget.getAttribute('data-id');
           const target = profiles.find((p) => p.id === id);
           const pName = target ? target.name : id;
-          if (confirm(`¿Estás seguro de que deseas eliminar la instancia "${pName}"? Esta acción es irreversible.`)) {
+          const confirmed = await showConfirmDialog(`¿Estás seguro de que deseas eliminar la instancia "${pName}"? Esta acción es irreversible.`, 'Eliminar Instancia');
+          if (confirmed) {
             await api.profiles.delete(id);
             await loadProfiles();
             appendLog(`[Instancias] Instancia "${pName}" eliminada.`, 'warn');
@@ -2341,9 +2588,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const currentIcon = profile.icon || '';
     if (inputEditProfileIcon) inputEditProfileIcon.value = currentIcon;
     if (editProfileIconPreview) {
-      editProfileIconPreview.src = (currentIcon && (currentIcon.startsWith('data:image') || currentIcon.startsWith('http') || currentIcon.startsWith('assets/')))
-        ? currentIcon
-        : 'assets/logo.png';
+      editProfileIconPreview.src = resolveInstanceIcon(currentIcon);
     }
 
     if (selectEditProfileMc) {
@@ -2633,14 +2878,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
       }
 
-      const checkShubaClientUi = document.getElementById('check-enable-shubaclient-ui');
-      if (checkShubaClientUi && api.config) {
-        const scUi = await api.config.getKey('general.enableShubaClientUI', true);
-        checkShubaClientUi.checked = scUi !== false;
-        checkShubaClientUi.addEventListener('change', async () => {
-          await api.config.setKey('general.enableShubaClientUI', checkShubaClientUi.checked);
-        });
-      }
       inputInstancePath.value = config.instance?.path || '';
       if (inputCustomJava) inputCustomJava.value = config.performance?.javaPath || '';
       if (selectGlobalJava) selectGlobalJava.value = config.performance?.javaSelection || 'auto';
@@ -2941,11 +3178,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   function renderFilteredInstalledMods() {
     if (!modsInstalledList && !installedModsTbody) return;
 
+    const targetInstance = currentActiveProfile?.instancePath || null;
     const searchTerm = (inputSearchInstalledMods ? inputSearchInstalledMods.value.trim().toLowerCase() : '');
     const sortBy = (selectInstalledModsSort ? selectInstalledModsSort.value : 'name');
     const envFilter = (selectInstalledModsEnv ? selectInstalledModsEnv.value : 'all');
+    const platformFilter = (selectInstalledModsPlatform ? selectInstalledModsPlatform.value : 'all');
 
-    // 1. Filtrado local en tiempo real (por búsqueda y por entorno)
+    // 1. Filtrado local en tiempo real (por búsqueda, entorno y plataforma)
     let filtered = currentInstalledModsList.filter((mod) => {
       const fn = (mod.fileName || '').toLowerCase();
       const dn = (mod.displayName || '').toLowerCase();
@@ -2959,6 +3198,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (envFilter === 'client' && modEnv !== 'client') return false;
         if (envFilter === 'server' && modEnv !== 'server') return false;
         if (envFilter === 'both' && modEnv !== 'both') return false;
+      }
+
+      if (platformFilter !== 'all') {
+        const src = (mod.source || 'custom').toLowerCase();
+        if (platformFilter === 'modrinth' && !src.includes('modrinth')) return false;
+        if (platformFilter === 'curseforge' && !src.includes('curseforge')) return false;
+        if (platformFilter === 'custom' && (src.includes('modrinth') || src.includes('curseforge'))) return false;
       }
       return true;
     });
@@ -3015,6 +3261,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       } else {
         if (installedModsEmptyState) installedModsEmptyState.classList.add('hidden');
 
+        const frag = document.createDocumentFragment();
+
         filtered.forEach((mod) => {
           const rawFileName = mod.fileName ?? 'mod.jar';
           const modTitle = resolveModTitle(mod, rawFileName);
@@ -3045,7 +3293,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           }
 
           const iconHtml = mod.iconUrl
-            ? `<img src="${escapeHtml(mod.iconUrl)}" alt="${escapeHtml(modTitle)}" class="mod-table-avatar" onerror="this.style.display='none'; if (this.nextElementSibling) this.nextElementSibling.style.display='block';" /><svg class="mod-table-avatar-fallback" style="display:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>`
+            ? `<img src="${escapeHtml(mod.iconUrl)}" alt="${escapeHtml(modTitle)}" class="mod-table-avatar" onerror="this.onerror=null; this.style.display='none'; if (this.nextElementSibling) this.nextElementSibling.style.display='block';" /><svg class="mod-table-avatar-fallback" style="display:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>`
             : `<svg class="mod-table-avatar-fallback" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>`;
 
           const tr = document.createElement('tr');
@@ -3092,8 +3340,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
           });
 
-          installedModsTbody.appendChild(tr);
+          frag.appendChild(tr);
         });
+
+        installedModsTbody.appendChild(frag);
       }
     }
 
@@ -3159,10 +3409,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       chk.addEventListener('change', async (e) => {
         const fn = e.target.getAttribute('data-filename');
         const enabled = e.target.checked;
-        await api.mods.toggle(fn, enabled, targetInstance);
-        const item = currentInstalledModsList.find((m) => m.fileName === fn);
-        if (item) item.enabled = enabled;
-        appendLog(`[Mods] Mod "${fn}": ${enabled ? 'Habilitado' : 'Deshabilitado'}`, 'info');
+        try {
+          await api.mods.toggle(fn, enabled, targetInstance);
+          const item = currentInstalledModsList.find((m) => m.fileName === fn);
+          if (item) item.enabled = enabled;
+          appendLog(`[Mods] Mod "${fn}": ${enabled ? 'Habilitado' : 'Deshabilitado'}`, 'info');
+        } catch (err) {
+          console.error('Error al alternar mod:', err);
+          e.target.checked = !enabled;
+        }
       });
     });
 
@@ -3181,17 +3436,34 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
     });
 
-    document.querySelectorAll('.btn-delete-mod').forEach((btn) => {
-      btn.addEventListener('click', async (e) => {
+    // Delegación permanente en la tabla para asegurar que los clics en SVG/icono nunca fallen ni se dupliquen
+    if (installedModsTbody && !installedModsTbody._deleteListenerAttached) {
+      installedModsTbody._deleteListenerAttached = true;
+      installedModsTbody.addEventListener('click', async (e) => {
+        const btn = e.target.closest('.btn-delete-mod');
+        if (!btn) return;
+        e.preventDefault();
         e.stopPropagation();
-        const fn = e.currentTarget.getAttribute('data-filename');
-        if (confirm(`¿Eliminar el mod "${fn}" de la instancia?`)) {
-          await api.mods.delete(fn, targetInstance);
-          appendLog(`[Mods] Mod "${fn}" eliminado.`, 'info');
-          await loadInstalledMods();
+        const fn = btn.getAttribute('data-filename');
+        if (!fn) return;
+        const confirmed = await showConfirmDialog(`¿Eliminar el mod "${fn}" de la instancia?`, 'Eliminar Mod');
+        if (confirmed) {
+          try {
+            const currentInst = currentActiveProfile?.instancePath || null;
+            const res = await api.mods.delete(fn, currentInst);
+            if (res && res.success === false) {
+              alert(`No se pudo eliminar el mod: ${res.error || 'Error desconocido'}`);
+              return;
+            }
+            appendLog(`[Mods] Mod "${fn}" eliminado con éxito.`, 'info');
+            await loadInstalledMods();
+          } catch (err) {
+            console.error('Error al eliminar mod:', err);
+            alert(`Error al eliminar mod: ${err.message}`);
+          }
         }
       });
-    });
+    }
   }
 
   async function loadInstalledMods() {
@@ -3231,7 +3503,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           ctxPlaytime.textContent = currentActiveProfile.totalPlayTime ? `${formatPlaytime(currentActiveProfile.totalPlayTime)} jugados` : '0 min jugados';
         }
 
-        const pIcon = currentActiveProfile.icon || 'assets/logo.png';
+        const pIcon = resolveInstanceIcon(currentActiveProfile.icon);
         if (instanceContextIcon) {
           instanceContextIcon.onerror = () => {
             instanceContextIcon.onerror = null;
@@ -3282,45 +3554,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         }).catch(() => {});
       }
 
-      // Comprobación de actualizaciones en segundo plano (asíncrona y no bloqueante)
-      if (targetInstance && currentActiveProfile?.loader && currentActiveProfile.loader !== 'vanilla') {
-        const mcVer = currentActiveProfile.mcVersion || '1.21.1';
-        const ldr = currentActiveProfile.loader;
-        api.mods.checkUpdates({
-          instancePath: targetInstance,
-          mcVersion: mcVer,
-          loader: ldr,
-          channel: 'release'
-        }).then((res) => {
-          if (res && Array.isArray(res.updates)) {
-            activeAvailableUpdates = res.updates;
-            const countSpan = document.getElementById('updates-available-count');
-            if (countSpan) countSpan.textContent = activeAvailableUpdates.length;
-            if (btnUpdateAllMods) {
-              if (activeAvailableUpdates.length > 0) {
-                btnUpdateAllMods.classList.add('has-updates');
-              } else {
-                btnUpdateAllMods.classList.remove('has-updates');
-              }
-            }
-            if (currentActiveProfile && currentActiveProfile.instancePath === targetInstance) {
-              renderFilteredInstalledMods();
-            }
-          }
-        }).catch((err) => {
-          console.debug('[CheckUpdates Background]', err.message);
-        });
-      }
-
-      // 2. Resolver iconos faltantes en segundo plano
-      api.mods.resolveIcons(targetInstance).then((res) => {
-        if (res && res.updatedCount > 0) {
-          api.mods.listInstalled(targetInstance).then((updated) => {
-            currentInstalledModsList = Array.isArray(updated) ? updated : [];
-            renderFilteredInstalledMods();
-          });
-        }
-      }).catch((e) => console.debug('Icon resolution background:', e.message));
+      // La comprobación de actualizaciones e iconos se realiza bajo demanda
+      // mediante el botón "Buscar actualizaciones" (#btn-check-mod-updates) o "Refrescar"
+      // para evitar bloqueos del hilo principal de Electron y mantener la navegación instantánea.
     } catch (err) {
       appendLog(`Error al cargar mods instalados: ${err.message}`, 'error');
     }
@@ -3332,7 +3568,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (catalogContextProfile) {
       catalogInstanceContextBar.style.display = 'flex';
       if (catalogContextIcon) {
-        catalogContextIcon.src = catalogContextProfile.icon || 'assets/logo.png';
+        catalogContextIcon.src = resolveInstanceIcon(catalogContextProfile.icon);
       }
       if (catalogContextTitle) {
         catalogContextTitle.textContent = catalogContextProfile.name || 'Mi Instancia';
@@ -3552,7 +3788,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         card.innerHTML = `
           <div class="pack-card-left">
-            <img src="${escapeHtml(iconSrc)}" class="pack-card-icon" alt="Pack Icon" onerror="this.src='assets/logo.png'">
+            <img src="${escapeHtml(iconSrc)}" class="pack-card-icon" alt="Pack Icon" onerror="this.onerror=null; this.src='assets/logo.png';">
             <div class="pack-card-info">
               <div class="pack-card-title-row">
                 <span class="pack-card-title" title="${escapeHtml(pack.fileName)}">${escapeHtml(pack.name)}</span>
@@ -3582,7 +3818,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         btn.addEventListener('click', async (e) => {
           e.stopPropagation();
           const fn = e.currentTarget.getAttribute('data-filename');
-          if (confirm(`¿Deseas eliminar el shader "${fn}" de esta instancia?`)) {
+          const confirmed = await showConfirmDialog(`¿Deseas eliminar el shader "${fn}" de esta instancia?`, 'Eliminar Shader');
+          if (confirmed) {
             await api.instancePacks.delete({ instancePath: targetInstance, type: 'shaders', fileName: fn });
             appendLog(`[Shaders] Shader "${fn}" eliminado.`, 'info');
             await loadInstalledShaders();
@@ -3632,7 +3869,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         card.innerHTML = `
           <div class="pack-card-left">
-            <img src="${escapeHtml(iconSrc)}" class="pack-card-icon" alt="Pack Icon" onerror="this.src='assets/logo.png'">
+            <img src="${escapeHtml(iconSrc)}" class="pack-card-icon" alt="Pack Icon" onerror="this.onerror=null; this.src='assets/logo.png';">
             <div class="pack-card-info">
               <div class="pack-card-title-row">
                 <span class="pack-card-title" title="${escapeHtml(pack.fileName)}">${escapeHtml(pack.name)}</span>
@@ -3662,7 +3899,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         btn.addEventListener('click', async (e) => {
           e.stopPropagation();
           const fn = e.currentTarget.getAttribute('data-filename');
-          if (confirm(`¿Deseas eliminar el resource pack "${fn}" de esta instancia?`)) {
+          const confirmed = await showConfirmDialog(`¿Deseas eliminar el resource pack "${fn}" de esta instancia?`, 'Eliminar Resource Pack');
+          if (confirmed) {
             await api.instancePacks.delete({ instancePath: targetInstance, type: 'resourcepacks', fileName: fn });
             appendLog(`[ResourcePacks] Textura "${fn}" eliminada.`, 'info');
             await loadInstalledResourcePacks();
@@ -3711,7 +3949,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         card.innerHTML = `
           <div class="world-card-left">
-            <img src="${escapeHtml(iconSrc)}" class="world-card-icon" alt="World Icon" onerror="this.src='assets/logo.png'">
+            <img src="${escapeHtml(iconSrc)}" class="world-card-icon" alt="World Icon" onerror="this.onerror=null; this.src='assets/logo.png';">
             <div class="world-card-info">
               <div class="world-card-title-row">
                 <span class="world-card-title" title="${escapeHtml(world.worldName)}">${escapeHtml(world.worldName)}</span>
@@ -4018,7 +4256,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         btn.addEventListener('click', async (e) => {
           e.stopPropagation();
           const fn = e.currentTarget.getAttribute('data-filename');
-          if (confirm(`¿Eliminar permanentemente el archivo de backup "${fn}"?`)) {
+          const confirmed = await showConfirmDialog(`¿Eliminar permanentemente el archivo de backup "${fn}"?`, 'Eliminar Backup');
+          if (confirmed) {
             await api.worlds.deleteBackup({ instancePath: targetInstance, backupFileName: fn });
             appendLog(`[Backups] Archivo de backup "${fn}" eliminado.`, 'info');
             await loadModalBackupsList();
@@ -4061,6 +4300,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnViewModeList.addEventListener('click', () => {
       currentModsViewMode = 'list';
       btnViewModeList.classList.add('active');
+      document.querySelector('.installed-mods-table-wrapper')?.classList.remove('mods-grid-mode');
       if (btnViewModeGrid) btnViewModeGrid.classList.remove('active');
       if (modsInstalledList) {
         modsInstalledList.classList.add('view-list');
@@ -4074,6 +4314,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnViewModeGrid.addEventListener('click', () => {
       currentModsViewMode = 'grid';
       btnViewModeGrid.classList.add('active');
+      document.querySelector('.installed-mods-table-wrapper')?.classList.add('mods-grid-mode');
       if (btnViewModeList) btnViewModeList.classList.remove('active');
       if (modsInstalledList) {
         modsInstalledList.classList.add('view-grid');
@@ -4131,6 +4372,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       const purgeRes = await api.mods.purgeDuplicates(targetInstance);
       if (purgeRes && purgeRes.purgedCount > 0) {
         appendLog(`[Mods] Sincronización: Se purgaron ${purgeRes.purgedCount} versiones duplicadas antiguas (${purgeRes.removedFiles.join(', ')}).`, 'info');
+      }
+      if (targetInstance) {
+        await api.mods.resolveIcons(targetInstance);
       }
     } catch (_) {}
     await loadInstalledMods();
@@ -4374,20 +4618,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // =======================================================
 
   function getLoaderSvgIcon(loaderName) {
-    const ldr = String(loaderName || '').toLowerCase();
-    if (ldr.includes('neoforge')) {
-      return `<svg width="14" height="14" viewBox="0 0 24 24" fill="#ea580c" title="NeoForge"><path d="M12 2C8 6 3 9 3 14c0 4.97 4.03 9 9 9s9-4.03 9-9c0-5-5-8-9-12zm0 18c-3.31 0-6-2.69-6-6 0-2.8 2.2-5 4-7.5.5 1.5 1.5 2.5 3 2.5 2 0 3-1.5 3-3 1.2 2 2 4.2 2 6 0 3.31-2.69 6-6 6z"/></svg>`;
-    }
-    if (ldr.includes('forge')) {
-      return `<svg width="14" height="14" viewBox="0 0 24 24" fill="#9ca3af" title="Forge"><path d="M2 7h20v3c-3 0-5 2-6 5h-1c-1-3-3-5-6-5H5l-3-3zm3 11h14v2H5v-2z"/></svg>`;
-    }
-    if (ldr.includes('fabric')) {
-      return `<svg width="14" height="14" viewBox="0 0 24 24" fill="#93c5fd" title="Fabric"><path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5zM16 8l2 2"/></svg>`;
-    }
-    if (ldr.includes('quilt')) {
-      return `<svg width="14" height="14" viewBox="0 0 24 24" fill="#c084fc" title="Quilt"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" fill="none"/></svg>`;
-    }
-    return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>`;
+    return getLoaderIcon(loaderName, 14);
   }
 
   function formatRelativeDate(dateStr) {
@@ -4413,7 +4644,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     return `${Math.round(bytes / 1024)} KB`;
   }
 
-  function renderActiveFilterChips(effectiveLoader, effectiveMcVersion, query, category) {
+  function renderActiveFilterChips(effectiveLoader, effectiveMcVersion, query, category, source) {
     if (!catalogActiveFilterChips) return;
     catalogActiveFilterChips.innerHTML = '';
 
@@ -4434,6 +4665,28 @@ document.addEventListener('DOMContentLoaded', async () => {
       chip.innerHTML = `<span>🎮 ${escapeHtml(effectiveMcVersion)}</span><button type="button" class="chip-remove-btn" title="Quitar filtro de versión">✕</button>`;
       chip.querySelector('.chip-remove-btn').addEventListener('click', () => {
         if (selectCatalogMcVersion) selectCatalogMcVersion.value = 'all';
+        performModSearch();
+      });
+      catalogActiveFilterChips.appendChild(chip);
+    }
+
+    if (source === 'modrinth') {
+      const chip = document.createElement('div');
+      chip.className = 'catalog-filter-chip';
+      chip.innerHTML = `<span>🟢 Modrinth</span><button type="button" class="chip-remove-btn" title="Quitar filtro de plataforma">✕</button>`;
+      chip.querySelector('.chip-remove-btn').addEventListener('click', () => {
+        if (selectModSource) selectModSource.value = 'both';
+        if (selectCatalogPlatform) selectCatalogPlatform.value = 'both';
+        performModSearch();
+      });
+      catalogActiveFilterChips.appendChild(chip);
+    } else if (source === 'curseforge') {
+      const chip = document.createElement('div');
+      chip.className = 'catalog-filter-chip';
+      chip.innerHTML = `<span>🔥 CurseForge</span><button type="button" class="chip-remove-btn" title="Quitar filtro de plataforma">✕</button>`;
+      chip.querySelector('.chip-remove-btn').addEventListener('click', () => {
+        if (selectModSource) selectModSource.value = 'both';
+        if (selectCatalogPlatform) selectCatalogPlatform.value = 'both';
         performModSearch();
       });
       catalogActiveFilterChips.appendChild(chip);
@@ -4496,9 +4749,21 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
       if (currentContentType === 'github') {
         if (selectModSource) selectModSource.value = 'github';
-      } else if (selectModSource && selectModSource.value === 'github') {
-        selectModSource.value = 'both';
+        if (selectCatalogPlatform) selectCatalogPlatform.disabled = true;
+      } else {
+        if (selectCatalogPlatform) selectCatalogPlatform.disabled = false;
+        if (selectModSource && selectModSource.value === 'github') {
+          selectModSource.value = (selectCatalogPlatform ? selectCatalogPlatform.value : 'both');
+        }
       }
+      currentContentPage = 1;
+      performModSearch();
+    });
+  }
+
+  if (selectCatalogPlatform) {
+    selectCatalogPlatform.addEventListener('change', () => {
+      if (selectModSource) selectModSource.value = selectCatalogPlatform.value;
       currentContentPage = 1;
       performModSearch();
     });
@@ -4598,14 +4863,21 @@ document.addEventListener('DOMContentLoaded', async () => {
       const loaderBadgeStr = itemLoaders.length > 1 ? `${primaryLoader} +${itemLoaders.length - 1}` : primaryLoader;
       const loaderSvg = getLoaderSvgIcon(primaryLoader);
 
-      let environmentStr = 'Client and Server';
-      if (item.clientSide === 'required' && item.serverSide === 'unsupported') environmentStr = 'Client';
-      else if (item.serverSide === 'required' && item.clientSide === 'unsupported') environmentStr = 'Server';
+      const itemEnv = resolveModEnvironment(item);
+      let environmentStr = 'Cliente y Servidor';
+      let envBadgeClass = 'env-both';
+      if (itemEnv === 'client') {
+        environmentStr = 'Solo Cliente';
+        envBadgeClass = 'env-client';
+      } else if (itemEnv === 'server') {
+        environmentStr = 'Solo Servidor';
+        envBadgeClass = 'env-server';
+      }
 
       if (catalogViewMode === 'list') {
         card.innerHTML = `
           <div class="mod-row-left">
-            <img src="${escapeHtml(iconSrc)}" class="mod-row-thumb" alt="Icon" onerror="this.src='https://mc-heads.net/avatar/Steve/64'">
+            <img src="${escapeHtml(iconSrc)}" class="mod-row-thumb" alt="Icon" onerror="this.onerror=null; this.src='assets/logo.png';">
           </div>
           <div class="mod-row-center">
             <div class="mod-row-header">
@@ -4640,7 +4912,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="8" cy="12" r="1.5"/><circle cx="16" cy="12" r="1.5"/></svg>
                 ${escapeHtml(gameVersionBadge)}
               </span>
-              <span class="meta-stat" title="Entorno">
+              <span class="meta-stat ${envBadgeClass}" title="Entorno">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
                 ${escapeHtml(environmentStr)}
               </span>
@@ -4654,7 +4926,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       } else {
         card.innerHTML = `
           <div class="mod-card-top">
-            <img src="${escapeHtml(iconSrc)}" class="mod-card-icon" alt="Icon" onerror="this.src='https://mc-heads.net/avatar/Steve/48'">
+            <img src="${escapeHtml(iconSrc)}" class="mod-card-icon" alt="Icon" onerror="this.onerror=null; this.src='assets/logo.png';">
             <div class="mod-card-body">
               <div class="mod-card-title-row">
                 <span class="mod-card-title" title="${escapeHtml(item.title || item.name)}">${escapeHtml(item.title || item.name)}</span>
@@ -4784,6 +5056,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  if (selectCatalogEnvironment) {
+    selectCatalogEnvironment.addEventListener('change', () => {
+      currentContentPage = 1;
+      performModSearch();
+    });
+  }
+
   catPills.forEach((btn) => {
     btn.addEventListener('click', () => {
       catPills.forEach((b) => b.classList.remove('active'));
@@ -4814,9 +5093,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  let isPerformingCatalogSearch = false;
   async function performModSearch() {
+    if (isPerformingCatalogSearch) return;
+    isPerformingCatalogSearch = true;
     const query = inputModSearch.value.trim();
-    const source = selectModSource.value;
+    const source = selectModSource ? selectModSource.value : 'both';
     const sortBy = selectModSort ? selectModSort.value : 'popular';
     const category = selectModCategory ? selectModCategory.value : 'all';
 
@@ -4831,7 +5113,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       : (activeProfileRef?.loader || 'neoforge').toLowerCase();
     if (loader === 'all') loader = '';
 
-    renderActiveFilterChips(loader, mcVersion, query, category);
+    renderActiveFilterChips(loader, mcVersion, query, category, source);
 
     btnSearchMods.disabled = true;
 
@@ -4856,7 +5138,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         let installedMods = [];
         try {
           if (targetInstance) {
-            installedMods = await api.mods.listInstalled(targetInstance);
+            if (Array.isArray(currentInstalledModsList) && currentInstalledModsList.length > 0 && (!catalogContextProfile || catalogContextProfile.instancePath === targetInstance)) {
+              installedMods = currentInstalledModsList;
+            } else {
+              installedMods = await api.mods.listInstalled(targetInstance);
+            }
           }
         } catch (_) {}
         const installedFileMap = new Map((installedMods || []).map(m => [m.fileName?.toLowerCase(), m]));
@@ -4869,6 +5155,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             (m.fileName || '').toLowerCase().includes(q) ||
             (m.summary || m.description || '').toLowerCase().includes(q)
           );
+        }
+
+        const ghEnvFilter = selectCatalogEnvironment ? selectCatalogEnvironment.value : 'all';
+        if (ghEnvFilter && ghEnvFilter !== 'all') {
+          filtered = filtered.filter((m) => {
+            const mEnv = resolveModEnvironment(m);
+            if (ghEnvFilter === 'client') return mEnv === 'client';
+            if (ghEnvFilter === 'server') return mEnv === 'server';
+            if (ghEnvFilter === 'both') return mEnv === 'both';
+            return true;
+          });
         }
 
         totalContentCount = filtered.length;
@@ -4934,7 +5231,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           if (catalogViewMode === 'list') {
             card.innerHTML = `
               <div class="mod-row-left">
-                <img src="${escapeHtml(modIcon)}" class="mod-row-thumb" alt="Icon" onerror="this.src='assets/logo.png'">
+                <img src="${escapeHtml(modIcon)}" class="mod-row-thumb" alt="Icon" onerror="this.onerror=null; this.src='assets/logo.png';">
               </div>
               <div class="mod-row-center">
                 <div class="mod-row-header">
@@ -4961,7 +5258,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           } else {
             card.innerHTML = `
               <div class="mod-card-top">
-                <img src="${escapeHtml(modIcon)}" class="mod-card-icon" alt="Icon" onerror="this.src='assets/logo.png'">
+                <img src="${escapeHtml(modIcon)}" class="mod-card-icon" alt="Icon" onerror="this.onerror=null; this.src='assets/logo.png';">
                 <div class="mod-card-body">
                   <div class="mod-card-title-row">
                     <span class="mod-card-title" title="${escapeHtml(item.title || item.name)}">${escapeHtml(item.title || item.name)}</span>
@@ -5054,6 +5351,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         modsSearchResults.innerHTML = `<div class="empty-state">Error al consultar GitHub: ${escapeHtml(err.message)}</div>`;
         appendLog(`[GitHub Mods Error] ${err.message}`, 'error');
       } finally {
+        isPerformingCatalogSearch = false;
         btnSearchMods.disabled = false;
         if (btnPrevPage) btnPrevPage.disabled = true;
         if (btnNextPage) btnNextPage.disabled = true;
@@ -5080,6 +5378,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     modsSearchResults.innerHTML = '<div class="empty-state">Consultando catálogo en tiempo real...</div>';
 
     try {
+      const envFilter = selectCatalogEnvironment ? selectCatalogEnvironment.value : 'all';
+
       const data = await api.content.search({
         query,
         mcVersion,
@@ -5089,7 +5389,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         page: currentContentPage,
         pageSize: contentPageSize,
         sortBy,
-        category
+        category,
+        environment: envFilter
       });
 
       const results = Array.isArray(data) ? data : (data.results || []);
@@ -5110,7 +5411,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       let installedMods = [];
       try {
         if (targetInstance) {
-          installedMods = await api.mods.listInstalled(targetInstance);
+          if (Array.isArray(currentInstalledModsList) && currentInstalledModsList.length > 0 && (!catalogContextProfile || catalogContextProfile.instancePath === targetInstance)) {
+            installedMods = currentInstalledModsList;
+          } else {
+            installedMods = await api.mods.listInstalled(targetInstance);
+          }
         }
       } catch (_) {}
 
@@ -5121,19 +5426,32 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (m.name) installedMap.set(m.name.toLowerCase(), m);
       });
 
-      lastCatalogResults = results;
+      // Filtrado opcional por entorno (Cliente / Servidor / Ambos)
+      let filteredResults = results;
+      if (envFilter && envFilter !== 'all') {
+        filteredResults = results.filter((item) => {
+          const itemEnv = resolveModEnvironment(item);
+          if (envFilter === 'client') return itemEnv === 'client';
+          if (envFilter === 'server') return itemEnv === 'server';
+          if (envFilter === 'both') return itemEnv === 'both';
+          return true;
+        });
+      }
+
+      lastCatalogResults = filteredResults;
       lastCatalogInstalledMap = installedMap;
       lastCatalogActiveProfileRef = activeProfileRef;
       lastCatalogMcVersion = mcVersion;
       lastCatalogLoader = loader;
       lastCatalogCatLabel = catLabel;
 
-      renderCatalogItems(results, modsSearchResults, installedMap, activeProfileRef, mcVersion, loader, catLabel);
+      renderCatalogItems(filteredResults, modsSearchResults, installedMap, activeProfileRef, mcVersion, loader, catLabel);
     } catch (err) {
       modsSearchResults.innerHTML = `<div class="empty-state">Error al buscar ${catLabel.toLowerCase()}: ${err.message}</div>`;
       appendLog(`[Catálogo Error] ${err.message}`, 'error');
     } finally {
-      btnSearchMods.disabled = false;
+      isPerformingCatalogSearch = false;
+      if (btnSearchMods) btnSearchMods.disabled = false;
       if (btnPrevPage) btnPrevPage.disabled = currentContentPage <= 1;
       if (btnNextPage) btnNextPage.disabled = currentContentPage >= totalContentPages;
     }
@@ -5145,6 +5463,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   selectModSource.addEventListener('change', () => {
     currentContentPage = 1;
+    if (selectCatalogPlatform) {
+      if (selectModSource.value === 'curseforge' || selectModSource.value === 'modrinth') {
+        selectCatalogPlatform.value = selectModSource.value;
+      } else if (selectModSource.value === 'both') {
+        selectCatalogPlatform.value = 'both';
+      }
+    }
     if (selectModSource.value === 'github') {
       catPills.forEach((b) => b.classList.remove('active'));
       if (pillCatGithub) pillCatGithub.classList.add('active');
@@ -6643,7 +6968,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       row.innerHTML = `
         <div class="server-player-left">
-          <img src="${avatarUrl}" class="server-player-avatar" alt="${escapeHtml(player)}" onerror="this.src='assets/logo.png'">
+          <img src="${avatarUrl}" class="server-player-avatar" alt="${escapeHtml(player)}" onerror="this.onerror=null; this.src='assets/logo.png';">
           <span class="server-player-name">${escapeHtml(player)}</span>
         </div>
         <div class="server-player-actions">
@@ -7413,39 +7738,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // =======================================================
-  // GALERÍA DE CAPTURAS DE PANTALLA Y CLIPS DE VIDEO (F9)
+  // GALERÍA DE CAPTURAS DE PANTALLA (F2)
   // =======================================================
   const selectScreenshotsInstanceFilter = document.getElementById('select-screenshots-instance-filter');
   const btnOpenActiveScreenshotsFolder = document.getElementById('btn-open-active-screenshots-folder');
   const btnRefreshScreenshots = document.getElementById('btn-refresh-screenshots');
   const screenshotsGridContainer = document.getElementById('screenshots-grid-container');
-
-  // Filtros de medios: Todo | Fotos | Clips
-  const btnFilterMediaAll = document.getElementById('btn-filter-media-all');
-  const btnFilterMediaPhotos = document.getElementById('btn-filter-media-photos');
-  const btnFilterMediaClips = document.getElementById('btn-filter-media-clips');
-  let activeMediaFilter = 'all';
-
-  // Controles de Replay de Clips (F9)
-  const checkEnableClipReplay = document.getElementById('check-enable-clip-replay');
-  const selectClipDuration = document.getElementById('select-clip-duration');
-  const clipReplayLiveBadge = document.getElementById('clip-replay-live-badge');
-  const btnManualTriggerClip = document.getElementById('btn-manual-trigger-clip');
-
-  // Modal Reproductor de Video (Clips)
-  const modalClipPlayer = document.getElementById('modal-clip-player');
-  const clipPlayerVideo = document.getElementById('clip-player-video');
-  const clipPlayerModalTitle = document.getElementById('clip-player-modal-title');
-  const clipPlayerMetaInfo = document.getElementById('clip-player-meta-info');
-  const btnCloseClipPlayerModal = document.getElementById('btn-close-clip-player-modal');
-  const btnOpenClipInFolder = document.getElementById('btn-open-clip-in-folder');
-  const btnDeleteClipModal = document.getElementById('btn-delete-clip-modal');
-  let currentActiveModalClip = null;
-
-  // Búfer circular de video en memoria
-  let clipReplayBuffer = [];
-  let clipMediaRecorder = null;
-  let clipActiveStream = null;
 
   // Modal Lightbox (Fotos)
   const modalScreenshotLightbox = document.getElementById('modal-screenshot-lightbox');
@@ -7457,21 +7755,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnLightboxDelete = document.getElementById('btn-lightbox-delete');
 
   let currentActiveLightboxScreenshot = null;
-
-  function setActiveMediaFilter(filter) {
-    activeMediaFilter = filter;
-    [btnFilterMediaAll, btnFilterMediaPhotos, btnFilterMediaClips].forEach((b) => {
-      if (b) b.classList.remove('active');
-    });
-    if (filter === 'all' && btnFilterMediaAll) btnFilterMediaAll.classList.add('active');
-    if (filter === 'photos' && btnFilterMediaPhotos) btnFilterMediaPhotos.classList.add('active');
-    if (filter === 'clips' && btnFilterMediaClips) btnFilterMediaClips.classList.add('active');
-    loadScreenshotsGallery();
-  }
-
-  if (btnFilterMediaAll) btnFilterMediaAll.addEventListener('click', () => setActiveMediaFilter('all'));
-  if (btnFilterMediaPhotos) btnFilterMediaPhotos.addEventListener('click', () => setActiveMediaFilter('photos'));
-  if (btnFilterMediaClips) btnFilterMediaClips.addEventListener('click', () => setActiveMediaFilter('clips'));
 
   async function loadScreenshotsInstancesFilter() {
     if (!selectScreenshotsInstanceFilter) return;
@@ -7492,27 +7775,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function loadScreenshotsGallery() {
     if (!screenshotsGridContainer) return;
     const filterId = selectScreenshotsInstanceFilter?.value || 'all';
-    screenshotsGridContainer.innerHTML = '<div class="empty-state">Escaneando capturas y clips...</div>';
+    screenshotsGridContainer.innerHTML = '<div class="empty-state">Buscando capturas de pantalla...</div>';
 
     try {
-      const items = await api.screenshots.list({ instanceId: filterId, mediaType: activeMediaFilter });
+      const items = await api.screenshots.list({ instanceId: filterId, mediaType: 'photos' });
 
       if (!items || items.length === 0) {
-        const emptyLabel = activeMediaFilter === 'clips'
-          ? 'No se encontraron clips de video aún'
-          : (activeMediaFilter === 'photos' ? 'No se encontraron capturas de pantalla' : 'No se encontraron capturas ni clips');
-        const emptyDesc = activeMediaFilter === 'clips'
-          ? 'Activa el replay y presiona F9 en el juego para guardar los últimos 30 segundos.'
-          : 'Presiona F2 en Minecraft para tomar capturas o F9 para guardar clips de video.';
-
         screenshotsGridContainer.innerHTML = `
           <div class="empty-state" style="grid-column: 1 / -1; padding: 48px 16px;">
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--text-dim); margin-bottom: 12px;">
               <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
               <circle cx="12" cy="13" r="4"/>
             </svg>
-            <p style="margin: 0; font-size: 14px; color: var(--text-primary); font-weight: 500;">${emptyLabel}</p>
-            <small style="color: var(--text-muted); margin-top: 4px; display: block;">${emptyDesc}</small>
+            <p style="margin: 0; font-size: 14px; color: var(--text-primary); font-weight: 500;">No se encontraron capturas de pantalla</p>
+            <small style="color: var(--text-muted); margin-top: 4px; display: block;">Presiona F2 en el juego para tomar fotos de tus mundos y servidores.</small>
           </div>
         `;
         return;
@@ -7520,29 +7796,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       screenshotsGridContainer.innerHTML = '';
       items.forEach((item) => {
-        const isClip = item.type === 'clip';
         const card = document.createElement('div');
-        card.className = `screenshot-card ${isClip ? 'clip' : ''}`;
-
-        const thumbContent = isClip
-          ? `
-            <div class="screenshot-thumb-box" title="Clic para reproducir clip de video">
-              <span class="clip-badge-tag">🎬 CLIP</span>
-              <div class="clip-play-overlay">
-                <div class="clip-play-icon">▶</div>
-              </div>
-              <span class="screenshot-badge-instance">${escapeHtml(item.instanceName)}</span>
-            </div>
-          `
-          : `
-            <div class="screenshot-thumb-box" title="Clic para ampliar en pantalla completa">
-              <img class="screenshot-thumb" src="${escapeHtml(item.fileUrl)}" alt="${escapeHtml(item.fileName)}" loading="lazy" />
-              <span class="screenshot-badge-instance">${escapeHtml(item.instanceName)}</span>
-            </div>
-          `;
+        card.className = 'screenshot-card';
 
         card.innerHTML = `
-          ${thumbContent}
+          <div class="screenshot-thumb-box" title="Clic para ampliar en pantalla completa">
+            <img class="screenshot-thumb" src="${escapeHtml(item.fileUrl)}" alt="${escapeHtml(item.fileName)}" loading="lazy" onerror="this.onerror=null; this.src='assets/logo.png';" />
+            <span class="screenshot-badge-instance">${escapeHtml(item.instanceName)}</span>
+          </div>
           <div class="screenshot-card-body">
             <span class="screenshot-card-filename" title="${escapeHtml(item.fileName)}">${escapeHtml(item.fileName)}</span>
             <div class="screenshot-card-meta">
@@ -7551,16 +7812,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             </div>
           </div>
           <div class="screenshot-card-actions">
-            ${!isClip ? `
-              <button class="btn btn-secondary btn-compact btn-card-copy" title="Copiar imagen al portapapeles (Ctrl+V en Discord)">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-                <span>Copiar</span>
-              </button>
-            ` : `
-              <button class="btn btn-primary btn-compact btn-card-play" title="Reproducir clip de video">
-                <span>▶ Reproducir</span>
-              </button>
-            `}
+            <button class="btn btn-secondary btn-compact btn-card-copy" title="Copiar imagen al portapapeles (Ctrl+V en Discord)">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+              <span>Copiar</span>
+            </button>
             <button class="btn btn-secondary btn-compact btn-card-folder" title="Mostrar en el Explorador de Windows">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
               <span>Carpeta</span>
@@ -7571,47 +7826,51 @@ document.addEventListener('DOMContentLoaded', async () => {
           </div>
         `;
 
-        // Click en thumbnail o play
-        const thumbBox = card.querySelector('.screenshot-thumb-box');
-        if (isClip) {
-          thumbBox.addEventListener('click', () => openClipPlayerModal(item));
-          const btnPlay = card.querySelector('.btn-card-play');
-          if (btnPlay) btnPlay.addEventListener('click', () => openClipPlayerModal(item));
-        } else {
-          thumbBox.addEventListener('click', () => openScreenshotLightbox(item));
-          const btnCopy = card.querySelector('.btn-card-copy');
-          if (btnCopy) {
-            btnCopy.addEventListener('click', async (e) => {
-              e.stopPropagation();
-              try {
-                await api.screenshots.copyToClipboard(item.filePath);
-                btnCopy.innerHTML = '<span>✔ ¡Copiada!</span>';
-                setTimeout(() => {
-                  btnCopy.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span>Copiar</span>';
-                }, 2000);
-                appendLog('[Capturas] Imagen copiada al portapapeles. Pégala directamente con Ctrl+V en Discord o Paint.', 'success');
-              } catch (err) {
-                alert(`Error al copiar: ${err.message}`);
-              }
-            });
-          }
+        // Click en la tarjeta o thumbnail para ampliar en pantalla completa
+        card.addEventListener('click', (e) => {
+          if (e.target.closest('button')) return;
+          openScreenshotLightbox(item);
+        });
+
+        // Copiar al portapapeles
+        const btnCopy = card.querySelector('.btn-card-copy');
+        if (btnCopy) {
+          btnCopy.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            try {
+              await api.screenshots.copyToClipboard(item.filePath);
+              btnCopy.innerHTML = '<span>✔ ¡Copiada!</span>';
+              setTimeout(() => {
+                btnCopy.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span>Copiar</span>';
+              }, 2000);
+              appendLog('[Capturas] Imagen copiada al portapapeles. Pégala directamente con Ctrl+V en Discord o Paint.', 'success');
+            } catch (err) {
+              alert(`Error al copiar: ${err.message}`);
+            }
+          });
         }
 
-        // Botón mostrar en carpeta
-        card.querySelector('.btn-card-folder').addEventListener('click', async (e) => {
-          e.stopPropagation();
-          await api.screenshots.showInFolder(item.filePath);
-        });
+        // Mostrar en carpeta
+        const btnFolder = card.querySelector('.btn-card-folder');
+        if (btnFolder) {
+          btnFolder.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            await api.screenshots.showInFolder(item.filePath);
+          });
+        }
 
         // Botón eliminar
-        card.querySelector('.btn-card-delete').addEventListener('click', async (e) => {
-          e.stopPropagation();
-          const tipoTexto = isClip ? 'el clip' : 'la captura';
-          if (confirm(`¿Eliminar ${tipoTexto} "${item.fileName}"?`)) {
-            await api.screenshots.delete(item.filePath);
-            loadScreenshotsGallery();
-          }
-        });
+        const btnDel = card.querySelector('.btn-card-delete');
+        if (btnDel) {
+          btnDel.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const confirmed = await showConfirmDialog(`¿Eliminar la captura "${item.fileName}"?`, 'Eliminar Captura');
+            if (confirmed) {
+              await api.screenshots.delete(item.filePath);
+              loadScreenshotsGallery();
+            }
+          });
+        }
 
         screenshotsGridContainer.appendChild(card);
       });
@@ -7619,159 +7878,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       screenshotsGridContainer.innerHTML = `<div class="empty-state">Error cargando capturas: ${escapeHtml(err.message)}</div>`;
     }
   }
-
-  // --- REPRODUCTOR DE CLIPS MODAL ---
-  function openClipPlayerModal(item) {
-    if (!modalClipPlayer) return;
-    currentActiveModalClip = item;
-    if (clipPlayerModalTitle) clipPlayerModalTitle.textContent = `🎬 ${item.fileName}`;
-    if (clipPlayerMetaInfo) clipPlayerMetaInfo.textContent = `Instancia: ${item.instanceName} · Tamaño: ${item.sizeFormatted} · Fecha: ${item.dateFormatted}`;
-    if (clipPlayerVideo) {
-      clipPlayerVideo.src = item.fileUrl;
-      clipPlayerVideo.play().catch(() => {});
-    }
-    modalClipPlayer.style.display = 'flex';
-  }
-
-  function closeClipPlayerModal() {
-    if (!modalClipPlayer) return;
-    if (clipPlayerVideo) {
-      clipPlayerVideo.pause();
-      clipPlayerVideo.src = '';
-    }
-    modalClipPlayer.style.display = 'none';
-    currentActiveModalClip = null;
-  }
-
-  if (btnCloseClipPlayerModal) btnCloseClipPlayerModal.addEventListener('click', closeClipPlayerModal);
-  if (modalClipPlayer) {
-    modalClipPlayer.addEventListener('click', (e) => {
-      if (e.target === modalClipPlayer) closeClipPlayerModal();
-    });
-  }
-  if (btnOpenClipInFolder) {
-    btnOpenClipInFolder.addEventListener('click', async () => {
-      if (currentActiveModalClip) await api.screenshots.showInFolder(currentActiveModalClip.filePath);
-    });
-  }
-  if (btnDeleteClipModal) {
-    btnDeleteClipModal.addEventListener('click', async () => {
-      if (!currentActiveModalClip) return;
-      if (confirm(`¿Eliminar definitivamente el clip "${currentActiveModalClip.fileName}"?`)) {
-        await api.screenshots.delete(currentActiveModalClip.filePath);
-        closeClipPlayerModal();
-        loadScreenshotsGallery();
-      }
-    });
-  }
-
-  // --- MOTOR DE REPLAY DE CLIPS (BUFFER CIRCULAR) ---
-  async function triggerSaveClipFromBuffer() {
-    if (clipReplayLiveBadge) clipReplayLiveBadge.textContent = '💾 Procesando clip...';
-
-    try {
-      const activeProf = profilesCache.find((p) => p.id === activeProfileId);
-      const instPath = activeProf?.instancePath || null;
-
-      let clipBufferBytes = null;
-
-      if (clipReplayBuffer.length > 0) {
-        const blobs = clipReplayBuffer.map((c) => c.data);
-        const combined = new Blob(blobs, { type: 'video/webm' });
-        const ab = await combined.arrayBuffer();
-        clipBufferBytes = new Uint8Array(ab);
-      } else {
-        // Generar un encabezado de video WebM mínimo válido si se dispara sin hardware stream activo
-        const dummyWebM = new Uint8Array([
-          0x1A, 0x45, 0xDF, 0xA3, 0x9F, 0x42, 0x86, 0x81, 0x01, 0x42, 0xF7, 0x81, 0x01, 0x42, 0xF2, 0x81,
-          0x04, 0x42, 0xF3, 0x81, 0x08, 0x42, 0x82, 0x84, 0x77, 0x65, 0x62, 0x6D, 0x42, 0x87, 0x81, 0x04,
-          0x42, 0x85, 0x81, 0x02, 0x18, 0x53, 0x80, 0x67, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x20
-        ]);
-        clipBufferBytes = dummyWebM;
-      }
-
-      if (api.clips && api.clips.saveClip) {
-        const res = await api.clips.saveClip(instPath, clipBufferBytes, 'webm');
-        if (res && res.success) {
-          appendLog(`🎬 [Clips] ¡Clip de ${selectClipDuration ? selectClipDuration.value : '30'}s guardado con éxito! Archivo: ${res.fileName}`, 'success');
-          showToast(`🎬 ¡Clip guardado con éxito! (${res.fileName})`, 'success');
-          await loadScreenshotsGallery();
-        }
-      }
-    } catch (err) {
-      appendLog(`[Clips] Error guardando clip: ${err.message}`, 'error');
-      showToast(`Error al guardar clip: ${err.message}`, 'error');
-    } finally {
-      if (clipReplayLiveBadge) {
-        const isChecked = checkEnableClipReplay ? checkEnableClipReplay.checked : false;
-        clipReplayLiveBadge.textContent = isChecked ? '🟢 Replay activo (F9)' : '⏸ Replay inactivo';
-      }
-    }
-  }
-
-  function setupClipReplayRecorder() {
-    const isEnabled = checkEnableClipReplay ? checkEnableClipReplay.checked : false;
-    const durationSec = parseInt(selectClipDuration?.value || '30', 10);
-
-    if (api.clips && api.clips.setShortcutActive) {
-      api.clips.setShortcutActive(isEnabled);
-    }
-
-    if (!isEnabled) {
-      if (clipReplayLiveBadge) {
-        clipReplayLiveBadge.className = 'badge badge-idle';
-        clipReplayLiveBadge.textContent = '⏸ Replay inactivo';
-      }
-      if (btnManualTriggerClip) btnManualTriggerClip.style.display = 'none';
-      clipReplayBuffer = [];
-      return;
-    }
-
-    if (clipReplayLiveBadge) {
-      clipReplayLiveBadge.className = 'badge badge-success';
-      clipReplayLiveBadge.textContent = '🟢 Replay activo (F9)';
-    }
-    if (btnManualTriggerClip) btnManualTriggerClip.style.display = 'inline-flex';
-
-    // Búfer simulador continuo de frames cada 1s para asegurar retención de los últimos X segundos
-    const maxChunks = durationSec;
-    if (!window._clipChunkInterval) {
-      window._clipChunkInterval = setInterval(() => {
-        if (!checkEnableClipReplay || !checkEnableClipReplay.checked) return;
-        const dummyChunk = new Uint8Array(2048);
-        clipReplayBuffer.push({ data: new Blob([dummyChunk], { type: 'video/webm' }), time: Date.now() });
-        const max = parseInt(selectClipDuration?.value || '30', 10);
-        while (clipReplayBuffer.length > max) {
-          clipReplayBuffer.shift();
-        }
-      }, 1000);
-    }
-  }
-
-  if (checkEnableClipReplay) {
-    checkEnableClipReplay.addEventListener('change', () => {
-      setupClipReplayRecorder();
-    });
-  }
-
-  if (selectClipDuration) {
-    selectClipDuration.addEventListener('change', () => {
-      setupClipReplayRecorder();
-    });
-  }
-
-  if (btnManualTriggerClip) {
-    btnManualTriggerClip.addEventListener('click', () => {
-      triggerSaveClipFromBuffer();
-    });
-  }
-
-  // Listener para el atajo F9 disparado desde el proceso principal
-  api.events.on('clips:shortcut-triggered', () => {
-    if (checkEnableClipReplay && checkEnableClipReplay.checked) {
-      triggerSaveClipFromBuffer();
-    }
-  });
 
   function openScreenshotLightbox(item) {
     if (!modalScreenshotLightbox) return;
@@ -7796,6 +7902,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (modalScreenshotLightbox) {
     modalScreenshotLightbox.addEventListener('click', (e) => {
       if (e.target === modalScreenshotLightbox) {
+        closeScreenshotLightbox();
+      }
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !modalScreenshotLightbox.classList.contains('hidden')) {
         closeScreenshotLightbox();
       }
     });
@@ -7829,7 +7940,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (btnLightboxDelete) {
     btnLightboxDelete.addEventListener('click', async () => {
       if (!currentActiveLightboxScreenshot) return;
-      if (confirm(`¿Eliminar definitivamente la captura "${currentActiveLightboxScreenshot.fileName}"?`)) {
+      const confirmed = await showConfirmDialog(`¿Eliminar definitivamente la captura "${currentActiveLightboxScreenshot.fileName}"?`, 'Eliminar Captura');
+      if (confirmed) {
         await api.screenshots.delete(currentActiveLightboxScreenshot.filePath);
         closeScreenshotLightbox();
         loadScreenshotsGallery();
@@ -8592,7 +8704,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const iconSrc = p.iconPath && p.iconPath.trim() ? p.iconPath : 'assets/logo.png';
             const modsCount = p.modsCount ?? (Array.isArray(p.mods) ? p.mods.length : 0);
             item.innerHTML = `
-              <img src="${escapeHtml(iconSrc)}" class="export-instance-icon" onerror="this.src='assets/logo.png'" alt="Icono" />
+              <img src="${escapeHtml(iconSrc)}" class="export-instance-icon" onerror="this.onerror=null; this.src='assets/logo.png';" alt="Icono" />
               <div style="flex: 1; min-width: 0;">
                 <div style="font-weight: 600; font-size: 13px; color: var(--text-primary); text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${escapeHtml(p.name)}</div>
                 <div style="font-size: 11.5px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; margin-top: 2px;">
@@ -8814,13 +8926,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   const newsDetailChangelogList = document.getElementById('news-detail-changelog-list');
   const btnCloseNewsDetailModal = document.getElementById('btn-close-news-detail-modal');
   const btnDismissNewsDetail = document.getElementById('btn-dismiss-news-detail');
+  const btnOpenNewsExternal = document.getElementById('btn-open-news-external');
+  const btnOpenNewsExternalText = document.getElementById('btn-open-news-external-text');
 
   let cachedNewsItems = [];
   let isNewsCollapsed = false;
+  let activeNewsDetailLink = null;
 
   try {
     isNewsCollapsed = localStorage.getItem('shubacore_news_collapsed') === 'true';
   } catch (_) {}
+
+  if (btnOpenNewsExternal) {
+    btnOpenNewsExternal.addEventListener('click', () => {
+      if (activeNewsDetailLink && api.system && typeof api.system.openExternal === 'function') {
+        api.system.openExternal(activeNewsDetailLink).catch(() => {});
+      }
+    });
+  }
 
   function applyNewsCollapseState() {
     if (!newsFeedList) return;
@@ -8835,6 +8958,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function openNewsDetailModal(item) {
     if (!item || !modalNewsDetail) return;
+    activeNewsDetailLink = item.link || item.url || null;
+
     if (newsDetailTitle) newsDetailTitle.textContent = item.title || 'Anuncio';
     if (newsDetailBadge) {
       newsDetailBadge.textContent = item.tag || 'NOVEDAD';
@@ -8844,6 +8969,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (newsDetailAuthor) newsDetailAuthor.textContent = `· ${item.author || 'SHUBATECH Core Team'}`;
     if (newsDetailSummary) {
       newsDetailSummary.textContent = item.content || item.summary || '';
+    }
+
+    if (btnOpenNewsExternal) {
+      if (activeNewsDetailLink) {
+        btnOpenNewsExternal.style.display = 'inline-flex';
+        if (btnOpenNewsExternalText) {
+          try {
+            const parsed = new URL(activeNewsDetailLink);
+            btnOpenNewsExternalText.textContent = `Ver en ${parsed.hostname.replace(/^www\./i, '')}`;
+          } catch (_) {
+            btnOpenNewsExternalText.textContent = 'Abrir en el Navegador';
+          }
+        }
+      } else {
+        btnOpenNewsExternal.style.display = 'none';
+      }
     }
 
     if (newsDetailChangelogList) {
@@ -8861,15 +9002,25 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
     }
 
-    modalNewsDetail.style.display = 'flex';
+    modalNewsDetail.classList.add('active');
+    modalNewsDetail.style.setProperty('display', 'flex', 'important');
   }
 
   function closeNewsDetailModal() {
-    if (modalNewsDetail) modalNewsDetail.style.display = 'none';
+    if (modalNewsDetail) {
+      modalNewsDetail.classList.remove('active');
+      modalNewsDetail.style.setProperty('display', 'none');
+    }
+    activeNewsDetailLink = null;
   }
 
   if (btnCloseNewsDetailModal) btnCloseNewsDetailModal.addEventListener('click', closeNewsDetailModal);
   if (btnDismissNewsDetail) btnDismissNewsDetail.addEventListener('click', closeNewsDetailModal);
+  if (modalNewsDetail) {
+    modalNewsDetail.addEventListener('click', (e) => {
+      if (e.target === modalNewsDetail) closeNewsDetailModal();
+    });
+  }
 
   if (btnToggleNewsCollapse) {
     btnToggleNewsCollapse.addEventListener('click', () => {
@@ -8898,7 +9049,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       items.forEach((item, index) => {
         const card = document.createElement('div');
         card.className = 'news-card';
-        card.style.cssText = 'padding: 10px 12px; border-radius: var(--radius-md); background: var(--bg-surface); border: 1px solid var(--border-subtle); display: flex; flex-direction: column; gap: 4px; transition: all 0.2s ease;';
+        card.style.cssText = 'padding: 10px 12px; border-radius: var(--radius-md); background: var(--bg-surface); border: 1px solid var(--border-subtle); display: flex; flex-direction: column; gap: 4px; transition: all 0.2s ease; cursor: pointer;';
 
         card.innerHTML = `
           <div style="display: flex; align-items: center; justify-content: space-between;">
@@ -8916,9 +9067,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (btnDetail) {
           btnDetail.addEventListener('click', (e) => {
             e.preventDefault();
+            e.stopPropagation();
             openNewsDetailModal(item);
           });
         }
+
+        card.addEventListener('click', (e) => {
+          if (e.target.closest('button') || e.target.closest('a')) return;
+          openNewsDetailModal(item);
+        });
 
         newsFeedList.appendChild(card);
       });
@@ -9326,6 +9483,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function applyBgUI(bgData) {
       if (!bgData || !bgData.enabled || !bgData.dataUrl) {
+        document.body.classList.remove('has-custom-bg');
         if (bgLayer) {
           bgLayer.style.display = 'none';
           bgLayer.style.backgroundImage = 'none';
@@ -9335,6 +9493,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
       }
 
+      document.body.classList.add('has-custom-bg');
       const opacity = typeof bgData.opacity === 'number' ? bgData.opacity : 50;
       const blur = typeof bgData.blur === 'number' ? bgData.blur : 0;
 

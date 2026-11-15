@@ -123,6 +123,14 @@ function createMainWindow() {
 
   // Cargar archivo HTML principal del renderer
   const rendererPath = path.join(__dirname, 'src/renderer/index.html');
+  mainWindow.webContents.on('render-process-gone', (_e, details) => {
+    logger.error('[Renderer] Proceso de renderizado caído: ' + JSON.stringify(details));
+    try { if (details.reason !== 'clean-exit') mainWindow.reload(); } catch (_) {}
+  });
+  mainWindow.webContents.on('unresponsive', () => logger.warn('[Renderer] Ventana sin respuesta.'));
+  mainWindow.webContents.on('console-message', (_e, level, message, line, source) => {
+    if (level >= 3) logger.error(`[Renderer] ${message} (${source}:${line})`);
+  });
   mainWindow.loadFile(rendererPath);
 
   mainWindow.once('ready-to-show', () => {

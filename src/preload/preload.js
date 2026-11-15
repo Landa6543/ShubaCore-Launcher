@@ -56,6 +56,9 @@ const VALID_RECEIVE_CHANNELS = [
 ];
 
 contextBridge.exposeInMainWorld('shubaCoreAPI', {
+  app: {
+    getLoaderIcons: () => ipcRenderer.invoke('app:get-loader-icons')
+  },
   // ==========================================
   // SISTEMA DE PERFILES E INSTANCIAS AISLADAS
   // ==========================================
@@ -184,6 +187,9 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
     setFromFile: (offlineUser, filePath, skinModel) => ipcRenderer.invoke('skins:set-from-file', { offlineUser, filePath, skinModel }),
     setModel: (skinModel) => ipcRenderer.invoke('skins:set-model', { skinModel }),
     selectFile: () => ipcRenderer.invoke('skins:select-file'),
+    getAccountProfile: (username, mcAccessToken) => ipcRenderer.invoke('skins:get-account-profile', { username, mcAccessToken }),
+    getDefaultSkins: () => ipcRenderer.invoke('skins:get-default-skins'),
+    getVanillaElytra: () => ipcRenderer.invoke('skins:get-vanilla-elytra'),
     remove: (username) => ipcRenderer.invoke('skins:remove', username),
     uploadToMojang: (mcAccessToken, skinData, variant) => ipcRenderer.invoke('skins:upload-to-mojang', { mcAccessToken, skinData, variant })
   },
@@ -297,6 +303,13 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
     getState: (instanceDir) => ipcRenderer.invoke('hud:get-state', { instanceDir }),
     setOption: (instanceDir, optionKey, value) => ipcRenderer.invoke('hud:set-option', { instanceDir, optionKey, value }),
     toggleMod: (profileId, modType, enable) => ipcRenderer.invoke('hud:toggle-mod', { profileId, modType, enable })
+  },
+
+  // ==========================================
+  // DIÁLOGOS NATIVOS Y CONFIRMACIONES
+  // ==========================================
+  dialog: {
+    confirm: (options) => ipcRenderer.invoke('dialog:confirm', options)
   },
 
   // ==========================================

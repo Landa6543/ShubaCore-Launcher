@@ -4663,11 +4663,6 @@ body.app-frozen *::after {
   letter-spacing: 0.5px;
 }
 
-/* Modal Reproductor de Clips */
-#modal-clip-player .modal-content {
-  border: 1px solid rgba(16, 185, 129, 0.3);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8), 0 0 20px rgba(16, 185, 129, 0.15);
-}
 
 /* ==========================================
    PERSONALIZACIÓN DE FONDO DEL LAUNCHER
@@ -4696,6 +4691,109 @@ body.app-frozen *::after {
 .app-container {
   position: relative;
   z-index: 2;
+}
+
+/* Transparencias cuando el fondo personalizado está activo */
+body.has-custom-bg {
+  background: transparent !important;
+}
+
+body.has-custom-bg .app-container,
+body.has-custom-bg .main-content,
+body.has-custom-bg .view-panel,
+body.has-custom-bg .view-container {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+body.has-custom-bg .sidebar {
+  background-color: rgba(13, 16, 22, 0.8) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+}
+
+body.has-custom-bg .view-toolbar,
+body.has-custom-bg .instance-banner-header {
+  background-color: rgba(17, 21, 30, 0.7) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+}
+
+body.has-custom-bg .profile-card,
+body.has-custom-bg .mod-row-card,
+body.has-custom-bg .card,
+body.has-custom-bg .settings-card,
+body.has-custom-bg .hud-card {
+  background-color: rgba(18, 22, 32, 0.75) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+body.has-custom-bg .titlebar {
+  background-color: rgba(10, 12, 17, 0.85) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+}
+
+/* ==========================================================================
+   MODAL LIGHTBOX DE CAPTURAS: PANTALLA COMPLETA
+   ========================================================================== */
+#modal-screenshot-lightbox {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: rgba(0, 0, 0, 0.94) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 999999 !important;
+  padding: 20px !important;
+  box-sizing: border-box !important;
+}
+
+#modal-screenshot-lightbox.hidden {
+  display: none !important;
+}
+
+#modal-screenshot-lightbox .modal-lightbox {
+  max-width: 96vw !important;
+  max-height: 96vh !important;
+  width: 94vw !important;
+  height: 92vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  background: #0f131c !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 32px 72px rgba(0, 0, 0, 0.95) !important;
+  overflow: hidden !important;
+  padding: 16px 20px 16px !important;
+}
+
+#modal-screenshot-lightbox .lightbox-body {
+  flex: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: #07090e !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  margin: 10px 0 !important;
+  max-height: calc(92vh - 120px) !important;
+}
+
+#modal-screenshot-lightbox .lightbox-body img {
+  max-width: 100% !important;
+  max-height: 100% !important;
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain !important;
+  display: block !important;
+  user-select: none !important;
 }
 
 /* ==========================================
@@ -4918,6 +5016,24 @@ body.app-frozen *::after {
   font-weight: 600;
   cursor: pointer;
   outline: none;
+  transition: all 0.2s ease;
+}
+
+.select-catalog-type:hover,
+.select-catalog-type:focus {
+  border-color: var(--primary, #3b82f6);
+}
+
+#select-catalog-platform {
+  background: rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.35);
+  color: #93c5fd;
+}
+
+#select-catalog-platform:hover,
+#select-catalog-platform:focus {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.14);
 }
 
 .catalog-controls-center {
@@ -5396,8 +5512,9 @@ body.app-frozen *::after {
 /* 2. Banner difuminado de Cabecera en Gestor de Instancia */
 .instance-banner-header {
   position: relative;
+  z-index: 30;
   border-radius: var(--radius-lg, 12px);
-  overflow: hidden;
+  overflow: visible; /* antes hidden: recortaba el menú desplegable de Opciones */
   border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
   margin-bottom: 14px;
   background: var(--bg-surface, #141721);
@@ -5412,6 +5529,7 @@ body.app-frozen *::after {
   opacity: 0.18;
   transform: scale(1.15);
   pointer-events: none;
+  clip-path: inset(0 round var(--radius-lg, 12px));
 }
 
 .instance-banner-content {
@@ -6013,3 +6131,43 @@ body.app-frozen *::after {
   justify-content: center;
   color: #ea580c;
 }
+
+
+/* ==========================================================================
+   VENTANA PEQUEÑA: evitar que el Gestor de Instancia se solape
+   ========================================================================== */
+@media (max-width: 1100px) {
+  .instance-banner-content { flex-wrap: wrap; }
+  .instance-banner-main { flex: 1 1 100%; }
+  .instance-banner-actions { flex: 1 1 100%; justify-content: flex-end; }
+  .instance-context-meta-row { row-gap: 4px; }
+  .instance-subtabs-nav-bar { flex-wrap: wrap; }
+  .instance-subtabs-nav-bar > * { min-width: 0; }
+}
+@media (max-width: 800px) {
+  .instance-banner-actions { flex-wrap: wrap; }
+  .instance-subtab-btn { height: auto; min-height: 34px; }
+  .installed-mods-table-wrapper { overflow-x: auto; }
+  .instance-mods-table { min-width: 680px; }
+}
+.instance-options-dropdown-container .dropdown-menu-popover {
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+}
+
+
+/* Vista cuadrícula de mods instalados (tabla -> tarjetas) */
+.installed-mods-table-wrapper.mods-grid-mode .instance-mods-table,
+.installed-mods-table-wrapper.mods-grid-mode .instance-mods-table tbody { display: block; width: 100%; }
+.installed-mods-table-wrapper.mods-grid-mode .instance-mods-table thead { display: none; }
+.installed-mods-table-wrapper.mods-grid-mode .instance-mods-table tbody {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; padding: 4px;
+}
+.installed-mods-table-wrapper.mods-grid-mode .instance-mods-table tr {
+  display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 12px;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); cursor: pointer;
+}
+.installed-mods-table-wrapper.mods-grid-mode .instance-mods-table td {
+  display: block; width: auto; padding: 0; border: 0; max-width: 100%;
+}
+.installed-mods-table-wrapper.mods-grid-mode .col-mod-toggle { margin-top: auto; }

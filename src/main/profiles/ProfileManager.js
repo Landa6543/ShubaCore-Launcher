@@ -286,23 +286,30 @@ class ProfileManager {
       logger.error('Error al escanear carpetas de instancias:', err);
     }
 
-    // 3. Si no existe ningún perfil, crear el perfil por defecto
-    if (sanitizedProfiles.length === 0) {
+    // 3. Eliminar perfiles temporales o generados por error y asegurar perfil por defecto si la lista estuviera vacía
+    const cleanedProfiles = sanitizedProfiles.filter((p) => p.id !== 'shubaclient-ultra-fps');
+    if (cleanedProfiles.length !== sanitizedProfiles.length) {
+      hasChanges = true;
+    }
+
+    if (cleanedProfiles.length === 0) {
       const defaultProfile = this.sanitizeProfile({
-        id: 'default-1211',
-        name: 'ShubaCore NeoForge 1.21.1',
-        mcVersion: '1.21.1',
-        loader: 'NeoForge',
-        loaderVersion: '21.1.265',
+        id: 'shubaclient-263',
+        name: 'ShubaClient',
+        mcVersion: '26.3',
+        loader: 'Fabric',
+        loaderVersion: '0.20.1',
         ramMin: '2G',
-        ramMax: '8G'
+        ramMax: '6G',
+        icon: 'assets/logo.png',
+        summary: 'Cliente oficial ShubaClient: máxima tasa de FPS en 26.3.'
       });
-      sanitizedProfiles.push(defaultProfile);
+      cleanedProfiles.push(defaultProfile);
       this._setupInstanceFolder(defaultProfile.id, defaultProfile);
       hasChanges = true;
     }
 
-    this.data.profiles = sanitizedProfiles;
+    this.data.profiles = cleanedProfiles;
 
     // 4. Validar perfil activo
     const activeExists = this.data.profiles.some((p) => p.id === this.data.activeProfileId);

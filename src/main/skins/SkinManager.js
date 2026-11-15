@@ -179,6 +179,10 @@ class SkinManager {
     const rawModel = decoded.textures?.SKIN?.metadata?.model;
     const skinModel = rawModel === 'slim' ? 'slim' : 'classic';
 
+    // Capa oficial de la cuenta (null si no tiene). Nunca se inventa una capa.
+    const rawCapeUrl = decoded.textures?.CAPE?.url || null;
+    const capeUrl = rawCapeUrl ? rawCapeUrl.replace(/^http:/, 'https:') : null;
+
     logger.info(`[SkinManager] Descargando skin oficial desde textures.minecraft.net (${skinModel})...`);
     const secureSkinUrl = skinUrl.replace(/^http:/, 'https:');
     const imgRes = await fetch(secureSkinUrl, {
@@ -203,6 +207,7 @@ class SkinManager {
       officialName,
       skinUrl: secureSkinUrl,
       skinModel,
+      capeUrl,
       pngBuffer,
       dataUrl
     };
@@ -211,6 +216,184 @@ class SkinManager {
       this._mojangProfileCache.set(cacheKey, { data: result, timestamp: Date.now() });
     }
 
+    return result;
+  }
+
+  /**
+   * Descarga una textura PNG desde el proceso principal y la devuelve como data URL
+   * (el renderer no puede cargar textures.minecraft.net directo por CORS).
+   */
+  async fetchTextureAsDataUrl(url) {
+    const clean = String(url || '').trim();
+    if (!clean) return null;
+    if (clean.startsWith('data:image')) return clean;
+    try {
+      const res = await fetch(clean.replace(/^http:/, 'https:'), { headers: { 'User-Agent': 'SHUBATECH/ShubaCore/1.0.0' } });
+      if (!res.ok) {
+        logger.warn(`[SkinManager] Textura no disponible (${res.status}): ${clean}`);
+        return null;
+      }
+      const buf = Buffer.from(await res.arrayBuffer());
+      if (!this._isValidPng(buf)) return null;
+      return `data:image/png;base64,${buf.toString('base64')}`;
+    } catch (err) {
+      logger.warn(`[SkinManager] Error descargando textura: ${err.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Perfil COMPLETO de la cuenta premium: skin activa + TODAS las capas que posee.
+   * Usa api.minecraftservices.com con el token de Minecraft (el perfil público solo
+   * expone la capa equipada, y a veces ninguna). Si el token falla, cae al perfil público.
+   */
+  async getAccountProfile(username, mcAccessToken) {
+    const out = { success: false, skin: null, capes: [], source: null, error: null };
+
+    if (mcAccessToken && !String(mcAccessToken).startsWith('offline_')) {
+      try {
+        const res = await fetch('https://api.minecraftservices.com/minecraft/profile', {
+          headers: { Authorization: `Bearer ${mcAccessToken}`, 'User-Agent': 'SHUBATECH/ShubaCore/1.0.0' }
+        });
+        if (res.ok) {
+          const prof = await res.json();
+          const activeSkin = (prof.skins || []).find((s) => s.state === 'ACTIVE') || (prof.skins || [])[0];
+          if (activeSkin && activeSkin.url) {
+            const dataUrl = await this.fetchTextureAsDataUrl(activeSkin.url);
+            out.skin = { dataUrl, model: String(activeSkin.variant).toUpperCase() === 'SLIM' ? 'slim' : 'classic' };
+          }
+          const capes = await Promise.all((prof.capes || []).map(async (c) => ({
+            id: c.id,
+            alias: c.alias || 'Capa',
+            active: c.state === 'ACTIVE',
+            dataUrl: await this.fetchTextureAsDataUrl(c.url)
+          })));
+          out.capes = capes.filter((c) => c.dataUrl);
+          out.success = true;
+          out.source = 'minecraftservices';
+          logger.info(`[SkinManager] Perfil premium: ${out.capes.length} capa(s) y skin ${out.skin ? out.skin.model : 'sin skin'}.`);
+          return out;
+        }
+        logger.warn(`[SkinManager] minecraftservices respondió ${res.status}; usando perfil público.`);
+      } catch (err) {
+        logger.warn(`[SkinManager] Error consultando minecraftservices: ${err.message}`);
+      }
+    }
+
+    try {
+      const info = await this.fetchMojangSkin(username);
+      out.skin = { dataUrl: info.dataUrl, model: info.skinModel };
+      if (info.capeUrl) {
+        const dataUrl = await this.fetchTextureAsDataUrl(info.capeUrl);
+        if (dataUrl) out.capes.push({ id: 'public-active', alias: 'Capa equipada', active: true, dataUrl });
+      }
+      out.success = true;
+      out.source = 'public';
+    } catch (err) {
+      out.error = err.message;
+    }
+    return out;
+  }
+
+  /**
+   * Lee un asset PNG de algún client.jar instalado en versions/ (se cachea la lista de jars).
+   */
+  _readJarAsset(candidatePaths) {
+    let AdmZip;
+    try { AdmZip = require('adm-zip'); } catch (_) { return null; }
+
+    if (!this._jarList) {
+      this._jarList = [];
+      const walk = (dir, depth = 0) => {
+        if (depth > 3) return;
+        let entries = [];
+        try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch (_) { return; }
+        for (const e of entries) {
+          const full = path.join(dir, e.name);
+          if (e.isDirectory()) walk(full, depth + 1);
+          else if (e.isFile() && e.name.toLowerCase().endsWith('.jar')) this._jarList.push(full);
+        }
+      };
+      const roots = new Set([
+        this.sharedRoot,
+        path.join(process.env.APPDATA || '', '.shubacore'),
+        path.join(process.env.APPDATA || '', '.minecraft'),
+        path.resolve(this.sharedRoot, '..')
+      ]);
+      for (const r of roots) walk(path.join(r, 'versions'));
+      logger.info(`[SkinManager] Jars encontrados para assets: ${this._jarList.length} (raíz: ${this.sharedRoot})`);
+      if (this._jarList.length === 0) this._jarList = null;
+    }
+    if (!this._jarList) return null;
+
+    for (const jarPath of this._jarList) {
+      try {
+        const zip = new AdmZip(jarPath);
+        for (const p of candidatePaths) {
+          const entry = zip.getEntry(p);
+          if (!entry) continue;
+          const buf = entry.getData();
+          if (this._isValidPng(buf)) return buf;
+        }
+      } catch (_) {}
+    }
+    return null;
+  }
+
+  /**
+   * Textura vanilla de élitros. La ruta cambió en 1.21.2+ (equipment/wings), se prueban ambas.
+   */
+  getVanillaElytraTexture() {
+    if (this._elytraDataUrlCache) return this._elytraDataUrlCache;
+    const buf = this._readJarAsset([
+      'assets/minecraft/textures/entity/equipment/wings/elytra.png',
+      'assets/minecraft/textures/entity/elytra.png'
+    ]);
+    if (!buf) {
+      logger.warn('[SkinManager] No se encontró la textura de élitros en ningún jar de versions/.');
+      return null;
+    }
+    this._elytraDataUrlCache = `data:image/png;base64,${buf.toString('base64')}`;
+    return this._elytraDataUrlCache;
+  }
+
+  /**
+   * Las 9 skins por defecto OFICIALES, extraídas del client.jar (no de URLs externas).
+   * Cada una se guarda también como archivo para poder aplicarla como skin local.
+   */
+  getDefaultSkins() {
+    if (this._defaultSkinsCache) return this._defaultSkinsCache;
+    const defs = [
+      { name: 'Steve', file: 'steve', model: 'classic' },
+      { name: 'Alex', file: 'alex', model: 'slim' },
+      { name: 'Ari', file: 'ari', model: 'classic' },
+      { name: 'Efe', file: 'efe', model: 'slim' },
+      { name: 'Kai', file: 'kai', model: 'classic' },
+      { name: 'Makena', file: 'makena', model: 'slim' },
+      { name: 'Noor', file: 'noor', model: 'slim' },
+      { name: 'Sunny', file: 'sunny', model: 'classic' },
+      { name: 'Zuri', file: 'zuri', model: 'classic' }
+    ];
+    const outDir = path.join(this.skinsDir, 'defaults');
+    try { fs.mkdirSync(outDir, { recursive: true }); } catch (_) {}
+
+    const result = [];
+    for (const d of defs) {
+      const folder = d.model === 'slim' ? 'slim' : 'wide';
+      const buf = this._readJarAsset([
+        `assets/minecraft/textures/entity/player/${folder}/${d.file}.png`,
+        `assets/minecraft/textures/entity/${d.file}.png`
+      ]);
+      if (!buf) continue;
+      const filePath = path.join(outDir, `${d.file}.png`);
+      try { fs.writeFileSync(filePath, buf); } catch (_) {}
+      result.push({ name: d.name, model: d.model, filePath, dataUrl: `data:image/png;base64,${buf.toString('base64')}` });
+    }
+    if (result.length === 0) {
+      logger.warn('[SkinManager] No se pudieron extraer skins por defecto de ningún jar.');
+      return [];
+    }
+    this._defaultSkinsCache = result;
     return result;
   }
 
@@ -233,6 +416,7 @@ class SkinManager {
       skinSource: 'premium_clone',
       clonedUuid: mojangInfo.formattedUuid,
       skinModel: mojangInfo.skinModel,
+      capeUrl: mojangInfo.capeUrl,
       originalUsername: mojangInfo.officialName,
       updatedAt: new Date().toISOString()
     };
@@ -247,6 +431,7 @@ class SkinManager {
       skinSource: 'premium_clone',
       clonedUuid: mojangInfo.formattedUuid,
       skinModel: mojangInfo.skinModel,
+      capeUrl: mojangInfo.capeUrl,
       path: this.currentSkinPath,
       dataUrl: mojangInfo.dataUrl
     };

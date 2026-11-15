@@ -530,6 +530,8 @@ class LaunchManager {
       cleanedJvmArgs.unshift(`-XX:ErrorFile=${hsErrPattern}`);
       cleanedJvmArgs.push(`-Djava.library.path=${instanceNativesDir}`);
       cleanedJvmArgs.push(`-Dorg.lwjgl.librarypath=${instanceNativesDir}`);
+      // Prueba anti-crash nativo: el log muere al cargar unifont (hilos worker + memoria nativa). Usar el malloc del sistema en lugar de jemalloc.
+      cleanedJvmArgs.push('-Dorg.lwjgl.system.allocator=system');
 
       logger.info(`Flags JVM completas aplicadas (Java ${resolvedJavaMajor}):\n${cleanedJvmArgs.join(' ')}`);
 
@@ -1252,20 +1254,29 @@ class LaunchManager {
           const baseName = path.basename(zEntry.entryName);
           const dest = path.join(instanceNativesDir, baseName);
           const data = zEntry.getData();
+
+          // Dos jars distintos con la misma DLL se pisan en la carpeta plana: avisar para detectar mezclas de versiones
+          if (fs.existsSync(dest)) {
+            logger.warn(`[LaunchManager] DLL duplicada "${baseName}" desde ${path.basename(jarPath)}: sobrescribe la anterior`);
+          }
           fs.writeFileSync(dest, data);
           extractedCount++;
 
-          // Alias de compatibilidad indispensables para LWJGL, FreeType, SDL3 y OpenAL
+          // Alias de compatibilidad: solo se crean si el nombre no existe, nunca sobrescriben una DLL real
+          const writeAliasIfMissing = (aliasName) => {
+            const aliasPath = path.join(instanceNativesDir, aliasName);
+            if (!fs.existsSync(aliasPath)) fs.writeFileSync(aliasPath, data);
+          };
           const lowerBase = baseName.toLowerCase();
           if (lowerBase === 'freetype.dll') {
-            fs.writeFileSync(path.join(instanceNativesDir, 'lwjgl_freetype.dll'), data);
+            writeAliasIfMissing('lwjgl_freetype.dll');
           } else if (lowerBase === 'lwjgl_freetype.dll') {
-            fs.writeFileSync(path.join(instanceNativesDir, 'freetype.dll'), data);
+            writeAliasIfMissing('freetype.dll');
           } else if (lowerBase === 'sdl3.dll') {
-            fs.writeFileSync(path.join(instanceNativesDir, 'lwjgl_sdl.dll'), data);
+            writeAliasIfMissing('lwjgl_sdl.dll');
           } else if (lowerBase === 'openal.dll') {
-            fs.writeFileSync(path.join(instanceNativesDir, 'OpenAL32.dll'), data);
-            fs.writeFileSync(path.join(instanceNativesDir, 'OpenAL64.dll'), data);
+            writeAliasIfMissing('OpenAL32.dll');
+            writeAliasIfMissing('OpenAL64.dll');
           }
         }
       } catch (zipErr) {

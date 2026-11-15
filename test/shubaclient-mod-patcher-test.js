@@ -182,18 +182,15 @@ async function runTests() {
   // ----------------------------------------------------
   // 6. VERIFICACIÓN DE CONTROLES EN LA INTERFAZ (DOM)
   // ----------------------------------------------------
-  console.log('▶ [6/6] Verificando switches en la interfaz (General)...');
+  console.log('▶ [6/6] Verificando que switches obsoletos fueron removidos...');
   const indexHtml = fs.readFileSync(path.join(__dirname, '../src/renderer/index.html'), 'utf8');
-  assert.ok(indexHtml.includes('id="check-enable-shubaclient-ui"'), 'Switch global en ajustes generales debe existir');
-
-  const rendererJs = fs.readFileSync(path.join(__dirname, '../src/renderer/renderer.js'), 'utf8');
-  assert.ok(rendererJs.includes('check-enable-shubaclient-ui'), 'renderer.js debe conectar el switch global');
+  assert.ok(!indexHtml.includes('id="check-enable-shubaclient-ui"'), 'Switch global en ajustes generales debe haber sido eliminado');
 
   const launchManagerJs = fs.readFileSync(path.join(__dirname, '../src/main/launcher/LaunchManager.js'), 'utf8');
   assert.ok(launchManagerJs.includes('ClientModPatcher'), 'LaunchManager debe invocar ClientModPatcher');
   assert.ok(launchManagerJs.includes('isShubaClientEnabled'), 'LaunchManager debe verificar isShubaClientEnabled');
 
-  console.log('   ✔ Todos los componentes UI e integración en LaunchManager verificados.\n');
+  console.log('   ✔ Retiro de switch in-game obsoleto e integración en LaunchManager verificados.\n');
 
   // ----------------------------------------------------
   // 7. PANORAMA Y CATÁLOGO DE MODS CUSTOM EN GITHUB

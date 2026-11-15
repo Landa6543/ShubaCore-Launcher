@@ -231,6 +231,26 @@ function registerIpcHandlers(mainWindow) {
     }
   });
 
+  // Diálogo nativo universal de confirmación (nunca bloqueado por Chromium)
+  ipcMain.handle('dialog:confirm', async (event, { message, title = 'Confirmar acción', type = 'question', confirmText = 'Eliminar', cancelText = 'Cancelar' } = {}) => {
+    try {
+      const parentWin = (mainWindow && !mainWindow.isDestroyed()) ? mainWindow : null;
+      const res = await dialog.showMessageBox(parentWin, {
+        type,
+        buttons: [confirmText, cancelText],
+        defaultId: 0,
+        cancelId: 1,
+        noLink: true,
+        title: title || 'Confirmar',
+        message: message || '¿Estás seguro de realizar esta acción?'
+      });
+      return res.response === 0;
+    } catch (err) {
+      logger.error('Error en dialog:confirm IPC:', err);
+      return false;
+    }
+  });
+
   ipcMain.handle('profiles:select-icon-dialog', async () => {
     try {
       const { canceled, filePaths } = await dialog.showOpenDialog({
@@ -545,6 +565,7 @@ function registerIpcHandlers(mainWindow) {
   ipcMain.handle('mods:list-installed', async (event, instancePath) => {
     try {
       const targetInstance = instancePath || profileManager.getActiveInstancePath();
+      await new Promise((r) => setImmediate(r));
       return modManager.scanAndSyncMods(targetInstance);
     } catch (err) {
       logger.error('Error en mods:list-installed IPC:', err);
@@ -795,6 +816,57 @@ function registerIpcHandlers(mainWindow) {
     } catch (err) {
       logger.error('Error en skins:get IPC:', err);
       return { exists: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('skins:get-account-profile', async (event, { username, mcAccessToken }) => {
+    try {
+      let token = mcAccessToken;
+      try {
+        await authManager.ensureValidSession();
+        const sess = authManager._readSessionFile();
+        if (sess && sess.microsoftAccount && sess.microsoftAccount.mcAccessToken) token = sess.microsoftAccount.mcAccessToken;
+      } catch (e) { /* usa el token recibido */ }
+      return await skinManager.getAccountProfile(username, token);
+    } catch (err) {
+      return { success: false, skin: null, capes: [], error: err.message };
+    }
+  });
+
+  // Íconos oficiales de loaders (Modrinth: GET /v2/tag/loader devuelve el SVG de cada loader)
+  ipcMain.handle('app:get-loader-icons', async () => {
+    try {
+      const res = await fetch('https://api.modrinth.com/v2/tag/loader', {
+        headers: { 'User-Agent': 'SHUBATECH/ShubaCore/1.1.0' }
+      });
+      if (!res.ok) return { success: false, error: `HTTP ${res.status}` };
+      const list = await res.json();
+      const icons = {};
+      for (const l of Array.isArray(list) ? list : []) {
+        if (['fabric', 'forge', 'neoforge', 'quilt'].includes(l.name) && typeof l.icon === 'string' && l.icon.includes('<svg')) {
+          icons[l.name] = l.icon;
+        }
+      }
+      return { success: Object.keys(icons).length > 0, icons };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('skins:get-default-skins', async () => {
+    try {
+      return { success: true, skins: skinManager.getDefaultSkins() };
+    } catch (err) {
+      return { success: false, skins: [], error: err.message };
+    }
+  });
+
+  ipcMain.handle('skins:get-vanilla-elytra', async () => {
+    try {
+      const dataUrl = skinManager.getVanillaElytraTexture();
+      return { success: Boolean(dataUrl), dataUrl };
+    } catch (err) {
+      return { success: false, dataUrl: null, error: err.message };
     }
   });
 

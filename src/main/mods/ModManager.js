@@ -92,6 +92,78 @@ class ModManager {
     ).trim();
   }
 
+  /**
+   * Resuelve el entorno operativo de un mod: 'server' (Solo Servidor), 'client' (Solo Cliente) o 'both' (Ambos).
+   */
+  _resolveModEnvironment(modInfo, fileName = '') {
+    if (!modInfo && !fileName) return 'both';
+    const text = (
+      (modInfo?.displayName || '') + ' ' +
+      (modInfo?.name || '') + ' ' +
+      (modInfo?.title || '') + ' ' +
+      (modInfo?.slug || '') + ' ' +
+      (modInfo?.projectId || '') + ' ' +
+      (modInfo?.fileName || fileName || '') + ' ' +
+      (modInfo?.summary || '') + ' ' +
+      (modInfo?.description || '') + ' ' +
+      (Array.isArray(modInfo?.categories) ? modInfo.categories.join(' ') : '')
+    ).toLowerCase();
+
+    // 1. Verificación explícita de campos de Modrinth o metadatos de JAR
+    const cSide = String(modInfo?.clientSide || modInfo?.client_side || '').toLowerCase();
+    const sSide = String(modInfo?.serverSide || modInfo?.server_side || '').toLowerCase();
+    if (cSide === 'unsupported' && (sSide === 'required' || sSide === 'optional')) return 'server';
+    if (sSide === 'unsupported' && (cSide === 'required' || cSide === 'optional')) return 'client';
+
+    const envVal = Array.isArray(modInfo?.environment)
+      ? modInfo.environment.map(e => String(e).toLowerCase())
+      : [String(modInfo?.environment || '').toLowerCase()];
+    if (envVal.some(e => e.includes('server_only') || e.includes('dedicated_server_only') || e === 'server')) return 'server';
+    if (envVal.some(e => e.includes('client_only') || e === 'client')) return 'client';
+
+    // 2. Patrones de mods Solo Servidor (worldgen/estructuras en servidor, optimización de servidor, utilidades y administración)
+    const serverPatterns = [
+      /yung/i,
+      /better\s*(dungeon|nether|fortress|mineshaft|temple|ocean|monument|stronghold|witch|bridge|desert|jungle)/i,
+      /servercore/i,
+      /ai-improvements|aiimprovements/i,
+      /alltheleaks/i,
+      /chunky|pregen/i,
+      /dynmap|bluemap|pl3xmap|squaremap/i,
+      /luckperms|permissionsex|ftbranks/i,
+      /ledger|coreprotect|griefdefender|worldguard|flan/i,
+      /worldedit|fastasyncworldedit|\bfawe\b/i,
+      /geyser|floodgate|viaversion|viabackwards|viarewind/i,
+      /discordsrv|chatbridge/i,
+      /easyauth|simpleauth|authme|banhammer/i,
+      /themis|grimac|vulcan|matrix-anticheat|anticheat/i,
+      /clearlag|mobcap|entitylimiter|viewdistance|\bvmp\b|\bc2me\b/i,
+      /netherportalfix|letmedespawn|lithostitched|packetfixer/i,
+      /fastworkbench|fastfurnace/i,
+      /\bcarpet\b|fabric-carpet/i,
+      /\bspark\b|playeranalytics|\bservux\b|\brcon\b/i,
+      /server\s*(side|only|utility|tools|performance|optimization|manager)/i,
+      /dedicated\s*server/i,
+      /only\s*on\s*(the\s*)?server/i
+    ];
+    if (serverPatterns.some(p => p.test(text))) return 'server';
+
+    // 3. Patrones de mods Solo Cliente
+    const clientPatterns = [
+      /sodium|iris|rubidium|oculus|embeddium|entityculling|ferritecore|immediatelyfast|modernfix|krypton/i,
+      /optifine|zoom|replaymod|customskinloader|appleskin|mousewheelie|controlling|smoothboot|dynamiclights/i,
+      /shulkerboxtooltip|notenoughanimations|waveycapes|skinview|cloth-config|soundphysics|presencefootsteps/i,
+      /xaero|journeymap|voxelmap|resourceloader|custommainmenu|darkloading|fancymenu|borderless/i,
+      /\bneat\b|wthit|jade|\btoast\b|invtweaks|itemphysic|physicsmod|customcrosshair|fallingleaves/i,
+      /betterf3|visuality|drippy|torohealth|modmenu/i,
+      /client\s*(side|only|cosmetic|visual|hud|gui)/i,
+      /only\s*on\s*(the\s*)?client/i
+    ];
+    if (clientPatterns.some(p => p.test(text))) return 'client';
+
+    return 'both';
+  }
+
   // =========================================================================
   // 1. BÚSQUEDA UNIFICADA (CurseForge + Modrinth)
   // =========================================================================
@@ -111,6 +183,7 @@ class ModManager {
    * @param {number} [options.pageSize=20] - Cantidad por página
    * @param {string} [options.sortBy='popular'] - 'popular' | 'updated' | 'name'
    * @param {string} [options.category='all'] - Categoría temática
+   * @param {string} [options.environment='all'] - 'all' | 'client' | 'server' | 'both'
    * @returns {Promise<Object>} { results, totalCount, currentPage, pageSize, totalPages, hasMore }
    */
   async searchContent({
@@ -122,7 +195,8 @@ class ModManager {
     page = 1,
     pageSize = 20,
     sortBy = 'popular',
-    category = 'all'
+    category = 'all',
+    environment = 'all'
   } = {}) {
     const isPopular = !query || query.trim() === '';
     const safeType = (contentType || 'mods').toLowerCase();
@@ -130,7 +204,7 @@ class ModManager {
     const safePageSize = Math.max(1, parseInt(pageSize, 10) || 20);
     const offset = (safePage - 1) * safePageSize;
 
-    logger.info(`Búsqueda de catálogo [${source.toUpperCase()}] Tipo: ${safeType} (Pág. ${safePage}, Tamaño: ${safePageSize}, Orden: ${sortBy}, Cat: ${category}) ${isPopular ? '(Populares)' : `"${query}"`} (MC ${mcVersion}, Loader: ${loader})`);
+    logger.info(`Búsqueda de catálogo [${source.toUpperCase()}] Tipo: ${safeType} (Pág. ${safePage}, Tamaño: ${safePageSize}, Orden: ${sortBy}, Cat: ${category}, Env: ${environment}) ${isPopular ? '(Populares)' : `"${query}"`} (MC ${mcVersion}, Loader: ${loader})`);
 
     const normalizedLoader = (loader || 'neoforge').toLowerCase();
     const shouldSearchModrinth = source === 'both' || source === 'modrinth';
@@ -138,10 +212,10 @@ class ModManager {
 
     const tasks = [];
     if (shouldSearchModrinth) {
-      tasks.push(this._searchModrinthContent(query, mcVersion, normalizedLoader, safeType, safePageSize, offset, sortBy, category));
+      tasks.push(this._searchModrinthContent(query, mcVersion, normalizedLoader, safeType, safePageSize, offset, sortBy, category, environment));
     }
     if (shouldSearchCurseForge) {
-      tasks.push(this._searchCurseForgeContent(query, mcVersion, normalizedLoader, safeType, safePageSize, offset, sortBy, category));
+      tasks.push(this._searchCurseForgeContent(query, mcVersion, normalizedLoader, safeType, safePageSize, offset, sortBy, category, environment));
     }
 
     const settled = await Promise.allSettled(tasks);
@@ -208,7 +282,7 @@ class ModManager {
   /**
    * Búsqueda específica en CurseForge API para cualquier categoría
    */
-  async _searchCurseForgeContent(query, mcVersion, loader, contentType, limit, offset, sortBy = 'popular', category = 'all') {
+  async _searchCurseForgeContent(query, mcVersion, loader, contentType, limit, offset, sortBy = 'popular', category = 'all', environment = 'all') {
     const apiKey = this._getCurseForgeKey();
     const classId = CF_CLASS_IDS[contentType] || CF_CLASS_IDS.mods;
 
@@ -257,7 +331,8 @@ class ModManager {
           'x-api-key': apiKey,
           Accept: 'application/json',
           'User-Agent': USER_AGENT
-        }
+        },
+        signal: AbortSignal.timeout(6000)
       });
 
       if (!response.ok) {
@@ -282,6 +357,11 @@ class ModManager {
           if (idx.modLoader === 5 && !loaders.includes('quilt')) loaders.push('quilt');
           if (idx.modLoader === 6 && !loaders.includes('neoforge')) loaders.push('neoforge');
         });
+
+        const detectedEnv = this._resolveModEnvironment(mod);
+        const cSide = detectedEnv === 'server' ? 'unsupported' : (detectedEnv === 'client' ? 'required' : 'both');
+        const sSide = detectedEnv === 'client' ? 'unsupported' : (detectedEnv === 'server' ? 'required' : 'both');
+
         return {
           id: String(mod.id),
           slug: mod.slug,
@@ -298,13 +378,24 @@ class ModManager {
           fileSize: latestFile.fileLength || 0,
           gameVersions: gameVersions.length > 0 ? gameVersions : [mcVersion],
           loaders: loaders.length > 0 ? loaders : [loader],
-          clientSide: 'both',
-          serverSide: 'both',
+          clientSide: cSide,
+          serverSide: sSide,
+          environment: detectedEnv,
           latestFileId: latestFile.id ? String(latestFile.id) : null
         };
       });
 
-      return { items: mapped, totalCount };
+      let filtered = mapped;
+      if (environment && environment !== 'all') {
+        filtered = mapped.filter((item) => {
+          if (environment === 'server') return item.environment === 'server';
+          if (environment === 'client') return item.environment === 'client';
+          if (environment === 'both') return item.environment === 'both';
+          return true;
+        });
+      }
+
+      return { items: filtered, totalCount: filtered.length < mapped.length ? filtered.length : totalCount };
     } catch (err) {
       logger.error('[CurseForge Exception]:', err.message);
       return { items: [], totalCount: 0 };
@@ -314,7 +405,7 @@ class ModManager {
   /**
    * Búsqueda específica en Modrinth API para cualquier categoría
    */
-  async _searchModrinthContent(query, mcVersion, loader, contentType, limit, offset, sortBy = 'popular', category = 'all') {
+  async _searchModrinthContent(query, mcVersion, loader, contentType, limit, offset, sortBy = 'popular', category = 'all', environment = 'all') {
     const projectType = MODRINTH_PROJECT_TYPES[contentType] || 'mod';
 
     try {
@@ -334,6 +425,13 @@ class ModManager {
       // Filtro de categoría temática si aplica
       if (category && category !== 'all' && MODRINTH_CATEGORY_TAGS[category]) {
         facets.push([`categories:${MODRINTH_CATEGORY_TAGS[category]}`]);
+      }
+
+      // Filtro nativo de entorno para Modrinth
+      if (environment === 'server') {
+        facets.push([`client_side:unsupported`]);
+      } else if (environment === 'client') {
+        facets.push([`server_side:unsupported`]);
       }
 
       const url = new URL(`${MODRINTH_API_URL}/search`);
@@ -356,7 +454,8 @@ class ModManager {
       logger.debug(`[Modrinth GET] ${url.toString()}`);
 
       const response = await fetch(url.toString(), {
-        headers: { 'User-Agent': USER_AGENT }
+        headers: { 'User-Agent': USER_AGENT },
+        signal: AbortSignal.timeout(6000)
       });
 
       if (!response.ok) {
@@ -371,28 +470,42 @@ class ModManager {
 
       logger.info(`[Modrinth] ${hits.length} elementos (${contentType}) recibidos. Total reportado: ${totalCount}`);
 
-      const mapped = hits.map((hit) => ({
-        id: hit.project_id,
-        slug: hit.slug,
-        source: 'modrinth',
-        contentType,
-        title: hit.title,
-        author: hit.author,
-        summary: hit.description || '',
-        iconUrl: hit.icon_url || '',
-        downloads: hit.downloads || 0,
-        follows: hit.follows || 0,
-        websiteUrl: `https://modrinth.com/${projectType}/${hit.slug}`,
-        dateModified: hit.date_modified,
-        categories: hit.categories || [],
-        gameVersions: hit.versions || [],
-        loaders: hit.loaders || [],
-        clientSide: hit.client_side || 'optional',
-        serverSide: hit.server_side || 'optional',
-        gallery: hit.gallery || []
-      }));
+      const mapped = hits.map((hit) => {
+        const detectedEnv = this._resolveModEnvironment(hit);
+        return {
+          id: hit.project_id,
+          slug: hit.slug,
+          source: 'modrinth',
+          contentType,
+          title: hit.title,
+          author: hit.author,
+          summary: hit.description || '',
+          iconUrl: hit.icon_url || '',
+          downloads: hit.downloads || 0,
+          follows: hit.follows || 0,
+          websiteUrl: `https://modrinth.com/${projectType}/${hit.slug}`,
+          dateModified: hit.date_modified,
+          categories: hit.categories || [],
+          gameVersions: hit.versions || [],
+          loaders: hit.loaders || [],
+          clientSide: hit.client_side || (detectedEnv === 'server' ? 'unsupported' : (detectedEnv === 'client' ? 'required' : 'optional')),
+          serverSide: hit.server_side || (detectedEnv === 'client' ? 'unsupported' : (detectedEnv === 'server' ? 'required' : 'optional')),
+          environment: detectedEnv,
+          gallery: hit.gallery || []
+        };
+      });
 
-      return { items: mapped, totalCount };
+      let filtered = mapped;
+      if (environment && environment !== 'all') {
+        filtered = mapped.filter((item) => {
+          if (environment === 'server') return item.environment === 'server';
+          if (environment === 'client') return item.environment === 'client';
+          if (environment === 'both') return item.environment === 'both';
+          return true;
+        });
+      }
+
+      return { items: filtered, totalCount: filtered.length < mapped.length ? filtered.length : totalCount };
     } catch (err) {
       logger.error('[Modrinth Exception]:', err.message);
       return { items: [], totalCount: 0 };
@@ -839,6 +952,46 @@ class ModManager {
     fs.writeFileSync(lockPath, JSON.stringify(lockData, null, 2), 'utf8');
   }
 
+  /**
+   * Mods propios de ShubaCore (ShubaClient UI, ShubaConfig, ShubaDium...).
+   * Se identifican por "custom.shubacore" en fabric.mod.json (o autor SHUBATECH).
+   * Nunca se buscan en Modrinth/CurseForge ni se "actualizan" con los originales:
+   * se muestran siempre con el nombre, autor e icono que trae el propio .jar.
+   * Devuelve el Set de nombres de archivo que son de ShubaCore.
+   */
+  _applyShubaCoreIdentity(instancePath, lockData) {
+    const shubaFiles = new Set();
+    const modsDir = path.join(instancePath, 'mods');
+    let changed = false;
+    for (const [fileName, entry] of Object.entries(lockData.mods || {})) {
+      const realName = entry.fileName || fileName;
+      let jarPath = path.join(modsDir, realName);
+      if (!fs.existsSync(jarPath) && fs.existsSync(jarPath + '.disabled')) jarPath += '.disabled';
+      const meta = this._extractJarMetadata(jarPath);
+      if (!meta || !meta.shubacore) continue;
+      shubaFiles.add(fileName);
+      const wanted = {
+        source: 'shubacore',
+        projectId: null,
+        fileId: null,
+        displayName: meta.name || entry.displayName,
+        name: meta.name || entry.name,
+        author: meta.author || 'SHUBATECH',
+        summary: meta.description || entry.summary,
+        version: meta.version || entry.version,
+        iconUrl: meta.iconBase64 || entry.iconUrl
+      };
+      for (const [k, v] of Object.entries(wanted)) {
+        if (entry[k] !== v) { entry[k] = v; changed = true; }
+      }
+    }
+    if (changed) {
+      lockData.lastUpdated = new Date().toISOString();
+      fs.writeFileSync(this._getLockFilePath(instancePath), JSON.stringify(lockData, null, 2), 'utf8');
+    }
+    return shubaFiles;
+  }
+
   _cleanJarName(fileName) {
     if (!fileName || typeof fileName !== 'string') return 'Mod Desconocido';
     let base = fileName.replace(/\.disabled$/i, '').replace(/\.jar$/i, '');
@@ -1020,7 +1173,8 @@ class ModManager {
         version: null,
         author: null,
         description: null,
-        iconBase64: null
+        iconBase64: null,
+        environment: null
       };
 
       const neoTomlEntry = zip.getEntry('META-INF/neoforge.mods.toml') || zip.getEntry('META-INF/mods.toml');
@@ -1040,6 +1194,7 @@ class ModManager {
         const authorMatch = modBlock.match(/(?:authors|author|credits)\s*=\s*["']([^"']+)["']/i) || content.match(/(?:authors|author|credits)\s*=\s*["']([^"']+)["']/i);
         const logoMatch = modBlock.match(/logoFile\s*=\s*["']([^"']+)["']/i) || content.match(/logoFile\s*=\s*["']([^"']+)["']/i);
         const descMatch = modBlock.match(/description\s*=\s*(?:'''|""")([\s\S]*?)(?:'''|""")|description\s*=\s*["']([^"']+)["']/i) || content.match(/description\s*=\s*(?:'''|""")([\s\S]*?)(?:'''|""")|description\s*=\s*["']([^"']+)["']/i);
+        const sideMatch = modBlock.match(/side\s*=\s*["']([^"']+)["']/i);
 
         if (nameMatch) meta.name = nameMatch[1];
         if (modIdMatch) meta.modId = modIdMatch[1];
@@ -1047,6 +1202,7 @@ class ModManager {
         if (authorMatch) meta.author = authorMatch[1];
         if (logoMatch) logoFileName = logoMatch[1];
         if (descMatch) meta.description = (descMatch[1] || descMatch[2] || '').trim();
+        if (sideMatch) meta.environment = sideMatch[1].toLowerCase();
       } else if (fabricEntry) {
         try {
           const json = JSON.parse(fabricEntry.getData().toString('utf8'));
@@ -1054,11 +1210,13 @@ class ModManager {
           meta.modId = json.id;
           meta.version = json.version;
           meta.description = json.description;
+          if (json.environment) meta.environment = json.environment;
           if (Array.isArray(json.authors)) {
             meta.author = json.authors.map((a) => (typeof a === 'string' ? a : (a.name || ''))).filter(Boolean).join(', ');
           } else if (typeof json.authors === 'string') {
             meta.author = json.authors;
           }
+          meta.shubacore = Boolean(json.custom && json.custom.shubacore) || /shubatech/i.test(meta.author || '');
           if (typeof json.icon === 'string') {
             logoFileName = json.icon;
           } else if (json.icon && typeof json.icon === 'object') {
@@ -1079,6 +1237,8 @@ class ModManager {
           }
         } catch (_) {}
       }
+
+      meta.environment = this._resolveModEnvironment(meta, path.basename(jarPath));
 
       let iconEntry = null;
       if (logoFileName) {
@@ -1148,14 +1308,17 @@ class ModManager {
     }
 
     const getJarMetaWithCache = (filePath, file, stats) => {
-      if (stats && diskCache[file] && diskCache[file].mtimeMs === stats.mtimeMs && diskCache[file].size === stats.size && diskCache[file].metadata) {
-        return diskCache[file].metadata;
+      // Acierto de caché: también cuando el análisis anterior falló o no encontró datos (checked),
+      // para no volver a abrir el .jar completo en cada visita al Gestor de Instancia.
+      if (stats && diskCache[file] && diskCache[file].mtimeMs === stats.mtimeMs && diskCache[file].size === stats.size && (diskCache[file].metadata || diskCache[file].checked)) {
+        return diskCache[file].metadata || null;
       }
       const extracted = this._extractJarMetadata(filePath);
       if (stats) {
         diskCache[file] = {
           mtimeMs: stats.mtimeMs,
           size: stats.size,
+          checked: true,
           metadata: extracted
         };
       }
@@ -1199,6 +1362,8 @@ class ModManager {
         const resolvedSummary = (jarMeta && jarMeta.description) ? jarMeta.description : null;
         const resolvedIcon = (jarMeta && jarMeta.iconBase64) ? jarMeta.iconBase64 : null;
 
+        const resolvedEnv = (jarMeta && jarMeta.environment) ? jarMeta.environment : this._resolveModEnvironment(jarMeta, file);
+
         lockData.mods[file] = {
           fileName: file,
           name: resolvedTitle,
@@ -1215,7 +1380,10 @@ class ModManager {
           dependencies: [],
           iconUrl: resolvedIcon,
           author: resolvedAuthor,
-          summary: resolvedSummary
+          summary: resolvedSummary,
+          environment: resolvedEnv,
+          clientSide: resolvedEnv === 'server' ? 'unsupported' : (resolvedEnv === 'client' ? 'required' : 'optional'),
+          serverSide: resolvedEnv === 'client' ? 'unsupported' : (resolvedEnv === 'server' ? 'required' : 'optional')
         };
       } else {
         const modEntry = lockData.mods[existingKey];
@@ -1226,6 +1394,12 @@ class ModManager {
         }
         modEntry.enabled = isEnabled;
         modEntry.sizeFormatted = sizeFormatted || modEntry.sizeFormatted || '';
+
+        // Sincronizar o actualizar entorno de ejecución (Solo Servidor, Solo Cliente o Ambos)
+        const resolvedEnv = this._resolveModEnvironment(modEntry, file);
+        modEntry.environment = resolvedEnv;
+        modEntry.clientSide = resolvedEnv === 'server' ? 'unsupported' : (resolvedEnv === 'client' ? 'required' : 'optional');
+        modEntry.serverSide = resolvedEnv === 'client' ? 'unsupported' : (resolvedEnv === 'server' ? 'required' : 'optional');
 
         // Corregir valores nulos, vacíos o "undefined"
         if (!modEntry.displayName || modEntry.displayName === 'undefined' || modEntry.displayName.trim() === '') {
@@ -1282,6 +1456,7 @@ class ModManager {
       const displayName = (m.displayName && m.displayName !== 'undefined') ? m.displayName : clean;
       const name = (m.name && m.name !== 'undefined') ? m.name : displayName;
       const source = (m.source && m.source !== 'undefined') ? m.source : 'custom';
+      const itemEnv = m.environment || this._resolveModEnvironment(m, m.fileName);
       return {
         ...m,
         name,
@@ -1290,7 +1465,10 @@ class ModManager {
         projectId: m.projectId || null,
         fileId: m.fileId || null,
         versionNumber: m.versionNumber || m.version || '',
-        sizeFormatted: m.sizeFormatted || ''
+        sizeFormatted: m.sizeFormatted || '',
+        environment: itemEnv,
+        clientSide: m.clientSide || (itemEnv === 'server' ? 'unsupported' : (itemEnv === 'client' ? 'required' : 'optional')),
+        serverSide: m.serverSide || (itemEnv === 'client' ? 'unsupported' : (itemEnv === 'server' ? 'required' : 'optional'))
       };
     });
   }
@@ -1319,14 +1497,34 @@ class ModManager {
     const modsDir = path.join(activeInstance, 'mods');
 
     const cleanBase = fileName.replace(/\.disabled$/i, '');
-    const possiblePaths = [path.join(modsDir, cleanBase), path.join(modsDir, `${cleanBase}.disabled`)];
+    const possiblePaths = [
+      path.join(modsDir, fileName),
+      path.join(modsDir, cleanBase),
+      path.join(modsDir, `${cleanBase}.disabled`)
+    ];
 
     possiblePaths.forEach((p) => {
       if (fs.existsSync(p)) {
-        fs.unlinkSync(p);
-        logger.info(`Archivo de mod eliminado: ${p}`);
+        try {
+          fs.unlinkSync(p);
+          logger.info(`Archivo de mod eliminado: ${p}`);
+        } catch (e) {
+          logger.warn(`No se pudo eliminar ${p}: ${e.message}`);
+        }
       }
     });
+
+    // Limpiar de caché rápida en disco (.shubacore-mods-cache.json)
+    try {
+      const cacheFile = path.join(activeInstance, '.shubacore-mods-cache.json');
+      if (fs.existsSync(cacheFile)) {
+        const cache = JSON.parse(fs.readFileSync(cacheFile, 'utf8')) || {};
+        delete cache[fileName];
+        delete cache[cleanBase];
+        delete cache[`${cleanBase}.disabled`];
+        fs.writeFileSync(cacheFile, JSON.stringify(cache), 'utf8');
+      }
+    } catch (_) {}
 
     return this.scanAndSyncMods(activeInstance);
   }
@@ -1679,9 +1877,10 @@ class ModManager {
     }
 
     const lockData = this._readLockFile(activeInstance);
-    const modEntries = Object.entries(lockData.mods || {});
+    const shubaFiles = this._applyShubaCoreIdentity(activeInstance, lockData);
+    const modEntries = Object.entries(lockData.mods || {}).filter(([fileName]) => !shubaFiles.has(fileName));
 
-    // Identificar mods que necesitan icono o autor
+    // Identificar mods que necesitan icono o autor (los de ShubaCore ya usan sus propios datos)
     const missing = modEntries.filter(([fileName, mod]) => {
       return !mod.iconUrl || !mod.author;
     });
@@ -1693,8 +1892,20 @@ class ModManager {
     logger.info(`[ModIcons] Resolviendo metadatos e iconos para ${missing.length} mods instalados...`);
     let updatedCount = 0;
 
+    const cacheFile = path.join(activeInstance, '.shubacore-mods-cache.json');
+    let diskCache = {};
+    if (fs.existsSync(cacheFile)) {
+      try {
+        diskCache = JSON.parse(fs.readFileSync(cacheFile, 'utf8')) || {};
+      } catch (_) {
+        diskCache = {};
+      }
+    }
+    let cacheUpdated = false;
+
     // 1. Modrinth & Custom files con SHA1 hash lookup
     const sha1ToModFiles = new Map();
+    let iconProcessed = 0;
     for (const [fileName, mod] of missing) {
       const diskPath = path.join(modsDir, fileName);
       const disabledPath = path.join(modsDir, `${fileName}.disabled`);
@@ -1702,13 +1913,36 @@ class ModManager {
 
       if (targetPath) {
         try {
-          const fileBuf = fs.readFileSync(targetPath);
-          const sha1 = crypto.createHash('sha1').update(fileBuf).digest('hex');
+          const stats = fs.statSync(targetPath);
+          const cachedEntry = diskCache[fileName];
+          let sha1 = (cachedEntry && cachedEntry.mtimeMs === stats.mtimeMs && cachedEntry.size === stats.size && cachedEntry.sha1)
+            ? cachedEntry.sha1
+            : null;
+          if (!sha1) {
+            const fileBuf = fs.readFileSync(targetPath);
+            sha1 = crypto.createHash('sha1').update(fileBuf).digest('hex');
+            if (!diskCache[fileName]) diskCache[fileName] = {};
+            diskCache[fileName].mtimeMs = stats.mtimeMs;
+            diskCache[fileName].size = stats.size;
+            diskCache[fileName].sha1 = sha1;
+            cacheUpdated = true;
+          }
           sha1ToModFiles.set(sha1, fileName);
         } catch (e) {
           logger.debug(`No se pudo hashear ${fileName}: ${e.message}`);
         }
       }
+
+      iconProcessed++;
+      if (iconProcessed % 20 === 0) {
+        await new Promise((r) => setImmediate(r));
+      }
+    }
+
+    if (cacheUpdated) {
+      try {
+        fs.writeFileSync(cacheFile, JSON.stringify(diskCache), 'utf8');
+      } catch (_) {}
     }
 
     // 2. Consulta en lote a Modrinth: POST /v2/version_files
@@ -2042,7 +2276,11 @@ class ModManager {
       const fid = m.fileId || m.fileID;
       if (fid) m.fileId = String(fid);
     }
-    const modsList = Object.values(lockData.mods || {});
+    // Los mods propios de ShubaCore no se comparan con Modrinth/CurseForge (si no, se "actualizan" al original de Polyfrost)
+    const shubaFiles = this._applyShubaCoreIdentity(activeInstance, lockData);
+    const modsList = Object.entries(lockData.mods || {})
+      .filter(([fileName]) => !shubaFiles.has(fileName))
+      .map(([, m]) => m);
 
     logger.info(`[CheckUpdates] Buscando actualizaciones (canal: ${candidateChannel}) para ${modsList.length} mods en MC ${mcVersion} (${loader})...`);
 
@@ -2052,6 +2290,18 @@ class ModManager {
     const cfFingerprints = [];
     const modrinthSha1s = [];
 
+    const cacheFile = path.join(activeInstance, '.shubacore-mods-cache.json');
+    let diskCache = {};
+    if (fs.existsSync(cacheFile)) {
+      try {
+        diskCache = JSON.parse(fs.readFileSync(cacheFile, 'utf8')) || {};
+      } catch (_) {
+        diskCache = {};
+      }
+    }
+    let cacheUpdated = false;
+
+    let processedModCount = 0;
     for (const mod of modsList) {
       const isAwakening = /awakening\s*system/i.test(mod.name || '') ||
                           /awakening\s*system/i.test(mod.displayName || '') ||
@@ -2074,9 +2324,26 @@ class ModManager {
 
       if (foundPath) {
         try {
-          const buf = fs.readFileSync(foundPath);
-          const sha1 = crypto.createHash('sha1').update(buf).digest('hex');
-          const fp = this.computeCurseForgeFingerprint(buf);
+          const stats = fs.statSync(foundPath);
+          const cached = diskCache[mod.fileName];
+          let sha1 = null;
+          let fp = null;
+
+          if (cached && cached.mtimeMs === stats.mtimeMs && cached.size === stats.size && cached.sha1 && cached.cfFingerprint) {
+            sha1 = cached.sha1;
+            fp = cached.cfFingerprint;
+          } else {
+            const buf = fs.readFileSync(foundPath);
+            sha1 = crypto.createHash('sha1').update(buf).digest('hex');
+            fp = this.computeCurseForgeFingerprint(buf);
+            if (!diskCache[mod.fileName]) diskCache[mod.fileName] = {};
+            diskCache[mod.fileName].mtimeMs = stats.mtimeMs;
+            diskCache[mod.fileName].size = stats.size;
+            diskCache[mod.fileName].sha1 = sha1;
+            diskCache[mod.fileName].cfFingerprint = fp;
+            cacheUpdated = true;
+          }
+
           mod._sha1 = sha1;
           mod._cfFingerprint = fp;
           if (sha1) {
@@ -2091,6 +2358,17 @@ class ModManager {
           logger.debug(`[CheckUpdates] No se pudo procesar archivo ${mod.fileName}: ${e.message}`);
         }
       }
+
+      processedModCount++;
+      if (processedModCount % 20 === 0) {
+        await new Promise((r) => setImmediate(r));
+      }
+    }
+
+    if (cacheUpdated) {
+      try {
+        fs.writeFileSync(cacheFile, JSON.stringify(diskCache), 'utf8');
+      } catch (_) {}
     }
 
     let lockModified = false;
@@ -2677,11 +2955,12 @@ class ModManager {
     const activeInstance = instancePath || this.configManager.getInstanceDirectory();
     const normalizedLoader = (loader || 'neoforge').toLowerCase();
 
-    // En 1.21.1 NeoForge se usa Sodium directamente; en 1.20.1 Forge se usa Embeddium
-    const mainRendererSlug = (mcVersion.startsWith('1.21') && normalizedLoader === 'neoforge') ? 'sodium' : 'embeddium';
+    // En 1.21.1 NeoForge y Fabric se usa Sodium directamente; en 1.20.1 Forge se usa Embeddium
+    const mainRendererSlug = (normalizedLoader === 'fabric' || (mcVersion.startsWith('1.21') && normalizedLoader === 'neoforge')) ? 'sodium' : 'embeddium';
 
     const performanceSlugs = [
       mainRendererSlug,
+      ...(normalizedLoader === 'fabric' ? ['fabric-api', 'lithium'] : []),
       'ferrite-core',
       'modernfix',
       'immediatelyfast',
