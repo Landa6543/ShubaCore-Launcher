@@ -42,13 +42,25 @@ console.log('====================================================');
     assert.strictEqual(sendRes.success, true, `Fallo al enviar solicitud: ${sendRes.error}`);
     console.log(`   ✔ Solicitud de amistad enviada con éxito (ID: ${sendRes.friendshipId})`);
 
-    console.log('\n▶ [4/6] Verificando solicitudes pendientes en ambos usuarios...');
+    console.log('\n▶ [4/6] Verificando solicitudes pendientes en ambos usuarios (Aislamiento de cuenta)...');
     // Restaurar sesión de User B
     await sb.client.auth.setSession(regB.user.tokens);
     const pendingB = await sb.getPendingRequests(userB_Id);
     assert.strictEqual(pendingB.incoming.length, 1, 'User B debe tener 1 solicitud entrante');
+    assert.strictEqual(pendingB.outgoing.length, 0, 'User B NO debe tener solicitudes salientes enviadas');
     assert.strictEqual(pendingB.incoming[0].sender.username, userA_Name);
-    console.log(`   ✔ User B recibió solicitud de @${pendingB.incoming[0].sender.username}`);
+    console.log(`   ✔ User B ve Solicitud Recibida de @${pendingB.incoming[0].sender.username} (Salientes: ${pendingB.outgoing.length})`);
+
+    // Restaurar sesión de User A y verificar que ve Solicitud Enviada
+    await sb.client.auth.setSession(regA.user.tokens);
+    const pendingA = await sb.getPendingRequests(userA_Id);
+    assert.strictEqual(pendingA.outgoing.length, 1, 'User A debe tener 1 solicitud saliente');
+    assert.strictEqual(pendingA.incoming.length, 0, 'User A NO debe tener solicitudes entrantes');
+    assert.strictEqual(pendingA.outgoing[0].target.username, userB_Name);
+    console.log(`   ✔ User A ve Solicitud Enviada a @${pendingA.outgoing[0].target.username} (Entrantes: ${pendingA.incoming.length})`);
+
+    // Volver a User B para aceptar la solicitud
+    await sb.client.auth.setSession(regB.user.tokens);
 
     console.log('\n▶ [5/6] Aceptando solicitud de amistad y verificando lista...');
     const acceptRes = await sb.acceptFriendRequest(pendingB.incoming[0].id, userB_Id);

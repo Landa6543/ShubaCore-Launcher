@@ -280,6 +280,7 @@ class SupabaseManager {
    */
   async updatePresence(userId, status, currentGame = null) {
     if (!this.client || !userId) return;
+    await this.ensureSession(userId);
     try {
       await this.client
         .from('profiles')
@@ -293,30 +294,80 @@ class SupabaseManager {
   }
 
   /**
-   * Asegura que el cliente Supabase tenga la sesión restaurada
+   * Cierra la sesión activa en el cliente Supabase
    */
-  async ensureSession() {
+  async logout() {
+    if (!this.client) return;
+    try {
+      await this.client.auth.signOut({ scope: 'local' });
+      logger.info('[Supabase] Sesión local de Supabase cerrada correctamente.');
+    } catch (err) {
+      logger.warn('[Supabase] Aviso al cerrar sesión en Supabase:', err.message);
+    }
+  }
+
+  /**
+   * Asegura que el cliente Supabase tenga la sesión restaurada y asociada estrictamente al usuario esperado
+   */
+  async ensureSession(expectedUserId = null) {
     if (!this.client) return false;
     try {
       const { data: current } = await this.client.auth.getSession();
-      if (current?.session?.access_token) return true;
+      const currentSessionUserId = current?.session?.user?.id;
 
-      // Leer tokens de auth-session.json
+      // Si se especificó un usuario requerido y ya coincide con la sesión en memoria
+      if (expectedUserId && currentSessionUserId === expectedUserId && current?.session?.access_token) {
+        return true;
+      }
+
+      // Obtener la cuenta y tokens guardados en auth-session.json
       const appData = process.env.APPDATA || (process.platform === 'darwin' ? path.join(process.env.HOME, 'Library', 'Application Support') : path.join(process.env.HOME, '.config'));
       const sessionPath = path.join(appData, '.shubacore', 'auth-session.json');
+      let savedUser = null;
+      let tokens = null;
+
       if (fs.existsSync(sessionPath)) {
-        const raw = fs.readFileSync(sessionPath, 'utf8');
-        const parsed = JSON.parse(raw);
-        const tokens = parsed?.shubacoreAccount?.tokens;
-        if (tokens?.access_token && tokens?.refresh_token) {
-          const { error } = await this.client.auth.setSession({
-            access_token: tokens.access_token,
-            refresh_token: tokens.refresh_token
-          });
-          if (!error) return true;
+        try {
+          const raw = fs.readFileSync(sessionPath, 'utf8');
+          const parsed = JSON.parse(raw);
+          savedUser = parsed?.shubacoreAccount || null;
+          tokens = savedUser?.tokens || null;
+        } catch (_) {}
+      }
+
+      const targetId = expectedUserId || savedUser?.id;
+
+      // Si no hay ningún usuario objetivo ni guardado, cerrar cualquier sesión residual en memoria
+      if (!targetId) {
+        if (current?.session) {
+          await this.client.auth.signOut({ scope: 'local' }).catch(() => {});
+        }
+        return false;
+      }
+
+      // Si la sesión en memoria ya coincide con el targetId
+      if (currentSessionUserId === targetId && current?.session?.access_token) {
+        return true;
+      }
+
+      // Si tenemos tokens guardados para el targetId, restaurar sesión explícita
+      if (savedUser && savedUser.id === targetId && tokens?.access_token && tokens?.refresh_token) {
+        const { data, error } = await this.client.auth.setSession({
+          access_token: tokens.access_token,
+          refresh_token: tokens.refresh_token
+        });
+        if (!error && data?.session) {
+          return true;
         }
       }
-    } catch (_) {}
+
+      // Si la sesión en memoria pertenece a otro usuario y no pudimos autenticar al targetId, limpiar localmente
+      if (currentSessionUserId && currentSessionUserId !== targetId) {
+        await this.client.auth.signOut({ scope: 'local' }).catch(() => {});
+      }
+    } catch (err) {
+      logger.warn('[Supabase] Error en ensureSession:', err?.message);
+    }
     return false;
   }
 
@@ -359,7 +410,7 @@ class SupabaseManager {
     const cleanTarget = String(targetUsername || '').trim().toLowerCase().replace(/^@/, '');
     if (!cleanTarget) return { success: false, error: 'Ingresa un nombre de usuario válido.' };
 
-    await this.ensureSession();
+    await this.ensureSession(currentUserId);
 
     try {
       // 1. Localizar perfil destino
@@ -430,7 +481,7 @@ class SupabaseManager {
    */
   async getFriends(currentUserId) {
     if (!this.client || !currentUserId) return [];
-    await this.ensureSession();
+    await this.ensureSession(currentUserId);
 
     try {
       const { data: friendships, error } = await this.client
@@ -474,7 +525,7 @@ class SupabaseManager {
    */
   async getPendingRequests(currentUserId) {
     if (!this.client || !currentUserId) return { incoming: [], outgoing: [] };
-    await this.ensureSession();
+    await this.ensureSession(currentUserId);
 
     try {
       // Entrantes: friend_id = currentUserId
@@ -527,7 +578,7 @@ class SupabaseManager {
    */
   async acceptFriendRequest(requestId, currentUserId) {
     if (!this.client || !requestId) return { success: false, error: 'Parámetros inválidos' };
-    await this.ensureSession();
+    await this.ensureSession(currentUserId);
 
     try {
       const { error } = await this.client
@@ -550,7 +601,7 @@ class SupabaseManager {
    */
   async rejectOrCancelRequest(requestId, currentUserId) {
     if (!this.client || !requestId) return { success: false, error: 'Parámetros inválidos' };
-    await this.ensureSession();
+    await this.ensureSession(currentUserId);
 
     try {
       const { error } = await this.client
@@ -572,7 +623,7 @@ class SupabaseManager {
    */
   async removeFriend(currentUserId, friendId) {
     if (!this.client || !currentUserId || !friendId) return { success: false };
-    await this.ensureSession();
+    await this.ensureSession(currentUserId);
 
     try {
       const { error } = await this.client

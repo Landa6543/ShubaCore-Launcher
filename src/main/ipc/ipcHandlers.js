@@ -459,7 +459,7 @@ function registerIpcHandlers(mainWindow) {
   });
 
   ipcMain.handle('auth:logout-shubacore', async () => {
-    return authManager.logoutShubaCore();
+    return await authManager.logoutShubaCore();
   });
 
   ipcMain.handle('auth:get-shubacore-account', async () => {

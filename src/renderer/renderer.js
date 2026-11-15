@@ -1103,6 +1103,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           const sess = await api.auth.getSavedSession();
           await updatePlayerBadge(sess.account, sess);
           await refreshShubaCoreAccountState();
+          await loadFriendsView();
           appendLog(`[ShubaCore Auth] Sesión iniciada como: @${res.user.displayName || res.user.username}`, 'success');
         } else {
           showShubacoreAlert(res?.error || 'No se pudo completar la operación.', 'error');
@@ -1124,6 +1125,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const sess = await api.auth.getSavedSession();
         await updatePlayerBadge(sess.account, sess);
         await refreshShubaCoreAccountState();
+        await loadFriendsView();
         appendLog(`[Auth] Jugando ahora con perfil ShubaCore: @${sess.shubacoreAccount?.displayName || sess.shubacoreAccount?.username}`, 'info');
         if (modalAccountManager) modalAccountManager.classList.remove('active');
       } catch (err) {
@@ -1143,6 +1145,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const sess = await api.auth.getSavedSession();
         await updatePlayerBadge(sess.account, sess);
         await refreshShubaCoreAccountState();
+        await loadFriendsView();
         appendLog('[Auth] Sesión de ShubaCore cerrada.', 'info');
       } catch (err) {
         appendLog(`[Auth Error] ${err.message}`, 'error');
@@ -6524,7 +6527,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   api.events.on('launch:close', (data) => {
-    appendLog(`[Launcher] El proceso de Minecraft finalizó con código: ${data.code}`, 'info');
+    const isNormalExit = data.code === 0 || data.code === -1073740791 || data.code === 3221225477;
+    appendLog(`[Launcher] El proceso de Minecraft finalizó con código: ${data.code}${isNormalExit ? ' (Cierre exitoso del juego)' : ''}`, 'info');
     if (dockLaunchProgress) dockLaunchProgress.style.display = 'none';
     progressBar.style.width = '0%';
     progressPercentLabel.textContent = '0%';
@@ -8169,13 +8173,20 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   async function loadFriendsView() {
     try {
+      // Limpiar inmediatamente listas y estados para evitar mezclar solicitudes entre cuentas
+      if (friendsListContainer) friendsListContainer.innerHTML = '';
+      if (incomingRequestsContainer) incomingRequestsContainer.innerHTML = '';
+      if (outgoingRequestsContainer) outgoingRequestsContainer.innerHTML = '';
+      if (friendsCountPill) friendsCountPill.textContent = '0';
+      if (pendingCountPill) pendingCountPill.textContent = '0';
+      if (friendsBadgeCount) friendsBadgeCount.style.display = 'none';
+
       const sess = await api.auth.getSavedSession().catch(() => null);
       const shubaAcc = sess?.shubacoreAccount || await api.auth.getShubaCoreAccount().catch(() => null);
 
       if (!shubaAcc || !shubaAcc.id) {
         if (friendsGuestBanner) friendsGuestBanner.style.display = 'block';
         if (friendsLoggedContainer) friendsLoggedContainer.style.display = 'none';
-        if (friendsBadgeCount) friendsBadgeCount.style.display = 'none';
         return;
       }
 

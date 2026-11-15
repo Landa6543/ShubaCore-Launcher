@@ -751,6 +751,7 @@ class AuthManager {
     session.activeMode = 'shubacore';
 
     this._writeSessionFile(session);
+    await this.supabaseManager.ensureSession(res.user.id);
     return { success: true, user: session.shubacoreAccount };
   }
 
@@ -766,6 +767,7 @@ class AuthManager {
     session.activeMode = 'shubacore';
 
     this._writeSessionFile(session);
+    await this.supabaseManager.ensureSession(res.user.id);
     return { success: true, user: session.shubacoreAccount };
   }
 
@@ -848,12 +850,15 @@ class AuthManager {
    */
   logoutShubaCore() {
     const session = this._readSessionFile();
-    if (session.shubacoreAccount) {
-      this.supabaseManager.updatePresence(session.shubacoreAccount.id, 'offline').catch(() => {});
-    }
+    const prevAccount = session.shubacoreAccount;
     session.shubacoreAccount = null;
     session.activeMode = session.microsoftAccount ? 'microsoft' : 'offline';
     this._writeSessionFile(session);
+
+    if (prevAccount?.id) {
+      this.supabaseManager.updatePresence(prevAccount.id, 'offline').catch(() => {});
+    }
+    this.supabaseManager.logout().catch(() => {});
     return { success: true };
   }
 
