@@ -8132,6 +8132,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const pendingCountPill = document.getElementById('pending-count-pill');
   const panelSocialFriends = document.getElementById('panel-social-friends');
   const panelSocialPending = document.getElementById('panel-social-pending');
+  const panelSocialChat = document.getElementById('panel-social-chat');
   const friendsListContainer = document.getElementById('friends-list-container');
   const friendsEmptyState = document.getElementById('friends-empty-state');
   const incomingRequestsContainer = document.getElementById('incoming-requests-container');
@@ -8139,10 +8140,29 @@ document.addEventListener('DOMContentLoaded', async () => {
   const outgoingRequestsContainer = document.getElementById('outgoing-requests-container');
   const outgoingEmpty = document.getElementById('outgoing-empty');
 
+  // Elementos del Chat Directo
+  const btnChatBack = document.getElementById('btn-chat-back');
+  const btnChatClose = document.getElementById('btn-chat-close');
+  const chatFriendAvatar = document.getElementById('chat-friend-avatar');
+  const chatFriendPresenceDot = document.getElementById('chat-friend-presence-dot');
+  const chatFriendName = document.getElementById('chat-friend-name');
+  const chatFriendTypeBadge = document.getElementById('chat-friend-type-badge');
+  const chatFriendStatus = document.getElementById('chat-friend-status');
+  const btnChatInviteGame = document.getElementById('btn-chat-invite-game');
+  const chatMessagesContainer = document.getElementById('chat-messages-container');
+  const inputChatMessage = document.getElementById('input-chat-message');
+  const btnSendChatMessage = document.getElementById('btn-send-chat-message');
+
+  let activeChatFriend = null;
+  let cachedFriendsList = [];
+  let unreadChatCounts = {};
+  const notifiedHostServers = new Set();
+
   let currentSocialSubtab = 'friends';
 
   function switchSocialSubtab(tab) {
     currentSocialSubtab = tab;
+    if (panelSocialChat) panelSocialChat.style.display = 'none';
     if (tab === 'pending') {
       if (tabSocialPending) tabSocialPending.classList.add('active');
       if (tabSocialFriends) tabSocialFriends.classList.remove('active');
@@ -8193,10 +8213,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (friendsGuestBanner) friendsGuestBanner.style.display = 'none';
       if (friendsLoggedContainer) friendsLoggedContainer.style.display = 'flex';
 
-      const [friends, pending] = await Promise.all([
+      const [friends, pending, unread] = await Promise.all([
         api.friends.getList().catch(() => []),
-        api.friends.getPending().catch(() => ({ incoming: [], outgoing: [] }))
+        api.friends.getPending().catch(() => ({ incoming: [], outgoing: [] })),
+        api.chat.getUnreadCount().catch(() => ({}))
       ]);
+
+      cachedFriendsList = Array.isArray(friends) ? friends : [];
+      unreadChatCounts = unread || {};
 
       const incomingCount = pending?.incoming?.length || 0;
       const outgoingCount = pending?.outgoing?.length || 0;
@@ -8205,19 +8229,28 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (friendsCountPill) friendsCountPill.textContent = String(friends.length);
       if (pendingCountPill) pendingCountPill.textContent = String(totalPending);
 
-      if (friendsBadgeCount) {
-        if (incomingCount > 0) {
-          friendsBadgeCount.textContent = String(incomingCount);
-          friendsBadgeCount.style.display = 'inline-block';
-        } else {
-          friendsBadgeCount.style.display = 'none';
-        }
-      }
+      updateChatBadges(incomingCount);
 
-      renderFriendsList(friends);
+      if (!activeChatFriend) {
+        renderFriendsList(friends);
+      }
       renderPendingRequests(pending);
     } catch (err) {
       console.warn('[loadFriendsView] Error:', err);
+    }
+  }
+
+  function updateChatBadges(incomingCount = 0) {
+    let totalUnread = 0;
+    Object.values(unreadChatCounts || {}).forEach((c) => { totalUnread += (Number(c) || 0); });
+    const totalBadge = incomingCount + totalUnread;
+    if (friendsBadgeCount) {
+      if (totalBadge > 0) {
+        friendsBadgeCount.textContent = String(totalBadge);
+        friendsBadgeCount.style.display = 'inline-block';
+      } else {
+        friendsBadgeCount.style.display = 'none';
+      }
     }
   }
 
@@ -8308,6 +8341,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       const isPrem = friend.accountType === 'premium' || Boolean(friend.msGamertag);
 
+      const unreadCount = unreadChatCounts[friend.friendId] || 0;
+
       card.innerHTML = `
         <div class="friend-header">
           <div class="friend-avatar-wrap">
@@ -8326,6 +8361,13 @@ document.addEventListener('DOMContentLoaded', async () => {
           </div>
           <button class="btn btn-secondary btn-small btn-remove-friend" data-id="${friend.friendId}" data-name="${escapeHtml(friend.username)}" title="Eliminar de amigos" style="padding: 4px 8px; opacity: 0.6;">
             ✕
+          </button>
+        </div>
+        <div class="friend-card-actions" style="display: flex; gap: 8px; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.06);">
+          <button class="btn btn-secondary btn-small btn-open-friend-chat" data-id="${friend.friendId}" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 6px 12px; font-size: 12px; border-radius: 6px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <span>Chat</span>
+            ${unreadCount > 0 ? `<span class="badge" style="background: #ef4444; color: #fff; font-size: 10px; padding: 1px 6px; border-radius: 10px; font-weight: bold; margin-left: 2px;">${unreadCount}</span>` : ''}
           </button>
         </div>
       `;
@@ -8371,6 +8413,14 @@ document.addEventListener('DOMContentLoaded', async () => {
           } catch (err) {
             alert('Error al eliminar: ' + err.message);
           }
+        });
+      }
+
+      const btnChat = card.querySelector('.btn-open-friend-chat');
+      if (btnChat) {
+        btnChat.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openFriendChat(friend);
         });
       }
 
@@ -8515,6 +8565,269 @@ document.addEventListener('DOMContentLoaded', async () => {
     setTimeout(() => {
       if (friendAddFeedback) friendAddFeedback.style.display = 'none';
     }, 5000);
+  }
+
+  // ==========================================
+  // FUNCIONES DE CHAT DIRECTO Y MENSAJERÍA
+  // ==========================================
+  async function openFriendChat(friend) {
+    if (!friend) return;
+    activeChatFriend = friend;
+    if (panelSocialFriends) panelSocialFriends.style.display = 'none';
+    if (panelSocialPending) panelSocialPending.style.display = 'none';
+    if (panelSocialChat) panelSocialChat.style.display = 'flex';
+
+    if (chatFriendName) chatFriendName.textContent = friend.displayName || friend.username;
+    if (chatFriendTypeBadge) {
+      const isPrem = friend.accountType === 'premium' || Boolean(friend.msGamertag);
+      chatFriendTypeBadge.textContent = isPrem ? 'PREMIUM' : 'SHUBA';
+      chatFriendTypeBadge.className = isPrem ? 'badge badge-success' : 'badge badge-offline';
+    }
+
+    if (chatFriendPresenceDot && chatFriendStatus) {
+      const isPlaying = friend.status === 'playing';
+      const isOnline = isPlaying || friend.status === 'online';
+      chatFriendPresenceDot.className = `presence-dot ${isPlaying ? 'playing' : (isOnline ? 'online' : 'offline')}`;
+      chatFriendStatus.textContent = isPlaying 
+        ? `Jugando a ${friend.currentGame?.worldName || 'Minecraft'} (MC ${friend.currentGame?.mc || ''})` 
+        : (isOnline ? 'En línea' : 'Desconectado');
+    }
+
+    const skinUrl = friend.skinUrl || `https://mc-heads.net/skin/${encodeURIComponent(friend.username)}`;
+    if (chatFriendAvatar) renderSkinFaceToCanvas(skinUrl, chatFriendAvatar);
+
+    if (btnChatInviteGame) {
+      const isGameRunning = typeof activeSessionsCount === 'number' && activeSessionsCount > 0;
+      btnChatInviteGame.style.display = isGameRunning ? 'inline-flex' : 'none';
+    }
+
+    if (chatMessagesContainer) {
+      chatMessagesContainer.innerHTML = '<div style="color: var(--text-dim); text-align: center; font-size: 12px; margin: auto;">Cargando mensajes...</div>';
+    }
+
+    try {
+      const conversation = await api.chat.getConversation(friend.friendId);
+      renderChatMessages(conversation, friend);
+      await api.chat.markAsRead(friend.friendId).catch(() => {});
+      unreadChatCounts[friend.friendId] = 0;
+      updateChatBadges();
+    } catch (err) {
+      if (chatMessagesContainer) {
+        chatMessagesContainer.innerHTML = `<div class="empty-state">No se pudieron cargar los mensajes: ${escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    if (inputChatMessage) {
+      inputChatMessage.focus();
+    }
+  }
+
+  function closeFriendChat() {
+    activeChatFriend = null;
+    if (panelSocialChat) panelSocialChat.style.display = 'none';
+    if (panelSocialFriends) panelSocialFriends.style.display = 'flex';
+    loadFriendsView();
+  }
+
+  function renderChatMessages(messages, friend) {
+    if (!chatMessagesContainer) return;
+    chatMessagesContainer.innerHTML = '';
+
+    if (!Array.isArray(messages) || messages.length === 0) {
+      chatMessagesContainer.innerHTML = `
+        <div style="margin: auto; text-align: center; color: var(--text-dim); padding: 20px;">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 8px; opacity: 0.6;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <p style="font-size: 13px; font-weight: 500; color: var(--text-secondary);">Comienza a chatear con @${escapeHtml(friend.username)}</p>
+          <small style="font-size: 11px;">Ponte de acuerdo para jugar juntos o invítalo a tu partida.</small>
+        </div>
+      `;
+      return;
+    }
+
+    messages.forEach((msg) => {
+      appendChatMessageBubble(msg, friend);
+    });
+
+    chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
+  }
+
+  function appendChatMessageBubble(msg, friend) {
+    if (!chatMessagesContainer) return;
+    const isSentByMe = msg.sender_id !== friend.friendId;
+
+    const row = document.createElement('div');
+    row.style.display = 'flex';
+    row.style.flexDirection = 'column';
+    row.style.alignSelf = isSentByMe ? 'flex-end' : 'flex-start';
+    row.style.maxWidth = '75%';
+
+    const timeStr = msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+
+    const bubble = document.createElement('div');
+    if (isSentByMe) {
+      bubble.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+      bubble.style.color = '#ffffff';
+      bubble.style.borderRadius = '14px 14px 3px 14px';
+    } else {
+      bubble.style.background = 'rgba(255, 255, 255, 0.08)';
+      bubble.style.border = '1px solid rgba(255, 255, 255, 0.12)';
+      bubble.style.color = '#f1f5f9';
+      bubble.style.borderRadius = '14px 14px 14px 3px';
+    }
+    bubble.style.padding = '8px 14px';
+    bubble.style.fontSize = '13px';
+    bubble.style.wordBreak = 'break-word';
+    bubble.style.boxShadow = '0 2px 6px rgba(0,0,0,0.2)';
+    bubble.innerHTML = escapeHtml(msg.content);
+
+    const meta = document.createElement('span');
+    meta.style.fontSize = '10px';
+    meta.style.color = 'var(--text-dim)';
+    meta.style.marginTop = '2px';
+    meta.style.alignSelf = isSentByMe ? 'flex-end' : 'flex-start';
+    meta.textContent = timeStr;
+
+    row.appendChild(bubble);
+    row.appendChild(meta);
+    chatMessagesContainer.appendChild(row);
+  }
+
+  async function handleSendChatMessage() {
+    if (!activeChatFriend || !inputChatMessage) return;
+    const content = inputChatMessage.value.trim();
+    if (!content) return;
+
+    inputChatMessage.value = '';
+    try {
+      const res = await api.chat.sendMessage(activeChatFriend.friendId, content);
+      if (res && res.success && res.message) {
+        appendChatMessageBubble(res.message, activeChatFriend);
+        if (chatMessagesContainer) {
+          chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
+        }
+      } else {
+        alert(res?.error || 'Error al enviar el mensaje.');
+      }
+    } catch (err) {
+      alert('Error de conexión al enviar mensaje: ' + err.message);
+    }
+  }
+
+  if (btnChatBack) btnChatBack.addEventListener('click', closeFriendChat);
+  if (btnChatClose) btnChatClose.addEventListener('click', closeFriendChat);
+  if (btnSendChatMessage) btnSendChatMessage.addEventListener('click', handleSendChatMessage);
+  if (inputChatMessage) {
+    inputChatMessage.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleSendChatMessage();
+      }
+    });
+  }
+
+  if (btnChatInviteGame) {
+    btnChatInviteGame.addEventListener('click', async () => {
+      if (!activeChatFriend) return;
+      const sess = await api.auth.getSavedSession().catch(() => null);
+      const shubaAcc = sess?.shubacoreAccount;
+      const currentGame = shubaAcc?.currentGame;
+      let text = '🚀 ¡Hola! ¿Jugamos? Entra a mi mundo en LAN.';
+      if (currentGame && currentGame.server) {
+        text = `🚀 ¡Únete a mi partida de Minecraft! Servidor LAN de ShubaHost: ${currentGame.server} (Mundo: ${currentGame.worldName || 'LAN'})`;
+      }
+      if (inputChatMessage) inputChatMessage.value = text;
+      handleSendChatMessage();
+    });
+  }
+
+  // ==========================================
+  // REALTIME Y NOTIFICACIONES DE ESCRITORIO
+  // ==========================================
+  try {
+    api.friends.startRealtime().catch(() => {});
+
+    api.events.on('social:realtime-update', async (update) => {
+      if (!update) return;
+
+      if (update.table === 'direct_messages' && update.new) {
+        const newMsg = update.new;
+        const sess = await api.auth.getSavedSession().catch(() => null);
+        const myId = sess?.shubacoreAccount?.id;
+
+        if (myId && newMsg.receiver_id === myId) {
+          if (activeChatFriend && activeChatFriend.friendId === newMsg.sender_id) {
+            appendChatMessageBubble(newMsg, activeChatFriend);
+            if (chatMessagesContainer) chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
+            api.chat.markAsRead(newMsg.sender_id).catch(() => {});
+          } else {
+            unreadChatCounts[newMsg.sender_id] = (unreadChatCounts[newMsg.sender_id] || 0) + 1;
+            updateChatBadges();
+
+            const senderFriend = cachedFriendsList.find(f => f.friendId === newMsg.sender_id);
+            const senderName = senderFriend?.displayName || senderFriend?.username || 'Amigo';
+
+            api.system.showNotification({
+              title: `💬 Mensaje de @${senderName}`,
+              body: newMsg.content,
+              action: 'open-chat',
+              payload: senderFriend || { friendId: newMsg.sender_id, username: senderName }
+            }).catch(() => {});
+          }
+        }
+      } else if (update.table === 'profiles') {
+        api.friends.getList().then((updatedFriends) => {
+          (updatedFriends || []).forEach((fr) => {
+            if (fr.status === 'playing' && fr.currentGame?.server) {
+              const serverAddr = fr.currentGame.server;
+              if (!notifiedHostServers.has(serverAddr)) {
+                notifiedHostServers.add(serverAddr);
+                api.system.showNotification({
+                  title: `🌐 ¡${fr.displayName || fr.username} abrió su mundo!`,
+                  body: `Mundo "${fr.currentGame.worldName || 'LAN'}" en Minecraft ${fr.currentGame.mc || ''}. ¡Haz clic para unirte!`,
+                  action: 'join-game',
+                  payload: fr.currentGame
+                }).catch(() => {});
+              }
+            }
+          });
+          if (!activeChatFriend) {
+            renderFriendsList(updatedFriends);
+          }
+        }).catch(() => {});
+      } else if (update.table === 'friendships') {
+        api.friends.getPending().then((pending) => {
+          if (pending?.incoming?.length > 0) {
+            const first = pending.incoming[0];
+            api.system.showNotification({
+              title: '👥 Solicitud de amistad',
+              body: `¡@${first.sender?.username || 'Un jugador'} te ha enviado una solicitud de amistad!`,
+              action: 'open-pending',
+              payload: {}
+            }).catch(() => {});
+          }
+          if (!activeChatFriend) {
+            renderPendingRequests(pending);
+          }
+        }).catch(() => {});
+      }
+    });
+
+    api.events.on('notification:clicked', async ({ action, payload }) => {
+      if (tabViewFriends) tabViewFriends.click();
+      if (action === 'open-chat' && payload) {
+        let friend = cachedFriendsList.find(f => f.friendId === payload.friendId);
+        if (!friend) {
+          friend = { friendId: payload.friendId, username: payload.username || 'Amigo', displayName: payload.username || 'Amigo' };
+        }
+        openFriendChat(friend);
+      } else if (action === 'join-game' && payload?.server) {
+        await launchJoinGame(payload.server, payload);
+      } else if (action === 'open-pending') {
+        switchSocialSubtab('pending');
+      }
+    });
+  } catch (realtimeErr) {
+    console.warn('[Social Realtime Init] Aviso:', realtimeErr);
   }
 
   // =======================================================

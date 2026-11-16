@@ -527,6 +527,101 @@ function registerIpcHandlers(mainWindow) {
   });
 
   // ==========================================
+  // CHAT DIRECTO Y MENSAJERÍA (SHUBACORE SOCIAL)
+  // ==========================================
+  ipcMain.handle('chat:send-message', async (event, { targetFriendId, content }) => {
+    const shubaUser = authManager.getShubaCoreAccount();
+    if (!shubaUser?.id) return { success: false, error: 'Debes iniciar sesión en ShubaCore Network.' };
+    return await supabaseManager.sendDirectMessage(shubaUser.id, targetFriendId, content);
+  });
+
+  ipcMain.handle('chat:get-conversation', async (event, friendId) => {
+    const shubaUser = authManager.getShubaCoreAccount();
+    if (!shubaUser?.id) return [];
+    return await supabaseManager.getConversation(shubaUser.id, friendId);
+  });
+
+  ipcMain.handle('chat:mark-as-read', async (event, friendId) => {
+    const shubaUser = authManager.getShubaCoreAccount();
+    if (!shubaUser?.id) return { success: false };
+    return await supabaseManager.markMessagesAsRead(shubaUser.id, friendId);
+  });
+
+  ipcMain.handle('chat:get-unread-count', async () => {
+    const shubaUser = authManager.getShubaCoreAccount();
+    if (!shubaUser?.id) return {};
+    return await supabaseManager.getUnreadMessageCount(shubaUser.id);
+  });
+
+  // ==========================================
+  // REALTIME SOCIAL Y PRESENCIA
+  // ==========================================
+  let activeSocialRealtimeChannel = null;
+
+  ipcMain.handle('social:start-realtime', async () => {
+    const shubaUser = authManager.getShubaCoreAccount();
+    if (!shubaUser?.id) return { success: false };
+
+    if (activeSocialRealtimeChannel) {
+      try { activeSocialRealtimeChannel.unsubscribe(); } catch (_) {}
+      activeSocialRealtimeChannel = null;
+    }
+
+    activeSocialRealtimeChannel = supabaseManager.subscribeRealtime(shubaUser.id, (update) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('social:realtime-update', update);
+      }
+    });
+
+    return { success: Boolean(activeSocialRealtimeChannel) };
+  });
+
+  ipcMain.handle('social:stop-realtime', async () => {
+    if (activeSocialRealtimeChannel) {
+      try { activeSocialRealtimeChannel.unsubscribe(); } catch (_) {}
+      activeSocialRealtimeChannel = null;
+    }
+    return { success: true };
+  });
+
+  // ==========================================
+  // NOTIFICACIONES DE ESCRITORIO (WINDOWS TOASTS)
+  // ==========================================
+  ipcMain.handle('system:show-notification', async (event, { title, body, icon, action, payload }) => {
+    try {
+      const { Notification } = require('electron');
+      if (!Notification.isSupported()) return { success: false, reason: 'unsupported' };
+
+      const defaultIcon = path.join(__dirname, '../../../logo.png');
+      const iconPath = icon || (fs.existsSync(defaultIcon) ? defaultIcon : undefined);
+
+      const notif = new Notification({
+        title: title || 'ShubaCore',
+        body: body || '',
+        icon: iconPath,
+        silent: false
+      });
+
+      if (action) {
+        notif.on('click', () => {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            if (mainWindow.isMinimized()) mainWindow.restore();
+            mainWindow.show();
+            mainWindow.focus();
+            mainWindow.webContents.send('notification:clicked', { action, payload });
+          }
+        });
+      }
+
+      notif.show();
+      return { success: true };
+    } catch (err) {
+      logger.warn('[Notification] Error al mostrar notificación:', err.message);
+      return { success: false, error: err.message };
+    }
+  });
+
+  // ==========================================
   // DETECCIÓN Y OPTIMIZACIÓN JVM / GESTOR RUNTIMES
   // ==========================================
   ipcMain.handle('jvm:detect', async (event, customJavaPath, targetMcVersion) => {

@@ -680,6 +680,120 @@ class SupabaseManager {
   }
 
   /**
+   * Enviar un mensaje directo a un amigo
+   */
+  async sendDirectMessage(currentUserId, targetFriendId, content) {
+    if (!this.client || !currentUserId || !targetFriendId) {
+      return { success: false, error: 'Parámetros inválidos.' };
+    }
+    const cleanContent = String(content || '').trim();
+    if (!cleanContent) {
+      return { success: false, error: 'El mensaje no puede estar vacío.' };
+    }
+    if (cleanContent.length > 1000) {
+      return { success: false, error: 'El mensaje supera el límite de 1000 caracteres.' };
+    }
+
+    const sessionOk = await this.ensureSession(currentUserId);
+    if (!sessionOk) {
+      return { success: false, error: 'Sesión no válida o expirada.' };
+    }
+
+    try {
+      const { data, error } = await this.client
+        .from('direct_messages')
+        .insert({
+          sender_id: currentUserId,
+          receiver_id: targetFriendId,
+          content: cleanContent
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      logger.info(`[Supabase] Mensaje directo enviado de ${currentUserId} a ${targetFriendId}`);
+      return { success: true, message: data };
+    } catch (err) {
+      logger.error('[Supabase] Error al enviar mensaje directo:', err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * Obtener historial de conversación entre el usuario y un amigo
+   */
+  async getConversation(currentUserId, friendId, limit = 60) {
+    if (!this.client || !currentUserId || !friendId) return [];
+    const sessionOk = await this.ensureSession(currentUserId);
+    if (!sessionOk) return [];
+
+    try {
+      const { data, error } = await this.client
+        .from('direct_messages')
+        .select('*')
+        .or(`and(sender_id.eq.${currentUserId},receiver_id.eq.${friendId}),and(sender_id.eq.${friendId},receiver_id.eq.${currentUserId})`)
+        .order('created_at', { ascending: true })
+        .limit(limit);
+
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      logger.error('[Supabase] Error al obtener conversación:', err);
+      return [];
+    }
+  }
+
+  /**
+   * Marcar mensajes recibidos de un amigo como leídos
+   */
+  async markMessagesAsRead(currentUserId, friendId) {
+    if (!this.client || !currentUserId || !friendId) return { success: false };
+    const sessionOk = await this.ensureSession(currentUserId);
+    if (!sessionOk) return { success: false };
+
+    try {
+      const { error } = await this.client
+        .from('direct_messages')
+        .update({ read_at: new Date().toISOString() })
+        .eq('receiver_id', currentUserId)
+        .eq('sender_id', friendId)
+        .is('read_at', null);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (err) {
+      logger.warn('[Supabase] Error al marcar leídos:', err.message);
+      return { success: false };
+    }
+  }
+
+  /**
+   * Obtener conteo de mensajes no leídos agrupados por amigo
+   */
+  async getUnreadMessageCount(currentUserId) {
+    if (!this.client || !currentUserId) return {};
+    const sessionOk = await this.ensureSession(currentUserId);
+    if (!sessionOk) return {};
+
+    try {
+      const { data, error } = await this.client
+        .from('direct_messages')
+        .select('sender_id')
+        .eq('receiver_id', currentUserId)
+        .is('read_at', null);
+
+      if (error) throw error;
+      const counts = {};
+      (data || []).forEach(row => {
+        counts[row.sender_id] = (counts[row.sender_id] || 0) + 1;
+      });
+      return counts;
+    } catch (err) {
+      return {};
+    }
+  }
+
+  /**
    * Suscribirse a cambios en tiempo real (Realtime Channel)
    */
   subscribeRealtime(currentUserId, onUpdate) {
@@ -692,6 +806,9 @@ class SupabaseManager {
         })
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, () => {
           if (typeof onUpdate === 'function') onUpdate({ table: 'profiles' });
+        })
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'direct_messages' }, (payload) => {
+          if (typeof onUpdate === 'function') onUpdate({ table: 'direct_messages', new: payload.new });
         })
         .subscribe();
 

@@ -1348,6 +1348,51 @@
               <div id="outgoing-empty" class="empty-state" style="display: none; padding: 16px;">No hay solicitudes enviadas en espera.</div>
             </div>
           </div>
+
+          <!-- Panel 3: Chat Directo con Amigo -->
+          <div id="panel-social-chat" style="display: none; flex: 1; flex-direction: column; background: rgba(18, 22, 28, 0.7); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; min-height: 480px;">
+            <!-- Header del Chat -->
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 18px; background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--border);">
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <button id="btn-chat-back" class="btn btn-secondary btn-small" title="Volver a la lista de amigos" style="padding: 6px 10px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                  <span>Volver</span>
+                </button>
+                <div class="friend-avatar-wrap" style="width: 38px; height: 38px; position: relative;">
+                  <canvas id="chat-friend-avatar" width="38" height="38" style="border-radius: 8px;"></canvas>
+                  <span id="chat-friend-presence-dot" class="presence-dot online" style="position: absolute; bottom: -2px; right: -2px; border: 2px solid #12161c;"></span>
+                </div>
+                <div>
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <strong id="chat-friend-name" style="font-size: 14px; color: var(--text-primary);">Amigo</strong>
+                    <span id="chat-friend-type-badge" class="badge badge-shubacore">ShubaCore</span>
+                  </div>
+                  <span id="chat-friend-status" style="font-size: 11.5px; color: var(--text-dim);">En línea</span>
+                </div>
+              </div>
+
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <button id="btn-chat-invite-game" class="btn btn-primary btn-small" style="display: none; font-size: 12px; padding: 5px 12px;">
+                  <span>🚀 Enviar IP de mi Partida</span>
+                </button>
+                <button id="btn-chat-close" class="btn btn-secondary btn-small" title="Cerrar chat" style="padding: 6px 10px;">✕</button>
+              </div>
+            </div>
+
+            <!-- Contenedor de Mensajes -->
+            <div id="chat-messages-container" style="flex: 1; padding: 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; max-height: calc(100vh - 350px);">
+              <!-- Mensajes dinámicos -->
+            </div>
+
+            <!-- Barra de Entrada de Mensaje -->
+            <div style="padding: 12px 16px; background: rgba(0,0,0,0.25); border-top: 1px solid var(--border); display: flex; gap: 10px; align-items: center;">
+              <input type="text" id="input-chat-message" class="catalog-search" placeholder="Escribe un mensaje a tu amigo..." maxlength="1000" style="flex: 1; height: 42px; border-radius: 8px; font-size: 13px;" />
+              <button id="btn-send-chat-message" class="btn btn-primary" style="height: 42px; padding: 0 18px; display: flex; align-items: center; gap: 6px;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                <span>Enviar</span>
+              </button>
+            </div>
+          </div>
         </div>
       </section>
 

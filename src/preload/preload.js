@@ -52,7 +52,10 @@ const VALID_RECEIVE_CHANNELS = [
   'playit:progress',
   'server-monitor:update',
   'clips:shortcut-triggered',
-  'server:client-mod-crash'
+  'server:client-mod-crash',
+  'notification:clicked',
+  'social:realtime-update',
+  'chat:message-received'
 ];
 
 contextBridge.exposeInMainWorld('shubaCoreAPI', {
@@ -129,7 +132,19 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
     getPending: () => ipcRenderer.invoke('friends:get-pending'),
     acceptRequest: (requestId) => ipcRenderer.invoke('friends:accept-request', requestId),
     rejectRequest: (requestId) => ipcRenderer.invoke('friends:reject-request', requestId),
-    remove: (friendId) => ipcRenderer.invoke('friends:remove', friendId)
+    remove: (friendId) => ipcRenderer.invoke('friends:remove', friendId),
+    startRealtime: () => ipcRenderer.invoke('social:start-realtime'),
+    stopRealtime: () => ipcRenderer.invoke('social:stop-realtime')
+  },
+
+  // ==========================================
+  // CHAT DIRECTO Y MENSAJERÍA (SHUBACORE SOCIAL)
+  // ==========================================
+  chat: {
+    sendMessage: (targetFriendId, content) => ipcRenderer.invoke('chat:send-message', { targetFriendId, content }),
+    getConversation: (friendId) => ipcRenderer.invoke('chat:get-conversation', friendId),
+    markAsRead: (friendId) => ipcRenderer.invoke('chat:mark-as-read', friendId),
+    getUnreadCount: () => ipcRenderer.invoke('chat:get-unread-count')
   },
 
   // ==========================================
@@ -341,6 +356,7 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
     getVersions: (options) => ipcRenderer.invoke('system:get-versions', options),
     openExternal: (url) => ipcRenderer.invoke('system:open-external', url),
     cleanMemory: () => ipcRenderer.invoke('system:clean-memory'),
+    showNotification: (options) => ipcRenderer.invoke('system:show-notification', options),
     minimize: () => ipcRenderer.send('window:minimize'),
     maximize: () => ipcRenderer.send('window:maximize'),
     close: () => ipcRenderer.send('window:close')
