@@ -41,6 +41,172 @@
 }
 
 /* ==========================================================================
+   PANTALLA DE INICIO (SPLASH SCREEN) - SHUBATECH
+   ========================================================================== */
+.shubacore-splash-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  background: radial-gradient(circle at center, #151923 0%, #090b0f 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  cursor: default;
+  transition: opacity 0.45s cubic-bezier(0.4, 0, 0.2, 1), transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.shubacore-splash-screen.splash-fading {
+  opacity: 0;
+  transform: scale(1.03);
+  pointer-events: none;
+}
+
+.splash-backdrop-glow {
+  position: absolute;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.22) 0%, rgba(16, 185, 129, 0.12) 45%, transparent 70%);
+  filter: blur(60px);
+  pointer-events: none;
+  animation: splashGlowPulse 3s infinite alternate ease-in-out;
+}
+
+@keyframes splashGlowPulse {
+  0% { transform: scale(0.92); opacity: 0.7; }
+  100% { transform: scale(1.08); opacity: 1; }
+}
+
+.splash-content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.splash-logo-wrapper {
+  position: relative;
+  width: 108px;
+  height: 108px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.splash-logo-halo {
+  position: absolute;
+  inset: -12px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, #10b981, #6366f1, #3b82f6, #10b981);
+  opacity: 0.4;
+  filter: blur(14px);
+  animation: splashSpinHalo 6s linear infinite;
+}
+
+@keyframes splashSpinHalo {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.splash-logo-img {
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+  border-radius: 20px;
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.6));
+  animation: splashFloat 2.6s ease-in-out infinite alternate;
+}
+
+@keyframes splashFloat {
+  0% { transform: translateY(0px); }
+  100% { transform: translateY(-6px); }
+}
+
+.splash-brand-text {
+  text-align: center;
+}
+
+.splash-brand-title {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 5px;
+  background: linear-gradient(135deg, #ffffff 40%, #c4b5fd 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 0 25px rgba(167, 139, 250, 0.35);
+}
+
+.splash-brand-sub {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.splash-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.splash-version {
+  font-size: 11px;
+  font-weight: 500;
+  color: #64748b;
+  letter-spacing: 1px;
+}
+
+.splash-loader-bar {
+  width: 220px;
+  height: 3px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  position: relative;
+  margin-top: 10px;
+}
+
+.splash-loader-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 0%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #10b981, #6366f1);
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.6);
+  animation: splashFillProgress 1.4s ease-in-out forwards;
+}
+
+@keyframes splashFillProgress {
+  0% { width: 5%; }
+  40% { width: 50%; }
+  80% { width: 85%; }
+  100% { width: 100%; }
+}
+
+.splash-status-text {
+  font-size: 11px;
+  color: #94a3b8;
+  font-family: var(--font-mono, monospace);
+  letter-spacing: 0.5px;
+  min-height: 16px;
+  text-align: center;
+}
+
+/* ==========================================================================
    RESET GLOBAL DE ANCHOS Y CONTENEDORES PADRE (100% FLUIDO / ULTRAWIDE READY)
    ========================================================================== */
 

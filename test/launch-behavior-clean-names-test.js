@@ -1,6 +1,14 @@
 const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
+
+const testDir = path.join(__dirname, '.test-settings-data');
+if (fs.existsSync(testDir)) {
+  fs.rmSync(testDir, { recursive: true, force: true });
+}
+fs.mkdirSync(testDir, { recursive: true });
+process.env.SHUBACORE_SESSION_FILE = path.join(testDir, 'auth-session-clean.json');
+
 const { ConfigManager } = require('../src/main/config/ConfigManager');
 const { ProfileManager } = require('../src/main/profiles/ProfileManager');
 const { getAuthManager } = require('../src/main/auth/AuthManager');

@@ -10689,4 +10689,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     const running = await api.launcher.getRunning();
     updateLaunchUIState(running ? running.length : 0);
   } catch (_) {}
+
+  // ==========================================
+  // DISMISS SPLASH SCREEN (SHUBATECH)
+  // ==========================================
+  const splashScreen = document.getElementById('shubacore-splash-screen');
+  const splashStatusText = document.getElementById('splash-status-text');
+
+  if (splashScreen) {
+    if (splashStatusText) splashStatusText.textContent = 'Subsistemas listos';
+
+    let splashDismissed = false;
+    const dismissSplash = () => {
+      if (splashDismissed) return;
+      splashDismissed = true;
+      splashScreen.classList.add('splash-fading');
+      setTimeout(() => {
+        splashScreen.style.display = 'none';
+      }, 500);
+    };
+
+    splashScreen.addEventListener('click', dismissSplash);
+    window.addEventListener('keydown', dismissSplash, { once: true });
+    setTimeout(dismissSplash, 1200);
+  }
 });

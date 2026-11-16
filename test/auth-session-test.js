@@ -6,6 +6,11 @@
 const assert = require('assert');
 const path = require('path');
 const fs = require('fs');
+
+const testDataDir = path.join(__dirname, '.test-data');
+if (!fs.existsSync(testDataDir)) fs.mkdirSync(testDataDir, { recursive: true });
+process.env.SHUBACORE_SESSION_FILE = path.join(testDataDir, 'auth-session-unit.json');
+
 const { getAuthManager } = require('../src/main/auth/AuthManager');
 
 async function runTests() {

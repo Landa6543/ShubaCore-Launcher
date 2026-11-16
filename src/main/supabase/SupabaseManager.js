@@ -336,20 +336,33 @@ class SupabaseManager {
   }
 
   /**
-   * Asegura que el cliente Supabase tenga la sesión restaurada y asociada estrictamente al usuario esperado
+   * Guarda los tokens de sesión actualizados en el archivo de sesión persistente
+   */
+  _saveTokensToDisk(userId, session) {
+    if (!session || !userId) return;
+    try {
+      const sessionPath = this._getSessionFilePath();
+      if (fs.existsSync(sessionPath)) {
+        const raw = fs.readFileSync(sessionPath, 'utf8');
+        const parsed = JSON.parse(raw);
+        if (parsed?.shubacoreAccount && parsed.shubacoreAccount.id === userId) {
+          parsed.shubacoreAccount.tokens = {
+            access_token: session.access_token,
+            refresh_token: session.refresh_token,
+            expires_at: session.expires_at
+          };
+          fs.writeFileSync(sessionPath, JSON.stringify(parsed, null, 2), 'utf8');
+        }
+      }
+    } catch (_) {}
+  }
+
+  /**
+   * Asegura que el cliente Supabase tenga la sesión restaurada, activa y con tokens no expirados
    */
   async ensureSession(expectedUserId = null) {
     if (!this.client) return false;
     try {
-      const { data: current } = await this.client.auth.getSession();
-      const currentSessionUserId = current?.session?.user?.id;
-
-      // Si se especificó un usuario requerido y ya coincide con la sesión en memoria
-      if (expectedUserId && currentSessionUserId === expectedUserId && current?.session?.access_token) {
-        return true;
-      }
-
-      // Obtener la cuenta y tokens guardados en auth-session.json
       const sessionPath = this._getSessionFilePath();
       let savedUser = null;
       let tokens = null;
@@ -364,6 +377,9 @@ class SupabaseManager {
       }
 
       const targetId = expectedUserId || savedUser?.id;
+      const { data: current } = await this.client.auth.getSession();
+      const currentSessionUserId = current?.session?.user?.id;
+      const nowSec = Math.floor(Date.now() / 1000);
 
       // Si no hay ningún usuario objetivo ni guardado, cerrar cualquier sesión residual en memoria
       if (!targetId) {
@@ -373,18 +389,31 @@ class SupabaseManager {
         return false;
       }
 
-      // Si la sesión en memoria ya coincide con el targetId
+      // 1. Si la sesión en memoria ya coincide con targetId
       if (currentSessionUserId === targetId && current?.session?.access_token) {
-        return true;
+        const expiresAt = current.session.expires_at || 0;
+        // Si el token aún es válido por al menos 60 segundos
+        if (expiresAt > (nowSec + 60)) {
+          return true;
+        }
+        // Si expiró o está a punto de expirar, intentar auto-renovar con refreshSession
+        try {
+          const { data: refData, error: refErr } = await this.client.auth.refreshSession();
+          if (!refErr && refData?.session) {
+            this._saveTokensToDisk(targetId, refData.session);
+            return true;
+          }
+        } catch (_) {}
       }
 
-      // Si tenemos tokens guardados para el targetId, restaurar sesión explícita
-      if (savedUser && savedUser.id === targetId && tokens?.access_token && tokens?.refresh_token) {
+      // 2. Si no coincide en memoria o falló la auto-renovación, restaurar desde auth-session.json
+      if (savedUser && savedUser.id === targetId && tokens?.refresh_token) {
         const { data, error } = await this.client.auth.setSession({
-          access_token: tokens.access_token,
+          access_token: tokens.access_token || '',
           refresh_token: tokens.refresh_token
         });
         if (!error && data?.session) {
+          this._saveTokensToDisk(targetId, data.session);
           return true;
         }
         if (error) {
@@ -392,7 +421,7 @@ class SupabaseManager {
         }
       }
 
-      // Si la sesión en memoria pertenece a otro usuario y no pudimos autenticar al targetId, limpiar localmente
+      // 3. Si la sesión en memoria pertenece a otro usuario y no pudimos autenticar al targetId, limpiar localmente
       if (currentSessionUserId && currentSessionUserId !== targetId) {
         await this.client.auth.signOut({ scope: 'local' }).catch(() => {});
       }
@@ -499,6 +528,9 @@ class SupabaseManager {
         .single();
 
       if (insertErr) {
+        if (insertErr.message && insertErr.message.toLowerCase().includes('row-level security')) {
+          return { success: false, error: 'No se pudo enviar la solicitud por permisos de sesión. Por favor inicia sesión nuevamente en ShubaCore.' };
+        }
         return { success: false, error: insertErr.message };
       }
 
@@ -715,7 +747,10 @@ class SupabaseManager {
       return { success: true, message: data };
     } catch (err) {
       logger.error('[Supabase] Error al enviar mensaje directo:', err);
-      return { success: false, error: err.message };
+      const msg = err.message && err.message.toLowerCase().includes('row-level security')
+        ? 'No se pudo enviar el mensaje por permisos de sesión. Inicia sesión nuevamente en ShubaCore.'
+        : err.message;
+      return { success: false, error: msg };
     }
   }
 
