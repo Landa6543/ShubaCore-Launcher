@@ -2631,6 +2631,9 @@ document.addEventListener('DOMContentLoaded', async () => {
               <button class="btn btn-small btn-secondary btn-icon-square btn-export-pack" data-id="${p.id}" data-name="${escapeHtml(p.name || 'perfil')}" title="Exportar como .shubapack">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
               </button>
+              <button class="btn btn-small btn-secondary btn-icon-square btn-share-instance-code" data-id="${p.id}" title="Compartir con amigos por código corto (GitHub)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+              </button>
               ${profiles.length > 1 ? `
                 <button class="btn btn-small btn-danger btn-icon-square btn-delete-profile" data-id="${p.id}" title="Eliminar instancia">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
@@ -2738,6 +2741,14 @@ document.addEventListener('DOMContentLoaded', async () => {
               btn.disabled = false;
             }
           }
+        });
+      });
+
+      document.querySelectorAll('.btn-share-instance-code').forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const id = e.currentTarget.getAttribute('data-id');
+          openExportCodeModal(id);
         });
       });
     } catch (err) {
@@ -10688,7 +10699,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const exportCodeInstancesList = document.getElementById('export-code-instances-list');
 
-  function openExportCodeModal() {
+  function openExportCodeModal(preselectedProfileId) {
     if (!modalExportCode) return;
     try {
       if (selectExportCodeProfile) {
@@ -10704,7 +10715,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           exportCodeInstancesList.innerHTML = '<div class="empty-state" style="padding: 12px; font-size: 12px;">No hay instancias disponibles para compartir.</div>';
         }
       } else {
-        const initialSelectedId = currentActiveProfile?.id || list[0].id;
+        const initialSelectedId = preselectedProfileId || currentActiveProfile?.id || list[0].id;
         list.forEach((p) => {
           if (selectExportCodeProfile) {
             const opt = document.createElement('option');
@@ -10760,24 +10771,33 @@ document.addEventListener('DOMContentLoaded', async () => {
         btnExecuteExportCode.disabled = false;
         btnExecuteExportCode.innerHTML = '<span>🚀 Generar Código</span>';
       }
-      modalExportCode.style.display = 'flex';
+      modalExportCode.classList.add('active');
+      modalExportCode.style.setProperty('display', 'flex', 'important');
     } catch (err) {
       console.warn('[ExportCode] Error abriendo modal:', err);
     }
   }
 
   function closeExportCodeModal() {
-    if (modalExportCode) modalExportCode.style.display = 'none';
+    if (modalExportCode) {
+      modalExportCode.classList.remove('active');
+      modalExportCode.style.setProperty('display', 'none', 'important');
+    }
   }
 
   if (btnExportProfileCode) {
-    btnExportProfileCode.addEventListener('click', openExportCodeModal);
+    btnExportProfileCode.addEventListener('click', () => openExportCodeModal());
   }
   if (btnCloseExportCodeModal) {
     btnCloseExportCodeModal.addEventListener('click', closeExportCodeModal);
   }
   if (btnCancelExportCode) {
     btnCancelExportCode.addEventListener('click', closeExportCodeModal);
+  }
+  if (modalExportCode) {
+    modalExportCode.addEventListener('click', (e) => {
+      if (e.target === modalExportCode) closeExportCodeModal();
+    });
   }
 
   if (btnExecuteExportCode) {
@@ -10840,21 +10860,30 @@ document.addEventListener('DOMContentLoaded', async () => {
       btnExecuteImportCode.disabled = false;
       btnExecuteImportCode.innerHTML = '<span>⚡ Descargar e Instalar</span>';
     }
-    modalImportCode.style.display = 'flex';
+    modalImportCode.classList.add('active');
+    modalImportCode.style.setProperty('display', 'flex', 'important');
   }
 
   function closeImportCodeModal() {
-    if (modalImportCode) modalImportCode.style.display = 'none';
+    if (modalImportCode) {
+      modalImportCode.classList.remove('active');
+      modalImportCode.style.setProperty('display', 'none', 'important');
+    }
   }
 
   if (btnImportProfileCode) {
-    btnImportProfileCode.addEventListener('click', openImportCodeModal);
+    btnImportProfileCode.addEventListener('click', () => openImportCodeModal());
   }
   if (btnCloseImportCodeModal) {
     btnCloseImportCodeModal.addEventListener('click', closeImportCodeModal);
   }
   if (btnCancelImportCode) {
     btnCancelImportCode.addEventListener('click', closeImportCodeModal);
+  }
+  if (modalImportCode) {
+    modalImportCode.addEventListener('click', (e) => {
+      if (e.target === modalImportCode) closeImportCodeModal();
+    });
   }
 
   if (btnExecuteImportCode) {
