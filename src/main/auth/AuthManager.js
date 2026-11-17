@@ -59,11 +59,30 @@ class AuthManager {
       }
     } catch (_) {}
 
-    if (!userDataDir) {
-      userDataDir = path.join(process.env.APPDATA || process.env.USERPROFILE || process.env.HOME || '.', '.shubacore');
+    const appData = process.env.APPDATA || (process.platform === 'darwin' ? path.join(process.env.HOME, 'Library', 'Application Support') : path.join(process.env.HOME, '.config'));
+    const candidatePaths = [
+      userDataDir ? path.join(userDataDir, 'auth-session.json') : null,
+      path.join(appData, 'shubacore-launcher', 'auth-session.json'),
+      path.join(appData, '.shubacore', 'auth-session.json')
+    ].filter(Boolean);
+
+    for (const p of candidatePaths) {
+      if (fs.existsSync(p)) {
+        try {
+          const raw = fs.readFileSync(p, 'utf8');
+          const parsed = JSON.parse(raw);
+          if (parsed?.shubacoreAccount?.id && parsed.shubacoreAccount?.tokens) {
+            return p;
+          }
+        } catch (_) {}
+      }
     }
 
-    return path.join(userDataDir, 'auth-session.json');
+    for (const p of candidatePaths) {
+      if (fs.existsSync(p)) return p;
+    }
+
+    return candidatePaths[0] || path.join(appData, '.shubacore', 'auth-session.json');
   }
 
   /**
@@ -135,6 +154,24 @@ class AuthManager {
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
       fs.writeFileSync(filePath, JSON.stringify(sessionData, null, 2), 'utf8');
       logger.debug(`[AuthManager] auth-session.json actualizado en: ${filePath}`);
+
+      // Sincronizar en ubicaciones secundarias conocidas para consistencia total (solo en entorno real, no en pruebas aisladas)
+      if (!process.env.SHUBACORE_SESSION_FILE) {
+        const appData = process.env.APPDATA || (process.platform === 'darwin' ? path.join(process.env.HOME, 'Library', 'Application Support') : path.join(process.env.HOME, '.config'));
+        const mirrorPaths = [
+          path.join(appData, 'shubacore-launcher', 'auth-session.json'),
+          path.join(appData, '.shubacore', 'auth-session.json')
+        ];
+        for (const mPath of mirrorPaths) {
+          if (mPath !== filePath) {
+            try {
+              const mDir = path.dirname(mPath);
+              if (!fs.existsSync(mDir)) fs.mkdirSync(mDir, { recursive: true });
+              fs.writeFileSync(mPath, JSON.stringify(sessionData, null, 2), 'utf8');
+            } catch (_) {}
+          }
+        }
+      }
     } catch (err) {
       logger.error('[AuthManager] Error al guardar auth-session.json:', err.message);
     }

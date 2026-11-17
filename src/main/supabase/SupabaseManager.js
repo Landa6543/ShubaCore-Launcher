@@ -73,12 +73,44 @@ class SupabaseManager {
     }
   }
 
-  _getSessionFilePath() {
+  _getAllCandidateSessionPaths() {
     if (process.env.SHUBACORE_SESSION_FILE) {
-      return process.env.SHUBACORE_SESSION_FILE;
+      return [process.env.SHUBACORE_SESSION_FILE];
     }
+    let userDataDir = null;
+    try {
+      const electron = require('electron');
+      const electronApp = electron.app || (electron.remote && electron.remote.app);
+      if (electronApp && typeof electronApp.getPath === 'function') {
+        userDataDir = electronApp.getPath('userData');
+      }
+    } catch (_) {}
+
     const appData = process.env.APPDATA || (process.platform === 'darwin' ? path.join(process.env.HOME, 'Library', 'Application Support') : path.join(process.env.HOME, '.config'));
-    return path.join(appData, '.shubacore', 'auth-session.json');
+    return [
+      userDataDir ? path.join(userDataDir, 'auth-session.json') : null,
+      path.join(appData, 'shubacore-launcher', 'auth-session.json'),
+      path.join(appData, '.shubacore', 'auth-session.json')
+    ].filter(Boolean);
+  }
+
+  _getSessionFilePath() {
+    const candidates = this._getAllCandidateSessionPaths();
+    for (const p of candidates) {
+      if (fs.existsSync(p)) {
+        try {
+          const raw = fs.readFileSync(p, 'utf8');
+          const parsed = JSON.parse(raw);
+          if (parsed?.shubacoreAccount?.id && parsed.shubacoreAccount?.tokens) {
+            return p;
+          }
+        } catch (_) {}
+      }
+    }
+    for (const p of candidates) {
+      if (fs.existsSync(p)) return p;
+    }
+    return candidates[0] || path.join(process.env.APPDATA || '.', '.shubacore', 'auth-session.json');
   }
 
   _toVirtualEmail(username) {
@@ -340,21 +372,27 @@ class SupabaseManager {
    */
   _saveTokensToDisk(userId, session) {
     if (!session || !userId) return;
-    try {
-      const sessionPath = this._getSessionFilePath();
-      if (fs.existsSync(sessionPath)) {
-        const raw = fs.readFileSync(sessionPath, 'utf8');
-        const parsed = JSON.parse(raw);
-        if (parsed?.shubacoreAccount && parsed.shubacoreAccount.id === userId) {
-          parsed.shubacoreAccount.tokens = {
-            access_token: session.access_token,
-            refresh_token: session.refresh_token,
-            expires_at: session.expires_at
-          };
-          fs.writeFileSync(sessionPath, JSON.stringify(parsed, null, 2), 'utf8');
+    const candidates = this._getAllCandidateSessionPaths();
+    for (const sessionPath of candidates) {
+      try {
+        if (fs.existsSync(sessionPath)) {
+          const raw = fs.readFileSync(sessionPath, 'utf8');
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === 'object') {
+            if (!parsed.shubacoreAccount) parsed.shubacoreAccount = {};
+            if (parsed.shubacoreAccount.id === userId || !parsed.shubacoreAccount.id) {
+              parsed.shubacoreAccount.id = userId;
+              parsed.shubacoreAccount.tokens = {
+                access_token: session.access_token,
+                refresh_token: session.refresh_token,
+                expires_at: session.expires_at
+              };
+              fs.writeFileSync(sessionPath, JSON.stringify(parsed, null, 2), 'utf8');
+            }
+          }
         }
-      }
-    } catch (_) {}
+      } catch (_) {}
+    }
   }
 
   /**
@@ -432,7 +470,7 @@ class SupabaseManager {
   }
 
   /**
-   * Buscar usuarios por nombre en la red ShubaCore
+   * Buscar usuarios por nombre en la red ShubaCore con perfil enriquecido
    */
   async searchUsers(query, excludeUserId = null) {
     if (!this.client) return [];
@@ -442,7 +480,7 @@ class SupabaseManager {
     try {
       let req = this.client
         .from('profiles')
-        .select('id, username, display_name, account_type, ms_gamertag, skin_url, status, last_seen')
+        .select('id, username, display_name, account_type, ms_gamertag, skin_url, status, last_seen, created_at, bio, play_time_seconds, favorite_modloader, play_style')
         .or(`username.ilike.%${cleanQuery}%,display_name.ilike.%${cleanQuery}%`)
         .limit(10);
 
@@ -455,10 +493,142 @@ class SupabaseManager {
         logger.warn('[Supabase] Error en búsqueda de usuarios:', error.message);
         return [];
       }
-      return data || [];
+      return (data || []).map(p => ({
+        id: p.id,
+        username: p.username,
+        displayName: p.display_name || p.username,
+        accountType: p.account_type,
+        msGamertag: p.ms_gamertag,
+        skinUrl: p.skin_url,
+        status: p.status || 'offline',
+        lastSeen: p.last_seen,
+        createdAt: p.created_at,
+        bio: p.bio || '',
+        playTimeSeconds: Number(p.play_time_seconds) || 0,
+        favoriteModloader: p.favorite_modloader || 'Fabric',
+        playStyle: p.play_style || 'Modded'
+      }));
     } catch (err) {
       logger.error('[Supabase] Excepción en searchUsers:', err);
       return [];
+    }
+  }
+
+  /**
+   * Obtener perfil completo de un usuario por ID o por nombre de usuario
+   */
+  async getUserProfile(userIdOrUsername) {
+    if (!this.client || !userIdOrUsername) return null;
+    try {
+      let query = this.client
+        .from('profiles')
+        .select('id, username, display_name, account_type, ms_gamertag, skin_url, status, last_seen, created_at, bio, play_time_seconds, favorite_modloader, play_style, current_game');
+
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(userIdOrUsername).trim());
+      if (isUuid) {
+        query = query.eq('id', String(userIdOrUsername).trim());
+      } else {
+        query = query.eq('username', String(userIdOrUsername).trim().toLowerCase().replace(/^@/, ''));
+      }
+
+      const { data, error } = await query.single();
+      if (error) {
+        return null;
+      }
+      return {
+        id: data.id,
+        username: data.username,
+        displayName: data.display_name || data.username,
+        accountType: data.account_type,
+        msGamertag: data.ms_gamertag,
+        skinUrl: data.skin_url,
+        status: data.status || 'offline',
+        lastSeen: data.last_seen,
+        createdAt: data.created_at,
+        bio: data.bio || '',
+        playTimeSeconds: Number(data.play_time_seconds) || 0,
+        favoriteModloader: data.favorite_modloader || 'Fabric',
+        playStyle: data.play_style || 'Modded',
+        currentGame: data.current_game || null
+      };
+    } catch (err) {
+      logger.error('[Supabase] Error en getUserProfile:', err);
+      return null;
+    }
+  }
+
+  /**
+   * Actualizar perfil social (descripción/bio, modloader favorito, estilo de juego, nombre visible)
+   */
+  async updateUserProfile(userId, { bio, favoriteModloader, playStyle, displayName } = {}) {
+    if (!this.client || !userId) return { success: false, error: 'Usuario no identificado.' };
+    const sessionOk = await this.ensureSession(userId);
+    if (!sessionOk) return { success: false, error: 'Sesión expirada o no autenticada.' };
+
+    const updatePayload = {
+      last_seen: new Date().toISOString()
+    };
+    if (typeof bio === 'string') updatePayload.bio = bio.trim().slice(0, 300);
+    if (typeof favoriteModloader === 'string' && favoriteModloader.trim()) updatePayload.favorite_modloader = favoriteModloader.trim();
+    if (typeof playStyle === 'string' && playStyle.trim()) updatePayload.play_style = playStyle.trim();
+    if (typeof displayName === 'string' && displayName.trim().length >= 2) updatePayload.display_name = displayName.trim().slice(0, 32);
+
+    try {
+      const { data, error } = await this.client
+        .from('profiles')
+        .update(updatePayload)
+        .eq('id', userId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      logger.info(`[Supabase] Perfil social actualizado para ${userId}: bio=${updatePayload.bio ? 'ok' : 'none'}, modloader=${updatePayload.favorite_modloader || 'keep'}`);
+      return {
+        success: true,
+        profile: {
+          id: data.id,
+          username: data.username,
+          displayName: data.display_name,
+          bio: data.bio || '',
+          favoriteModloader: data.favorite_modloader || 'Fabric',
+          playStyle: data.play_style || 'Modded',
+          playTimeSeconds: Number(data.play_time_seconds) || 0,
+          createdAt: data.created_at
+        }
+      };
+    } catch (err) {
+      logger.error('[Supabase] Error en updateUserProfile:', err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * Acumular tiempo de juego jugado en el perfil
+   */
+  async addPlayTime(userId, seconds) {
+    if (!this.client || !userId || !seconds || seconds <= 0) return { success: false };
+    try {
+      const { data: curr } = await this.client
+        .from('profiles')
+        .select('play_time_seconds')
+        .eq('id', userId)
+        .single();
+
+      const newTotal = (Number(curr?.play_time_seconds) || 0) + Math.round(seconds);
+      const { error } = await this.client
+        .from('profiles')
+        .update({
+          play_time_seconds: newTotal,
+          last_seen: new Date().toISOString()
+        })
+        .eq('id', userId);
+
+      if (error) throw error;
+      logger.info(`[Supabase] Tiempo de juego incrementado en +${Math.round(seconds)}s para usuario ${userId}. Total: ${newTotal}s`);
+      return { success: true, totalSeconds: newTotal };
+    } catch (err) {
+      logger.warn('[Supabase] Error al acumular tiempo de juego:', err.message);
+      return { success: false };
     }
   }
 
@@ -543,7 +713,7 @@ class SupabaseManager {
   }
 
   /**
-   * Obtener lista de amigos aceptados con perfil y estado en tiempo real
+   * Obtener lista de amigos aceptados con perfil enriquecido y estado en tiempo real
    */
   async getFriends(currentUserId) {
     if (!this.client || !currentUserId) return [];
@@ -553,7 +723,7 @@ class SupabaseManager {
     try {
       const { data: friendships, error } = await this.client
         .from('friendships')
-        .select('id, user_id, friend_id, status, created_at, updated_at, sender:profiles!friendships_user_id_fkey(id, username, display_name, account_type, ms_gamertag, skin_url, status, current_game, last_seen), receiver:profiles!friendships_friend_id_fkey(id, username, display_name, account_type, ms_gamertag, skin_url, status, current_game, last_seen)')
+        .select('id, user_id, friend_id, status, created_at, updated_at, sender:profiles!friendships_user_id_fkey(id, username, display_name, account_type, ms_gamertag, skin_url, status, current_game, last_seen, created_at, bio, play_time_seconds, favorite_modloader, play_style), receiver:profiles!friendships_friend_id_fkey(id, username, display_name, account_type, ms_gamertag, skin_url, status, current_game, last_seen, created_at, bio, play_time_seconds, favorite_modloader, play_style)')
         .eq('status', 'accepted')
         .or(`user_id.eq.${currentUserId},friend_id.eq.${currentUserId}`);
 
@@ -576,7 +746,12 @@ class SupabaseManager {
           status: profile?.status || 'offline',
           currentGame: profile?.current_game || null,
           lastSeen: profile?.last_seen,
-          since: f.created_at
+          since: f.created_at,
+          createdAt: profile?.created_at,
+          bio: profile?.bio || '',
+          playTimeSeconds: Number(profile?.play_time_seconds) || 0,
+          favoriteModloader: profile?.favorite_modloader || 'Fabric',
+          playStyle: profile?.play_style || 'Modded'
         };
       });
 
@@ -588,7 +763,7 @@ class SupabaseManager {
   }
 
   /**
-   * Obtener solicitudes de amistad pendientes (entrantes y salientes)
+   * Obtener solicitudes de amistad pendientes (entrantes y salientes) con perfil enriquecido
    */
   async getPendingRequests(currentUserId) {
     if (!this.client || !currentUserId) return { incoming: [], outgoing: [] };
@@ -599,14 +774,14 @@ class SupabaseManager {
       // Entrantes: friend_id = currentUserId
       const { data: incomingRows, error: incErr } = await this.client
         .from('friendships')
-        .select('id, user_id, status, created_at, sender:profiles!friendships_user_id_fkey(id, username, display_name, account_type, skin_url)')
+        .select('id, user_id, status, created_at, sender:profiles!friendships_user_id_fkey(id, username, display_name, account_type, skin_url, created_at, bio, play_time_seconds, favorite_modloader, play_style)')
         .eq('friend_id', currentUserId)
         .eq('status', 'pending');
 
       // Salientes: user_id = currentUserId
       const { data: outgoingRows, error: outErr } = await this.client
         .from('friendships')
-        .select('id, friend_id, status, created_at, receiver:profiles!friendships_friend_id_fkey(id, username, display_name, account_type, skin_url)')
+        .select('id, friend_id, status, created_at, receiver:profiles!friendships_friend_id_fkey(id, username, display_name, account_type, skin_url, created_at, bio, play_time_seconds, favorite_modloader, play_style)')
         .eq('user_id', currentUserId)
         .eq('status', 'pending');
 
@@ -618,7 +793,12 @@ class SupabaseManager {
           username: r.sender?.username,
           displayName: r.sender?.display_name || r.sender?.username,
           skinUrl: r.sender?.skin_url,
-          accountType: r.sender?.account_type
+          accountType: r.sender?.account_type,
+          createdAt: r.sender?.created_at,
+          bio: r.sender?.bio || '',
+          playTimeSeconds: Number(r.sender?.play_time_seconds) || 0,
+          favoriteModloader: r.sender?.favorite_modloader || 'Fabric',
+          playStyle: r.sender?.play_style || 'Modded'
         }
       }));
 
@@ -630,7 +810,12 @@ class SupabaseManager {
           username: r.receiver?.username,
           displayName: r.receiver?.display_name || r.receiver?.username,
           skinUrl: r.receiver?.skin_url,
-          accountType: r.receiver?.account_type
+          accountType: r.receiver?.account_type,
+          createdAt: r.receiver?.created_at,
+          bio: r.receiver?.bio || '',
+          playTimeSeconds: Number(r.receiver?.play_time_seconds) || 0,
+          favoriteModloader: r.receiver?.favorite_modloader || 'Fabric',
+          playStyle: r.receiver?.play_style || 'Modded'
         }
       }));
 
@@ -829,6 +1014,123 @@ class SupabaseManager {
   }
 
   /**
+   * Crear y enviar una invitación de partida LAN / ShubaHost a un amigo
+   */
+  async createGameInvite(hostId, { guestId, guestUsername, worldName, mcVersion, loader, serverAddress }) {
+    if (!this.client || !hostId) return { success: false, error: 'Host no autenticado' };
+    if (!serverAddress) return { success: false, error: 'No hay dirección de servidor disponible para invitar.' };
+
+    const sessionOk = await this.ensureSession(hostId);
+    if (!sessionOk) return { success: false, error: 'Sesión expirada' };
+
+    let targetGuestId = guestId;
+    if (!targetGuestId && guestUsername) {
+      const userProfile = await this.getUserProfile(guestUsername);
+      if (userProfile?.id) {
+        targetGuestId = userProfile.id;
+      }
+    }
+
+    if (!targetGuestId) {
+      return { success: false, error: 'Amigo no especificado o no encontrado.' };
+    }
+
+    try {
+      const { data, error } = await this.client
+        .from('game_invites')
+        .insert({
+          host_id: hostId,
+          guest_id: targetGuestId,
+          world_name: String(worldName || 'Mundo ShubaCore').trim(),
+          mc_version: String(mcVersion || '26.3').trim(),
+          loader: String(loader || 'fabric').trim(),
+          server_address: String(serverAddress).trim(),
+          status: 'pending'
+        })
+        .select('*, host:profiles!game_invites_host_id_fkey(id, username, display_name, skin_url), guest:profiles!game_invites_guest_id_fkey(id, username, display_name)')
+        .single();
+
+      if (error) throw error;
+      logger.info(`[Supabase] Invitación a partida creada: Host ${hostId} -> Guest ${targetGuestId} (${serverAddress})`);
+      return { success: true, invite: data };
+    } catch (err) {
+      logger.error('[Supabase] Error en createGameInvite:', err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * Obtener invitaciones a partidas pendientes recibidas por el usuario
+   */
+  async getPendingGameInvites(guestId) {
+    if (!this.client || !guestId) return [];
+    const sessionOk = await this.ensureSession(guestId);
+    if (!sessionOk) return [];
+
+    try {
+      const { data, error } = await this.client
+        .from('game_invites')
+        .select('id, host_id, guest_id, world_name, mc_version, loader, server_address, status, created_at, host:profiles!game_invites_host_id_fkey(id, username, display_name, skin_url, account_type)')
+        .eq('guest_id', guestId)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        logger.warn('[Supabase] Error al obtener game_invites:', error.message);
+        return [];
+      }
+      return (data || []).map(inv => ({
+        id: inv.id,
+        hostId: inv.host_id,
+        guestId: inv.guest_id,
+        worldName: inv.world_name,
+        mcVersion: inv.mc_version,
+        loader: inv.loader,
+        serverAddress: inv.server_address,
+        status: inv.status,
+        createdAt: inv.created_at,
+        host: {
+          id: inv.host?.id,
+          username: inv.host?.username,
+          displayName: inv.host?.display_name || inv.host?.username,
+          skinUrl: inv.host?.skin_url,
+          accountType: inv.host?.account_type
+        }
+      }));
+    } catch (err) {
+      logger.error('[Supabase] Error en getPendingGameInvites:', err);
+      return [];
+    }
+  }
+
+  /**
+   * Responder a una invitación a partida (aceptar o rechazar)
+   */
+  async respondGameInvite(inviteId, guestId, accept = true) {
+    if (!this.client || !inviteId || !guestId) return { success: false, error: 'Parámetros inválidos' };
+    const sessionOk = await this.ensureSession(guestId);
+    if (!sessionOk) return { success: false, error: 'Sesión expirada' };
+
+    try {
+      const newStatus = accept ? 'accepted' : 'rejected';
+      const { data, error } = await this.client
+        .from('game_invites')
+        .update({ status: newStatus })
+        .eq('id', inviteId)
+        .eq('guest_id', guestId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      logger.info(`[Supabase] Invitación a partida ${inviteId} respondida con estado: ${newStatus}`);
+      return { success: true, invite: data };
+    } catch (err) {
+      logger.error('[Supabase] Error en respondGameInvite:', err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
    * Suscribirse a cambios en tiempo real (Realtime Channel)
    */
   subscribeRealtime(currentUserId, onUpdate) {
@@ -844,6 +1146,9 @@ class SupabaseManager {
         })
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'direct_messages' }, (payload) => {
           if (typeof onUpdate === 'function') onUpdate({ table: 'direct_messages', new: payload.new });
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'game_invites' }, (payload) => {
+          if (typeof onUpdate === 'function') onUpdate({ table: 'game_invites', eventType: payload.eventType, new: payload.new });
         })
         .subscribe();
 

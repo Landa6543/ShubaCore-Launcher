@@ -133,6 +133,12 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
     acceptRequest: (requestId) => ipcRenderer.invoke('friends:accept-request', requestId),
     rejectRequest: (requestId) => ipcRenderer.invoke('friends:reject-request', requestId),
     remove: (friendId) => ipcRenderer.invoke('friends:remove', friendId),
+    getUserProfile: (userIdOrUsername) => ipcRenderer.invoke('friends:get-user-profile', userIdOrUsername),
+    updateSocialProfile: (updates) => ipcRenderer.invoke('friends:update-social-profile', updates),
+    createGameInvite: (inviteData) => ipcRenderer.invoke('friends:create-game-invite', inviteData),
+    getGameInvites: () => ipcRenderer.invoke('friends:get-game-invites'),
+    respondGameInvite: (inviteId, accept) => ipcRenderer.invoke('friends:respond-game-invite', { inviteId, accept }),
+    acceptAndJoinInvite: (inviteId) => ipcRenderer.invoke('friends:accept-and-join-invite', inviteId),
     startRealtime: () => ipcRenderer.invoke('social:start-realtime'),
     stopRealtime: () => ipcRenderer.invoke('social:stop-realtime')
   },

@@ -8168,6 +8168,37 @@ document.addEventListener('DOMContentLoaded', async () => {
   const outgoingRequestsContainer = document.getElementById('outgoing-requests-container');
   const outgoingEmpty = document.getElementById('outgoing-empty');
 
+  // Elementos del Buscador de Perfiles e Invitaciones
+  const btnSearchUserProfile = document.getElementById('btn-search-user-profile');
+  const friendSearchResults = document.getElementById('friend-search-results');
+  const tabSocialInvites = document.getElementById('tab-social-invites');
+  const tabSocialProfile = document.getElementById('tab-social-profile');
+  const invitesCountPill = document.getElementById('invites-count-pill');
+  const panelSocialInvites = document.getElementById('panel-social-invites');
+  const panelSocialProfile = document.getElementById('panel-social-profile');
+  const btnRefreshInvites = document.getElementById('btn-refresh-invites');
+  const gameInvitesContainer = document.getElementById('game-invites-container');
+  const gameInvitesEmpty = document.getElementById('game-invites-empty');
+
+  // Elementos de Mi Perfil Social
+  const myProfileAvatarCanvas = document.getElementById('my-profile-avatar-canvas');
+  const myProfileNameTitle = document.getElementById('my-profile-name-title');
+  const myProfileBadge = document.getElementById('my-profile-badge');
+  const myProfileUsernameTag = document.getElementById('my-profile-username-tag');
+  const myProfileCreatedDate = document.getElementById('my-profile-created-date');
+  const myProfilePlaytimeBadge = document.getElementById('my-profile-playtime-badge');
+  const inputProfileDisplayName = document.getElementById('input-profile-display-name');
+  const selectProfileModloader = document.getElementById('select-profile-modloader');
+  const selectProfilePlaystyle = document.getElementById('select-profile-playstyle');
+  const inputProfileBio = document.getElementById('input-profile-bio');
+  const btnSaveSocialProfile = document.getElementById('btn-save-social-profile');
+  const profileSaveFeedback = document.getElementById('profile-save-feedback');
+
+  // Modal de Perfil de Usuario
+  const modalUserProfile = document.getElementById('modal-user-profile');
+  const userProfileModalBody = document.getElementById('user-profile-modal-body');
+  const btnCloseUserProfileModal = document.getElementById('btn-close-user-profile-modal');
+
   // Elementos del Chat Directo
   const btnChatBack = document.getElementById('btn-chat-back');
   const btnChatClose = document.getElementById('btn-chat-close');
@@ -8188,24 +8219,61 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   let currentSocialSubtab = 'friends';
 
+  function formatPlayTime(seconds) {
+    const total = Number(seconds) || 0;
+    if (total <= 0) return '0 min';
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+    return `${minutes} min`;
+  }
+
+  function formatCreationDate(dateStr) {
+    if (!dateStr) return 'Reciente';
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+    } catch (_) {
+      return String(dateStr).split('T')[0] || 'Reciente';
+    }
+  }
+
   function switchSocialSubtab(tab) {
     currentSocialSubtab = tab;
     if (panelSocialChat) panelSocialChat.style.display = 'none';
+
+    [tabSocialFriends, tabSocialPending, tabSocialInvites, tabSocialProfile].forEach(t => t?.classList?.remove('active'));
+    [panelSocialFriends, panelSocialPending, panelSocialInvites, panelSocialProfile].forEach(p => { if (p) p.style.display = 'none'; });
+
     if (tab === 'pending') {
       if (tabSocialPending) tabSocialPending.classList.add('active');
-      if (tabSocialFriends) tabSocialFriends.classList.remove('active');
       if (panelSocialPending) panelSocialPending.style.display = 'flex';
-      if (panelSocialFriends) panelSocialFriends.style.display = 'none';
+    } else if (tab === 'invites') {
+      if (tabSocialInvites) tabSocialInvites.classList.add('active');
+      if (panelSocialInvites) panelSocialInvites.style.display = 'flex';
+      api.friends.getGameInvites().then(renderGameInvites).catch(() => {});
+    } else if (tab === 'profile') {
+      if (tabSocialProfile) tabSocialProfile.classList.add('active');
+      if (panelSocialProfile) panelSocialProfile.style.display = 'flex';
+      loadMySocialProfile();
     } else {
       if (tabSocialFriends) tabSocialFriends.classList.add('active');
-      if (tabSocialPending) tabSocialPending.classList.remove('active');
       if (panelSocialFriends) panelSocialFriends.style.display = 'flex';
-      if (panelSocialPending) panelSocialPending.style.display = 'none';
     }
   }
 
   if (tabSocialFriends) tabSocialFriends.addEventListener('click', () => switchSocialSubtab('friends'));
   if (tabSocialPending) tabSocialPending.addEventListener('click', () => switchSocialSubtab('pending'));
+  if (tabSocialInvites) tabSocialInvites.addEventListener('click', () => switchSocialSubtab('invites'));
+  if (tabSocialProfile) tabSocialProfile.addEventListener('click', () => switchSocialSubtab('profile'));
+
+  if (btnRefreshInvites) {
+    btnRefreshInvites.addEventListener('click', () => {
+      api.friends.getGameInvites().then(renderGameInvites).catch(() => {});
+    });
+  }
 
   if (btnOpenAccountFromFriends) {
     btnOpenAccountFromFriends.addEventListener('click', () => {
@@ -8225,8 +8293,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (friendsListContainer) friendsListContainer.innerHTML = '';
       if (incomingRequestsContainer) incomingRequestsContainer.innerHTML = '';
       if (outgoingRequestsContainer) outgoingRequestsContainer.innerHTML = '';
+      if (gameInvitesContainer) gameInvitesContainer.innerHTML = '';
       if (friendsCountPill) friendsCountPill.textContent = '0';
       if (pendingCountPill) pendingCountPill.textContent = '0';
+      if (invitesCountPill) invitesCountPill.style.display = 'none';
       if (friendsBadgeCount) friendsBadgeCount.style.display = 'none';
 
       const sess = await api.auth.getSavedSession().catch(() => null);
@@ -8241,10 +8311,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (friendsGuestBanner) friendsGuestBanner.style.display = 'none';
       if (friendsLoggedContainer) friendsLoggedContainer.style.display = 'flex';
 
-      const [friends, pending, unread] = await Promise.all([
+      const [friends, pending, unread, invites] = await Promise.all([
         api.friends.getList().catch(() => []),
         api.friends.getPending().catch(() => ({ incoming: [], outgoing: [] })),
-        api.chat.getUnreadCount().catch(() => ({}))
+        api.chat.getUnreadCount().catch(() => ({})),
+        api.friends.getGameInvites().catch(() => [])
       ]);
 
       cachedFriendsList = Array.isArray(friends) ? friends : [];
@@ -8253,16 +8324,22 @@ document.addEventListener('DOMContentLoaded', async () => {
       const incomingCount = pending?.incoming?.length || 0;
       const outgoingCount = pending?.outgoing?.length || 0;
       const totalPending = incomingCount + outgoingCount;
+      const pendingInvitesCount = (invites || []).length;
 
       if (friendsCountPill) friendsCountPill.textContent = String(friends.length);
       if (pendingCountPill) pendingCountPill.textContent = String(totalPending);
+      if (invitesCountPill) {
+        invitesCountPill.textContent = String(pendingInvitesCount);
+        invitesCountPill.style.display = pendingInvitesCount > 0 ? 'inline-block' : 'none';
+      }
 
-      updateChatBadges(incomingCount);
+      updateChatBadges(incomingCount + pendingInvitesCount);
 
       if (!activeChatFriend) {
         renderFriendsList(friends);
       }
       renderPendingRequests(pending);
+      renderGameInvites(invites);
     } catch (err) {
       console.warn('[loadFriendsView] Error:', err);
     }
@@ -8386,16 +8463,28 @@ document.addEventListener('DOMContentLoaded', async () => {
               <span class="status-dot-circle ${statusClass}"></span>
               <span style="color: ${isPlaying ? '#a78bfa' : (isOnline ? '#10b981' : 'var(--text-dim)')};">${statusText}</span>
             </div>
+            ${friend.bio ? `<p class="friend-bio" title="${escapeHtml(friend.bio)}">"${escapeHtml(friend.bio)}"</p>` : ''}
+            <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px;">
+              <span class="badge" style="font-size: 10px; background: rgba(255,255,255,0.06); color: var(--text-secondary);" title="Tiempo total jugado">⏱ ${formatPlayTime(friend.playTimeSeconds)}</span>
+              <span class="badge" style="font-size: 10px; background: rgba(16, 185, 129, 0.15); color: #10b981;" title="Modloader favorito">${escapeHtml(friend.favoriteModloader || 'Fabric')}</span>
+              ${friend.playStyle ? `<span class="badge" style="font-size: 10px; background: rgba(139, 92, 246, 0.15); color: #c4b5fd;" title="Estilo de juego">${escapeHtml(friend.playStyle)}</span>` : ''}
+            </div>
           </div>
           <button class="btn btn-secondary btn-small btn-remove-friend" data-id="${friend.friendId}" data-name="${escapeHtml(friend.username)}" title="Eliminar de amigos" style="padding: 4px 8px; opacity: 0.6;">
             ✕
           </button>
         </div>
-        <div class="friend-card-actions" style="display: flex; gap: 8px; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.06);">
-          <button class="btn btn-secondary btn-small btn-open-friend-chat" data-id="${friend.friendId}" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 6px 12px; font-size: 12px; border-radius: 6px;">
+        <div class="friend-card-actions" style="display: flex; gap: 6px; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.06); flex-wrap: wrap;">
+          <button class="btn btn-secondary btn-small btn-open-friend-chat" data-id="${friend.friendId}" style="flex: 1; min-width: 65px; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 6px 10px; font-size: 12px; border-radius: 6px;">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
             <span>Chat</span>
             ${unreadCount > 0 ? `<span class="badge" style="background: #ef4444; color: #fff; font-size: 10px; padding: 1px 6px; border-radius: 10px; font-weight: bold; margin-left: 2px;">${unreadCount}</span>` : ''}
+          </button>
+          <button class="btn btn-secondary btn-small btn-view-profile" data-id="${friend.friendId}" style="padding: 6px 10px; font-size: 12px; border-radius: 6px;" title="Ver perfil detallado">
+            <span>Perfil</span>
+          </button>
+          <button class="btn btn-primary btn-small btn-invite-game" data-id="${friend.friendId}" style="padding: 6px 12px; font-size: 12px; border-radius: 6px;" title="Invitar a tu partida abierta con ShubaHost">
+            <span>🎮 Invitar</span>
           </button>
         </div>
       `;
@@ -8449,6 +8538,41 @@ document.addEventListener('DOMContentLoaded', async () => {
         btnChat.addEventListener('click', (e) => {
           e.stopPropagation();
           openFriendChat(friend);
+        });
+      }
+
+      const btnViewProf = card.querySelector('.btn-view-profile');
+      if (btnViewProf) {
+        btnViewProf.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openUserProfileModal(friend);
+        });
+      }
+
+      const btnInvite = card.querySelector('.btn-invite-game');
+      if (btnInvite) {
+        btnInvite.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          btnInvite.disabled = true;
+          try {
+            const res = await api.friends.createGameInvite({ guestId: friend.friendId });
+            if (res && res.success) {
+              btnInvite.textContent = '✔ Invitado';
+              appendLog(`[ShubaCore Social] ¡Invitación enviada a @${friend.username}!`, 'success');
+              setTimeout(() => {
+                if (btnInvite) {
+                  btnInvite.textContent = '🎮 Invitar';
+                  btnInvite.disabled = false;
+                }
+              }, 3000);
+            } else {
+              alert(res?.error || 'Para invitar a tu amigo a jugar, abre tu mundo LAN con ShubaHost in-game o inicia tu partida.');
+              btnInvite.disabled = false;
+            }
+          } catch (err) {
+            alert('Error al enviar invitación: ' + err.message);
+            btnInvite.disabled = false;
+          }
         });
       }
 
@@ -8593,6 +8717,329 @@ document.addEventListener('DOMContentLoaded', async () => {
     setTimeout(() => {
       if (friendAddFeedback) friendAddFeedback.style.display = 'none';
     }, 5000);
+  }
+
+  // ==========================================
+  // INVITACIONES A PARTIDAS (SHUBAHOST / REALTIME)
+  // ==========================================
+  function renderGameInvites(invites) {
+    if (!gameInvitesContainer) return;
+    gameInvitesContainer.innerHTML = '';
+    if (!Array.isArray(invites) || invites.length === 0) {
+      if (gameInvitesEmpty) gameInvitesEmpty.style.display = 'block';
+      return;
+    }
+    if (gameInvitesEmpty) gameInvitesEmpty.style.display = 'none';
+
+    invites.forEach((inv) => {
+      const card = document.createElement('div');
+      card.className = 'invite-card';
+      const hostSkinUrl = inv.host?.skinUrl || `https://mc-heads.net/skin/${encodeURIComponent(inv.host?.username || 'Steve')}`;
+
+      card.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
+          <div class="friend-avatar-wrap" style="width: 44px; height: 44px;">
+            <canvas class="inv-avatar" width="44" height="44"></canvas>
+          </div>
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <strong style="font-size: 13.5px; color: var(--text-primary);">${escapeHtml(inv.host?.displayName || inv.host?.username || 'Amigo')}</strong>
+              <span class="badge badge-success" style="font-size: 9px; padding: 1px 5px;">ANFITRIÓN</span>
+            </div>
+            <p style="margin: 2px 0 0 0; font-size: 12px; color: var(--text-secondary);">
+              Te invita a jugar a: <b style="color: #10b981;">${escapeHtml(inv.worldName || 'Mundo ShubaCore')}</b>
+            </p>
+            <div style="display: flex; gap: 8px; margin-top: 4px; font-size: 11px; color: var(--text-dim); flex-wrap: wrap;">
+              <span>MC ${escapeHtml(inv.mcVersion || '26.3')} (${escapeHtml(inv.loader || 'Fabric')})</span>
+              <span>·</span>
+              <span>Servidor: ${escapeHtml(inv.serverAddress)}</span>
+            </div>
+          </div>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-primary btn-small btn-join-invite" data-id="${inv.id}" style="padding: 6px 14px;">
+            <span>🚀 Unirse</span>
+          </button>
+          <button class="btn btn-secondary btn-small btn-reject-invite" data-id="${inv.id}" style="padding: 6px 12px;">
+            <span>✕ Rechazar</span>
+          </button>
+        </div>
+      `;
+
+      const canvas = card.querySelector('.inv-avatar');
+      if (canvas) renderSkinFaceToCanvas(hostSkinUrl, canvas);
+
+      const btnJoin = card.querySelector('.btn-join-invite');
+      if (btnJoin) {
+        btnJoin.addEventListener('click', async () => {
+          btnJoin.disabled = true;
+          btnJoin.textContent = 'Conectando...';
+          try {
+            appendLog(`[ShubaCore Social] Aceptando invitación de ${inv.host?.displayName || inv.host?.username} a ${inv.serverAddress}...`, 'info');
+            const res = await api.friends.acceptAndJoinInvite(inv.id);
+            if (!res || !res.success) {
+              alert(res?.error || 'No se pudo conectar a la partida.');
+            }
+          } catch (err) {
+            alert('Error al unirse: ' + err.message);
+          } finally {
+            btnJoin.disabled = false;
+            loadFriendsView();
+          }
+        });
+      }
+
+      const btnReject = card.querySelector('.btn-reject-invite');
+      if (btnReject) {
+        btnReject.addEventListener('click', async () => {
+          btnReject.disabled = true;
+          await api.friends.respondGameInvite(inv.id, false);
+          loadFriendsView();
+        });
+      }
+
+      gameInvitesContainer.appendChild(card);
+    });
+  }
+
+  // ==========================================
+  // MI PERFIL SOCIAL (BIO, MODLOADER, TIEMPO)
+  // ==========================================
+  async function loadMySocialProfile() {
+    try {
+      const sess = await api.auth.getSavedSession().catch(() => null);
+      const shubaAcc = sess?.shubacoreAccount || await api.auth.getShubaCoreAccount().catch(() => null);
+      if (!shubaAcc?.id) return;
+
+      const prof = await api.friends.getUserProfile(shubaAcc.id);
+      if (!prof) return;
+
+      if (myProfileNameTitle) myProfileNameTitle.textContent = prof.displayName || prof.username;
+      if (myProfileUsernameTag) myProfileUsernameTag.textContent = `@${prof.username}`;
+      if (myProfileCreatedDate) myProfileCreatedDate.textContent = `📅 Miembro desde: ${formatCreationDate(prof.createdAt)}`;
+      if (myProfilePlaytimeBadge) myProfilePlaytimeBadge.textContent = `⏱ Tiempo jugado: ${formatPlayTime(prof.playTimeSeconds)}`;
+
+      if (inputProfileDisplayName) inputProfileDisplayName.value = prof.displayName || prof.username;
+      if (selectProfileModloader) selectProfileModloader.value = prof.favoriteModloader || 'Fabric';
+      if (selectProfilePlaystyle) selectProfilePlaystyle.value = prof.playStyle || 'Modded';
+      if (inputProfileBio) inputProfileBio.value = prof.bio || '';
+
+      const skinUrl = prof.skinUrl || `https://mc-heads.net/skin/${encodeURIComponent(prof.username)}`;
+      if (myProfileAvatarCanvas) renderSkinFaceToCanvas(skinUrl, myProfileAvatarCanvas);
+    } catch (err) {
+      console.warn('[loadMySocialProfile] Error:', err);
+    }
+  }
+
+  if (btnSaveSocialProfile) {
+    btnSaveSocialProfile.addEventListener('click', async () => {
+      btnSaveSocialProfile.disabled = true;
+      if (profileSaveFeedback) profileSaveFeedback.style.display = 'none';
+
+      try {
+        const res = await api.friends.updateSocialProfile({
+          displayName: inputProfileDisplayName?.value?.trim(),
+          favoriteModloader: selectProfileModloader?.value,
+          playStyle: selectProfilePlaystyle?.value,
+          bio: inputProfileBio?.value?.trim()
+        });
+
+        if (res && res.success) {
+          if (profileSaveFeedback) {
+            profileSaveFeedback.textContent = '✔ Perfil social guardado correctamente.';
+            profileSaveFeedback.className = 'auth-alert success';
+            profileSaveFeedback.style.display = 'block';
+          }
+          await loadMySocialProfile();
+        } else {
+          if (profileSaveFeedback) {
+            profileSaveFeedback.textContent = res?.error || 'Error al guardar perfil.';
+            profileSaveFeedback.className = 'auth-alert error';
+            profileSaveFeedback.style.display = 'block';
+          }
+        }
+      } catch (err) {
+        if (profileSaveFeedback) {
+          profileSaveFeedback.textContent = err.message || 'Error inesperado.';
+          profileSaveFeedback.className = 'auth-alert error';
+          profileSaveFeedback.style.display = 'block';
+        }
+      } finally {
+        btnSaveSocialProfile.disabled = false;
+      }
+    });
+  }
+
+  // ==========================================
+  // BUSCADOR Y VISUALIZADOR DE PERFILES SOCIALES
+  // ==========================================
+  async function searchAndDisplayUserProfile() {
+    const query = (inputSearchAddFriend?.value || '').trim();
+    if (!query) {
+      showFriendFeedback('Escribe un @nombre de usuario para buscar.', 'error');
+      return;
+    }
+    if (friendSearchResults) {
+      friendSearchResults.style.display = 'block';
+      friendSearchResults.innerHTML = '<div style="padding: 12px; color: var(--text-dim); text-align: center;">Buscando perfil en ShubaCore...</div>';
+    }
+
+    try {
+      const prof = await api.friends.getUserProfile(query);
+      if (!prof || !prof.id) {
+        if (friendSearchResults) {
+          friendSearchResults.innerHTML = `
+            <div style="padding: 14px; text-align: center; color: var(--text-secondary);">
+              No se encontró ningún jugador registrado con el nombre "<b>${escapeHtml(query)}</b>".
+            </div>
+          `;
+        }
+        return;
+      }
+
+      const sess = await api.auth.getSavedSession().catch(() => null);
+      const myId = sess?.shubacoreAccount?.id;
+      const isMe = myId === prof.id;
+      const isFriend = (cachedFriendsList || []).some(f => f.friendId === prof.id || f.username?.toLowerCase() === prof.username?.toLowerCase());
+      const skinUrl = prof.skinUrl || `https://mc-heads.net/skin/${encodeURIComponent(prof.username)}`;
+
+      friendSearchResults.innerHTML = `
+        <div class="friend-search-card">
+          <div style="display: flex; gap: 14px; align-items: center;">
+            <div class="friend-avatar-wrap" style="width: 52px; height: 52px;">
+              <canvas id="search-result-avatar" width="52" height="52"></canvas>
+            </div>
+            <div style="flex: 1;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <strong style="font-size: 15px; color: var(--text-primary);">${escapeHtml(prof.displayName || prof.username)}</strong>
+                <span class="badge ${prof.accountType === 'premium' ? 'badge-success' : 'badge-offline'}" style="font-size: 9.5px; padding: 1px 5px;">${prof.accountType === 'premium' ? 'PREMIUM' : 'SHUBA'}</span>
+              </div>
+              <span style="font-size: 12px; color: var(--text-dim);">@${escapeHtml(prof.username)}</span>
+              <div style="display: flex; gap: 12px; margin-top: 6px; font-size: 11px; color: var(--text-secondary); flex-wrap: wrap;">
+                <span>📅 Miembro desde: <b>${formatCreationDate(prof.createdAt)}</b></span>
+                <span>⏱ Jugado: <b>${formatPlayTime(prof.playTimeSeconds)}</b></span>
+                <span>⚙ Modloader fav: <b style="color: #10b981;">${escapeHtml(prof.favoriteModloader || 'Fabric')}</b></span>
+                <span>🎮 Estilo: <b style="color: #c4b5fd;">${escapeHtml(prof.playStyle || 'Modded')}</b></span>
+              </div>
+            </div>
+          </div>
+          ${prof.bio ? `<div style="font-size: 12px; color: var(--text-primary); background: rgba(0,0,0,0.25); border-left: 3px solid #10b981; padding: 8px 12px; border-radius: 4px;"><i>"${escapeHtml(prof.bio)}"</i></div>` : ''}
+          <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px;">
+            ${isMe ? '<span style="font-size: 12px; color: var(--text-dim); margin-top: 6px;">Este es tu propio perfil</span>' :
+              (isFriend ? '<button class="btn btn-secondary btn-small" disabled style="opacity: 0.9;">✔ Ya son amigos</button>' :
+                `<button id="btn-add-from-search" class="btn btn-primary btn-small">
+                  <span>+ Agregar a Amigos</span>
+                </button>`
+              )
+            }
+          </div>
+        </div>
+      `;
+
+      const canvas = document.getElementById('search-result-avatar');
+      if (canvas) renderSkinFaceToCanvas(skinUrl, canvas);
+
+      const btnAddFromSearch = document.getElementById('btn-add-from-search');
+      if (btnAddFromSearch) {
+        btnAddFromSearch.addEventListener('click', async () => {
+          btnAddFromSearch.disabled = true;
+          try {
+            const res = await api.friends.sendRequest(prof.username);
+            if (res && res.success) {
+              btnAddFromSearch.textContent = '✔ Solicitud Enviada';
+              showFriendFeedback(`¡Solicitud de amistad enviada a @${prof.username}!`, 'success');
+              await loadFriendsView();
+            } else {
+              showFriendFeedback(res?.error || 'Error al enviar solicitud.', 'error');
+              btnAddFromSearch.disabled = false;
+            }
+          } catch (err) {
+            showFriendFeedback(err.message || 'Error inesperado.', 'error');
+            btnAddFromSearch.disabled = false;
+          }
+        });
+      }
+    } catch (err) {
+      if (friendSearchResults) {
+        friendSearchResults.innerHTML = `<div style="padding: 10px; color: #ef4444; font-size: 12px;">Error al buscar perfil: ${escapeHtml(err.message)}</div>`;
+      }
+    }
+  }
+
+  if (btnSearchUserProfile) {
+    btnSearchUserProfile.addEventListener('click', () => searchAndDisplayUserProfile());
+  }
+  if (inputSearchAddFriend) {
+    inputSearchAddFriend.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        searchAndDisplayUserProfile();
+      }
+    });
+  }
+
+  function openUserProfileModal(user) {
+    if (!modalUserProfile || !userProfileModalBody) return;
+    const skinUrl = user.skinUrl || `https://mc-heads.net/skin/${encodeURIComponent(user.username)}`;
+    const isPrem = user.accountType === 'premium' || Boolean(user.msGamertag);
+
+    userProfileModalBody.innerHTML = `
+      <div style="display: flex; gap: 14px; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 14px;">
+        <div class="friend-avatar-wrap" style="width: 58px; height: 58px;">
+          <canvas id="modal-profile-avatar" width="58" height="58"></canvas>
+        </div>
+        <div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <strong style="font-size: 16px; color: var(--text-primary);">${escapeHtml(user.displayName || user.username)}</strong>
+            <span class="badge ${isPrem ? 'badge-success' : 'badge-offline'}">${isPrem ? 'PREMIUM' : 'SHUBA'}</span>
+          </div>
+          <span style="font-size: 12px; color: var(--text-dim);">@${escapeHtml(user.username)}</span>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12px;">
+        <div class="card" style="padding: 10px;">
+          <small style="color: var(--text-dim); display: block;">Miembro Desde</small>
+          <strong style="color: var(--text-primary);">${formatCreationDate(user.createdAt || user.since)}</strong>
+        </div>
+        <div class="card" style="padding: 10px;">
+          <small style="color: var(--text-dim); display: block;">Tiempo Jugado</small>
+          <strong style="color: #10b981;">${formatPlayTime(user.playTimeSeconds)}</strong>
+        </div>
+        <div class="card" style="padding: 10px;">
+          <small style="color: var(--text-dim); display: block;">Modloader Favorito</small>
+          <strong style="color: var(--text-primary);">${escapeHtml(user.favoriteModloader || 'Fabric')}</strong>
+        </div>
+        <div class="card" style="padding: 10px;">
+          <small style="color: var(--text-dim); display: block;">Estilo de Juego</small>
+          <strong style="color: #c4b5fd;">${escapeHtml(user.playStyle || 'Modded')}</strong>
+        </div>
+      </div>
+
+      ${user.bio ? `
+        <div style="background: rgba(0,0,0,0.25); border-left: 3px solid #10b981; padding: 10px 12px; border-radius: 4px;">
+          <small style="color: var(--text-dim); display: block; margin-bottom: 4px;">Descripción Personal:</small>
+          <p style="margin: 0; font-size: 12px; color: var(--text-primary); font-style: italic;">"${escapeHtml(user.bio)}"</p>
+        </div>
+      ` : ''}
+
+      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px;">
+        <button class="btn btn-secondary btn-small" id="btn-modal-close-profile">Cerrar</button>
+      </div>
+    `;
+
+    const canvas = document.getElementById('modal-profile-avatar');
+    if (canvas) renderSkinFaceToCanvas(skinUrl, canvas);
+
+    const btnClose = document.getElementById('btn-modal-close-profile');
+    if (btnClose) btnClose.addEventListener('click', () => { modalUserProfile.style.display = 'none'; });
+
+    modalUserProfile.style.display = 'flex';
+  }
+
+  if (btnCloseUserProfileModal) {
+    btnCloseUserProfileModal.addEventListener('click', () => {
+      if (modalUserProfile) modalUserProfile.style.display = 'none';
+    });
   }
 
   // ==========================================
@@ -8837,6 +9284,32 @@ document.addEventListener('DOMContentLoaded', async () => {
             renderPendingRequests(pending);
           }
         }).catch(() => {});
+      } else if (update.table === 'game_invites') {
+        api.friends.getGameInvites().then((invites) => {
+          const count = (invites || []).length;
+          if (invitesCountPill) {
+            invitesCountPill.textContent = String(count);
+            invitesCountPill.style.display = count > 0 ? 'inline-block' : 'none';
+          }
+          renderGameInvites(invites);
+
+          if (count > 0 && (update.eventType === 'INSERT' || !update.eventType)) {
+            const latest = invites[0];
+            const hostName = latest?.host?.displayName || latest?.host?.username || 'Un amigo';
+            api.system.showNotification({
+              title: `🎮 ¡${hostName} te invitó a su partida!`,
+              body: `Mundo "${latest.worldName || 'ShubaCore'}" en MC ${latest.mcVersion || '26.3'}. Haz clic para unirte.`,
+              action: 'open-invites',
+              payload: latest
+            }).catch(() => {});
+          }
+        }).catch(() => {});
+      }
+    });
+
+    api.events.on('shubahost:invite-sent', (data) => {
+      if (data && data.target) {
+        appendLog(`[ShubaHost In-Game] ¡Invitación enviada con éxito a @${data.target}!`, 'success');
       }
     });
 

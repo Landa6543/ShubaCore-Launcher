@@ -96,6 +96,38 @@ function registerIpcHandlers(mainWindow) {
     // Comportamiento del Launcher al Iniciar el Juego (launchBehavior: 'hide' | 'keep' | 'close')
     const launchBehavior = configManager.get('performance.launchBehavior', 'hide');
 
+    if (eventName === 'shubahost:hosted') {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('shubahost:hosted', data);
+      }
+    }
+
+    if (eventName === 'shubahost:in-game-invite') {
+      const shubaUser = authManager.getShubaCoreAccount();
+      if (shubaUser?.id && data.targetFriend) {
+        supabaseManager.getUserProfile(data.targetFriend).then(async (prof) => {
+          if (prof?.id) {
+            const activeProf = profileManager.getActiveProfile();
+            const invRes = await supabaseManager.createGameInvite(shubaUser.id, {
+              guestId: prof.id,
+              worldName: data.profile || activeProf?.name || 'Mundo ShubaCore',
+              mcVersion: activeProf?.gameVersion || '26.3',
+              loader: activeProf?.loader || 'fabric',
+              serverAddress: data.server || launchManager.activeHostServer
+            });
+            if (invRes?.success && mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('shubahost:invite-sent', {
+                target: prof.username,
+                server: data.server
+              });
+            }
+          }
+        }).catch((err) => {
+          logger.warn(`[ShubaHost] Error al enviar invitación in-game: ${err.message}`);
+        });
+      }
+    }
+
     if (eventName === 'launch:game-ready') {
       if (launchBehavior === 'hide') {
         if (mainWindow && !mainWindow.isDestroyed()) {
@@ -524,6 +556,112 @@ function registerIpcHandlers(mainWindow) {
     const shubaUser = authManager.getShubaCoreAccount();
     if (!shubaUser?.id) return { success: false, error: 'Debes iniciar sesión en ShubaCore Network.' };
     return await supabaseManager.removeFriend(shubaUser.id, friendId);
+  });
+
+  ipcMain.handle('friends:get-user-profile', async (event, userIdOrUsername) => {
+    return await supabaseManager.getUserProfile(userIdOrUsername);
+  });
+
+  ipcMain.handle('friends:update-social-profile', async (event, updates) => {
+    const shubaUser = authManager.getShubaCoreAccount();
+    if (!shubaUser?.id) return { success: false, error: 'Debes iniciar sesión en ShubaCore Network.' };
+    return await supabaseManager.updateUserProfile(shubaUser.id, updates);
+  });
+
+  ipcMain.handle('friends:create-game-invite', async (event, inviteData) => {
+    const shubaUser = authManager.getShubaCoreAccount();
+    if (!shubaUser?.id) return { success: false, error: 'Debes iniciar sesión en ShubaCore Network.' };
+    const activeProfile = profileManager.getActiveProfile();
+    const serverAddress = inviteData?.serverAddress || launchManager.activeHostServer;
+    if (!serverAddress) {
+      return { success: false, error: 'No se detectó un servidor activo de ShubaHost/LAN para compartir.' };
+    }
+    return await supabaseManager.createGameInvite(shubaUser.id, {
+      guestId: inviteData.guestId,
+      guestUsername: inviteData.guestUsername,
+      worldName: inviteData.worldName || activeProfile?.name || 'Mundo ShubaCore',
+      mcVersion: inviteData.mcVersion || activeProfile?.gameVersion || '26.3',
+      loader: inviteData.loader || activeProfile?.loader || 'fabric',
+      serverAddress
+    });
+  });
+
+  ipcMain.handle('friends:get-game-invites', async () => {
+    const shubaUser = authManager.getShubaCoreAccount();
+    if (!shubaUser?.id) return [];
+    return await supabaseManager.getPendingGameInvites(shubaUser.id);
+  });
+
+  ipcMain.handle('friends:respond-game-invite', async (event, { inviteId, accept }) => {
+    const shubaUser = authManager.getShubaCoreAccount();
+    if (!shubaUser?.id) return { success: false, error: 'Debes iniciar sesión en ShubaCore Network.' };
+    return await supabaseManager.respondGameInvite(inviteId, shubaUser.id, accept);
+  });
+
+  ipcMain.handle('friends:accept-and-join-invite', async (event, inviteId) => {
+    const shubaUser = authManager.getShubaCoreAccount();
+    if (!shubaUser?.id) return { success: false, error: 'Debes iniciar sesión en ShubaCore Network.' };
+
+    const invites = await supabaseManager.getPendingGameInvites(shubaUser.id);
+    const invite = invites.find(i => i.id === inviteId);
+    if (!invite) return { success: false, error: 'Invitación no encontrada o ya expirada.' };
+
+    // Responder como aceptada en Supabase
+    await supabaseManager.respondGameInvite(inviteId, shubaUser.id, true);
+
+    const targetMc = invite.mcVersion || '26.3';
+    const targetLoader = invite.loader || 'fabric';
+
+    // 1. Buscar si ya existe una instancia local compatible
+    const allProfiles = profileManager.getAllProfiles() || [];
+    let bestProfile = allProfiles.find(p => p.gameVersion === targetMc && p.loader === targetLoader);
+    if (!bestProfile) {
+      bestProfile = allProfiles.find(p => p.gameVersion === targetMc);
+    }
+
+    // 2. Si no existe, crear automáticamente la instancia compatible
+    if (!bestProfile) {
+      const hostName = invite.host?.displayName || invite.host?.username || 'Amigo';
+      const newInstName = `Partida con ${hostName} (${targetMc})`;
+      logger.info(`[ShubaCore Join] Creando instancia compatible con el host: "${newInstName}" (MC ${targetMc} ${targetLoader})...`);
+
+      if (targetMc === '26.3' && targetLoader === 'fabric') {
+        const { getModManager } = require('../mods/ModManager');
+        const modMgr = getModManager();
+        await modMgr.installOfficialShubaClientModpack(newInstName);
+        bestProfile = profileManager.getAllProfiles().find(p => p.name === newInstName);
+      } else {
+        const createRes = profileManager.createProfile({
+          name: newInstName,
+          gameVersion: targetMc,
+          loader: targetLoader
+        });
+        bestProfile = createRes?.profile || profileManager.getActiveProfile();
+      }
+    }
+
+    if (bestProfile) {
+      profileManager.setActiveProfile(bestProfile.id);
+    }
+
+    // 3. Iniciar Minecraft con QuickPlay directo a la IP de la partida del anfitrión
+    const activeProf = profileManager.getActiveProfile();
+    const config = configManager.getAll();
+    const launchRes = await launchManager.launch({
+      instancePath: activeProf?.instancePath || null,
+      mcVersion: activeProf?.gameVersion || targetMc,
+      loader: activeProf?.loader || targetLoader,
+      memoryMin: config.java?.minRam || '2G',
+      memoryMax: config.java?.maxRam || '6G',
+      quickPlayMultiplayer: invite.serverAddress
+    });
+
+    return {
+      success: launchRes.success,
+      profile: activeProf,
+      serverAddress: invite.serverAddress,
+      error: launchRes.error
+    };
   });
 
   // ==========================================

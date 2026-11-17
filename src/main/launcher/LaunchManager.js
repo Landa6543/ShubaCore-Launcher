@@ -806,6 +806,9 @@ class LaunchManager {
         // Detectar si el jugador abrió un servidor LAN con ShubaHost / e4mc
         this._checkShubaHostServer(line, sessionId, profileName);
 
+        // Detectar si se ejecutó una invitación in-game con ShubaHost (/shubahost invite o /invite)
+        this._checkInGameInvite(line, sessionId, profileName);
+
         // Almacenar en buffer circular en memoria (máximo 2000 líneas)
         this.recentLogsBuffer.push(line);
         if (this.recentLogsBuffer.length > 2000) {
@@ -846,10 +849,27 @@ class LaunchManager {
     const match = line.match(/(?:Domain assigned:|\[ShubaHost\](?:\s+Servidor activo en:|\s+Hosted at:))\s*([a-zA-Z0-9.\-_:]+)/i);
     if (match && match[1]) {
       const serverAddress = match[1].trim();
+      this.activeHostServer = serverAddress;
+      this.activeHostProfile = profileName;
       logger.info(`🌐 [ShubaHost] Servidor LAN público activo detectado: "${serverAddress}"`);
       this._emit('shubahost:hosted', {
         sessionId,
         profile: profileName,
+        server: serverAddress
+      });
+    }
+  }
+
+  _checkInGameInvite(line, sessionId, profileName) {
+    const match = line.match(/(?:\[ShubaHost\]\s+\[Invite\]|\[ShubaClient\]\s+\[Invite\]|(?:\/invite|!invite)\s+)\s*([a-zA-Z0-9_]{3,24})/i);
+    if (match && match[1]) {
+      const targetFriend = match[1].trim();
+      const serverAddress = this.activeHostServer || '';
+      logger.info(`🎮 [ShubaHost] Invitación in-game detectada para amigo "${targetFriend}" (servidor: "${serverAddress}")`);
+      this._emit('shubahost:in-game-invite', {
+        sessionId,
+        profile: profileName,
+        targetFriend,
         server: serverAddress
       });
     }
@@ -919,11 +939,24 @@ class LaunchManager {
         this._checkAndReportHsErr(instancePath, code);
       }
 
+      // Acumular tiempo de juego en el perfil de ShubaCore
+      if (session?.startTime) {
+        const elapsedSec = Math.max(1, Math.round((Date.now() - session.startTime) / 1000));
+        try {
+          const shubaAcc = this.authManager?.getShubaCoreAccount?.();
+          if (shubaAcc?.id && this.authManager?.supabaseManager) {
+            this.authManager.supabaseManager.addPlayTime(shubaAcc.id, elapsedSec).catch(() => {});
+          }
+        } catch (_) {}
+      }
+
       this.runningProcesses.delete(sessionId);
       logger.info(`[LaunchManager] Sesión ${sessionId} (PID ${gameProcess.pid}) finalizada con código: ${code}. Sesiones activas restantes: ${this.runningProcesses.size}`);
 
       if (this.runningProcesses.size === 0) {
         this.hasGameStarted = false;
+        this.activeHostServer = null;
+        this.activeHostProfile = null;
         if (this.logFlushTimer) {
           clearInterval(this.logFlushTimer);
           this.logFlushTimer = null;
