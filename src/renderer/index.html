@@ -1320,7 +1320,7 @@
         </div>
 
         <!-- Contenedor principal de amigos cuando el usuario está logueado -->
-        <div id="friends-logged-container" style="display: flex; flex-direction: column; gap: 16px; flex: 1;">
+        <div id="friends-logged-container" style="display: flex; flex-direction: column; gap: 16px; flex: 1; max-width: 980px; width: 100%; margin: 0 auto;">
           <!-- Barra de Búsqueda y Agregar Amigo -->
           <div class="card" style="padding: 12px 16px;">
             <div style="display: flex; gap: 10px; align-items: center;">
@@ -1364,7 +1364,7 @@
 
           <!-- Panel 1: Lista de Amigos -->
           <div id="panel-social-friends" style="flex: 1; display: flex; flex-direction: column;">
-            <div id="friends-list-container" class="friends-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px;">
+            <div id="friends-list-container" class="friends-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; width: 100%;">
               <!-- Se llena dinámicamente -->
             </div>
             <div id="friends-empty-state" class="empty-state" style="display: none;">
@@ -1390,7 +1390,7 @@
           </div>
 
           <!-- Panel 4: Invitaciones a Partidas Recibidas -->
-          <div id="panel-social-invites" style="display: none; flex-direction: column; gap: 14px;">
+          <div id="panel-social-invites" style="display: none; flex-direction: column; gap: 14px; max-width: 860px; width: 100%; margin: 0 auto;">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 8px;">
               <div>
                 <h4 style="font-size: 13px; color: var(--text-primary); margin: 0;">Invitaciones a Partidas ShubaHost</h4>
@@ -1410,13 +1410,16 @@
           </div>
 
           <!-- Panel 5: Mi Perfil Social (Personalización, Bio, Modloader Fav, Playtime) -->
-          <div id="panel-social-profile" style="display: none; flex-direction: column; gap: 16px;">
+          <div id="panel-social-profile" style="display: none; flex-direction: column; gap: 16px; max-width: 860px; width: 100%; margin: 0 auto;">
             <div class="card" style="padding: 20px;">
-              <div style="display: flex; gap: 16px; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 16px;">
-                <div class="friend-avatar-wrap" style="width: 58px; height: 58px;">
-                  <canvas id="my-profile-avatar-canvas" width="58" height="58"></canvas>
+              <div style="display: flex; gap: 18px; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 18px; flex-wrap: wrap;">
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                  <div class="friend-avatar-wrap" style="width: 68px; height: 68px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+                    <canvas id="my-profile-avatar-canvas" width="68" height="68"></canvas>
+                  </div>
+                  <span id="my-profile-avatar-label" class="badge badge-idle" style="font-size: 10px;">Avatar</span>
                 </div>
-                <div>
+                <div style="flex: 1; min-width: 200px;">
                   <div style="display: flex; align-items: center; gap: 8px;">
                     <h3 id="my-profile-name-title" style="margin: 0; font-size: 16px; color: var(--text-primary);">Mi Perfil</h3>
                     <span id="my-profile-badge" class="badge badge-success">SHUBA</span>
@@ -1425,6 +1428,18 @@
                   <div style="display: flex; gap: 14px; margin-top: 6px; font-size: 11.5px; color: var(--text-secondary); flex-wrap: wrap;">
                     <span id="my-profile-created-date">📅 Miembro desde: --</span>
                     <span id="my-profile-playtime-badge">⏱ Tiempo jugado: 0h 0m</span>
+                  </div>
+                  <!-- Acciones de Avatar Personalizado -->
+                  <div style="display: flex; gap: 8px; margin-top: 10px; align-items: center; flex-wrap: wrap;">
+                    <input type="file" id="input-profile-custom-avatar" accept="image/png,image/jpeg,image/webp,image/gif" style="display: none;">
+                    <button id="btn-upload-custom-avatar" type="button" class="btn btn-secondary btn-small" style="font-size: 11.5px; padding: 4px 10px;">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                      <span>Subir Foto Personalizada</span>
+                    </button>
+                    <button id="btn-use-skin-avatar" type="button" class="btn btn-secondary btn-small" style="font-size: 11.5px; padding: 4px 10px;">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"/></svg>
+                      <span>Usar Cara de mi Skin</span>
+                    </button>
                   </div>
                 </div>
               </div>

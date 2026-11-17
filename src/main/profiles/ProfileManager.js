@@ -493,7 +493,6 @@ class ProfileManager {
             fs.copyFileSync(matchedSourcePath, destFile);
           }
           copiedCount++;
-          const isShubaMod = /shuba/i.test(targetFileName) || /polyplus|oneconfig|polydium/i.test(targetFileName);
           lockData.mods[targetFileName] = {
             fileName: targetFileName,
             name: targetFileName.replace(/\.jar$/i, ''),
@@ -505,7 +504,7 @@ class ProfileManager {
             version: '26.3',
             installedAt: new Date().toISOString(),
             enabled: true,
-            iconUrl: isShubaMod ? this._getOfficialLogoBase64() : null
+            iconUrl: null
           };
         } catch (copyErr) {
           logger.warn(`No se pudo copiar ${targetFileName}: ${copyErr.message}`);

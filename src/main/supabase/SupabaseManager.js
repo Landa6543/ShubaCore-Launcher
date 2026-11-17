@@ -558,9 +558,9 @@ class SupabaseManager {
   }
 
   /**
-   * Actualizar perfil social (descripción/bio, modloader favorito, estilo de juego, nombre visible)
+   * Actualizar perfil social (descripción/bio, modloader favorito, estilo de juego, nombre visible, avatar/skin)
    */
-  async updateUserProfile(userId, { bio, favoriteModloader, playStyle, displayName } = {}) {
+  async updateUserProfile(userId, { bio, favoriteModloader, playStyle, displayName, avatarUrl, skinUrl } = {}) {
     if (!this.client || !userId) return { success: false, error: 'Usuario no identificado.' };
     const sessionOk = await this.ensureSession(userId);
     if (!sessionOk) return { success: false, error: 'Sesión expirada o no autenticada.' };
@@ -572,6 +572,11 @@ class SupabaseManager {
     if (typeof favoriteModloader === 'string' && favoriteModloader.trim()) updatePayload.favorite_modloader = favoriteModloader.trim();
     if (typeof playStyle === 'string' && playStyle.trim()) updatePayload.play_style = playStyle.trim();
     if (typeof displayName === 'string' && displayName.trim().length >= 2) updatePayload.display_name = displayName.trim().slice(0, 32);
+    if (typeof skinUrl === 'string' && skinUrl.trim()) {
+      updatePayload.skin_url = skinUrl.trim();
+    } else if (typeof avatarUrl === 'string' && avatarUrl.trim()) {
+      updatePayload.skin_url = avatarUrl.trim();
+    }
 
     try {
       const { data, error } = await this.client
@@ -582,13 +587,14 @@ class SupabaseManager {
         .single();
 
       if (error) throw error;
-      logger.info(`[Supabase] Perfil social actualizado para ${userId}: bio=${updatePayload.bio ? 'ok' : 'none'}, modloader=${updatePayload.favorite_modloader || 'keep'}`);
+      logger.info(`[Supabase] Perfil social actualizado para ${userId}: bio=${updatePayload.bio ? 'ok' : 'none'}, avatar=${updatePayload.skin_url ? 'custom' : 'unchanged'}`);
       return {
         success: true,
         profile: {
           id: data.id,
           username: data.username,
           displayName: data.display_name,
+          skinUrl: data.skin_url,
           bio: data.bio || '',
           favoriteModloader: data.favorite_modloader || 'Fabric',
           playStyle: data.play_style || 'Modded',

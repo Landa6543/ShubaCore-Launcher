@@ -696,7 +696,33 @@ class LaunchManager {
         logger.debug(`[LaunchManager] Limpieza de memoria Standby omitida con seguridad: ${cleanerErr.message}`);
       }
 
-      // 8. Enlazar eventos de logs y lanzamiento para este proceso
+      // 8. Sincronizar puente de amigos para ShubaHost in-game (shubacore-friends.json)
+      try {
+        const shubaUser = this.authManager?.getShubaCoreAccount?.();
+        if (shubaUser?.id && this.supabaseManager) {
+          const friends = await this.supabaseManager.getFriendsList(shubaUser.id).catch(() => []);
+          const bridgeData = {
+            currentUser: shubaUser.username || auth.name,
+            userId: shubaUser.id,
+            activeProfile: activeProfile.name,
+            friends: (friends || []).map(f => ({
+              username: f.username,
+              displayName: f.displayName || f.username,
+              status: f.status || 'offline'
+            }))
+          };
+          const jsonStr = JSON.stringify(bridgeData, null, 2);
+          fs.writeFileSync(path.join(instancePath, 'shubacore-friends.json'), jsonStr, 'utf8');
+          const homeDir = path.join(require('os').homedir(), '.shubacore');
+          if (!fs.existsSync(homeDir)) fs.mkdirSync(homeDir, { recursive: true });
+          fs.writeFileSync(path.join(homeDir, 'active-friends.json'), jsonStr, 'utf8');
+          logger.info(`[LaunchManager] Puente in-game sincronizado: ${bridgeData.friends.length} amigo(s) para ShubaHost.`);
+        }
+      } catch (bridgeErr) {
+        logger.debug(`[LaunchManager] Sync bridge amigos omitido: ${bridgeErr.message}`);
+      }
+
+      // 9. Enlazar eventos de logs y lanzamiento para este proceso
       const sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
       const clientLauncher = new Client();
 

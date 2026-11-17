@@ -984,27 +984,18 @@ class ModManager {
     const shubaFiles = new Set();
     const modsDir = path.join(instancePath, 'mods');
     let changed = false;
-    let fallbackLogoB64 = null;
-    try {
-      const { getProfileManager } = require('../profiles/ProfileManager');
-      fallbackLogoB64 = getProfileManager()._getOfficialLogoBase64();
-    } catch (_) {}
-
     for (const [fileName, entry] of Object.entries(lockData.mods || {})) {
       const realName = entry.fileName || fileName;
       let jarPath = path.join(modsDir, realName);
       if (!fs.existsSync(jarPath) && fs.existsSync(jarPath + '.disabled')) jarPath += '.disabled';
       const meta = this._extractJarMetadata(jarPath);
-      const isShuba = (meta && meta.shubacore) ||
-                      /shuba/i.test(fileName) ||
-                      /shuba/i.test(entry.name || '') ||
-                      /shuba/i.test(entry.displayName || '') ||
-                      (meta && /shuba/i.test(meta.name || '')) ||
-                      (meta && (meta.modId === 'polyplus' || meta.modId === 'oneconfig' || meta.modId === 'polydium'));
+      if (!meta) continue;
+      const isShuba = meta.shubacore ||
+                      (meta.modId && (meta.modId === 'polyplus' || meta.modId === 'oneconfig' || meta.modId === 'polydium' || meta.modId === 'shubahost' || meta.modId === 'shubaclient'));
       if (!isShuba) continue;
       shubaFiles.add(fileName);
 
-      const officialLogo = meta?.iconBase64 || fallbackLogoB64 || entry.iconUrl;
+      const modIcon = meta?.iconBase64 || entry.iconUrl || null;
 
       const wanted = {
         source: 'shubacore',
@@ -1015,7 +1006,7 @@ class ModManager {
         author: meta?.author || 'SHUBATECH',
         summary: meta?.description || entry.summary || 'Mod oficial del ecosistema ShubaCore.',
         version: meta?.version || entry.version,
-        iconUrl: officialLogo
+        iconUrl: modIcon
       };
       for (const [k, v] of Object.entries(wanted)) {
         if (v !== undefined && entry[k] !== v) { entry[k] = v; changed = true; }
@@ -1312,26 +1303,8 @@ class ModManager {
       if (iconEntry) {
         const buf = iconEntry.getData();
         if (buf && buf.length > 0) {
-          // Si el icono extraído tiene el tamaño legacy de 79584 bytes (OneClient azul) o si es ShubaCore
-          if (buf.length === 79584 && (meta.shubacore || /shuba/i.test(path.basename(jarPath)))) {
-            try {
-              const { getProfileManager } = require('../profiles/ProfileManager');
-              meta.iconBase64 = getProfileManager()._getOfficialLogoBase64();
-            } catch (_) {
-              meta.iconBase64 = 'data:image/png;base64,' + buf.toString('base64');
-            }
-          } else {
-            meta.iconBase64 = 'data:image/png;base64,' + buf.toString('base64');
-          }
+          meta.iconBase64 = 'data:image/png;base64,' + buf.toString('base64');
         }
-      }
-
-      // Si no se encontró icono pero es un mod de ShubaCore, asignar el logo oficial directamente
-      if (!meta.iconBase64 && (meta.shubacore || /shuba/i.test(path.basename(jarPath)) || /shuba/i.test(meta.name || ''))) {
-        try {
-          const { getProfileManager } = require('../profiles/ProfileManager');
-          meta.iconBase64 = getProfileManager()._getOfficialLogoBase64();
-        } catch (_) {}
       }
 
       return meta;

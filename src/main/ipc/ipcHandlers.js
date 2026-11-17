@@ -565,7 +565,11 @@ function registerIpcHandlers(mainWindow) {
   ipcMain.handle('friends:update-social-profile', async (event, updates) => {
     const shubaUser = authManager.getShubaCoreAccount();
     if (!shubaUser?.id) return { success: false, error: 'Debes iniciar sesión en ShubaCore Network.' };
-    return await supabaseManager.updateUserProfile(shubaUser.id, updates);
+    const res = await supabaseManager.updateUserProfile(shubaUser.id, updates);
+    if (res?.success && res.profile?.skinUrl) {
+      if (shubaUser) shubaUser.skinUrl = res.profile.skinUrl;
+    }
+    return res;
   });
 
   ipcMain.handle('friends:create-game-invite', async (event, inviteData) => {

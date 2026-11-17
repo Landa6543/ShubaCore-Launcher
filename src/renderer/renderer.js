@@ -668,14 +668,21 @@ document.addEventListener('DOMContentLoaded', async () => {
       img.crossOrigin = 'anonymous';
     }
     img.onload = () => {
-      ctx.imageSmoothingEnabled = false;
       ctx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
       const w = targetCanvas.width;
       const h = targetCanvas.height;
-      // 1. Capa base cara (8, 8, 8, 8) -> todo el canvas
-      ctx.drawImage(img, 8, 8, 8, 8, 0, 0, w, h);
-      // 2. Capa superior pelo/overlay (40, 8, 8, 8) -> todo el canvas
-      ctx.drawImage(img, 40, 8, 8, 8, 0, 0, w, h);
+      // Si es una skin estándar de Minecraft (64x64 o 64x32), recortar la cara y overlay
+      if (img.width === 64 && (img.height === 64 || img.height === 32)) {
+        ctx.imageSmoothingEnabled = false;
+        // 1. Capa base cara (8, 8, 8, 8) -> todo el canvas
+        ctx.drawImage(img, 8, 8, 8, 8, 0, 0, w, h);
+        // 2. Capa superior pelo/overlay (40, 8, 8, 8) -> todo el canvas
+        ctx.drawImage(img, 40, 8, 8, 8, 0, 0, w, h);
+      } else {
+        // Es un avatar / foto personalizada: renderizado completo y suave
+        ctx.imageSmoothingEnabled = true;
+        ctx.drawImage(img, 0, 0, img.width, img.height, 0, 0, w, h);
+      }
     };
     img.onerror = () => {
       if (src !== DEFAULT_STEVE_SKIN_URL) {
@@ -8810,8 +8817,76 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // ==========================================
-  // MI PERFIL SOCIAL (BIO, MODLOADER, TIEMPO)
+  // MI PERFIL SOCIAL (BIO, MODLOADER, TIEMPO, AVATAR CUSTOM)
   // ==========================================
+  let myCustomAvatarDataUrl = null;
+  const btnUploadCustomAvatar = document.getElementById('btn-upload-custom-avatar');
+  const inputProfileCustomAvatar = document.getElementById('input-profile-custom-avatar');
+  const btnUseSkinAvatar = document.getElementById('btn-use-skin-avatar');
+  const myProfileAvatarLabel = document.getElementById('my-profile-avatar-label');
+
+  if (btnUploadCustomAvatar && inputProfileCustomAvatar) {
+    btnUploadCustomAvatar.addEventListener('click', () => {
+      inputProfileCustomAvatar.click();
+    });
+
+    inputProfileCustomAvatar.addEventListener('change', (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (loadEvent) => {
+        const rawSrc = loadEvent.target.result;
+        const tempImg = new Image();
+        tempImg.onload = () => {
+          // Escalar la imagen a un máximo de 128x128 para optimizar almacenamiento
+          const offCanvas = document.createElement('canvas');
+          const maxDim = 128;
+          let w = tempImg.width;
+          let h = tempImg.height;
+          if (w > h) {
+            if (w > maxDim) { h = Math.round((h * maxDim) / w); w = maxDim; }
+          } else {
+            if (h > maxDim) { w = Math.round((w * maxDim) / h); h = maxDim; }
+          }
+          offCanvas.width = w;
+          offCanvas.height = h;
+          const offCtx = offCanvas.getContext('2d');
+          offCtx.imageSmoothingEnabled = true;
+          offCtx.drawImage(tempImg, 0, 0, w, h);
+
+          myCustomAvatarDataUrl = offCanvas.toDataURL('image/jpeg', 0.88);
+          if (myProfileAvatarCanvas) {
+            renderSkinFaceToCanvas(myCustomAvatarDataUrl, myProfileAvatarCanvas);
+          }
+          if (myProfileAvatarLabel) {
+            myProfileAvatarLabel.textContent = 'Personalizado';
+            myProfileAvatarLabel.className = 'badge badge-success';
+          }
+        };
+        tempImg.src = rawSrc;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  if (btnUseSkinAvatar) {
+    btnUseSkinAvatar.addEventListener('click', async () => {
+      myCustomAvatarDataUrl = ''; // Forzar volver a la cara de la skin oficial
+      const sess = await api.auth.getSavedSession().catch(() => null);
+      const shubaAcc = sess?.shubacoreAccount || await api.auth.getShubaCoreAccount().catch(() => null);
+      const skinName = shubaAcc?.username || 'Steve';
+      const defaultSkinUrl = `https://mc-heads.net/skin/${encodeURIComponent(skinName)}`;
+      if (myProfileAvatarCanvas) {
+        renderSkinFaceToCanvas(defaultSkinUrl, myProfileAvatarCanvas);
+      }
+      if (myProfileAvatarLabel) {
+        myProfileAvatarLabel.textContent = 'Skin Oficial';
+        myProfileAvatarLabel.className = 'badge badge-idle';
+      }
+    });
+  }
+
   async function loadMySocialProfile() {
     try {
       const sess = await api.auth.getSavedSession().catch(() => null);
@@ -8831,6 +8906,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (selectProfilePlaystyle) selectProfilePlaystyle.value = prof.playStyle || 'Modded';
       if (inputProfileBio) inputProfileBio.value = prof.bio || '';
 
+      const isCustomAvatar = Boolean(prof.skinUrl && (prof.skinUrl.startsWith('data:') || prof.skinUrl.includes('custom')));
+      myCustomAvatarDataUrl = prof.skinUrl || null;
+      if (myProfileAvatarLabel) {
+        myProfileAvatarLabel.textContent = isCustomAvatar ? 'Personalizado' : 'Skin Oficial';
+        myProfileAvatarLabel.className = isCustomAvatar ? 'badge badge-success' : 'badge badge-idle';
+      }
+
       const skinUrl = prof.skinUrl || `https://mc-heads.net/skin/${encodeURIComponent(prof.username)}`;
       if (myProfileAvatarCanvas) renderSkinFaceToCanvas(skinUrl, myProfileAvatarCanvas);
     } catch (err) {
@@ -8844,18 +8926,27 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (profileSaveFeedback) profileSaveFeedback.style.display = 'none';
 
       try {
-        const res = await api.friends.updateSocialProfile({
+        const updatePayload = {
           displayName: inputProfileDisplayName?.value?.trim(),
           favoriteModloader: selectProfileModloader?.value,
           playStyle: selectProfilePlaystyle?.value,
           bio: inputProfileBio?.value?.trim()
-        });
+        };
+        if (myCustomAvatarDataUrl !== null) {
+          updatePayload.avatarUrl = myCustomAvatarDataUrl;
+        }
+
+        const res = await api.friends.updateSocialProfile(updatePayload);
 
         if (res && res.success) {
           if (profileSaveFeedback) {
             profileSaveFeedback.textContent = '✔ Perfil social guardado correctamente.';
             profileSaveFeedback.className = 'auth-alert success';
             profileSaveFeedback.style.display = 'block';
+          }
+          // Actualizar inmediatamente avatar en cabecera si está presente
+          if (shubacoreAvatar && (myCustomAvatarDataUrl || res.profile?.skinUrl)) {
+            renderSkinFaceToCanvas(myCustomAvatarDataUrl || res.profile?.skinUrl, shubacoreAvatar);
           }
           await loadMySocialProfile();
         } else {
@@ -9038,14 +9129,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (canvas) renderSkinFaceToCanvas(skinUrl, canvas);
 
     const btnClose = document.getElementById('btn-modal-close-profile');
-    if (btnClose) btnClose.addEventListener('click', () => { modalUserProfile.style.display = 'none'; });
+    if (btnClose) {
+      btnClose.addEventListener('click', () => {
+        modalUserProfile.classList.remove('active');
+        modalUserProfile.style.display = 'none';
+      });
+    }
 
+    modalUserProfile.classList.add('active');
     modalUserProfile.style.display = 'flex';
   }
 
   if (btnCloseUserProfileModal) {
     btnCloseUserProfileModal.addEventListener('click', () => {
-      if (modalUserProfile) modalUserProfile.style.display = 'none';
+      if (modalUserProfile) {
+        modalUserProfile.classList.remove('active');
+        modalUserProfile.style.display = 'none';
+      }
+    });
+  }
+
+  if (modalUserProfile) {
+    modalUserProfile.addEventListener('click', (e) => {
+      if (e.target === modalUserProfile) {
+        modalUserProfile.classList.remove('active');
+        modalUserProfile.style.display = 'none';
+      }
     });
   }
 
