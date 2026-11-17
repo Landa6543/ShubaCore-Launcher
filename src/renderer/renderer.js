@@ -6207,9 +6207,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             depRow.className = 'detail-dep-item';
             const depName = dep.projectId || dep.modId || 'Librería Requerida';
             const isReq = dep.relationType === 'Requerido';
+            const isShuba = /shuba/i.test(depName) || /polyplus|oneconfig|polydium|compose bundle/i.test(depName);
+            const iconSrc = dep.iconUrl || (isShuba ? 'assets/logo.png' : null);
+            const iconHtml = iconSrc
+              ? `<img src="${iconSrc}" class="detail-dep-icon" style="width: 22px; height: 22px; object-fit: contain; border-radius: 4px; flex-shrink: 0;" alt="" onerror="this.style.display='none'; if (this.nextElementSibling) this.nextElementSibling.style.display='inline';"><span style="display:none; font-size: 15px; flex-shrink: 0;">📦</span>`
+              : `<span style="font-size: 15px; flex-shrink: 0;">📦</span>`;
+
             depRow.innerHTML = `
-              <div class="detail-dep-name">
-                <span>📦 ${escapeHtml(depName)}</span>
+              <div class="detail-dep-name" style="display: flex; align-items: center; gap: 10px;">
+                ${iconHtml}
+                <span style="font-weight: 500;">${escapeHtml(depName)}</span>
               </div>
               <span class="badge ${isReq ? 'badge-beta' : 'badge-idle'}">${escapeHtml(dep.relationType || 'Requerido')}</span>
             `;

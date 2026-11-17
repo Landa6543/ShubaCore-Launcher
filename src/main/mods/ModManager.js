@@ -984,26 +984,41 @@ class ModManager {
     const shubaFiles = new Set();
     const modsDir = path.join(instancePath, 'mods');
     let changed = false;
+    let fallbackLogoB64 = null;
+    try {
+      const { getProfileManager } = require('../profiles/ProfileManager');
+      fallbackLogoB64 = getProfileManager()._getOfficialLogoBase64();
+    } catch (_) {}
+
     for (const [fileName, entry] of Object.entries(lockData.mods || {})) {
       const realName = entry.fileName || fileName;
       let jarPath = path.join(modsDir, realName);
       if (!fs.existsSync(jarPath) && fs.existsSync(jarPath + '.disabled')) jarPath += '.disabled';
       const meta = this._extractJarMetadata(jarPath);
-      if (!meta || !meta.shubacore) continue;
+      const isShuba = (meta && meta.shubacore) ||
+                      /shuba/i.test(fileName) ||
+                      /shuba/i.test(entry.name || '') ||
+                      /shuba/i.test(entry.displayName || '') ||
+                      (meta && /shuba/i.test(meta.name || '')) ||
+                      (meta && (meta.modId === 'polyplus' || meta.modId === 'oneconfig' || meta.modId === 'polydium'));
+      if (!isShuba) continue;
       shubaFiles.add(fileName);
+
+      const officialLogo = meta?.iconBase64 || fallbackLogoB64 || entry.iconUrl;
+
       const wanted = {
         source: 'shubacore',
         projectId: null,
         fileId: null,
-        displayName: meta.name || entry.displayName,
-        name: meta.name || entry.name,
-        author: meta.author || 'SHUBATECH',
-        summary: meta.description || entry.summary,
-        version: meta.version || entry.version,
-        iconUrl: meta.iconBase64 || entry.iconUrl
+        displayName: meta?.name || entry.displayName || this._cleanJarName(fileName),
+        name: meta?.name || entry.name || this._cleanJarName(fileName),
+        author: meta?.author || 'SHUBATECH',
+        summary: meta?.description || entry.summary || 'Mod oficial del ecosistema ShubaCore.',
+        version: meta?.version || entry.version,
+        iconUrl: officialLogo
       };
       for (const [k, v] of Object.entries(wanted)) {
-        if (entry[k] !== v) { entry[k] = v; changed = true; }
+        if (v !== undefined && entry[k] !== v) { entry[k] = v; changed = true; }
       }
     }
     if (changed) {
@@ -1237,7 +1252,10 @@ class ModManager {
           } else if (typeof json.authors === 'string') {
             meta.author = json.authors;
           }
-          meta.shubacore = Boolean(json.custom && json.custom.shubacore) || /shubatech/i.test(meta.author || '');
+          meta.shubacore = Boolean(json.custom && json.custom.shubacore) ||
+                           /shubatech/i.test(meta.author || '') ||
+                           /shuba/i.test(meta.name || '') ||
+                           (json.id && (json.id === 'polyplus' || json.id === 'oneconfig' || json.id === 'polydium'));
           if (typeof json.icon === 'string') {
             logoFileName = json.icon;
           } else if (json.icon && typeof json.icon === 'object') {
@@ -1294,8 +1312,26 @@ class ModManager {
       if (iconEntry) {
         const buf = iconEntry.getData();
         if (buf && buf.length > 0) {
-          meta.iconBase64 = 'data:image/png;base64,' + buf.toString('base64');
+          // Si el icono extraído tiene el tamaño legacy de 79584 bytes (OneClient azul) o si es ShubaCore
+          if (buf.length === 79584 && (meta.shubacore || /shuba/i.test(path.basename(jarPath)))) {
+            try {
+              const { getProfileManager } = require('../profiles/ProfileManager');
+              meta.iconBase64 = getProfileManager()._getOfficialLogoBase64();
+            } catch (_) {
+              meta.iconBase64 = 'data:image/png;base64,' + buf.toString('base64');
+            }
+          } else {
+            meta.iconBase64 = 'data:image/png;base64,' + buf.toString('base64');
+          }
         }
+      }
+
+      // Si no se encontró icono pero es un mod de ShubaCore, asignar el logo oficial directamente
+      if (!meta.iconBase64 && (meta.shubacore || /shuba/i.test(path.basename(jarPath)) || /shuba/i.test(meta.name || ''))) {
+        try {
+          const { getProfileManager } = require('../profiles/ProfileManager');
+          meta.iconBase64 = getProfileManager()._getOfficialLogoBase64();
+        } catch (_) {}
       }
 
       return meta;
@@ -1468,6 +1504,9 @@ class ModManager {
         delete lockData.mods[key];
       }
     });
+
+    // 3. Garantizar identidad oficial de ShubaCore (logo y autor SHUBATECH)
+    this._applyShubaCoreIdentity(activeInstance, lockData);
 
     lockData.lastUpdated = new Date().toISOString();
     fs.writeFileSync(this._getLockFilePath(activeInstance), JSON.stringify(lockData, null, 2), 'utf8');
@@ -3129,23 +3168,23 @@ class ModManager {
     `;
 
     const dependencies = [
-      { projectId: 'ShubaDium (Motor Vulkan 26.3)', relationType: 'Requerido' },
-      { projectId: 'Iris Shaders (Soporte Shaders)', relationType: 'Requerido' },
-      { projectId: 'Sodium Fabric (Renderizador Base)', relationType: 'Requerido' },
-      { projectId: 'Sodium Extra (Ajustes de Calidad y Partículas)', relationType: 'Requerido' },
-      { projectId: 'Sodium Shadowy Path Blocks (Sombreado)', relationType: 'Requerido' },
-      { projectId: 'Lithium (Optimización de Física y Servidor)', relationType: 'Requerido' },
-      { projectId: 'FerriteCore (Optimización de RAM)', relationType: 'Requerido' },
-      { projectId: 'ModernFix (Arranque Rápido y Parches)', relationType: 'Requerido' },
-      { projectId: 'ImmediatelyFast (Aceleración de UI / HUD)', relationType: 'Requerido' },
-      { projectId: 'Entity Culling (Ocultación de Entidades)', relationType: 'Requerido' },
-      { projectId: 'RSLS (Iluminación Rápida Dinámica)', relationType: 'Requerido' },
-      { projectId: 'Clumps (Agrupación de Experiencia)', relationType: 'Requerido' },
-      { projectId: 'ShubaClient UI (Interfaz Oficial SHUBATECH)', relationType: 'Requerido' },
-      { projectId: 'ShubaConfig (Gestor de Ajustes)', relationType: 'Requerido' },
-      { projectId: 'Fabric API (Librería Base 26.3)', relationType: 'Requerido' },
-      { projectId: 'Fabric Language Kotlin (Runtime Kotlin)', relationType: 'Requerido' },
-      { projectId: 'Compose Bundle (Motor de Interfaz Reactivo)', relationType: 'Requerido' }
+      { projectId: 'ShubaDium (Motor Vulkan 26.3)', relationType: 'Requerido', iconUrl: logoB64 },
+      { projectId: 'Iris Shaders (Soporte Shaders)', relationType: 'Requerido', iconUrl: 'https://cdn.modrinth.com/data/YL57xq9U/icon.png' },
+      { projectId: 'Sodium Fabric (Renderizador Base)', relationType: 'Requerido', iconUrl: 'https://cdn.modrinth.com/data/AANobbMI/icon.png' },
+      { projectId: 'Sodium Extra (Ajustes de Calidad y Partículas)', relationType: 'Requerido', iconUrl: 'https://cdn.modrinth.com/data/PtjYWJkn/icon.png' },
+      { projectId: 'Sodium Shadowy Path Blocks (Sombreado)', relationType: 'Requerido', iconUrl: 'https://cdn.modrinth.com/data/V2Hh0m4p/icon.png' },
+      { projectId: 'Lithium (Optimización de Física y Servidor)', relationType: 'Requerido', iconUrl: 'https://cdn.modrinth.com/data/gvQqBUqZ/icon.png' },
+      { projectId: 'FerriteCore (Optimización de RAM)', relationType: 'Requerido', iconUrl: 'https://cdn.modrinth.com/data/uXXizFIs/icon.png' },
+      { projectId: 'ModernFix (Arranque Rápido y Parches)', relationType: 'Requerido', iconUrl: 'https://cdn.modrinth.com/data/nmDcB62a/icon.png' },
+      { projectId: 'ImmediatelyFast (Aceleración de UI / HUD)', relationType: 'Requerido', iconUrl: 'https://cdn.modrinth.com/data/5ZwdcRci/icon.png' },
+      { projectId: 'Entity Culling (Ocultación de Entidades)', relationType: 'Requerido', iconUrl: 'https://cdn.modrinth.com/data/NNAgCjsB/icon.png' },
+      { projectId: 'RSLS (Iluminación Rápida Dinámica)', relationType: 'Requerido', iconUrl: 'https://cdn.modrinth.com/data/O3gA132m/icon.png' },
+      { projectId: 'Clumps (Agrupación de Experiencia)', relationType: 'Requerido', iconUrl: 'https://cdn.modrinth.com/data/Wnxd13zP/icon.png' },
+      { projectId: 'ShubaClient UI (Interfaz Oficial SHUBATECH)', relationType: 'Requerido', iconUrl: logoB64 },
+      { projectId: 'ShubaConfig (Gestor de Ajustes)', relationType: 'Requerido', iconUrl: logoB64 },
+      { projectId: 'Fabric API (Librería Base 26.3)', relationType: 'Requerido', iconUrl: 'https://cdn.modrinth.com/data/P7dR8mSH/icon.png' },
+      { projectId: 'Fabric Language Kotlin (Runtime Kotlin)', relationType: 'Requerido', iconUrl: 'https://cdn.modrinth.com/data/Ha28R6CL/icon.png' },
+      { projectId: 'Compose Bundle (Motor de Interfaz Reactivo)', relationType: 'Requerido', iconUrl: logoB64 }
     ];
 
     const changelogs = [
