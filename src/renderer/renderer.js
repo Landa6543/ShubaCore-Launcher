@@ -2514,6 +2514,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       if (currentActiveProfile) {
         activeProfileName.textContent = currentActiveProfile.name;
+        const activeDockIcon = document.getElementById('active-profile-dock-icon');
+        if (activeDockIcon) {
+          activeDockIcon.src = resolveInstanceIcon(currentActiveProfile.icon, currentActiveProfile.iconUrl);
+        }
         const loaderUpper = (currentActiveProfile.loader || 'NeoForge').toUpperCase();
         activeProfileBadge.textContent = loaderUpper;
         activeProfileBadge.innerHTML = getLoaderBadge(currentActiveProfile.loader, 14);
@@ -5172,8 +5176,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       const card = document.createElement('div');
       card.className = (catalogViewMode === 'grid') ? 'mod-card' : 'catalog-mod-row';
 
-      const sourceClass = item.source === 'curseforge' ? 'badge-curseforge' : (item.source === 'github' ? 'badge-github' : 'badge-modrinth');
-      const sourceName = item.source === 'curseforge' ? 'CurseForge' : (item.source === 'github' ? 'GitHub' : 'Modrinth');
+      const isCustom = item.source === 'custom' || item.source === 'shubacore';
+      const sourceClass = item.source === 'curseforge' ? 'badge-curseforge' : (item.source === 'github' || isCustom ? 'badge-github' : 'badge-modrinth');
+      const sourceName = item.source === 'curseforge' ? 'CurseForge' : (item.source === 'github' ? 'GitHub' : (isCustom ? 'Custom' : 'Modrinth'));
       const iconSrc = item.iconUrl || item.iconDataUrl || 'assets/logo.png';
       const formattedDownloads = formatDownloads(item.downloads);
       const relativeDate = formatRelativeDate(item.dateModified);
@@ -6003,11 +6008,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     const mcVersion = activeProfileRef?.mcVersion || '1.21.1';
     const loader = (activeProfileRef?.loader || 'neoforge').toLowerCase();
 
-    if (detailModIcon) detailModIcon.src = item.iconUrl || 'https://raw.githubusercontent.com/FortAwesome/Font-Awesome/6.x/svgs/solid/cube.svg';
+    if (detailModIcon) detailModIcon.src = item.iconUrl || 'assets/logo.png';
     if (detailModTitle) detailModTitle.textContent = item.title || 'Detalle del Proyecto';
     if (detailModBadge) {
-      detailModBadge.textContent = (item.source || 'modrinth').toUpperCase();
-      detailModBadge.className = `badge ${item.source === 'curseforge' ? 'badge-curseforge' : 'badge-modrinth'}`;
+      if (item.source === 'curseforge') {
+        detailModBadge.textContent = 'CURSEFORGE';
+        detailModBadge.className = 'badge badge-curseforge';
+      } else if (item.source === 'github') {
+        detailModBadge.textContent = 'GITHUB';
+        detailModBadge.className = 'badge badge-github';
+      } else if (item.source === 'custom' || item.source === 'shubacore') {
+        detailModBadge.textContent = 'CUSTOM';
+        detailModBadge.className = 'badge badge-github';
+      } else {
+        detailModBadge.textContent = (item.source || 'modrinth').toUpperCase();
+        detailModBadge.className = 'badge badge-modrinth';
+      }
     }
     if (detailModAuthor) detailModAuthor.textContent = item.author || 'Autor desconocido';
     if (detailModDownloads) detailModDownloads.textContent = `${formatDownloads(item.downloads || 0)} descargas`;
@@ -6136,7 +6152,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    if (!targetProjId || targetProjId === 'undefined' || item.source === 'custom') {
+    if (!targetProjId || targetProjId === 'undefined' || (item.source === 'custom' && targetProjId !== 'shubaclient' && targetProjId !== 'shubaclient-263')) {
       if (detailModBody) {
         detailModBody.innerHTML = `
           <div class="empty-state" style="padding: 24px; text-align: left;">

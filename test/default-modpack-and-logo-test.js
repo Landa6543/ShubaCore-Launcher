@@ -58,12 +58,12 @@ async function runTests() {
   console.log(`   ✔ Instancia por defecto "${active.name}" creada con logo oficial en ${iconPath}.\n`);
 
   // ----------------------------------------------------
-  // 3. FICHA DEL MODPACK OFICIAL EN EL CATÁLOGO
+  // 3. FICHA DEL MODPACK OFICIAL EN EL CATÁLOGO (CUSTOM) Y DETALLES RICOS
   // ----------------------------------------------------
-  console.log('▶ [3/4] Verificando presencia del Modpack Oficial en el Catálogo de Modpacks...');
+  console.log('▶ [3/4] Verificando presencia del Modpack Oficial en el Catálogo de Modpacks (como Custom)...');
   const officialInfo = modManager.getOfficialShubaClientModpackInfo();
   assert.strictEqual(officialInfo.id, 'shubaclient');
-  assert.strictEqual(officialInfo.source, 'shubacore');
+  assert.strictEqual(officialInfo.source, 'custom');
   assert.strictEqual(officialInfo.contentType, 'modpacks');
   assert.strictEqual(officialInfo.isOfficial, true);
   assert.ok(officialInfo.iconUrl.startsWith('data:image/png;base64,'), 'La ficha del catálogo debe incluir el logo oficial');
@@ -79,8 +79,23 @@ async function runTests() {
   assert.ok(searchRes.results && searchRes.results.length > 0, 'Debe haber resultados en la búsqueda de modpacks');
   const firstItem = searchRes.results[0];
   assert.strictEqual(firstItem.id, 'shubaclient', 'El primer modpack debe ser el Modpack Oficial ShubaClient');
+  assert.strictEqual(firstItem.source, 'custom', 'El modpack oficial debe tener source "custom"');
   assert.strictEqual(firstItem.author, 'SHUBATECH');
-  console.log(`   ✔ Ficha oficial encontrada en el catálogo: "${firstItem.title}" por ${firstItem.author}.\n`);
+  console.log(`   ✔ Ficha oficial encontrada en el catálogo: "${firstItem.title}" por ${firstItem.author} [${firstItem.source}].`);
+
+  // Verificar que getProjectDetails resuelve los detalles ricos sin llamar a Modrinth ni dar 404
+  const details = await modManager.getProjectDetails({
+    projectId: 'shubaclient',
+    source: 'custom',
+    mcVersion: '26.3',
+    loader: 'fabric'
+  });
+  assert.ok(details, 'Debe retornar los detalles del modpack oficial');
+  assert.strictEqual(details.source, 'custom');
+  assert.ok(details.dependencies && details.dependencies.length >= 15, 'Debe incluir las dependencias de los 17 mods oficiales');
+  assert.ok(details.descriptionHtml.includes('Vulkan'), 'La descripción debe destacar el motor Vulkan');
+  assert.ok(details.iconUrl.startsWith('data:image/png;base64,'), 'Los detalles deben incluir el logo oficial');
+  console.log(`   ✔ Modal de detalles custom validado sin error 404 (${details.dependencies.length} dependencias listadas).\n`);
 
   // ----------------------------------------------------
   // 4. INSTALACIÓN / DESCARGA COMPLETA DEL MODPACK OFICIAL
@@ -88,7 +103,7 @@ async function runTests() {
   console.log('▶ [4/4] Verificando instalación del modpack oficial ShubaClient...');
   const installRes = await modManager.downloadContent({
     projectId: 'shubaclient',
-    source: 'shubacore',
+    source: 'custom',
     contentType: 'modpacks',
     title: 'Mi ShubaClient Modpack'
   });

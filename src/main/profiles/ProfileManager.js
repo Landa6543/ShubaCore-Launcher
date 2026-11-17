@@ -185,19 +185,35 @@ class ProfileManager {
     const ramMax = (rawObj.ramMax || rawObj.memoryMax || '8G').toString().trim() || '8G';
 
     // Icono personalizado o por defecto
+    const isShubaClient = id === 'shubaclient-263' || (name && name.toLowerCase().includes('shubaclient'));
+    const officialB64 = this._getOfficialLogoBase64();
+    const officialBuf = this._getOfficialLogoBuffer();
+
     let icon = rawObj.icon;
     const localIconPath = path.join(this.getInstancePath(id), 'icon.png');
     if (fs.existsSync(localIconPath)) {
       try {
-        const b64 = fs.readFileSync(localIconPath).toString('base64');
-        icon = `data:image/png;base64,${b64}`;
+        const stats = fs.statSync(localIconPath);
+        // Si es ShubaClient y el icono es el viejo placeholder azul de 79584 bytes, o está dañado, sobreescribir con el logo oficial
+        if (isShubaClient && (stats.size === 79584 || stats.size < 1000) && officialBuf) {
+          fs.writeFileSync(localIconPath, officialBuf);
+          icon = officialB64;
+        } else {
+          const b64 = fs.readFileSync(localIconPath).toString('base64');
+          icon = `data:image/png;base64,${b64}`;
+        }
+      } catch (_) {}
+    } else if (isShubaClient && officialBuf) {
+      try {
+        fs.writeFileSync(localIconPath, officialBuf);
+        icon = officialB64;
       } catch (_) {}
     }
-    if (!icon || icon === 'creeper' || icon === 'default' || icon === 'icon.png' || icon === 'assets/logo.png') {
-      if (rawObj.iconUrl && (rawObj.iconUrl.startsWith('http://') || rawObj.iconUrl.startsWith('https://'))) {
+
+    if (!icon || icon === 'creeper' || icon === 'default' || icon === 'icon.png' || icon === 'assets/logo.png' || (isShubaClient && (!icon.startsWith('data:image') || icon.length < 150000))) {
+      if (rawObj.iconUrl && (rawObj.iconUrl.startsWith('http://') || rawObj.iconUrl.startsWith('https://')) && !isShubaClient) {
         icon = rawObj.iconUrl;
       } else {
-        const officialB64 = this._getOfficialLogoBase64();
         icon = officialB64 || 'assets/logo.png';
       }
     }
@@ -561,6 +577,21 @@ class ProfileManager {
 
     // Si es la instancia oficial ShubaClient y está vacía, poblarla automáticamente
     const isShubaClient = profileId === 'shubaclient-263' || (profileData.name && profileData.name.toLowerCase().includes('shubaclient'));
+    if (isShubaClient) {
+      const officialBuf = this._getOfficialLogoBuffer();
+      if (officialBuf) {
+        let needsWrite = !fs.existsSync(localIconPath);
+        if (!needsWrite) {
+          try {
+            const st = fs.statSync(localIconPath);
+            if (st.size === 79584 || st.size < 1000) needsWrite = true;
+          } catch (_) {}
+        }
+        if (needsWrite) {
+          try { fs.writeFileSync(localIconPath, officialBuf); } catch (_) {}
+        }
+      }
+    }
     let currentModsCount = 0;
     try {
       if (fs.existsSync(modsDir)) {

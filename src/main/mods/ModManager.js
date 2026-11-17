@@ -248,8 +248,9 @@ class ModManager {
       const matchesShuba = !query || qLower.includes('shuba') || qLower.includes('client') || qLower.includes('fps') || qLower.includes('optimi') || qLower.includes('26.3') || qLower.includes('vulkan');
       const matchesMc = !mcVersion || mcVersion === '26.3' || mcVersion === 'all';
       const matchesLoader = !loader || loader === 'fabric' || loader === 'all';
+      const matchesSource = !source || source === 'both' || source === 'custom' || source === 'github' || source === 'all';
 
-      if (matchesShuba && matchesMc && matchesLoader && safePage === 1) {
+      if (matchesShuba && matchesMc && matchesLoader && matchesSource && safePage === 1) {
         const officialPack = this.getOfficialShubaClientModpackInfo();
         pagedResults = [officialPack, ...pagedResults.filter((p) => p.id !== 'shubaclient')].slice(0, safePageSize);
         totalCount++;
@@ -1555,6 +1556,11 @@ class ModManager {
 
   async getProjectDetails({ projectId, source = 'modrinth', mcVersion = '1.21.1', loader = 'neoforge' }) {
     logger.info(`[ProjectDetails] Consultando detalles para ${projectId} (${source}) en MC ${mcVersion} (${loader})...`);
+
+    // Modpack Oficial Custom de ShubaClient (SHUBATECH)
+    if (projectId === 'shubaclient' || projectId === 'shubaclient-263' || source === 'custom' || source === 'shubacore') {
+      return this.getOfficialShubaClientModpackDetails();
+    }
 
     if (source === 'curseforge') {
       const apiKey = this._getCurseForgeKey();
@@ -3066,7 +3072,7 @@ class ModManager {
       id: 'shubaclient',
       projectId: 'shubaclient',
       slug: 'shubaclient',
-      source: 'shubacore',
+      source: 'custom',
       contentType: 'modpacks',
       title: 'ShubaClient Oficial 26.3 (FPS Boost & Vulkan)',
       name: 'ShubaClient Oficial 26.3',
@@ -3085,6 +3091,107 @@ class ModManager {
       environment: 'client',
       isOfficial: true,
       latestVersion: '2.0.9'
+    };
+  }
+
+  /**
+   * Obtiene la ficha de detalles completa para el modal del Modpack Oficial ShubaClient
+   */
+  getOfficialShubaClientModpackDetails() {
+    let logoB64 = 'assets/logo.png';
+    try {
+      const { getProfileManager } = require('../profiles/ProfileManager');
+      logoB64 = getProfileManager()._getOfficialLogoBase64();
+    } catch (_) {}
+
+    const descriptionHtml = `
+      <div style="display: flex; flex-direction: column; gap: 16px; padding: 4px 0;">
+        <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.05) 100%); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 10px; padding: 18px; display: flex; align-items: center; gap: 18px;">
+          <img src="${logoB64}" style="width: 64px; height: 64px; object-fit: contain; filter: drop-shadow(0 4px 14px rgba(16,185,129,0.45));" alt="Logo ShubaCore">
+          <div>
+            <h3 style="margin: 0 0 6px 0; color: #10b981; font-size: 17px; font-weight: 700;">ShubaClient Oficial 26.3 (Vulkan & FPS Boost)</h3>
+            <p style="margin: 0; color: #d1d5db; font-size: 13px; line-height: 1.45;">Desarrollado y optimizado por <strong>SHUBATECH</strong>. Incluye optimización de vanguardia para exprimir más de 2000 FPS con Vulkan y compatibilidad completa con shaders Iris en Minecraft 26.3 Fabric.</p>
+          </div>
+        </div>
+
+        <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); border-radius: 8px; padding: 16px;">
+          <h4 style="margin: 0 0 12px 0; color: var(--text-primary); font-size: 14px; font-weight: 600;">⚡ Características de Rendimiento Integradas:</h4>
+          <ul style="margin: 0; padding-left: 20px; color: var(--text-secondary); font-size: 13px; line-height: 1.8;">
+            <li><strong>Motor Vulkan Nativo (ShubaDium / Sodium):</strong> Rendimiento superior a OpenGL estándar en cualquier GPU.</li>
+            <li><strong>Soporte Completo de Shaders (Iris):</strong> Carga shaders modernos manteniendo tasas de refresco fluidas.</li>
+            <li><strong>Reducción de Memoria RAM (FerriteCore & ModernFix):</strong> Estabilidad garantizada con un consumo acotado a 6 GB máximos.</li>
+            <li><strong>Física y Entidades Suaves (Lithium & Entity Culling):</strong> Cero micro-tirones (stuttering) en granjas y multijugador.</li>
+            <li><strong>Menú Panorámico 3D & Pausa Step-Back:</strong> Interfaz cinemática con renderizado en tiempo real.</li>
+            <li><strong>ShubaClient UI & Cosméticos Gratis:</strong> Menús rediseñados en español (España - es_es) y controles listos para jugar.</li>
+          </ul>
+        </div>
+      </div>
+    `;
+
+    const dependencies = [
+      { projectId: 'ShubaDium (Motor Vulkan 26.3)', relationType: 'Requerido' },
+      { projectId: 'Iris Shaders (Soporte Shaders)', relationType: 'Requerido' },
+      { projectId: 'Sodium Fabric (Renderizador Base)', relationType: 'Requerido' },
+      { projectId: 'Sodium Extra (Ajustes de Calidad y Partículas)', relationType: 'Requerido' },
+      { projectId: 'Sodium Shadowy Path Blocks (Sombreado)', relationType: 'Requerido' },
+      { projectId: 'Lithium (Optimización de Física y Servidor)', relationType: 'Requerido' },
+      { projectId: 'FerriteCore (Optimización de RAM)', relationType: 'Requerido' },
+      { projectId: 'ModernFix (Arranque Rápido y Parches)', relationType: 'Requerido' },
+      { projectId: 'ImmediatelyFast (Aceleración de UI / HUD)', relationType: 'Requerido' },
+      { projectId: 'Entity Culling (Ocultación de Entidades)', relationType: 'Requerido' },
+      { projectId: 'RSLS (Iluminación Rápida Dinámica)', relationType: 'Requerido' },
+      { projectId: 'Clumps (Agrupación de Experiencia)', relationType: 'Requerido' },
+      { projectId: 'ShubaClient UI (Interfaz Oficial SHUBATECH)', relationType: 'Requerido' },
+      { projectId: 'ShubaConfig (Gestor de Ajustes)', relationType: 'Requerido' },
+      { projectId: 'Fabric API (Librería Base 26.3)', relationType: 'Requerido' },
+      { projectId: 'Fabric Language Kotlin (Runtime Kotlin)', relationType: 'Requerido' },
+      { projectId: 'Compose Bundle (Motor de Interfaz Reactivo)', relationType: 'Requerido' }
+    ];
+
+    const changelogs = [
+      {
+        versionNumber: '2.0.9 Oficial (26.3)',
+        fileName: 'ShubaClient-26.3-v2.0.9.shubapack',
+        releaseType: 'Release',
+        releaseDate: new Date().toLocaleDateString(),
+        changelog: 'Lanzamiento oficial de ShubaClient para Minecraft 26.3 Fabric. Incluye el motor de renderizado Vulkan, compatibilidad nativa con shaders vía Iris, menú panorámico 3D OneConfig, perfil de memoria optimizado a 6 GB de RAM y los 17 mods de rendimiento integrados.'
+      }
+    ];
+
+    const files = [
+      {
+        fileId: 'shubaclient-263-release',
+        fileName: 'ShubaClient-26.3-v2.0.9.shubapack',
+        displayName: 'ShubaClient Oficial 26.3 (Fabric 0.20.1)',
+        versionNumber: '2.0.9',
+        releaseType: 'Release',
+        releaseDate: new Date().toLocaleDateString(),
+        gameVersions: ['26.3'],
+        downloadUrl: 'local://shubaclient',
+        sizeFormatted: '48.2 MB'
+      }
+    ];
+
+    return {
+      id: 'shubaclient',
+      projectId: 'shubaclient',
+      slug: 'shubaclient',
+      title: 'ShubaClient Oficial 26.3 (FPS Boost & Vulkan)',
+      name: 'ShubaClient Oficial 26.3',
+      author: 'SHUBATECH',
+      summary: 'Cliente oficial ShubaClient: máxima optimización y tasa de FPS en Minecraft 26.3 con Fabric, Vulkan/Sodium, Iris Shaders, menú 3D y cosméticos gratis.',
+      descriptionHtml,
+      iconUrl: logoB64,
+      downloads: 999999,
+      source: 'custom',
+      websiteUrl: 'https://github.com/Landa6543/ShubaCore-Mods',
+      screenshots: [logoB64],
+      gallery: [
+        { url: logoB64, title: 'Logotipo Oficial ShubaCore / ShubaClient', description: 'Identidad visual oficial de SHUBATECH' }
+      ],
+      changelogs,
+      dependencies,
+      files
     };
   }
 

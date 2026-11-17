@@ -170,14 +170,17 @@
       <!-- Dock Inferior: Perfil Activo y Botón JUGAR -->
       <div class="sidebar-launch-dock">
         <div class="active-profile-dock-card">
-          <div class="dock-profile-top">
-            <span id="active-profile-name" class="dock-profile-name">Mi Aventura</span>
-            <span id="active-profile-badge" class="badge badge-neoforge">NEOFORGE</span>
-          </div>
-          <div class="dock-profile-meta">
-            <span>MC <strong id="active-profile-mc">1.21.1</strong></span>
-            <span class="meta-dot">·</span>
-            <span id="active-profile-loader-ver">21.1.265</span>
+          <img id="active-profile-dock-icon" class="dock-profile-avatar" src="assets/logo.png" alt="Instancia" onerror="this.onerror=null;this.src='assets/logo.png';">
+          <div class="dock-profile-info">
+            <div class="dock-profile-top">
+              <span id="active-profile-name" class="dock-profile-name">Mi Aventura</span>
+              <span id="active-profile-badge" class="badge badge-neoforge">NEOFORGE</span>
+            </div>
+            <div class="dock-profile-meta">
+              <span>MC <strong id="active-profile-mc">1.21.1</strong></span>
+              <span class="meta-dot">·</span>
+              <span id="active-profile-loader-ver">21.1.265</span>
+            </div>
           </div>
           <span id="active-profile-folder" style="display: none;"></span>
         </div>
@@ -381,6 +384,7 @@
                 <option value="both" selected>CurseForge + Modrinth</option>
                 <option value="modrinth">Solo Modrinth</option>
                 <option value="curseforge">Solo CurseForge</option>
+                <option value="custom">🔥 Mods y Packs Custom (SHUBATECH)</option>
                 <option value="github">🔥 Mods Custom (GitHub)</option>
               </select>
             </div>
