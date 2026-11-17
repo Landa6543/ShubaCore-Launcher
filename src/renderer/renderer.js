@@ -1530,6 +1530,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (playerUuid) playerUuid.textContent = `UUID: ${accUuid}`;
     if (skinModalUsername) skinModalUsername.textContent = accName;
 
+    // Purgar estado social al cambiar o sincronizar cuenta
+    cachedFriendsList = [];
+    if (friendSearchResults) {
+      friendSearchResults.innerHTML = '';
+      friendSearchResults.style.display = 'none';
+    }
+    if (inputSearchAddFriend) {
+      inputSearchAddFriend.value = '';
+    }
+    try {
+      if (typeof loadFriendsView === 'function') {
+        loadFriendsView();
+      }
+    } catch (_) {}
+
     // Asegurar que exista un ÚNICO badge en .player-name-row y eliminar hermanos duplicados
     const nameRow = document.querySelector('.player-info .player-name-row') || document.querySelector('.player-name-row');
     if (nameRow) {
@@ -1904,11 +1919,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       const btn = document.createElement('button');
       btn.className = 'cape-dropdown-item';
       btn.innerHTML = `<span class="cape-item-icon">🧥</span><span class="cape-item-label">${escapeHtml(cape.alias)}${cape.active ? ' ✓' : ''}</span>`;
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         capeHidden = false;
         currentActiveCapeUrl = cape.dataUrl;
         applyCapeOrElytra();
         skinCapesDropdown?.classList.add('hidden');
+        if (cape.id) {
+          await api.skins?.setActiveCape?.(cape.id).catch(() => {});
+        }
       });
       list.appendChild(btn);
     });
@@ -1926,9 +1944,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       }
     } catch (_) {}
-    const active = ownedCapes.find((c) => c.active) || ownedCapes[0] || null;
+    const active = ownedCapes.find((c) => c.active) || null;
     currentActiveCapeUrl = active ? active.dataUrl : null;
-    capeHidden = false;
+    capeHidden = !active;
     renderOwnedCapesDropdown();
     applyCapeOrElytra();
     // La skin real de la cuenta premium debe ser la que se ve por defecto
@@ -1993,10 +2011,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     skinCapesDropdown.querySelectorAll('.cape-dropdown-item[data-cape="none"]').forEach((item) => {
-      item.addEventListener('click', () => {
+      item.addEventListener('click', async () => {
         capeHidden = true;
+        currentActiveCapeUrl = null;
         applyCapeOrElytra();
         skinCapesDropdown.classList.add('hidden');
+        await api.skins?.setActiveCape?.('none').catch(() => {});
       });
     });
   }
@@ -3252,15 +3272,6 @@ document.addEventListener('DOMContentLoaded', async () => {
           await api.config.setKey('performance.controllerSupport', checkGlobalController.checked);
           const switchMaster = document.getElementById('switch-controller-master');
           if (switchMaster) switchMaster.checked = checkGlobalController.checked;
-        });
-      }
-
-      const checkForceSpanish = document.getElementById('check-force-spanish-instances');
-      if (checkForceSpanish && api.config) {
-        const forceSp = await api.config.getKey('general.forceSpanish', true);
-        checkForceSpanish.checked = forceSp !== false;
-        checkForceSpanish.addEventListener('change', async () => {
-          await api.config.setKey('general.forceSpanish', checkForceSpanish.checked);
         });
       }
 
@@ -8185,6 +8196,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Elementos del Buscador de Perfiles e Invitaciones
   const btnSearchUserProfile = document.getElementById('btn-search-user-profile');
   const friendSearchResults = document.getElementById('friend-search-results');
+  const tabSocialCommunity = document.getElementById('tab-social-community');
+  const communityCountPill = document.getElementById('community-count-pill');
+  const panelSocialCommunity = document.getElementById('panel-social-community');
+  const communityUsersContainer = document.getElementById('community-users-container');
+  const communityEmptyState = document.getElementById('community-empty-state');
+  const btnRefreshCommunity = document.getElementById('btn-refresh-community');
   const tabSocialInvites = document.getElementById('tab-social-invites');
   const tabSocialProfile = document.getElementById('tab-social-profile');
   const invitesCountPill = document.getElementById('invites-count-pill');
@@ -8258,10 +8275,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     currentSocialSubtab = tab;
     if (panelSocialChat) panelSocialChat.style.display = 'none';
 
-    [tabSocialFriends, tabSocialPending, tabSocialInvites, tabSocialProfile].forEach(t => t?.classList?.remove('active'));
-    [panelSocialFriends, panelSocialPending, panelSocialInvites, panelSocialProfile].forEach(p => { if (p) p.style.display = 'none'; });
+    [tabSocialFriends, tabSocialCommunity, tabSocialPending, tabSocialInvites, tabSocialProfile].forEach(t => t?.classList?.remove('active'));
+    [panelSocialFriends, panelSocialCommunity, panelSocialPending, panelSocialInvites, panelSocialProfile].forEach(p => { if (p) p.style.display = 'none'; });
 
-    if (tab === 'pending') {
+    if (tab === 'community') {
+      if (tabSocialCommunity) tabSocialCommunity.classList.add('active');
+      if (panelSocialCommunity) panelSocialCommunity.style.display = 'flex';
+      loadCommunityUsers();
+    } else if (tab === 'pending') {
       if (tabSocialPending) tabSocialPending.classList.add('active');
       if (panelSocialPending) panelSocialPending.style.display = 'flex';
     } else if (tab === 'invites') {
@@ -8279,9 +8300,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   if (tabSocialFriends) tabSocialFriends.addEventListener('click', () => switchSocialSubtab('friends'));
+  if (tabSocialCommunity) tabSocialCommunity.addEventListener('click', () => switchSocialSubtab('community'));
   if (tabSocialPending) tabSocialPending.addEventListener('click', () => switchSocialSubtab('pending'));
   if (tabSocialInvites) tabSocialInvites.addEventListener('click', () => switchSocialSubtab('invites'));
   if (tabSocialProfile) tabSocialProfile.addEventListener('click', () => switchSocialSubtab('profile'));
+  if (btnRefreshCommunity) btnRefreshCommunity.addEventListener('click', () => loadCommunityUsers());
 
   if (btnRefreshInvites) {
     btnRefreshInvites.addEventListener('click', () => {
@@ -8591,6 +8614,107 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       friendsListContainer.appendChild(card);
+    });
+  }
+
+  async function loadCommunityUsers() {
+    if (!communityUsersContainer) return;
+    communityUsersContainer.innerHTML = '<div style="padding: 24px; color: var(--text-dim); text-align: center; grid-column: 1 / -1;">Cargando jugadores registrados...</div>';
+    if (communityEmptyState) communityEmptyState.style.display = 'none';
+
+    try {
+      const users = await api.friends.getCommunityUsers();
+      if (communityCountPill) {
+        communityCountPill.textContent = String(users?.length || 0);
+      }
+      renderCommunityUsers(users);
+    } catch (err) {
+      communityUsersContainer.innerHTML = `<div style="padding: 24px; color: #ef4444; text-align: center; grid-column: 1 / -1;">Error al cargar comunidad: ${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  function renderCommunityUsers(users) {
+    if (!communityUsersContainer) return;
+    communityUsersContainer.innerHTML = '';
+    if (!Array.isArray(users) || users.length === 0) {
+      if (communityEmptyState) communityEmptyState.style.display = 'block';
+      return;
+    }
+    if (communityEmptyState) communityEmptyState.style.display = 'none';
+
+    users.forEach((user) => {
+      const card = document.createElement('div');
+      card.className = 'friend-card';
+      const skinUrl = user.skinUrl || `https://mc-heads.net/skin/${encodeURIComponent(user.username)}`;
+      const isPrem = user.accountType === 'premium' || Boolean(user.msGamertag);
+      const isFriend = (cachedFriendsList || []).some(f => f.friendId === user.id || f.username?.toLowerCase() === user.username?.toLowerCase());
+
+      card.innerHTML = `
+        <div class="friend-card-main">
+          <div class="friend-avatar-wrap" style="width: 48px; height: 48px;">
+            <canvas class="community-avatar-canvas" width="48" height="48"></canvas>
+          </div>
+          <div class="friend-info">
+            <div class="friend-top-row">
+              <span class="friend-name">${escapeHtml(user.displayName || user.username)}</span>
+              ${isPrem ? '<span class="badge badge-success" style="font-size: 9.5px; padding: 1px 5px;">PREMIUM</span>' : '<span class="badge badge-offline" style="font-size: 9.5px; padding: 1px 5px;">SHUBA</span>'}
+            </div>
+            <span class="friend-user-handle">@${escapeHtml(user.username)}</span>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px;">
+              <span class="badge" style="font-size: 10px; background: rgba(255,255,255,0.06); color: var(--text-secondary);" title="Tiempo total jugado">⏱ ${formatPlayTime(user.playTimeSeconds)}</span>
+              <span class="badge" style="font-size: 10px; background: rgba(16, 185, 129, 0.15); color: #10b981;" title="Modloader favorito">${escapeHtml(user.favoriteModloader || 'Fabric')}</span>
+              ${user.playStyle ? `<span class="badge" style="font-size: 10px; background: rgba(139, 92, 246, 0.15); color: #c4b5fd;" title="Estilo de juego">${escapeHtml(user.playStyle)}</span>` : ''}
+            </div>
+            ${user.bio ? `<p class="friend-bio" style="margin-top: 4px;" title="${escapeHtml(user.bio)}">"${escapeHtml(user.bio)}"</p>` : ''}
+          </div>
+        </div>
+        <div class="friend-card-actions" style="display: flex; gap: 8px; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.06); justify-content: flex-end;">
+          <button class="btn btn-secondary btn-small btn-view-community-profile" style="font-size: 11.5px; padding: 4px 10px;">
+            <span>Ver Perfil</span>
+          </button>
+          ${isFriend ? `
+            <button class="btn btn-secondary btn-small" disabled style="opacity: 0.8; font-size: 11.5px; padding: 4px 10px;">
+              <span>✔ Amigos</span>
+            </button>
+          ` : `
+            <button class="btn btn-primary btn-small btn-add-community-friend" data-username="${escapeHtml(user.username)}" style="font-size: 11.5px; padding: 4px 12px;">
+              <span>+ Agregar Amigo</span>
+            </button>
+          `}
+        </div>
+      `;
+
+      const canvas = card.querySelector('.community-avatar-canvas');
+      if (canvas) renderSkinFaceToCanvas(skinUrl, canvas);
+
+      card.querySelector('.btn-view-community-profile')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openUserProfileModal(user);
+      });
+
+      const btnAdd = card.querySelector('.btn-add-community-friend');
+      if (btnAdd) {
+        btnAdd.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          btnAdd.disabled = true;
+          try {
+            const res = await api.friends.sendRequest(user.username);
+            if (res && res.success) {
+              btnAdd.textContent = '✔ Solicitado';
+              appendLog(`[ShubaCore Social] ¡Solicitud enviada a @${user.username}!`, 'success');
+              await loadFriendsView();
+            } else {
+              alert(res?.error || 'Error al enviar solicitud.');
+              btnAdd.disabled = false;
+            }
+          } catch (err) {
+            alert('Error al enviar: ' + err.message);
+            btnAdd.disabled = false;
+          }
+        });
+      }
+
+      communityUsersContainer.appendChild(card);
     });
   }
 
@@ -8987,10 +9111,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (!prof || !prof.id) {
         if (friendSearchResults) {
           friendSearchResults.innerHTML = `
-            <div style="padding: 14px; text-align: center; color: var(--text-secondary);">
-              No se encontró ningún jugador registrado con el nombre "<b>${escapeHtml(query)}</b>".
+            <div style="padding: 12px 14px; text-align: center; color: var(--text-secondary); display: flex; justify-content: space-between; align-items: center;">
+              <span>No se encontró ningún jugador registrado con el nombre "<b>${escapeHtml(query)}</b>".</span>
+              <button id="btn-clear-search-result" class="btn btn-secondary btn-small" style="font-size: 11px; padding: 3px 8px;">✕ Limpiar</button>
             </div>
           `;
+          document.getElementById('btn-clear-search-result')?.addEventListener('click', () => {
+            friendSearchResults.innerHTML = '';
+            friendSearchResults.style.display = 'none';
+            if (inputSearchAddFriend) inputSearchAddFriend.value = '';
+          });
         }
         return;
       }
@@ -9003,6 +9133,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       friendSearchResults.innerHTML = `
         <div class="friend-search-card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 6px;">
+            <span style="font-size: 11.5px; color: var(--text-secondary); font-weight: 600;">Resultado de Búsqueda</span>
+            <button id="btn-clear-search-result" class="btn btn-secondary btn-small" style="font-size: 11px; padding: 2px 8px;" title="Cerrar resultado">✕ Limpiar</button>
+          </div>
           <div style="display: flex; gap: 14px; align-items: center;">
             <div class="friend-avatar-wrap" style="width: 52px; height: 52px;">
               <canvas id="search-result-avatar" width="52" height="52"></canvas>
@@ -9021,8 +9155,8 @@ document.addEventListener('DOMContentLoaded', async () => {
               </div>
             </div>
           </div>
-          ${prof.bio ? `<div style="font-size: 12px; color: var(--text-primary); background: rgba(0,0,0,0.25); border-left: 3px solid #10b981; padding: 8px 12px; border-radius: 4px;"><i>"${escapeHtml(prof.bio)}"</i></div>` : ''}
-          <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px;">
+          ${prof.bio ? `<div style="font-size: 12px; color: var(--text-primary); background: rgba(0,0,0,0.25); border-left: 3px solid #10b981; padding: 8px 12px; border-radius: 4px; margin-top: 8px;"><i>"${escapeHtml(prof.bio)}"</i></div>` : ''}
+          <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;">
             ${isMe ? '<span style="font-size: 12px; color: var(--text-dim); margin-top: 6px;">Este es tu propio perfil</span>' :
               (isFriend ? '<button class="btn btn-secondary btn-small" disabled style="opacity: 0.9;">✔ Ya son amigos</button>' :
                 `<button id="btn-add-from-search" class="btn btn-primary btn-small">
@@ -9036,6 +9170,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       const canvas = document.getElementById('search-result-avatar');
       if (canvas) renderSkinFaceToCanvas(skinUrl, canvas);
+
+      document.getElementById('btn-clear-search-result')?.addEventListener('click', () => {
+        friendSearchResults.innerHTML = '';
+        friendSearchResults.style.display = 'none';
+        if (inputSearchAddFriend) inputSearchAddFriend.value = '';
+      });
 
       const btnAddFromSearch = document.getElementById('btn-add-from-search');
       if (btnAddFromSearch) {
@@ -9075,19 +9215,35 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  function openUserProfileModal(user) {
+  function closeUserProfileModal() {
+    if (!modalUserProfile) return;
+    modalUserProfile.classList.remove('active');
+    modalUserProfile.style.setProperty('display', 'none', 'important');
+  }
+
+  async function openUserProfileModal(user) {
     if (!modalUserProfile || !userProfileModalBody) return;
     const skinUrl = user.skinUrl || `https://mc-heads.net/skin/${encodeURIComponent(user.username)}`;
     const isPrem = user.accountType === 'premium' || Boolean(user.msGamertag);
 
+    const sess = await api.auth.getSavedSession().catch(() => null);
+    const myId = sess?.shubacoreAccount?.id;
+    const myUsername = sess?.shubacoreAccount?.username?.toLowerCase();
+    const isMe = (myId && (user.id === myId || user.friendId === myId)) ||
+                 (myUsername && user.username?.toLowerCase() === myUsername);
+    const isFriend = (cachedFriendsList || []).some(f => 
+      (f.friendId && (f.friendId === user.id || f.friendId === user.friendId)) ||
+      (f.username && user.username && f.username.toLowerCase() === user.username.toLowerCase())
+    );
+
     userProfileModalBody.innerHTML = `
       <div style="display: flex; gap: 14px; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 14px;">
-        <div class="friend-avatar-wrap" style="width: 58px; height: 58px;">
+        <div class="friend-avatar-wrap" style="width: 58px; height: 58px; flex-shrink: 0;">
           <canvas id="modal-profile-avatar" width="58" height="58"></canvas>
         </div>
-        <div>
+        <div style="overflow: hidden;">
           <div style="display: flex; align-items: center; gap: 8px;">
-            <strong style="font-size: 16px; color: var(--text-primary);">${escapeHtml(user.displayName || user.username)}</strong>
+            <strong style="font-size: 16px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(user.displayName || user.username)}</strong>
             <span class="badge ${isPrem ? 'badge-success' : 'badge-offline'}">${isPrem ? 'PREMIUM' : 'SHUBA'}</span>
           </div>
           <span style="font-size: 12px; color: var(--text-dim);">@${escapeHtml(user.username)}</span>
@@ -9120,7 +9276,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         </div>
       ` : ''}
 
-      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px;">
+      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);">
+        ${!isMe ? (isFriend ? `
+          <button class="btn btn-secondary btn-small" id="btn-modal-chat-profile" style="display: flex; align-items: center; gap: 6px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <span>💬 Abrir Chat</span>
+          </button>
+        ` : `
+          <button class="btn btn-primary btn-small" id="btn-modal-add-profile">
+            <span>+ Agregar Amigo</span>
+          </button>
+        `) : ''}
         <button class="btn btn-secondary btn-small" id="btn-modal-close-profile">Cerrar</button>
       </div>
     `;
@@ -9130,30 +9296,54 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const btnClose = document.getElementById('btn-modal-close-profile');
     if (btnClose) {
-      btnClose.addEventListener('click', () => {
-        modalUserProfile.classList.remove('active');
-        modalUserProfile.style.display = 'none';
+      btnClose.addEventListener('click', closeUserProfileModal);
+    }
+
+    const btnChat = document.getElementById('btn-modal-chat-profile');
+    if (btnChat) {
+      btnChat.addEventListener('click', () => {
+        closeUserProfileModal();
+        let targetFriend = (cachedFriendsList || []).find(f => 
+          (f.friendId && (f.friendId === user.id || f.friendId === user.friendId)) ||
+          (f.username && user.username && f.username.toLowerCase() === user.username.toLowerCase())
+        ) || user;
+        openFriendChat(targetFriend);
+      });
+    }
+
+    const btnAdd = document.getElementById('btn-modal-add-profile');
+    if (btnAdd) {
+      btnAdd.addEventListener('click', async () => {
+        btnAdd.disabled = true;
+        try {
+          const res = await api.friends.sendRequest(user.username);
+          if (res && res.success) {
+            btnAdd.textContent = '✔ Solicitud Enviada';
+            showToast(`¡Solicitud de amistad enviada a @${user.username}!`, 'success');
+            await loadFriendsView();
+          } else {
+            alert(res?.error || 'Error al enviar solicitud.');
+            btnAdd.disabled = false;
+          }
+        } catch (err) {
+          alert('Error al enviar: ' + err.message);
+          btnAdd.disabled = false;
+        }
       });
     }
 
     modalUserProfile.classList.add('active');
-    modalUserProfile.style.display = 'flex';
+    modalUserProfile.style.setProperty('display', 'flex', 'important');
   }
 
   if (btnCloseUserProfileModal) {
-    btnCloseUserProfileModal.addEventListener('click', () => {
-      if (modalUserProfile) {
-        modalUserProfile.classList.remove('active');
-        modalUserProfile.style.display = 'none';
-      }
-    });
+    btnCloseUserProfileModal.addEventListener('click', closeUserProfileModal);
   }
 
   if (modalUserProfile) {
     modalUserProfile.addEventListener('click', (e) => {
       if (e.target === modalUserProfile) {
-        modalUserProfile.classList.remove('active');
-        modalUserProfile.style.display = 'none';
+        closeUserProfileModal();
       }
     });
   }
@@ -9418,6 +9608,7 @@ document.addEventListener('DOMContentLoaded', async () => {
               action: 'open-invites',
               payload: latest
             }).catch(() => {});
+            showGameInvitePopup(latest);
           }
         }).catch(() => {});
       }
@@ -9426,13 +9617,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     api.events.on('shubahost:invite-sent', (data) => {
       if (data && data.target) {
         appendLog(`[ShubaHost In-Game] ¡Invitación enviada con éxito a @${data.target}!`, 'success');
+        showToast(`✉ Invitación enviada a @${data.target}`, 'success');
       }
     });
 
     api.events.on('notification:clicked', async ({ action, payload }) => {
       if (tabViewFriends) tabViewFriends.click();
       if (action === 'open-chat' && payload) {
-        let friend = cachedFriendsList.find(f => f.friendId === payload.friendId);
+        let friend = (cachedFriendsList || []).find(f => f.friendId === payload.friendId);
         if (!friend) {
           friend = { friendId: payload.friendId, username: payload.username || 'Amigo', displayName: payload.username || 'Amigo' };
         }
@@ -9441,10 +9633,125 @@ document.addEventListener('DOMContentLoaded', async () => {
         await launchJoinGame(payload.server, payload);
       } else if (action === 'open-pending') {
         switchSocialSubtab('pending');
+      } else if (action === 'open-invites') {
+        switchSocialSubtab('invites');
       }
     });
   } catch (realtimeErr) {
     console.warn('[Social Realtime Init] Aviso:', realtimeErr);
+  }
+
+  // ==========================================
+  // SISTEMA DE TOASTS Y NOTIFICACIONES FLOTANTES (BOTTOM-RIGHT)
+  // ==========================================
+  function ensureToastContainer() {
+    let container = document.getElementById('shubacore-toast-container');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'shubacore-toast-container';
+      container.style.cssText = 'position: fixed; bottom: 24px; right: 28px; z-index: 9999999; display: flex; flex-direction: column-reverse; gap: 12px; pointer-events: none; max-width: 380px; width: calc(100% - 56px);';
+      document.body.appendChild(container);
+    }
+    return container;
+  }
+
+  function showToast(message, type = 'info', durationMs = 3800) {
+    const container = ensureToastContainer();
+    const toast = document.createElement('div');
+    toast.className = 'shuba-toast';
+    const bg = type === 'success' ? '#065f46' : (type === 'error' ? '#991b1b' : '#1e293b');
+    const border = type === 'success' ? '#10b981' : (type === 'error' ? '#ef4444' : '#3b82f6');
+    toast.style.cssText = `background: ${bg}; color: #fff; border: 1px solid ${border}; border-radius: 8px; padding: 10px 14px; font-size: 12.5px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5); pointer-events: auto; display: flex; align-items: center; justify-content: space-between; gap: 10px; transition: opacity 0.2s, transform 0.2s;`;
+    toast.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span>${message}</span>
+      </div>
+      <button style="background: transparent; border: none; color: #9ca3af; font-size: 14px; cursor: pointer; padding: 0 4px;" title="Cerrar">✕</button>
+    `;
+
+    const closeBtn = toast.querySelector('button');
+    let timer = setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateY(8px)';
+      setTimeout(() => toast.remove(), 200);
+    }, durationMs);
+
+    closeBtn.addEventListener('click', () => {
+      clearTimeout(timer);
+      toast.remove();
+    });
+
+    container.appendChild(toast);
+  }
+
+  function showGameInvitePopup(invite) {
+    if (!invite) return;
+    const container = ensureToastContainer();
+    const hostName = invite.host?.displayName || invite.host?.username || 'Un amigo';
+    const worldName = invite.worldName || 'Mundo ShubaHost';
+    const mcVer = invite.mcVersion || '26.3';
+    const loader = invite.modloader || 'Fabric';
+
+    const card = document.createElement('div');
+    card.className = 'shuba-invite-toast';
+    card.style.cssText = 'background: #18181b; color: #fff; border: 1px solid #10b981; border-radius: 10px; padding: 14px 16px; box-shadow: 0 14px 30px rgba(0,0,0,0.65), 0 0 20px rgba(16, 185, 129, 0.25); pointer-events: auto; display: flex; flex-direction: column; gap: 10px; transition: opacity 0.25s, transform 0.25s;';
+
+    card.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 20px;">🎮</span>
+          <div>
+            <strong style="font-size: 13.5px; color: #fff; display: block;">¡Invitación a Partida!</strong>
+            <small style="color: #a1a1aa; font-size: 11.5px;">De <b>@${escapeHtml(hostName)}</b></small>
+          </div>
+        </div>
+        <button class="btn-dismiss-invite" style="background: transparent; border: none; color: #9ca3af; font-size: 14px; cursor: pointer; padding: 2px 4px;" title="Descartar">✕</button>
+      </div>
+
+      <div style="background: rgba(0,0,0,0.3); border-radius: 6px; padding: 8px 10px; font-size: 11.5px; display: flex; justify-content: space-between; align-items: center;">
+        <span style="color: #e4e4e7;">🌍 ${escapeHtml(worldName)}</span>
+        <span class="badge badge-success" style="font-size: 10px; padding: 2px 6px;">MC ${escapeHtml(mcVer)} · ${escapeHtml(loader)}</span>
+      </div>
+
+      <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 2px;">
+        <button class="btn btn-secondary btn-small btn-dismiss-invite-btn" style="font-size: 11px; padding: 5px 10px;">Rechazar</button>
+        <button class="btn btn-primary btn-small btn-join-invite-btn" style="font-size: 11.5px; padding: 5px 14px; font-weight: 600;">🚀 Unirse Ahora</button>
+      </div>
+    `;
+
+    const dismiss = () => {
+      card.style.opacity = '0';
+      card.style.transform = 'translateY(10px)';
+      setTimeout(() => card.remove(), 250);
+    };
+
+    let timer = setTimeout(dismiss, 28000);
+
+    card.querySelectorAll('.btn-dismiss-invite, .btn-dismiss-invite-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        clearTimeout(timer);
+        dismiss();
+      });
+    });
+
+    const btnJoin = card.querySelector('.btn-join-invite-btn');
+    if (btnJoin) {
+      btnJoin.addEventListener('click', async () => {
+        clearTimeout(timer);
+        dismiss();
+        if (invite.serverAddress) {
+          await launchJoinGame(invite.serverAddress, {
+            worldName: invite.worldName,
+            mc: invite.mcVersion,
+            loader: invite.modloader
+          });
+        } else {
+          switchSocialSubtab('invites');
+        }
+      });
+    }
+
+    container.appendChild(card);
   }
 
   // =======================================================

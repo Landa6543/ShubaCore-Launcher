@@ -134,6 +134,7 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
     rejectRequest: (requestId) => ipcRenderer.invoke('friends:reject-request', requestId),
     remove: (friendId) => ipcRenderer.invoke('friends:remove', friendId),
     getUserProfile: (userIdOrUsername) => ipcRenderer.invoke('friends:get-user-profile', userIdOrUsername),
+    getCommunityUsers: () => ipcRenderer.invoke('friends:get-community-users'),
     updateSocialProfile: (updates) => ipcRenderer.invoke('friends:update-social-profile', updates),
     createGameInvite: (inviteData) => ipcRenderer.invoke('friends:create-game-invite', inviteData),
     getGameInvites: () => ipcRenderer.invoke('friends:get-game-invites'),
@@ -233,7 +234,8 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
     getDefaultSkins: () => ipcRenderer.invoke('skins:get-default-skins'),
     getVanillaElytra: () => ipcRenderer.invoke('skins:get-vanilla-elytra'),
     remove: (username) => ipcRenderer.invoke('skins:remove', username),
-    uploadToMojang: (mcAccessToken, skinData, variant) => ipcRenderer.invoke('skins:upload-to-mojang', { mcAccessToken, skinData, variant })
+    uploadToMojang: (mcAccessToken, skinData, variant) => ipcRenderer.invoke('skins:upload-to-mojang', { mcAccessToken, skinData, variant }),
+    setActiveCape: (capeId, mcAccessToken) => ipcRenderer.invoke('skins:set-active-cape', { capeId, mcAccessToken })
   },
 
   // ==========================================

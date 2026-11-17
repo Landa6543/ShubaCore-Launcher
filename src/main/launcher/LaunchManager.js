@@ -700,7 +700,7 @@ class LaunchManager {
       try {
         const shubaUser = this.authManager?.getShubaCoreAccount?.();
         if (shubaUser?.id && this.supabaseManager) {
-          const friends = await this.supabaseManager.getFriendsList(shubaUser.id).catch(() => []);
+          const friends = (await this.supabaseManager.getFriends(shubaUser.id).catch(() => [])) || [];
           const bridgeData = {
             currentUser: shubaUser.username || auth.name,
             userId: shubaUser.id,

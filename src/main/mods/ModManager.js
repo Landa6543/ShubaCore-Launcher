@@ -951,7 +951,13 @@ class ModManager {
     try {
       if (fs.existsSync(lockPath)) {
         const raw = fs.readFileSync(lockPath, 'utf8');
-        return JSON.parse(raw);
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          if (!parsed.mods || Array.isArray(parsed.mods) || typeof parsed.mods !== 'object') {
+            parsed.mods = {};
+          }
+          return parsed;
+        }
       }
     } catch (e) {
       logger.error('Error al leer mods-lock.json:', e);
@@ -973,11 +979,28 @@ class ModManager {
     fs.writeFileSync(lockPath, JSON.stringify(lockData, null, 2), 'utf8');
   }
 
+  _getBlueLogoBase64() {
+    const candidatePaths = [
+      path.join(__dirname, '..', '..', 'renderer', 'assets', 'shubaclient_mod_logo.png'),
+      path.resolve(process.cwd(), 'shubaclient_mod_logo.png'),
+      path.resolve(process.cwd(), 'src', 'renderer', 'assets', 'shubaclient_mod_logo.png')
+    ];
+    for (const p of candidatePaths) {
+      if (fs.existsSync(p)) {
+        try {
+          const buf = fs.readFileSync(p);
+          if (buf && buf.length > 1000) return `data:image/png;base64,${buf.toString('base64')}`;
+        } catch (_) {}
+      }
+    }
+    return 'assets/shubaclient_mod_logo.png';
+  }
+
   /**
    * Mods propios de ShubaCore (ShubaClient UI, ShubaConfig, ShubaDium...).
    * Se identifican por "custom.shubacore" en fabric.mod.json (o autor SHUBATECH).
    * Nunca se buscan en Modrinth/CurseForge ni se "actualizan" con los originales:
-   * se muestran siempre con el nombre, autor e icono que trae el propio .jar.
+   * se muestran siempre con el nombre, autor e icono oficial de Shuba (S blanca con fondo azul).
    * Devuelve el Set de nombres de archivo que son de ShubaCore.
    */
   _applyShubaCoreIdentity(instancePath, lockData) {
@@ -991,11 +1014,12 @@ class ModManager {
       const meta = this._extractJarMetadata(jarPath);
       if (!meta) continue;
       const isShuba = meta.shubacore ||
-                      (meta.modId && (meta.modId === 'polyplus' || meta.modId === 'oneconfig' || meta.modId === 'polydium' || meta.modId === 'shubahost' || meta.modId === 'shubaclient'));
+                      (meta.modId && (meta.modId === 'polyplus' || meta.modId === 'oneconfig' || meta.modId === 'polydium' || meta.modId === 'shubahost' || meta.modId === 'shubaclient')) ||
+                      /shubaclient|shubaconfig|shubadium|shubahost/i.test(fileName);
       if (!isShuba) continue;
       shubaFiles.add(fileName);
 
-      const modIcon = meta?.iconBase64 || entry.iconUrl || null;
+      const modIcon = this._getBlueLogoBase64();
 
       const wanted = {
         source: 'shubacore',
@@ -3074,11 +3098,7 @@ class ModManager {
    * Obtiene la ficha de metadatos del Modpack Oficial ShubaClient para el catálogo
    */
   getOfficialShubaClientModpackInfo() {
-    let iconUrl = 'assets/logo.png';
-    try {
-      const { getProfileManager } = require('../profiles/ProfileManager');
-      iconUrl = getProfileManager()._getOfficialLogoBase64();
-    } catch (_) {}
+    const iconUrl = this._getBlueLogoBase64();
 
     return {
       id: 'shubaclient',
@@ -3110,11 +3130,7 @@ class ModManager {
    * Obtiene la ficha de detalles completa para el modal del Modpack Oficial ShubaClient
    */
   getOfficialShubaClientModpackDetails() {
-    let logoB64 = 'assets/logo.png';
-    try {
-      const { getProfileManager } = require('../profiles/ProfileManager');
-      logoB64 = getProfileManager()._getOfficialLogoBase64();
-    } catch (_) {}
+    const logoB64 = this._getBlueLogoBase64();
 
     const descriptionHtml = `
       <div style="display: flex; flex-direction: column; gap: 16px; padding: 4px 0;">

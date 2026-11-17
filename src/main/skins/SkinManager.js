@@ -628,6 +628,37 @@ class SkinManager {
   }
 
   /**
+   * Sincroniza la capa activa en los servidores de Mojang para que se vea dentro del juego
+   */
+  async setActiveCape(mcAccessToken, capeId) {
+    if (!mcAccessToken) return { success: false, error: 'Token no disponible' };
+    try {
+      if (!capeId || capeId === 'none') {
+        const res = await fetch('https://api.minecraftservices.com/minecraft/profile/capes/active', {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${mcAccessToken}` }
+        });
+        logger.info(`[SkinManager] Capa desequipada en Mojang: status ${res.status}`);
+        return { success: res.ok };
+      } else {
+        const res = await fetch('https://api.minecraftservices.com/minecraft/profile/capes/active', {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${mcAccessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ capeId })
+        });
+        logger.info(`[SkinManager] Capa ${capeId} equipada en Mojang: status ${res.status}`);
+        return { success: res.ok };
+      }
+    } catch (err) {
+      logger.warn(`[SkinManager] Error al sincronizar capa con Mojang: ${err.message}`);
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
    * REQUISITO: Desactivada la inyección de ShubaSkinOverride para evitar crasheos (código 3221225477)
    * Purga automáticamente cualquier residuo de ShubaSkinOverride de la instancia.
    */

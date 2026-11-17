@@ -1349,6 +1349,10 @@
               <span>Mis Amigos</span>
               <span id="friends-count-pill" class="badge" style="background: rgba(255,255,255,0.08); margin-left: 6px;">0</span>
             </button>
+            <button id="tab-social-community" class="tab-btn" style="font-size: 13px;">
+              <span>Explorar Jugadores</span>
+              <span id="community-count-pill" class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; margin-left: 6px;">0</span>
+            </button>
             <button id="tab-social-pending" class="tab-btn" style="font-size: 13px;">
               <span>Solicitudes</span>
               <span id="pending-count-pill" class="badge" style="background: rgba(255,255,255,0.08); margin-left: 6px;">0</span>
@@ -1371,6 +1375,26 @@
               <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--text-dim); margin-bottom: 8px;"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
               <p>Aún no tienes amigos agregados.</p>
               <small>Usa el buscador arriba para enviar una solicitud con su nombre de usuario.</small>
+            </div>
+          </div>
+
+          <!-- Panel: Explorar Jugadores / Comunidad -->
+          <div id="panel-social-community" style="display: none; flex-direction: column; gap: 14px; width: 100%;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 8px;">
+              <div>
+                <h4 style="font-size: 13px; color: var(--text-primary); margin: 0;">Directorio de Jugadores ShubaCore</h4>
+                <p style="font-size: 11px; color: var(--text-secondary); margin: 2px 0 0 0;">Jugadores registrados en la red oficial de ShubaCore.</p>
+              </div>
+              <button id="btn-refresh-community" class="btn btn-secondary btn-small" title="Actualizar directorio">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+                <span>Actualizar</span>
+              </button>
+            </div>
+            <div id="community-users-container" class="friends-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; width: 100%;">
+              <!-- Se llena dinámicamente -->
+            </div>
+            <div id="community-empty-state" class="empty-state" style="display: none; padding: 24px;">
+              <p>No se encontraron otros jugadores registrados aún.</p>
             </div>
           </div>
 
@@ -2081,17 +2105,6 @@
               <div class="toggle-info">
                 <strong>🎮 Soporte para Mando (Inyección Nativa JVM)</strong>
                 <small>Permite usar mando de Xbox/PS de forma nativa sin instalar mods en la carpeta del juego. 100% libre de conflictos con mochilas e inventarios.</small>
-              </div>
-            </div>
-
-            <div class="toggle-row" style="margin-top: 14px;">
-              <label class="switch-container">
-                <input type="checkbox" id="check-force-spanish-instances" checked>
-                <span class="switch-slider"></span>
-              </label>
-              <div class="toggle-info">
-                <strong>🌍 Forzar Español (España - es_es) en instancias nuevas</strong>
-                <small>Garantiza que cualquier instancia creada o ejecutada por primera vez inicie en Español de España (lang:es_es) y con autoJump:false en options.txt.</small>
               </div>
             </div>
 
@@ -3380,10 +3393,12 @@
 
   <!-- MODAL: PERFIL SOCIAL DE JUGADOR -->
   <div id="modal-user-profile" class="modal-overlay" style="display: none;">
-    <div class="modal-card" style="max-width: 480px; width: 90%;">
+    <div class="modal-content" style="max-width: 480px; width: 90%; max-height: 85vh; overflow-y: auto;">
       <div class="modal-header">
         <h3 class="modal-title">Perfil de Jugador</h3>
-        <button id="btn-close-user-profile-modal" class="modal-close" title="Cerrar">✕</button>
+        <button id="btn-close-user-profile-modal" class="modal-close-btn" title="Cerrar">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
       </div>
       <div class="modal-body" id="user-profile-modal-body" style="display: flex; flex-direction: column; gap: 14px; padding: 20px;">
         <!-- Se llena dinámicamente -->

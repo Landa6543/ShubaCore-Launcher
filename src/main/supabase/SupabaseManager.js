@@ -515,6 +515,48 @@ class SupabaseManager {
   }
 
   /**
+   * Obtener lista de todos los jugadores registrados en la comunidad ShubaCore
+   */
+  async getCommunityUsers(excludeUserId = null, limit = 100) {
+    if (!this.client) return [];
+    try {
+      let req = this.client
+        .from('profiles')
+        .select('id, username, display_name, account_type, ms_gamertag, skin_url, status, last_seen, created_at, bio, play_time_seconds, favorite_modloader, play_style')
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (excludeUserId) {
+        req = req.neq('id', excludeUserId);
+      }
+
+      const { data, error } = await req;
+      if (error) {
+        logger.warn('[Supabase] Error en getCommunityUsers:', error.message);
+        return [];
+      }
+      return (data || []).map(p => ({
+        id: p.id,
+        username: p.username,
+        displayName: p.display_name || p.username,
+        accountType: p.account_type,
+        msGamertag: p.ms_gamertag,
+        skinUrl: p.skin_url,
+        status: p.status || 'offline',
+        lastSeen: p.last_seen,
+        createdAt: p.created_at,
+        bio: p.bio || '',
+        playTimeSeconds: Number(p.play_time_seconds) || 0,
+        favoriteModloader: p.favorite_modloader || 'Fabric',
+        playStyle: p.play_style || 'Modded'
+      }));
+    } catch (err) {
+      logger.error('[Supabase] Excepción en getCommunityUsers:', err);
+      return [];
+    }
+  }
+
+  /**
    * Obtener perfil completo de un usuario por ID o por nombre de usuario
    */
   async getUserProfile(userIdOrUsername) {
@@ -572,10 +614,10 @@ class SupabaseManager {
     if (typeof favoriteModloader === 'string' && favoriteModloader.trim()) updatePayload.favorite_modloader = favoriteModloader.trim();
     if (typeof playStyle === 'string' && playStyle.trim()) updatePayload.play_style = playStyle.trim();
     if (typeof displayName === 'string' && displayName.trim().length >= 2) updatePayload.display_name = displayName.trim().slice(0, 32);
-    if (typeof skinUrl === 'string' && skinUrl.trim()) {
-      updatePayload.skin_url = skinUrl.trim();
-    } else if (typeof avatarUrl === 'string' && avatarUrl.trim()) {
-      updatePayload.skin_url = avatarUrl.trim();
+    if (typeof skinUrl === 'string') {
+      updatePayload.skin_url = skinUrl.trim() || null;
+    } else if (typeof avatarUrl === 'string') {
+      updatePayload.skin_url = avatarUrl.trim() || null;
     }
 
     try {
@@ -716,6 +758,13 @@ class SupabaseManager {
       logger.error('[Supabase] Error al enviar solicitud:', err);
       return { success: false, error: err.message };
     }
+  }
+
+  /**
+   * Alias de compatibilidad para getFriends
+   */
+  async getFriendsList(currentUserId) {
+    return await this.getFriends(currentUserId);
   }
 
   /**

@@ -558,6 +558,11 @@ function registerIpcHandlers(mainWindow) {
     return await supabaseManager.removeFriend(shubaUser.id, friendId);
   });
 
+  ipcMain.handle('friends:get-community-users', async () => {
+    const shubaUser = authManager.getShubaCoreAccount();
+    return await supabaseManager.getCommunityUsers(shubaUser?.id);
+  });
+
   ipcMain.handle('friends:get-user-profile', async (event, userIdOrUsername) => {
     return await supabaseManager.getUserProfile(userIdOrUsername);
   });
@@ -1302,6 +1307,20 @@ function registerIpcHandlers(mainWindow) {
       return await skinManager.uploadSkinToMojang(mcAccessToken, skinData, variant);
     } catch (err) {
       logger.error('Error en skins:upload-to-mojang IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('skins:set-active-cape', async (event, { capeId, mcAccessToken }) => {
+    try {
+      let token = mcAccessToken;
+      if (!token) {
+        const msAccount = authManager.getMicrosoftAccount();
+        token = msAccount?.mcAccessToken;
+      }
+      return await skinManager.setActiveCape(token, capeId);
+    } catch (err) {
+      logger.error('Error en skins:set-active-cape IPC:', err);
       return { success: false, error: err.message };
     }
   });

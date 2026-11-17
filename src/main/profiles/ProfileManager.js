@@ -186,6 +186,8 @@ class ProfileManager {
 
     // Icono personalizado o por defecto
     const isShubaClient = id === 'shubaclient-263' || (name && name.toLowerCase().includes('shubaclient'));
+    const blueB64 = this._getBlueLogoBase64();
+    const blueBuf = this._getBlueLogoBuffer();
     const officialB64 = this._getOfficialLogoBase64();
     const officialBuf = this._getOfficialLogoBuffer();
 
@@ -194,27 +196,27 @@ class ProfileManager {
     if (fs.existsSync(localIconPath)) {
       try {
         const stats = fs.statSync(localIconPath);
-        // Si es ShubaClient y el icono es el viejo placeholder azul de 79584 bytes, o está dañado, sobreescribir con el logo oficial
-        if (isShubaClient && (stats.size === 79584 || stats.size < 1000) && officialBuf) {
-          fs.writeFileSync(localIconPath, officialBuf);
-          icon = officialB64;
+        // Si es ShubaClient, sincronizar con el logo oficial del cliente (S azul oficial de 103 KB)
+        if (isShubaClient && (stats.size === 79584 || stats.size < 1000 || stats.size === 160405) && blueBuf) {
+          fs.writeFileSync(localIconPath, blueBuf);
+          icon = blueB64;
         } else {
           const b64 = fs.readFileSync(localIconPath).toString('base64');
           icon = `data:image/png;base64,${b64}`;
         }
       } catch (_) {}
-    } else if (isShubaClient && officialBuf) {
+    } else if (isShubaClient && blueBuf) {
       try {
-        fs.writeFileSync(localIconPath, officialBuf);
-        icon = officialB64;
+        fs.writeFileSync(localIconPath, blueBuf);
+        icon = blueB64;
       } catch (_) {}
     }
 
-    if (!icon || icon === 'creeper' || icon === 'default' || icon === 'icon.png' || icon === 'assets/logo.png' || (isShubaClient && (!icon.startsWith('data:image') || icon.length < 150000))) {
+    if (!icon || icon === 'creeper' || icon === 'default' || icon === 'icon.png' || icon === 'assets/logo.png') {
       if (rawObj.iconUrl && (rawObj.iconUrl.startsWith('http://') || rawObj.iconUrl.startsWith('https://')) && !isShubaClient) {
         icon = rawObj.iconUrl;
       } else {
-        icon = officialB64 || 'assets/logo.png';
+        icon = isShubaClient ? (blueB64 || officialB64) : (officialB64 || 'assets/logo.png');
       }
     }
 
@@ -368,6 +370,31 @@ class ProfileManager {
     }
   }
 
+  _getBlueLogoBuffer() {
+    const candidatePaths = [
+      path.join(__dirname, '..', '..', 'renderer', 'assets', 'shubaclient_mod_logo.png'),
+      path.resolve(process.cwd(), 'shubaclient_mod_logo.png'),
+      path.resolve(process.cwd(), 'src', 'renderer', 'assets', 'shubaclient_mod_logo.png')
+    ];
+    for (const p of candidatePaths) {
+      if (fs.existsSync(p)) {
+        try {
+          const buf = fs.readFileSync(p);
+          if (buf && buf.length > 1000) return buf;
+        } catch (_) {}
+      }
+    }
+    return null;
+  }
+
+  _getBlueLogoBase64() {
+    const buf = this._getBlueLogoBuffer();
+    if (buf) {
+      return `data:image/png;base64,${buf.toString('base64')}`;
+    }
+    return 'assets/shubaclient_mod_logo.png';
+  }
+
   _getOfficialLogoBuffer() {
     const candidatePaths = [
       path.join(__dirname, '..', '..', 'renderer', 'assets', 'logo.png'),
@@ -402,9 +429,9 @@ class ProfileManager {
     if (!fs.existsSync(modsDir)) fs.mkdirSync(modsDir, { recursive: true });
     if (!fs.existsSync(configDir)) fs.mkdirSync(configDir, { recursive: true });
 
-    // 1. Asegurar icono oficial
+    // 1. Asegurar icono oficial del modpack ShubaClient (S azul)
     if (!fs.existsSync(iconFile)) {
-      const logoBuf = this._getOfficialLogoBuffer();
+      const logoBuf = this._getBlueLogoBuffer() || this._getOfficialLogoBuffer();
       if (logoBuf) {
         try { fs.writeFileSync(iconFile, logoBuf); } catch (_) {}
       }
