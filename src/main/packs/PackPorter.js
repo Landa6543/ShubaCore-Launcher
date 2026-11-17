@@ -221,6 +221,11 @@ class PackPorter {
         const b64 = manifest.icon.split(',')[1];
         if (b64) fs.writeFileSync(localIconPath, Buffer.from(b64, 'base64'));
       } catch (_) {}
+    } else if (!fs.existsSync(localIconPath)) {
+      try {
+        const logoBuf = this.profileManager._getOfficialLogoBuffer();
+        if (logoBuf) fs.writeFileSync(localIconPath, logoBuf);
+      } catch (_) {}
     }
 
     if (fs.existsSync(localIconPath)) {

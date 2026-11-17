@@ -6057,7 +6057,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 instancePath: targetInstance
               });
             } else {
-              await api.content.download({
+              const res = await api.content.download({
                 projectId: targetProjId,
                 source: item.source,
                 contentType: currentContentType,
@@ -6067,6 +6067,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                 iconUrl: item.iconUrl || '',
                 title: item.title
               });
+              if (currentContentType === 'modpacks' && res && res.success) {
+                const packName = res.profile?.name || res.item?.profile?.name || item.title;
+                appendLog(`[Modpack] ¡Modpack "${packName}" instalado con éxito como nueva instancia!`, 'success');
+                if (typeof closeModDetailModal === 'function') closeModDetailModal();
+                const newProfileId = res.profile?.id || res.item?.profile?.id;
+                if (newProfileId) {
+                  await api.profiles.setActive(newProfileId);
+                }
+                await loadProfiles();
+                switchMainView('profiles');
+                return;
+              }
             }
             appendLog(`[Instalación] ¡"${item.title}" instalado exitosamente!`, 'success');
             await openModDetailModal(item);

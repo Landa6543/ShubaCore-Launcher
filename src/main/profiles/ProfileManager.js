@@ -20,6 +20,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const { getConfigManager } = require('../config/ConfigManager');
 const { defaultLogger: logger } = require('../utils/logger');
 
@@ -192,11 +193,12 @@ class ProfileManager {
         icon = `data:image/png;base64,${b64}`;
       } catch (_) {}
     }
-    if (!icon || icon === 'creeper' || icon === 'default' || icon === 'icon.png') {
+    if (!icon || icon === 'creeper' || icon === 'default' || icon === 'icon.png' || icon === 'assets/logo.png') {
       if (rawObj.iconUrl && (rawObj.iconUrl.startsWith('http://') || rawObj.iconUrl.startsWith('https://'))) {
         icon = rawObj.iconUrl;
       } else {
-        icon = 'assets/logo.png';
+        const officialB64 = this._getOfficialLogoBase64();
+        icon = officialB64 || 'assets/logo.png';
       }
     }
 
@@ -301,11 +303,12 @@ class ProfileManager {
         loaderVersion: '0.20.1',
         ramMin: '2G',
         ramMax: '6G',
-        icon: 'assets/logo.png',
+        icon: this._getOfficialLogoBase64(),
         summary: 'Cliente oficial ShubaClient: máxima tasa de FPS en 26.3.'
       });
       cleanedProfiles.push(defaultProfile);
       this._setupInstanceFolder(defaultProfile.id, defaultProfile);
+      this._populateDefaultShubaClientMods(this.getInstancePath(defaultProfile.id));
       hasChanges = true;
     }
 
@@ -349,12 +352,187 @@ class ProfileManager {
     }
   }
 
+  _getOfficialLogoBuffer() {
+    const candidatePaths = [
+      path.join(__dirname, '..', '..', 'renderer', 'assets', 'logo.png'),
+      path.join(__dirname, '..', '..', '..', 'logo.png'),
+      path.join(__dirname, '..', '..', 'renderer', 'logo.png'),
+      path.resolve(process.cwd(), 'src', 'renderer', 'assets', 'logo.png'),
+      path.resolve(process.cwd(), 'logo.png')
+    ];
+    for (const p of candidatePaths) {
+      if (fs.existsSync(p)) {
+        try {
+          const buf = fs.readFileSync(p);
+          if (buf && buf.length > 1000) return buf;
+        } catch (_) {}
+      }
+    }
+    return null;
+  }
+
+  _getOfficialLogoBase64() {
+    const buf = this._getOfficialLogoBuffer();
+    if (buf) {
+      return `data:image/png;base64,${buf.toString('base64')}`;
+    }
+    return 'assets/logo.png';
+  }
+
+  _populateDefaultShubaClientMods(instanceDir, onProgress = null) {
+    const modsDir = path.join(instanceDir, 'mods');
+    const configDir = path.join(instanceDir, 'config');
+    const iconFile = path.join(instanceDir, 'icon.png');
+    if (!fs.existsSync(modsDir)) fs.mkdirSync(modsDir, { recursive: true });
+    if (!fs.existsSync(configDir)) fs.mkdirSync(configDir, { recursive: true });
+
+    // 1. Asegurar icono oficial
+    if (!fs.existsSync(iconFile)) {
+      const logoBuf = this._getOfficialLogoBuffer();
+      if (logoBuf) {
+        try { fs.writeFileSync(iconFile, logoBuf); } catch (_) {}
+      }
+    }
+
+    // 2. Buscar mods en directorios locales disponibles
+    const userAppdata = process.env.APPDATA || (process.platform === 'darwin' ? path.join(os.homedir(), 'Library', 'Application Support') : os.homedir());
+    const potentialDirs = [
+      path.join(this.sharedRoot, 'runtime', 'client-mods'),
+      path.join(this.sharedRoot, 'runtime', 'client-mods', 'deps'),
+      path.join(this.sharedRoot, 'runtime', 'client-mods', 'opt'),
+      path.join(userAppdata, '.shubacore', 'runtime', 'client-mods'),
+      path.join(userAppdata, '.shubacore', 'runtime', 'client-mods', 'deps'),
+      path.join(userAppdata, '.shubacore', 'runtime', 'client-mods', 'opt'),
+      path.join(userAppdata, '.shubacore', 'instances', 'Mi Aventura', 'mods'),
+      path.resolve(process.cwd(), '.shubacore-data', 'runtime', 'client-mods'),
+      path.resolve(process.cwd(), '.shubacore-data', 'runtime', 'client-mods', 'deps'),
+      path.resolve(process.cwd(), '.shubacore-data', 'runtime', 'client-mods', 'opt')
+    ];
+
+    const availableJars = new Map();
+    for (const dir of potentialDirs) {
+      if (fs.existsSync(dir)) {
+        try {
+          const files = fs.readdirSync(dir);
+          for (const f of files) {
+            if (f.toLowerCase().endsWith('.jar')) {
+              const lower = f.toLowerCase();
+              if (lower === 'shubaclient-base.jar' || lower === 'shubaclient-custom.jar') continue;
+              if (!availableJars.has(lower)) {
+                availableJars.set(lower, path.join(dir, f));
+              }
+            }
+          }
+        } catch (_) {}
+      }
+    }
+
+    const requiredModPatterns = [
+      { pattern: /^shubaclient-ui.*\.jar$/i, name: 'ShubaClient-UI.jar' },
+      { pattern: /^shubaconfig.*26\.3.*\.jar$/i, name: 'ShubaConfig-26.3-1.7.1.jar' },
+      { pattern: /^shubadium.*26\.3.*\.jar$/i, name: 'ShubaDium-26.3-1.4.7.jar' },
+      { pattern: /^fabric-api.*26\.3.*\.jar$/i, name: 'fabric-api-0.166.2+26.3.jar' },
+      { pattern: /^fabric-language-kotlin.*\.jar$/i, name: 'fabric-language-kotlin-1.14.2+kotlin.2.4.21.jar' },
+      { pattern: /^compose-bundle.*\.jar$/i, name: 'compose-bundle-2.1.0+compose.1.13.0-alpha02.jar' },
+      { pattern: /^iris-fabric.*26\.3.*\.jar$/i, name: 'iris-fabric-1.11.7+mc26.3.jar' },
+      { pattern: /^lithium-fabric.*26\.3.*\.jar$/i, name: 'lithium-fabric-0.26.3+mc26.3.jar' },
+      { pattern: /^ferritecore.*fabric.*\.jar$/i, name: 'ferritecore-9.0.0-fabric.jar' },
+      { pattern: /^immediatelyfast.*26\.3.*\.jar$/i, name: 'ImmediatelyFast-Fabric-1.17.1+26.3.jar' },
+      { pattern: /^entityculling-fabric.*26\.3.*\.jar$/i, name: 'entityculling-fabric-1.12.1-mc26.3.jar' },
+      { pattern: /^modernfix.*\.jar$/i, name: 'modernfix-5.27.20-build.2.jar' },
+      { pattern: /^rsls.*\.jar$/i, name: 'rsls-1.4.0.jar' },
+      { pattern: /^sodium-extra-fabric.*26\.3.*\.jar$/i, name: 'sodium-extra-fabric-0.9.5+mc26.3.jar' },
+      { pattern: /^sodium-fabric.*26\.3.*\.jar$/i, name: 'sodium-fabric-0.9.3-beta.5-mc26.3.jar' },
+      { pattern: /^sodium-shadowy-path-blocks.*\.jar$/i, name: 'sodium-shadowy-path-blocks-fabric-8.0.0.jar' },
+      { pattern: /^clumps-fabric.*26\.3.*\.jar$/i, name: 'Clumps-fabric-26.3-26.3.2.jar' }
+    ];
+
+    const lockPath = path.join(instanceDir, 'mods-lock.json');
+    let lockData = {
+      version: 1,
+      lastUpdated: new Date().toISOString(),
+      mods: {}
+    };
+    if (fs.existsSync(lockPath)) {
+      try { lockData = JSON.parse(fs.readFileSync(lockPath, 'utf8')); } catch (_) {}
+    }
+
+    let copiedCount = 0;
+    for (const req of requiredModPatterns) {
+      let matchedSourcePath = null;
+      let targetFileName = req.name;
+
+      for (const [key, fullPath] of availableJars.entries()) {
+        if (req.pattern.test(key) || req.pattern.test(path.basename(fullPath))) {
+          matchedSourcePath = fullPath;
+          targetFileName = path.basename(fullPath);
+          break;
+        }
+      }
+
+      if (matchedSourcePath && fs.existsSync(matchedSourcePath)) {
+        const destFile = path.join(modsDir, targetFileName);
+        try {
+          if (!fs.existsSync(destFile)) {
+            fs.copyFileSync(matchedSourcePath, destFile);
+          }
+          copiedCount++;
+          lockData.mods[targetFileName] = {
+            fileName: targetFileName,
+            name: targetFileName.replace(/\.jar$/i, ''),
+            displayName: targetFileName.replace(/\.jar$/i, ''),
+            source: 'shubacore',
+            projectId: 'shubaclient',
+            fileId: '',
+            downloadUrl: 'local://shubaclient',
+            version: '26.3',
+            installedAt: new Date().toISOString(),
+            enabled: true
+          };
+        } catch (copyErr) {
+          logger.warn(`No se pudo copiar ${targetFileName}: ${copyErr.message}`);
+        }
+      }
+    }
+
+    try {
+      fs.writeFileSync(lockPath, JSON.stringify(lockData, null, 2), 'utf8');
+    } catch (_) {}
+
+    try {
+      const { getClientModPatcher } = require('../client/ClientModPatcher');
+      getClientModPatcher().prepareInstanceConfig(instanceDir);
+    } catch (_) {}
+
+    try {
+      const optsFile = path.join(instanceDir, 'options.txt');
+      if (!fs.existsSync(optsFile)) {
+        const defaultOptions = [
+          'version:3955',
+          'autoJump:false',
+          'lang:es_es',
+          'graphicsPreset:"custom"',
+          'preferredGraphicsBackend:"vulkan"',
+          'renderDistance:12',
+          'simulationDistance:10',
+          'gamma:1.0',
+          'maxFps:260'
+        ].join('\n') + '\n';
+        fs.writeFileSync(optsFile, defaultOptions, 'utf8');
+      }
+    } catch (_) {}
+
+    logger.info(`[SHUBATECH] Modpack oficial ShubaClient poblado con éxito en: ${instanceDir} (${copiedCount} mods copiados).`);
+    return copiedCount;
+  }
+
   _setupInstanceFolder(profileId, profileData) {
     const instanceDir = this.getInstancePath(profileId);
     const modsDir = path.join(instanceDir, 'mods');
     const configDir = path.join(instanceDir, 'config');
     const lockFile = path.join(instanceDir, 'mods-lock.json');
     const metaFile = path.join(instanceDir, 'profile.json');
+    const localIconPath = path.join(instanceDir, 'icon.png');
 
     if (!fs.existsSync(modsDir)) fs.mkdirSync(modsDir, { recursive: true });
     if (!fs.existsSync(configDir)) fs.mkdirSync(configDir, { recursive: true });
@@ -367,10 +545,34 @@ class ProfileManager {
       try {
         const parts = profileData.icon.split(',');
         if (parts[1]) {
-          fs.writeFileSync(path.join(instanceDir, 'icon.png'), Buffer.from(parts[1], 'base64'));
+          fs.writeFileSync(localIconPath, Buffer.from(parts[1], 'base64'));
         }
       } catch (iconErr) {
         logger.warn('No se pudo guardar icon.png:', iconErr.message);
+      }
+    } else if (!fs.existsSync(localIconPath)) {
+      const logoBuf = this._getOfficialLogoBuffer();
+      if (logoBuf) {
+        try {
+          fs.writeFileSync(localIconPath, logoBuf);
+        } catch (_) {}
+      }
+    }
+
+    // Si es la instancia oficial ShubaClient y está vacía, poblarla automáticamente
+    const isShubaClient = profileId === 'shubaclient-263' || (profileData.name && profileData.name.toLowerCase().includes('shubaclient'));
+    let currentModsCount = 0;
+    try {
+      if (fs.existsSync(modsDir)) {
+        currentModsCount = fs.readdirSync(modsDir).filter(f => f.toLowerCase().endsWith('.jar')).length;
+      }
+    } catch (_) {}
+
+    if (isShubaClient && currentModsCount === 0) {
+      try {
+        this._populateDefaultShubaClientMods(instanceDir);
+      } catch (popErr) {
+        logger.warn(`Aviso al poblar mods en ${profileId}: ${popErr.message}`);
       }
     }
 

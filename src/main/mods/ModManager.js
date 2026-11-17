@@ -240,7 +240,22 @@ class ModManager {
     }
 
     // Si consultamos ambas fuentes, recortamos a safePageSize
-    const pagedResults = source === 'both' ? allItems.slice(0, safePageSize) : allItems;
+    let pagedResults = source === 'both' ? allItems.slice(0, safePageSize) : allItems;
+
+    // Si estamos en la categoría modpacks, incluir el modpack oficial ShubaClient al inicio
+    if (safeType === 'modpacks') {
+      const qLower = query.toLowerCase();
+      const matchesShuba = !query || qLower.includes('shuba') || qLower.includes('client') || qLower.includes('fps') || qLower.includes('optimi') || qLower.includes('26.3') || qLower.includes('vulkan');
+      const matchesMc = !mcVersion || mcVersion === '26.3' || mcVersion === 'all';
+      const matchesLoader = !loader || loader === 'fabric' || loader === 'all';
+
+      if (matchesShuba && matchesMc && matchesLoader && safePage === 1) {
+        const officialPack = this.getOfficialShubaClientModpackInfo();
+        pagedResults = [officialPack, ...pagedResults.filter((p) => p.id !== 'shubaclient')].slice(0, safePageSize);
+        totalCount++;
+      }
+    }
+
     const totalPages = Math.max(1, Math.ceil(totalCount / safePageSize));
     const hasMore = safePage < totalPages;
 
@@ -642,6 +657,11 @@ class ModManager {
 
     // 4. MODPACKS: crear nuevo perfil automático e instalar paquete
     if (targetType === 'modpacks') {
+      if (projectId === 'shubaclient' || projectId === 'shubaclient-263' || source === 'shubacore') {
+        logger.info('[Modpack] Descargando e instalando Modpack Oficial ShubaClient 26.3...');
+        return await this.installOfficialShubaClientModpack({ onProgress, targetName: title || 'ShubaClient' });
+      }
+
       logger.info(`[Modpack] Descargando modpack ${projectId} (${source}) y creando nuevo perfil...`);
       let fileInfo = null;
       if (source === 'modrinth') {
@@ -2960,7 +2980,7 @@ class ModManager {
 
     const performanceSlugs = [
       mainRendererSlug,
-      ...(normalizedLoader === 'fabric' ? ['fabric-api', 'lithium'] : []),
+      ...(normalizedLoader === 'fabric' ? ['fabric-api', 'lithium', 'iris'] : []),
       'ferrite-core',
       'modernfix',
       'immediatelyfast',
@@ -2996,6 +3016,25 @@ class ModManager {
           installed.push(record);
         }
       } catch (err) {
+        if (slug === 'modernfix' && mcVersion === '26.3') {
+          try {
+            const userAppdata = process.env.APPDATA || (process.platform === 'darwin' ? path.join(os.homedir(), 'Library', 'Application Support') : os.homedir());
+            const localCandidates = [
+              path.join(userAppdata, '.shubacore', 'runtime', 'client-mods', 'opt', 'modernfix-5.27.20-build.2.jar'),
+              path.join(this.configManager.getInstanceDirectory(), 'runtime', 'client-mods', 'opt', 'modernfix-5.27.20-build.2.jar'),
+              path.join(userAppdata, '.shubacore', 'instances', 'Mi Aventura', 'mods', 'modernfix-5.27.20-build.2.jar')
+            ];
+            for (const cand of localCandidates) {
+              if (fs.existsSync(cand)) {
+                const target = path.join(activeInstance, 'mods', 'modernfix-5.27.20-build.2.jar');
+                fs.copyFileSync(cand, target);
+                installed.push({ fileName: 'modernfix-5.27.20-build.2.jar', name: 'ModernFix' });
+                break;
+              }
+            }
+            if (installed.some(m => m.name === 'ModernFix')) continue;
+          } catch (_) {}
+        }
         logger.warn(`No se pudo instalar automáticamente ${slug}: ${err.message}`);
         errors.push({ slug, error: err.message });
       }
@@ -3009,6 +3048,92 @@ class ModManager {
       installedCount: installed.length,
       installed,
       errors,
+      allMods
+    };
+  }
+
+  /**
+   * Obtiene la ficha de metadatos del Modpack Oficial ShubaClient para el catálogo
+   */
+  getOfficialShubaClientModpackInfo() {
+    let iconUrl = 'assets/logo.png';
+    try {
+      const { getProfileManager } = require('../profiles/ProfileManager');
+      iconUrl = getProfileManager()._getOfficialLogoBase64();
+    } catch (_) {}
+
+    return {
+      id: 'shubaclient',
+      projectId: 'shubaclient',
+      slug: 'shubaclient',
+      source: 'shubacore',
+      contentType: 'modpacks',
+      title: 'ShubaClient Oficial 26.3 (FPS Boost & Vulkan)',
+      name: 'ShubaClient Oficial 26.3',
+      author: 'SHUBATECH',
+      summary: 'Cliente oficial ShubaClient: máxima optimización y tasa de FPS en Minecraft 26.3 con Fabric, Vulkan/Sodium, Iris Shaders, menú 3D y cosméticos gratis.',
+      description: 'El modpack oficial de ShubaCore pre-configurado para exprimir el máximo rendimiento en Minecraft 26.3. Incluye el motor gráfico Vulkan (Sodium/ShubaDium), compatibilidad nativa con shaders (Iris), reducción masiva de RAM (FerriteCore/ModernFix), física optimizada (Lithium) y la interfaz de usuario moderna ShubaClient UI en español.',
+      iconUrl,
+      downloads: 999999,
+      websiteUrl: 'https://github.com/Landa6543/ShubaCore-Mods',
+      dateModified: new Date().toISOString(),
+      categories: ['optimization', 'shaders', 'interface'],
+      gameVersions: ['26.3'],
+      loaders: ['fabric'],
+      clientSide: 'required',
+      serverSide: 'unsupported',
+      environment: 'client',
+      isOfficial: true,
+      latestVersion: '2.0.9'
+    };
+  }
+
+  /**
+   * Instala el Modpack Oficial ShubaClient 26.3 en una nueva instancia o instancia objetivo
+   */
+  async installOfficialShubaClientModpack({ onProgress = null, targetName = 'ShubaClient' } = {}) {
+    logger.info(`⚡ [Modpack] Instalando Modpack Oficial "${targetName}" (MC 26.3 Fabric)...`);
+    if (onProgress) onProgress({ type: 'modpack_file', message: 'Creando instancia oficial ShubaClient 26.3...', percent: 15 });
+
+    const { getProfileManager } = require('../profiles/ProfileManager');
+    const profileManager = getProfileManager();
+    const logoB64 = profileManager._getOfficialLogoBase64();
+
+    const createdProfile = profileManager.createProfile({
+      name: targetName,
+      mcVersion: '26.3',
+      loader: 'Fabric',
+      loaderVersion: '0.20.1',
+      ramMin: '2G',
+      ramMax: '6G',
+      icon: logoB64,
+      summary: 'Cliente oficial ShubaClient: máxima tasa de FPS en 26.3.'
+    });
+
+    profileManager.setActive(createdProfile.id);
+
+    if (onProgress) onProgress({ type: 'modpack_file', message: 'Inyectando optimizadores y mods oficiales...', percent: 45 });
+
+    const instancePath = createdProfile.instancePath;
+    profileManager._populateDefaultShubaClientMods(instancePath, onProgress);
+
+    const allMods = this.scanAndSyncMods(instancePath);
+    const updatedProfile = profileManager.getProfile(createdProfile.id);
+
+    if (onProgress) onProgress({ type: 'modpack_file', message: `¡Modpack oficial "${targetName}" instalado con éxito! (${allMods.length} mods)`, percent: 100 });
+
+    return {
+      success: true,
+      contentType: 'modpacks',
+      name: updatedProfile ? updatedProfile.name : targetName,
+      version: '2.0.9',
+      mcVersion: '26.3',
+      loader: 'Fabric',
+      loaderVersion: '0.20.1',
+      filesCount: allMods.length,
+      totalFiles: allMods.length,
+      instancePath,
+      profile: updatedProfile || createdProfile,
       allMods
     };
   }
@@ -3481,8 +3606,22 @@ class ModManager {
           const b64 = fs.readFileSync(localIconPath).toString('base64');
           finalIcon = `data:image/png;base64,${b64}`;
         } catch (_) {}
-      } else if (iconUrl) {
+      } else if (iconUrl && typeof iconUrl === 'string' && iconUrl.startsWith('data:image')) {
         finalIcon = iconUrl;
+        try {
+          const parts = iconUrl.split(',');
+          if (parts[1]) fs.writeFileSync(localIconPath, Buffer.from(parts[1], 'base64'));
+        } catch (_) {}
+      } else {
+        try {
+          const { getProfileManager } = require('../profiles/ProfileManager');
+          const pm = getProfileManager();
+          const logoBuf = pm._getOfficialLogoBuffer();
+          if (logoBuf) {
+            fs.writeFileSync(localIconPath, logoBuf);
+            finalIcon = pm._getOfficialLogoBase64();
+          }
+        } catch (_) {}
       }
 
       const instJsonFile = path.join(instancePath, 'instance.json');
