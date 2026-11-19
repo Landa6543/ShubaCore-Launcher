@@ -456,8 +456,34 @@ class SkinManager {
       if (parts.length > 1) {
         buf = Buffer.from(parts[1], 'base64');
       }
-    } else if (typeof sourceFilePathOrDataUrl === 'string' && fs.existsSync(sourceFilePathOrDataUrl)) {
-      buf = fs.readFileSync(sourceFilePathOrDataUrl);
+    } else if (typeof sourceFilePathOrDataUrl === 'string' && /^https?:\/\//i.test(sourceFilePathOrDataUrl)) {
+      try {
+        const response = await fetch(sourceFilePathOrDataUrl);
+        if (response.ok) {
+          const ab = await response.arrayBuffer();
+          buf = Buffer.from(ab);
+        } else {
+          throw new Error(`HTTP ${response.status}`);
+        }
+      } catch (fetchErr) {
+        throw new Error(`No se pudo descargar la skin desde la URL: ${fetchErr.message}`);
+      }
+    } else if (typeof sourceFilePathOrDataUrl === 'string') {
+      let resolvedPath = sourceFilePathOrDataUrl;
+      if (resolvedPath.startsWith('file:///')) {
+        resolvedPath = decodeURIComponent(resolvedPath.replace(/^file:\/\/\/?/, ''));
+        if (process.platform === 'win32') {
+          if (/^\/[a-zA-Z]:/.test(resolvedPath)) {
+            resolvedPath = resolvedPath.slice(1);
+          }
+          resolvedPath = resolvedPath.replace(/\//g, '\\');
+        }
+      }
+      if (fs.existsSync(resolvedPath)) {
+        buf = fs.readFileSync(resolvedPath);
+      } else {
+        throw new Error(`El archivo de skin no existe o formato inválido: ${sourceFilePathOrDataUrl}`);
+      }
     } else {
       throw new Error(`El archivo de skin no existe o formato inválido: ${sourceFilePathOrDataUrl}`);
     }

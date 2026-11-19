@@ -509,16 +509,29 @@ class LaunchManager {
         });
       }
 
-      // REQUISITO ESTRICTO: Prohibido cualquier -javaagent en los argumentos JVM (elimina crash 3221225477)
+      // REQUISITO ESTRICTO: Prohibido cualquier agente corrupto u obsoleto (skin-agent.jar o controller-agent)
       cleanedJvmArgs = cleanedJvmArgs.filter((arg) => {
         if (typeof arg !== 'string') return false;
         const trimmed = arg.trim();
-        if (trimmed.includes('-javaagent:') || trimmed.includes('skin-agent') || trimmed.includes('controller-agent') || trimmed.includes('agent.jar')) return false;
+        if (trimmed.includes('skin-agent') || trimmed.includes('controller-agent') || trimmed.includes('agent.jar')) return false;
         return true;
       });
 
-      // REQUISITO 2: En cuentas Offline, desactivar llamadas a APIs de Mojang/Microsoft para arranque 100% limpio
-      if (isOfflineAccount) {
+      // Sistema oficial de Skins No-Premium estilo TLauncher (Ely.by / Authlib-Injector oficial v1.2.8)
+      const authlibInjectorPath = path.join(sharedRoot, 'runtime', 'authlib-injector.jar');
+      const srcInjectorPath = path.join(__dirname, '..', 'runtime', 'authlib-injector.jar');
+      if (!fs.existsSync(authlibInjectorPath) && fs.existsSync(srcInjectorPath)) {
+        try {
+          fs.mkdirSync(path.dirname(authlibInjectorPath), { recursive: true });
+          fs.copyFileSync(srcInjectorPath, authlibInjectorPath);
+        } catch (_) {}
+      }
+
+      if (fs.existsSync(authlibInjectorPath) && isOfflineAccount) {
+        cleanedJvmArgs.push(`-javaagent:${authlibInjectorPath}=https://account.ely.by/api/authlib-injector`);
+        logger.info(`[LaunchManager] ⚡ Sistema de Skins No-Premium activo (Ely.by / Authlib-Injector): ${authlibInjectorPath}`);
+      } else if (isOfflineAccount) {
+        // En cuentas Offline sin agente, desactivar llamadas a APIs oficiales de Mojang
         cleanedJvmArgs.push(
           '-Dminecraft.api.env=custom',
           '-Dminecraft.api.auth.host=http://127.0.0.1:0',

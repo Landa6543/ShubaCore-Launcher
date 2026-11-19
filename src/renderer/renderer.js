@@ -2242,10 +2242,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const grid = document.getElementById('user-saved-skins-grid');
     if (!grid) return;
 
-    // Preservar la tarjeta de subir skin
-    const uploadCard = document.getElementById('card-upload-new-skin');
-    grid.innerHTML = '';
-    if (uploadCard) grid.appendChild(uploadCard);
+    // Preservar la tarjeta de subir skin intacta y solo remover las tarjetas de skins previas
+    grid.querySelectorAll('.skin-grid-card:not(#card-upload-new-skin)').forEach((el) => el.remove());
 
     let saved = [];
     try {
@@ -2283,10 +2281,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.querySelectorAll('.skin-grid-card').forEach(c => c.classList.remove('active'));
         card.classList.add('active');
         if (item.model) setSkinModelType(item.model === 'slim' ? 'slim' : 'default');
-        const srcUrl = item.dataUrl || item.url || item.filePath;
+        const srcUrl = item.dataUrl || item.url || (item.filePath ? `file:///${item.filePath.replace(/\\/g, '/')}` : null);
         if (srcUrl) {
           loadSkinIn3DViewer(srcUrl);
           renderSkinFaceToCanvas(srcUrl, vestidorFaceCanvas);
+          renderSkinBodyToCanvas(srcUrl, vestidorBodyCanvas);
         }
         if (skinPreviewLabel) skinPreviewLabel.textContent = item.name || 'Guardada';
         if (skinAppliedStatus) skinAppliedStatus.textContent = 'Skin guardada seleccionada (lista para aplicar)';
@@ -2315,6 +2314,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (skinDataUrl) {
           renderSkinFaceToCanvas(skinDataUrl, vestidorFaceCanvas);
+          renderSkinBodyToCanvas(skinDataUrl, vestidorBodyCanvas);
           loadSkinIn3DViewer(skinDataUrl);
         }
         if (skinPreviewLabel) skinPreviewLabel.textContent = skinName;
@@ -2443,8 +2443,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       btnSaveSkin.disabled = true;
-      const originalBtnText = btnSaveSkin.textContent;
-      btnSaveSkin.textContent = 'Guardando...';
+      const originalBtnHtml = btnSaveSkin.innerHTML;
+      btnSaveSkin.innerHTML = '<span>Guardando...</span>';
 
       try {
         let result = null;
@@ -2466,6 +2466,38 @@ document.addEventListener('DOMContentLoaded', async () => {
             loadSkinIn3DViewer(finalSkin);
           }
           if (skinAppliedStatus) skinAppliedStatus.textContent = 'Skin activa en el juego';
+
+          // Persistir en "Mis Skins" localmente para que aparezca en el grid inmediatamente
+          try {
+            const list = JSON.parse(localStorage.getItem('shuba_user_saved_skins') || '[]');
+            const skinName = pendingSkinData?.name || (pendingSkinData?.type === 'mojang' ? pendingSkinData.value : 'Custom');
+            const newEntry = {
+              name: skinName,
+              filePath: pendingSkinData?.type === 'file' && typeof pendingSkinData.value === 'string' && !pendingSkinData.value.startsWith('data:') && !pendingSkinData.value.startsWith('http') ? pendingSkinData.value : null,
+              url: finalSkin,
+              dataUrl: finalSkin,
+              mojangUser: pendingSkinData?.type === 'mojang' ? pendingSkinData.value : null,
+              model: (result.skinModel || currentModelType) === 'slim' ? 'slim' : 'default'
+            };
+            const existingIdx = list.findIndex(s => s.name === skinName || (newEntry.filePath && s.filePath === newEntry.filePath));
+            if (existingIdx >= 0) {
+              list[existingIdx] = newEntry;
+            } else {
+              list.unshift(newEntry);
+            }
+            if (list.length > 20) list.pop();
+            localStorage.setItem('shuba_user_saved_skins', JSON.stringify(list));
+            renderUserSavedSkinsGrid();
+          } catch (listErr) {
+            console.warn('[Skins] Error al registrar skin en Mis Skins:', listErr);
+          }
+
+          // Sincronizar avatar/skin con perfil de ShubaCore en red social si está autenticado
+          try {
+            if (api.social?.updateProfile && finalSkin) {
+              api.social.updateProfile({ skinUrl: finalSkin }).catch(() => {});
+            }
+          } catch (_) {}
 
           // Si la cuenta activa es Premium, sincronizar con la API oficial de Mojang
           const sess = await api.auth.getSavedSession().catch(() => null);
@@ -2494,7 +2526,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         alert(`Error al guardar la skin: ${err.message}`);
       } finally {
         btnSaveSkin.disabled = false;
-        btnSaveSkin.textContent = originalBtnText || 'Guardar y Aplicar';
+        btnSaveSkin.innerHTML = originalBtnHtml;
       }
     });
   }
