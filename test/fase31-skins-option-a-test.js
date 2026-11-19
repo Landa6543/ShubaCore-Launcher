@@ -112,6 +112,35 @@ async function runTests() {
   assert.deepStrictEqual(mcmeta121.pack.supported_formats, [34, 64], 'supported_formats en 1.21.1 debe ser [34, 64]');
   console.log('   ✔ MC 1.21.1 pack.mcmeta validado con supported_formats [34, 64].');
 
+  console.log('\n▶ [6/6] Verificando generateOfflineUUIDForModel (paridad de modelo Slim 3px vs Classic 4px)...');
+  const { generateOfflineUUIDForModel } = require('../src/main/auth/OfflineAuth');
+
+  function getJavaHash(hex) {
+    const clean = hex.replace(/-/g, '');
+    const most = BigInt('0x' + clean.substring(0, 16));
+    const least = BigInt('0x' + clean.substring(16, 32));
+    const xored = most ^ least;
+    return Number(BigInt.asIntN(32, (xored >> 32n) ^ xored));
+  }
+
+  const slimUUID = generateOfflineUUIDForModel('LanderAlo2', 'slim');
+  const slimHash = getJavaHash(slimUUID);
+  const slimMod18 = ((slimHash % 18) + 18) % 18;
+  const slimOdd = (slimHash & 1) !== 0;
+
+  assert.ok(slimMod18 < 9, `El UUID slim debe dar mod18 < 9 (Minecraft 26.3 DefaultPlayerSkin). Dio: ${slimMod18}`);
+  assert.strictEqual(slimOdd, true, 'El UUID slim debe ser impar para versiones anteriores (1.8 - 1.20)');
+  console.log(`   ✔ Slim UUID para LanderAlo2: ${slimUUID} | Java Hash: ${slimHash} | mod18: ${slimMod18} (SLIM) | impar: ${slimOdd}`);
+
+  const classicUUID = generateOfflineUUIDForModel('LanderAlo2', 'classic');
+  const classicHash = getJavaHash(classicUUID);
+  const classicMod18 = ((classicHash % 18) + 18) % 18;
+  const classicOdd = (classicHash & 1) !== 0;
+
+  assert.ok(classicMod18 >= 9, `El UUID classic debe dar mod18 >= 9 (Minecraft 26.3 DefaultPlayerSkin). Dio: ${classicMod18}`);
+  assert.strictEqual(classicOdd, false, 'El UUID classic debe ser par para versiones anteriores (1.8 - 1.20)');
+  console.log(`   ✔ Classic UUID para LanderAlo2: ${classicUUID} | Java Hash: ${classicHash} | mod18: ${classicMod18} (WIDE) | par: ${!classicOdd}`);
+
   // Limpieza
   fs.rmSync(testDir, { recursive: true, force: true });
   console.log('\n🎉 ¡TODAS LAS PRUEBAS DE LA FASE 31 PASARON AL 100% CON ÉXITO!');

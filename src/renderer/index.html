@@ -939,21 +939,21 @@
       <section id="view-servers" class="view-panel view-container hidden" style="display: none !important;">
         <div class="view-toolbar">
           <div>
-            <h2 class="view-title">🖥 Mis Servidores (Host Local)</h2>
-            <p class="view-subtitle">Crea, sincroniza mods y hostea servidores dedicados de Minecraft con consola interactiva y métricas en vivo.</p>
+            <h2 class="view-title" data-i18n="servers.title">🖥 Mis Servidores (Host Local)</h2>
+            <p class="view-subtitle" data-i18n="servers.subtitle">Crea, sincroniza mods y hostea servidores dedicados de Minecraft con consola interactiva y métricas en vivo.</p>
           </div>
           <div class="toolbar-actions">
             <button id="btn-open-playit-tunnel-servers" class="btn btn-secondary" title="Abrir Túnel LAN P2P con PlayIt.gg para conectar amigos al servidor">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1 4-10z"/></svg>
-              <span>🌐 Túnel LAN PlayIt</span>
+              <span data-i18n="servers.lanTunnel">🌐 Túnel LAN PlayIt</span>
             </button>
             <button id="btn-open-create-server-modal" class="btn btn-primary">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              <span>➕ Crear Nuevo Servidor</span>
+              <span data-i18n="servers.createServer">➕ Crear Nuevo Servidor</span>
             </button>
             <button id="btn-import-server" class="btn btn-secondary" title="Importar una carpeta de servidor existente de tu PC">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-              <span>📂 Importar Servidor Existente</span>
+              <span data-i18n="servers.importServer">📂 Importar Servidor Existente</span>
             </button>
             <button id="btn-refresh-servers-list" class="btn btn-secondary">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
@@ -966,7 +966,7 @@
           <!-- Columna Lateral Izquierda: Lista de Servidores -->
           <div class="servers-sidebar-pane">
             <div class="servers-pane-header">
-              <span class="servers-pane-title">Servidores Creados</span>
+              <span class="servers-pane-title" data-i18n="servers.paneTitle">Servidores Creados</span>
               <span id="badge-total-servers" class="badge badge-secondary">0</span>
             </div>
             <div id="servers-list-container" class="servers-list-scroll">
@@ -983,8 +983,8 @@
                 <line x1="6" x2="6.01" y1="6" y2="6"/>
                 <line x1="6" x2="6.01" y1="18" y2="18"/>
               </svg>
-              <h3 style="margin: 0 0 6px 0; color: var(--text-primary); font-size: 16px;">Ningún servidor seleccionado</h3>
-              <p style="margin: 0; color: var(--text-secondary); font-size: 13px;">Selecciona un servidor de la columna izquierda, crea uno nuevo o importa una carpeta existente.</p>
+              <h3 style="margin: 0 0 6px 0; color: var(--text-primary); font-size: 16px;" data-i18n="servers.noSelectedTitle">Ningún servidor seleccionado</h3>
+              <p style="margin: 0; color: var(--text-secondary); font-size: 13px;" data-i18n="servers.noSelectedDesc">Selecciona un servidor de la columna izquierda, crea uno nuevo o importa una carpeta existente.</p>
               <div style="display: flex; gap: 10px; margin-top: 14px;">
                 <button id="btn-empty-create-server" class="btn btn-primary">➕ Crear Nuevo Servidor</button>
                 <button id="btn-empty-import-server" class="btn btn-secondary">📂 Importar Servidor Existente</button>
@@ -1047,15 +1047,15 @@
               <div class="server-tabs-nav">
                 <button class="server-tab-btn active" data-server-tab="console">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
-                  <span>📊 Consola & Control en Vivo</span>
+                  <span data-i18n="servers.tabConsole">📊 Consola & Control en Vivo</span>
                 </button>
                 <button class="server-tab-btn" data-server-tab="properties">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
-                  <span>⚙ Editor server.properties</span>
+                  <span data-i18n="servers.tabProps">⚙ Editor server.properties</span>
                 </button>
                 <button class="server-tab-btn" data-server-tab="mods">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19.439 7.85c-.049-.955-.595-1.81-1.494-2.147-.946-.356-2.02.046-2.528.851A3.5 3.5 0 0 1 12 8a3.5 3.5 0 0 1-3.417-1.446c-.508-.805-1.582-1.207-2.528-.851-.899.337-1.445 1.192-1.494 2.147-.05 1.01.42 2.02 1.194 2.658A3.5 3.5 0 0 1 7 14c0 1.258-.655 2.364-1.637 2.992-.774.638-1.244 1.648-1.194 2.658.049.955.595 1.81 1.494 2.147.946.356 2.02-.046 2.528-.851A3.5 3.5 0 0 1 12 19.5a3.5 3.5 0 0 1 3.417 1.446c.508.805 1.582 1.207 2.528.851.899-.337 1.445-1.192 1.494-2.147.05-1.01-.42-2.02-1.194-2.658A3.5 3.5 0 0 1 17 14c0-1.258.655-2.364 1.637-2.992.774-.638 1.244-1.648 1.194-2.658Z"/></svg>
-                  <span>🧩 Mods del Servidor</span>
+                  <span data-i18n="servers.tabMods">🧩 Mods del Servidor</span>
                 </button>
               </div>
 
@@ -1064,22 +1064,22 @@
                 <!-- Métricas en Vivo -->
                 <div class="server-metrics-grid">
                   <div class="server-metric-card">
-                    <span class="metric-label">Uso de RAM</span>
+                    <span class="metric-label" data-i18n="servers.ramUsage">Uso de RAM</span>
                     <strong id="server-stat-ram" class="metric-val">0 MB</strong>
                     <span id="server-stat-ram-max" class="metric-sub">Límite: 6G</span>
                   </div>
                   <div class="server-metric-card">
-                    <span class="metric-label">Uso de CPU</span>
+                    <span class="metric-label" data-i18n="servers.cpuUsage">Uso de CPU</span>
                     <strong id="server-stat-cpu" class="metric-val">0%</strong>
                     <span class="metric-sub">Proceso Java</span>
                   </div>
                   <div class="server-metric-card">
-                    <span class="metric-label">Jugadores</span>
+                    <span class="metric-label" data-i18n="servers.players">Jugadores</span>
                     <strong id="server-stat-players-count" class="metric-val">0 / 20</strong>
                     <span class="metric-sub">En línea</span>
                   </div>
                   <div class="server-metric-card">
-                    <span class="metric-label">Dirección Local</span>
+                    <span class="metric-label" data-i18n="servers.localAddress">Dirección Local</span>
                     <strong id="server-stat-ip" class="metric-val" style="font-size: 14px;">localhost:25565</strong>
                     <button id="btn-copy-server-ip" class="btn-link-action">Copiar IP</button>
                   </div>
@@ -1088,7 +1088,7 @@
                 <!-- Lista de Jugadores Conectados en Tiempo Real -->
                 <div class="server-players-panel">
                   <div class="server-players-header">
-                    <span style="font-weight: 600; font-size: 13px;">Jugadores Conectados en Tiempo Real</span>
+                    <span style="font-weight: 600; font-size: 13px;" data-i18n="servers.realtimePlayers">Jugadores Conectados en Tiempo Real</span>
                     <span id="server-players-header-count" class="badge badge-secondary">0 jugadores</span>
                   </div>
                   <div id="server-players-list" class="server-players-list">
@@ -1115,7 +1115,7 @@
                   <div class="server-terminal-header">
                     <div style="display: flex; align-items: center; gap: 8px;">
                       <span class="terminal-dot green"></span>
-                      <span style="font-size: 12px; font-weight: 600;">Consola del Servidor</span>
+                      <span style="font-size: 12px; font-weight: 600;" data-i18n="servers.serverConsole">Consola del Servidor</span>
                     </div>
                     <div class="server-quick-cmds">
                       <button class="btn btn-small btn-secondary btn-quick-cmd" data-cmd="time set day">☀ Día</button>
@@ -1128,8 +1128,8 @@
                     <div class="log-line log-info">[ShubaCore] Servidor listo. Haz clic en "Iniciar Servidor" para arrancar.</div>
                   </div>
                   <div class="server-terminal-input-bar">
-                    <input type="text" id="input-server-cmd" class="text-input" placeholder="Escribe un comando de Minecraft (ej: op Notch, gamemode creative Notch, say Hola)..." />
-                    <button id="btn-send-server-cmd" class="btn btn-primary btn-small">Enviar</button>
+                    <input type="text" id="input-server-cmd" class="text-input" placeholder="Escribe un comando de Minecraft (ej: op Notch, gamemode creative Notch, say Hola)..." data-i18n-placeholder="servers.sendCmdPlaceholder" />
+                    <button id="btn-send-server-cmd" class="btn btn-primary btn-small" data-i18n="servers.sendCmdBtn">Enviar</button>
                   </div>
                 </div>
               </div>
@@ -1305,8 +1305,8 @@
       <section id="view-friends" class="view-panel view-container hidden" style="display: none !important;">
         <div class="view-toolbar">
           <div>
-            <h2 class="view-title">Red Social & Amigos</h2>
-            <p class="view-subtitle">Conéctate con amigos de ShubaCore, revisa quién está jugando en tiempo real y únete a sus mundos.</p>
+            <h2 class="view-title" data-i18n="social.title">Red Social & Amigos</h2>
+            <p class="view-subtitle" data-i18n="social.subtitle">Conéctate con amigos de ShubaCore, revisa quién está jugando en tiempo real y únete a sus mundos.</p>
           </div>
           <div class="toolbar-actions" style="display: flex; align-items: center; gap: 8px;">
             <button id="btn-refresh-friends" class="btn btn-secondary btn-small" title="Actualizar lista">
@@ -1319,12 +1319,12 @@
         <!-- Banner para cuando el usuario NO ha iniciado sesión en ShubaCore -->
         <div id="friends-guest-banner" class="card" style="display: none; padding: 24px; text-align: center; margin-bottom: 20px; background: rgba(16, 185, 129, 0.05); border: 1px dashed rgba(16, 185, 129, 0.3);">
           <div style="font-size: 32px; margin-bottom: 10px;">⭐</div>
-          <h3 style="margin-bottom: 8px; font-size: 16px; color: var(--text-primary);">Conéctate a la Red ShubaCore</h3>
+          <h3 style="margin-bottom: 8px; font-size: 16px; color: var(--text-primary);" data-i18n="social.guestTitle">Conéctate a la Red ShubaCore</h3>
           <p style="font-size: 13px; color: var(--text-secondary); max-width: 460px; margin: 0 auto 16px auto; line-height: 1.45;">
             Inicia sesión o crea tu cuenta gratuita de ShubaCore (solo necesitas usuario y contraseña) para agregar amigos, ver quién está jugando y recibir invitaciones a mundos.
           </p>
           <button id="btn-open-account-from-friends" class="btn btn-primary" style="margin: 0 auto;">
-            <span>Conectar Cuenta ShubaCore</span>
+            <span data-i18n="social.connectAccount">Conectar Cuenta ShubaCore</span>
           </button>
         </div>
 
@@ -1334,16 +1334,16 @@
           <div class="card" style="padding: 12px 16px;">
             <div style="display: flex; gap: 10px; align-items: center;">
               <div style="flex: 1; position: relative;">
-                <input type="text" id="input-search-add-friend" class="text-input" placeholder="Buscar jugador por @usuario para ver su perfil o agregarlo..." maxlength="32" style="width: 100%; box-sizing: border-box; padding-left: 32px;">
+                <input type="text" id="input-search-add-friend" class="text-input" placeholder="Buscar jugador por @usuario para ver su perfil o agregarlo..." data-i18n-placeholder="social.searchPlaceholder" maxlength="32" style="width: 100%; box-sizing: border-box; padding-left: 32px;">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-dim);"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               </div>
               <button id="btn-search-user-profile" class="btn btn-secondary">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                <span>Ver Perfil</span>
+                <span data-i18n="social.viewProfile">Ver Perfil</span>
               </button>
               <button id="btn-send-friend-request" class="btn btn-primary">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                <span>Enviar Solicitud</span>
+                <span data-i18n="social.sendRequest">Enviar Solicitud</span>
               </button>
             </div>
             <div id="friend-add-feedback" style="display: none; margin-top: 8px; font-size: 12px; padding: 6px 10px; border-radius: 6px;"></div>
@@ -1355,23 +1355,23 @@
           <!-- Pestañas internas de Social: Amigos / Solicitudes / Invitaciones / Mi Perfil -->
           <div style="display: flex; gap: 10px; border-bottom: 1px solid var(--border); padding-bottom: 8px; flex-wrap: wrap;">
             <button id="tab-social-friends" class="tab-btn active" style="font-size: 13px;">
-              <span>Mis Amigos</span>
+              <span data-i18n="social.tabFriends">Mis Amigos</span>
               <span id="friends-count-pill" class="badge" style="background: rgba(255,255,255,0.08); margin-left: 6px;">0</span>
             </button>
             <button id="tab-social-community" class="tab-btn" style="font-size: 13px;">
-              <span>Explorar Jugadores</span>
+              <span data-i18n="social.tabExplore">Explorar Jugadores</span>
               <span id="community-count-pill" class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; margin-left: 6px;">0</span>
             </button>
             <button id="tab-social-pending" class="tab-btn" style="font-size: 13px;">
-              <span>Solicitudes</span>
+              <span data-i18n="social.tabRequests">Solicitudes</span>
               <span id="pending-count-pill" class="badge" style="background: rgba(255,255,255,0.08); margin-left: 6px;">0</span>
             </button>
             <button id="tab-social-invites" class="tab-btn" style="font-size: 13px;">
-              <span>Invitaciones a Partidas</span>
+              <span data-i18n="social.tabInvites">Invitaciones a Partidas</span>
               <span id="invites-count-pill" class="badge" style="background: #10b981; color: #fff; margin-left: 6px; display: none;">0</span>
             </button>
             <button id="tab-social-profile" class="tab-btn" style="font-size: 13px;">
-              <span>Mi Perfil Social</span>
+              <span data-i18n="social.tabMyProfile">Mi Perfil Social</span>
             </button>
           </div>
 
@@ -1515,7 +1515,7 @@
               <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 12px;">
                 <div id="profile-save-feedback" style="display: none; font-size: 12px; padding: 6px 12px; border-radius: 6px;"></div>
                 <button id="btn-save-social-profile" class="btn btn-primary" style="margin-left: auto;">
-                  <span>Guardar Perfil Social</span>
+                  <span data-i18n="social.saveProfile">Guardar Perfil Social</span>
                 </button>
               </div>
             </div>
@@ -1528,7 +1528,7 @@
               <div style="display: flex; align-items: center; gap: 12px;">
                 <button id="btn-chat-back" class="btn btn-secondary btn-small" title="Volver a la lista de amigos" style="padding: 6px 10px;">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-                  <span>Volver</span>
+                  <span data-i18n="social.back">Volver</span>
                 </button>
                 <div class="friend-avatar-wrap" style="width: 38px; height: 38px; position: relative;">
                   <canvas id="chat-friend-avatar" width="38" height="38" style="border-radius: 8px;"></canvas>
@@ -1558,10 +1558,10 @@
 
             <!-- Barra de Entrada de Mensaje -->
             <div style="padding: 12px 16px; background: rgba(0,0,0,0.25); border-top: 1px solid var(--border); display: flex; gap: 10px; align-items: center;">
-              <input type="text" id="input-chat-message" class="catalog-search" placeholder="Escribe un mensaje a tu amigo..." maxlength="1000" style="flex: 1; height: 42px; border-radius: 8px; font-size: 13px;" />
+              <input type="text" id="input-chat-message" class="catalog-search" placeholder="Escribe un mensaje a tu amigo..." data-i18n-placeholder="social.chatPlaceholder" maxlength="1000" style="flex: 1; height: 42px; border-radius: 8px; font-size: 13px;" />
               <button id="btn-send-chat-message" class="btn btn-primary" style="height: 42px; padding: 0 18px; display: flex; align-items: center; gap: 6px;">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                <span>Enviar</span>
+                <span data-i18n="social.sendMessage">Enviar</span>
               </button>
             </div>
           </div>
@@ -1572,16 +1572,16 @@
       <section id="view-screenshots" class="view-panel view-container hidden" style="display: none !important;">
         <div class="view-toolbar">
           <div>
-            <h2 class="view-title">Galería de Capturas</h2>
-            <p class="view-subtitle">Explora las fotos y capturas de pantalla tomadas en el juego (F2) de tus mundos y servidores.</p>
+            <h2 class="view-title" data-i18n="screenshots.title">Galería de Capturas</h2>
+            <p class="view-subtitle" data-i18n="screenshots.subtitle">Explora las fotos y capturas de pantalla tomadas en el juego (F2) de tus mundos y servidores.</p>
           </div>
           <div class="toolbar-actions" style="display: flex; align-items: center; gap: 8px;">
             <select id="select-screenshots-instance-filter" class="catalog-select" style="min-width: 170px;">
-              <option value="all">Todas las instancias</option>
+              <option value="all" data-i18n="screenshots.allInstances">Todas las instancias</option>
             </select>
             <button id="btn-open-active-screenshots-folder" class="btn btn-secondary" title="Abrir carpeta en el explorador">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-              <span>Abrir Carpeta</span>
+              <span data-i18n="screenshots.openFolder">Abrir Carpeta</span>
             </button>
             <button id="btn-refresh-screenshots" class="btn btn-secondary">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
@@ -1592,7 +1592,7 @@
 
         <div class="screenshots-content-scroll">
           <div id="screenshots-grid-container" class="screenshots-gallery-grid">
-            <div class="empty-state">No se han encontrado capturas de pantalla aún. Presiona F2 en el juego para capturar momentos épicos.</div>
+            <div class="empty-state" data-i18n="screenshots.empty">No se han encontrado capturas de pantalla aún. Presiona F2 en el juego para capturar momentos épicos.</div>
           </div>
         </div>
       </section>
@@ -1687,7 +1687,7 @@
               <div class="skin-section-header">
                 <div>
                   <h3 class="skin-section-title" data-i18n="wardrobe.mySkins">Mis Skins</h3>
-                  <p class="skin-section-subtitle">Skins que has usado o subido localmente.</p>
+                  <p class="skin-section-subtitle" data-i18n="wardrobe.mySkinsSubtitle">Skins que has usado o subido localmente.</p>
                 </div>
                 <span id="user-saved-skins-count" class="badge badge-secondary">0 skins</span>
               </div>
@@ -1708,7 +1708,7 @@
               <div class="skin-section-header">
                 <div>
                   <h3 class="skin-section-title" data-i18n="wardrobe.defaultSkins">Skins por Defecto</h3>
-                  <p class="skin-section-subtitle">Las 9 skins oficiales de Minecraft (clásicas y slim).</p>
+                  <p class="skin-section-subtitle" data-i18n="wardrobe.defaultSkinsSubtitle">Las 9 skins oficiales de Minecraft (clásicas y slim).</p>
                 </div>
                 <span class="badge badge-idle">9 oficiales</span>
               </div>
@@ -1720,7 +1720,7 @@
               <div class="skin-section-header">
                 <div>
                   <h3 class="skin-section-title" data-i18n="wardrobe.cloneTitle">Clonar Skin de Jugador Premium</h3>
-                  <p class="skin-section-subtitle">Descarga las texturas oficiales desde la API de Mojang.</p>
+                  <p class="skin-section-subtitle" data-i18n="wardrobe.cloneSubtitle">Descarga las texturas oficiales desde la API de Mojang.</p>
                 </div>
               </div>
               <div class="input-group">
@@ -1743,29 +1743,29 @@
       <section id="view-controller" class="view-panel view-container hidden" style="display: none !important;">
         <div class="view-toolbar">
           <div>
-            <h2 class="view-title">🎮 Configurar Mando (Controlador)</h2>
-            <p class="view-subtitle">Soporte nativo para mandos de Xbox y PlayStation vía Win32 a 60Hz. 100% libre de mods en /mods.</p>
+            <h2 class="view-title" data-i18n="controller.title">🎮 Configurar Mando (Controlador)</h2>
+            <p class="view-subtitle" data-i18n="controller.subtitle">Soporte nativo para mandos de Xbox y PlayStation vía Win32 a 60Hz. 100% libre de mods en /mods.</p>
           </div>
           <div class="toolbar-actions" style="display: flex; align-items: center; gap: 10px;">
             <span id="controller-nav-status-badge" class="badge-status-controller disconnected">
               <span class="status-dot"></span>
-              <span id="controller-nav-status-text">⚠️ Ningún mando conectado</span>
+              <span id="controller-nav-status-text" data-i18n="controller.disconnected">⚠️ Ningún mando conectado</span>
             </span>
             <div style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.03); padding: 4px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08);">
-              <label for="switch-controller-master" style="font-size: 12px; font-weight: 600; cursor: pointer;">Soporte de Mando:</label>
+              <label for="switch-controller-master" style="font-size: 12px; font-weight: 600; cursor: pointer;" data-i18n="controller.supportLabel">Soporte de Mando:</label>
               <label class="toggle-switch">
                 <input type="checkbox" id="switch-controller-master">
                 <span class="toggle-slider"></span>
               </label>
             </div>
             <button id="btn-test-controller-injection" class="btn btn-secondary" style="border: 1px solid rgba(59, 130, 246, 0.4); color: #93c5fd; background: rgba(59, 130, 246, 0.1);" title="Verificar que el inyector C# de Windows envía hardware scan codes y mouse_event">
-              ⚡ Probar Inyección (5 seg)
+              <span data-i18n="controller.testInjection">⚡ Probar Inyección (5 seg)</span>
             </button>
             <button id="btn-view-reset-controller" class="btn btn-secondary" title="Restablecer controles a distribución oficial de Xbox/Bedrock">
-              🔄 Predeterminado Xbox
+              <span data-i18n="controller.resetDefault">🔄 Predeterminado Xbox</span>
             </button>
             <button id="btn-view-save-controller" class="btn btn-primary">
-              💾 Guardar Mapeo
+              <span data-i18n="controller.saveMapping">💾 Guardar Mapeo</span>
             </button>
           </div>
         </div>
@@ -1778,9 +1778,9 @@
               <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
                 <div style="display: flex; align-items: center; gap: 8px;">
                   <span style="font-size: 16px;">🕹️</span>
-                  <strong style="font-size: 13px;">Stick Izquierdo (Movimiento)</strong>
+                  <strong style="font-size: 13px;" data-i18n="controller.leftStick">Stick Izquierdo (Movimiento)</strong>
                 </div>
-                <span class="badge badge-primary">Simula W, A, S, D</span>
+                <span class="badge badge-primary" data-i18n="controller.leftStickSim">Simula W, A, S, D</span>
               </div>
               <div style="display: flex; align-items: center; gap: 16px;">
                 <div class="stick-crosshair-box" style="position: relative; width: 80px; height: 80px; background: #12141a; border: 1px solid #2d3340; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
@@ -1790,11 +1790,11 @@
                 </div>
                 <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
                   <div style="display: flex; justify-content: space-between; font-size: 12px;">
-                    <span style="color: var(--text-secondary);">Zona Muerta (Deadzone):</span>
+                    <span style="color: var(--text-secondary);" data-i18n="controller.deadzone">Zona Muerta (Deadzone):</span>
                     <strong id="deadzone-value-label" style="color: var(--text-primary);">15%</strong>
                   </div>
                   <input type="range" id="slider-controller-deadzone" min="5" max="40" value="15" step="1" class="range-slider" style="width: 100%;" />
-                  <span style="font-size: 11px; color: var(--text-dim);">Evita derivas indeseadas al soltar el joystick.</span>
+                  <span style="font-size: 11px; color: var(--text-dim);" data-i18n="controller.deadzoneHelp">Evita derivas indeseadas al soltar el joystick.</span>
                 </div>
               </div>
             </div>
@@ -1804,7 +1804,7 @@
               <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
                 <div style="display: flex; align-items: center; gap: 8px;">
                   <span style="font-size: 16px;">👀</span>
-                  <strong style="font-size: 13px;">Stick Derecho (Cámara & Ratón)</strong>
+                  <strong style="font-size: 13px;" data-i18n="controller.rightStick">Stick Derecho (Cámara & Ratón)</strong>
                 </div>
                 <span class="badge badge-success">Giro Relativo 60Hz</span>
               </div>
@@ -1816,13 +1816,13 @@
                 </div>
                 <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
                   <div style="display: flex; justify-content: space-between; font-size: 12px;">
-                    <span style="color: var(--text-secondary);">Sensibilidad de Cámara:</span>
+                    <span style="color: var(--text-secondary);" data-i18n="controller.sensitivity">Sensibilidad de Cámara:</span>
                     <strong id="sensitivity-value-label" style="color: var(--text-primary);">2.5x</strong>
                   </div>
                   <input type="range" id="slider-controller-sensitivity" min="5" max="80" value="25" step="1" class="range-slider" style="width: 100%;" />
                   <div style="display: flex; align-items: center; gap: 6px; margin-top: 2px;">
                     <input type="checkbox" id="check-controller-invert-y" style="cursor: pointer;" />
-                    <label for="check-controller-invert-y" style="font-size: 11.5px; color: var(--text-secondary); cursor: pointer;">Invertir Eje Y (Cámara)</label>
+                    <label for="check-controller-invert-y" style="font-size: 11.5px; color: var(--text-secondary); cursor: pointer;" data-i18n="controller.invertY">Invertir Eje Y (Cámara)</label>
                   </div>
                 </div>
               </div>
@@ -1988,7 +1988,7 @@
             <!-- Lado Derecho: Asignación de Teclas & Acciones -->
             <div class="controller-mapping-list-panel">
               <div class="mapping-list-header">
-                <h4 style="margin: 0; font-size: 13px; font-weight: 600;">Acciones de Minecraft Asignadas</h4>
+                <h4 style="margin: 0; font-size: 13px; font-weight: 600;" data-i18n="controller.assignedActions">Acciones de Minecraft Asignadas</h4>
                 <span id="controller-view-preset-tag" class="badge-preset">Xbox Standard</span>
               </div>
               <div id="controller-view-bindings-grid" class="controller-bindings-grid">
@@ -2308,14 +2308,14 @@
   <div id="modal-account-manager" class="modal-overlay">
     <div class="modal-content card" style="max-width: 460px;">
       <div class="modal-header">
-        <h3>Cuenta de Jugador</h3>
+        <h3 data-i18n="account.modalTitle">Cuenta de Jugador</h3>
         <button id="btn-close-account-modal" class="btn btn-small close-btn">✕</button>
       </div>
       <div class="modal-body">
         <div class="auth-tabs">
-          <button id="tab-shubacore" class="tab-btn active">⭐ ShubaCore Network</button>
-          <button id="tab-premium" class="tab-btn">🎮 Microsoft</button>
-          <button id="tab-offline" class="tab-btn">👤 Offline</button>
+          <button id="tab-shubacore" class="tab-btn active" data-i18n="account.tabShubacore">⭐ ShubaCore Network</button>
+          <button id="tab-premium" class="tab-btn" data-i18n="account.tabMicrosoft">🎮 Microsoft</button>
+          <button id="tab-offline" class="tab-btn" data-i18n="account.tabOffline">👤 Offline</button>
         </div>
 
         <!-- Formulario ShubaCore Network (Supabase) -->
@@ -2338,13 +2338,13 @@
             <!-- Bloque de Identidad No-Premium vinculada -->
             <div class="shuba-link-card">
               <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-                <span style="font-size: 11.5px; font-weight: 600; color: var(--text-secondary);">👤 Nickname No-Premium en el Juego:</span>
+                <span style="font-size: 11.5px; font-weight: 600; color: var(--text-secondary);" data-i18n="account.offlineNicknameLabel">👤 Nickname No-Premium en el Juego:</span>
                 <span id="shubacore-current-offline-name" style="font-size: 12px; color: #10b981; font-weight: 600;">Steve</span>
               </div>
               <div style="display: flex; gap: 8px;">
                 <input type="text" id="input-shubacore-offline-name" class="text-input" placeholder="Nombre en el juego" maxlength="16" style="flex: 1; padding: 4px 8px; font-size: 12px;">
                 <button type="button" id="btn-shubacore-save-offline-name" class="btn btn-secondary btn-small" style="font-size: 11px;">
-                  <span>Guardar</span>
+                  <span data-i18n="account.saveNickname">Guardar</span>
                 </button>
               </div>
             </div>
@@ -2356,7 +2356,7 @@
               </div>
               <button id="btn-shubacore-link-ms" class="btn btn-microsoft btn-small" style="margin-top: 8px; width: 100%; justify-content: center;">
                 <svg width="14" height="14" viewBox="0 0 21 21"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>
-                <span>Vincular Cuenta Microsoft Oficial</span>
+                <span data-i18n="account.linkMsBtn">Vincular Cuenta Microsoft Oficial</span>
               </button>
             </div>
 
@@ -2366,24 +2366,24 @@
                   <svg width="15" height="15" viewBox="0 0 21 21"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="11" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>
                   <span id="shubacore-linked-gamertag" style="font-size: 12.5px; font-weight: 600; color: #10b981;">Gamertag</span>
                 </div>
-                <span class="badge badge-success">VERIFICADO (PREMIUM)</span>
+                <span class="badge badge-success" data-i18n="account.verifiedPremium">VERIFICADO (PREMIUM)</span>
               </div>
               <button id="btn-shubacore-unlink-ms" class="btn btn-secondary btn-small" style="width: 100%; justify-content: center; font-size: 11px;">
-                <span>Desvincular Microsoft (Volver a Modo Libre)</span>
+                <span data-i18n="account.unlinkMsBtn">Desvincular Microsoft (Volver a Modo Libre)</span>
               </button>
             </div>
 
             <!-- Selector de modo activo al pulsar JUGAR (si ambos están vinculados) -->
             <div id="shubacore-launch-mode-selector" class="shuba-link-card" style="display: none;">
-              <span style="font-size: 11.5px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 6px;">Al pulsar JUGAR, entrar como:</span>
+              <span style="font-size: 11.5px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 6px;" data-i18n="account.launchAsLabel">Al pulsar JUGAR, entrar como:</span>
               <div style="display: flex; gap: 8px;">
                 <label style="flex: 1; display: flex; align-items: center; gap: 6px; font-size: 11.5px; cursor: pointer; background: rgba(0,0,0,0.25); padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border);">
                   <input type="radio" name="shubacore-launch-mode" id="radio-mode-offline" value="offline" checked>
-                  <span>👤 No-Premium</span>
+                  <span data-i18n="account.modeOffline">👤 No-Premium</span>
                 </label>
                 <label style="flex: 1; display: flex; align-items: center; gap: 6px; font-size: 11.5px; cursor: pointer; background: rgba(0,0,0,0.25); padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border);">
                   <input type="radio" name="shubacore-launch-mode" id="radio-mode-premium" value="premium">
-                  <span>🎮 Microsoft</span>
+                  <span data-i18n="account.modePremium">🎮 Microsoft</span>
                 </label>
               </div>
             </div>
@@ -2391,11 +2391,11 @@
             <div class="ms-card-actions">
               <button id="btn-shubacore-use-account" class="btn btn-primary btn-small">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-                <span>Usar esta cuenta para jugar</span>
+                <span data-i18n="account.useAccount">Usar esta cuenta para jugar</span>
               </button>
               <button id="btn-shubacore-logout" class="btn btn-danger btn-small">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
-                <span>Cerrar Sesión</span>
+                <span data-i18n="account.logout">Cerrar Sesión</span>
               </button>
             </div>
           </div>
@@ -2407,17 +2407,17 @@
             </p>
 
             <div class="shubacore-subtabs">
-              <button id="btn-submode-login" class="shubacore-subtab-btn active" type="button">Iniciar Sesión</button>
-              <button id="btn-submode-register" class="shubacore-subtab-btn" type="button">Crear Cuenta</button>
+              <button id="btn-submode-login" class="shubacore-subtab-btn active" type="button" data-i18n="account.login">Iniciar Sesión</button>
+              <button id="btn-submode-register" class="shubacore-subtab-btn" type="button" data-i18n="account.register">Crear Cuenta</button>
             </div>
 
             <div class="form-group" style="margin-bottom: 10px;">
-              <label for="shubacore-username-input">Nombre de Usuario:</label>
+              <label for="shubacore-username-input" data-i18n="account.username">Nombre de Usuario:</label>
               <input type="text" id="shubacore-username-input" class="text-input" placeholder="Ej. Alex_Shuba" maxlength="20" autocomplete="username">
             </div>
 
             <div class="form-group" style="margin-bottom: 10px;">
-              <label for="shubacore-password-input">Contraseña:</label>
+              <label for="shubacore-password-input" data-i18n="account.password">Contraseña:</label>
               <input type="password" id="shubacore-password-input" class="text-input" placeholder="Mínimo 6 caracteres" autocomplete="current-password">
             </div>
 
@@ -2432,10 +2432,10 @@
         <!-- Formulario Offline -->
         <div id="form-offline" class="auth-form">
           <div class="form-group">
-            <label for="offline-username">Nombre de Usuario Offline:</label>
+            <label for="offline-username" data-i18n="account.offlineUsernameLabel">Nombre de Usuario Offline:</label>
             <div class="input-group">
               <input type="text" id="offline-username" placeholder="Nombre en el juego" maxlength="16" value="Jugador">
-              <button id="btn-login-offline" class="btn btn-primary" title="Activar y guardar esta cuenta No-Premium">Guardar y Usar Cuenta Offline</button>
+              <button id="btn-login-offline" class="btn btn-primary" title="Activar y guardar esta cuenta No-Premium" data-i18n="account.saveAndUseOffline">Guardar y Usar Cuenta Offline</button>
             </div>
             <small class="hint">UUID asignado: <code id="preview-offline-uuid">-</code></small>
           </div>
@@ -2464,7 +2464,7 @@
               </button>
               <button id="btn-ms-switch-account" class="btn btn-secondary btn-small">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/></svg>
-                <span>Cambiar / Añadir cuenta</span>
+                <span data-i18n="account.switchOrAdd">Cambiar / Añadir cuenta</span>
               </button>
               <button id="btn-ms-logout" class="btn btn-danger btn-small" title="Cerrar sesión de Microsoft">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
@@ -2475,10 +2475,10 @@
 
           <!-- Prompt de Inicio de Sesión cuando no hay cuenta conectada -->
           <div id="ms-login-prompt" class="ms-login-prompt">
-            <p class="premium-desc">Conecta tu cuenta oficial de Minecraft / Xbox Live para jugar en servidores que requieran autenticación oficial.</p>
+            <p class="premium-desc" data-i18n="account.msLoginDesc">Conecta tu cuenta oficial de Minecraft / Xbox Live para jugar en servidores que requieran autenticación oficial.</p>
             <button id="btn-login-microsoft" class="btn btn-microsoft" style="width: 100%;">
               <svg width="18" height="18" viewBox="0 0 21 21"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>
-              <span>Iniciar sesión con Microsoft</span>
+              <span data-i18n="account.loginMsBtn">Iniciar sesión con Microsoft</span>
             </button>
           </div>
         </div>

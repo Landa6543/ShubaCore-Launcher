@@ -260,8 +260,15 @@ class LaunchManager {
 
       if (isOfflineAccount) {
         const playerName = (auth && auth.name) || (currentAccount && (currentAccount.username || currentAccount.name)) || 'Jugador';
-        const { generateOfflineUUID } = require('../auth/OfflineAuth');
-        const offlineUuid = generateOfflineUUID(playerName);
+        let skinModel = 'classic';
+        try {
+          const { getSkinManager } = require('../skins/SkinManager');
+          const skinInfo = getSkinManager().getCurrentSkinInfo(playerName);
+          skinModel = skinInfo?.skinModel || 'classic';
+        } catch (_) {}
+
+        const { generateOfflineUUIDForModel } = require('../auth/OfflineAuth');
+        const offlineUuid = generateOfflineUUIDForModel(playerName, skinModel);
 
         auth = {
           access_token: '0',
@@ -276,7 +283,7 @@ class LaunchManager {
             demo: false
           }
         };
-        logger.info(`⚡ [LaunchManager] [Modo Offline] Jugador: "${playerName}" | UUID v3: ${offlineUuid} | Token: 0 | UserType: legacy`);
+        logger.info(`⚡ [LaunchManager] [Modo Offline] Jugador: "${playerName}" (${skinModel}) | UUID adaptado: ${offlineUuid} | Token: 0 | UserType: legacy`);
       } else {
         logger.info(`Jugador autenticado (Premium): ${auth.name} (${(currentAccount.type || 'msa').toUpperCase()})`);
       }
@@ -492,6 +499,14 @@ class LaunchManager {
 
       // REQUISITO 3: Quitar -Xmx y -Xms de cleanedJvmArgs para que MCLC no duplique la RAM (dejar sólo el par de opts.memory)
       cleanedJvmArgs = cleanedJvmArgs.filter((arg) => !arg.startsWith('-Xmx') && !arg.startsWith('-Xms'));
+
+      // Descartar -XX:+DisableExplicitGC (rompe la liberación de búferes directos LWJGL/OpenGL y causa crashes 0xC0000005)
+      cleanedJvmArgs = cleanedJvmArgs.filter((arg) => typeof arg === 'string' && arg !== '-XX:+DisableExplicitGC');
+
+      // Parche de controladores gráficos Intel/NVIDIA oficial de Prism Launcher / Mojang (MCL-767)
+      if (process.platform === 'win32' && !cleanedJvmArgs.some((a) => typeof a === 'string' && a.startsWith('-XX:HeapDumpPath='))) {
+        cleanedJvmArgs.push('-XX:HeapDumpPath=MojangTricksIntelDriversForPerformance_javaw.exe_minecraft.exe.heapdump');
+      }
 
       // Si la instancia es Vanilla, descartar todas las banderas --add-opens y --add-exports
       if (isVanilla) {
@@ -743,13 +758,8 @@ class LaunchManager {
         logger.warn(`[LaunchManager] Aviso al inyectar skin pack: ${skinInjErr.message}`);
       }
 
-      // 7. ShubaCore Pro - Limpieza de memoria Standby (Anti-Stuttering) antes del despegue
-      try {
-        const { getMemoryCleaner } = require('../system/MemoryCleaner');
-        await getMemoryCleaner().cleanStandbyMemory();
-      } catch (cleanerErr) {
-        logger.debug(`[LaunchManager] Limpieza de memoria Standby omitida con seguridad: ${cleanerErr.message}`);
-      }
+      // 7. ShubaCore Pro - Memoria Standby: solo bajo demanda manual para no purgar el working-set de javaw.exe/OpenGL
+      // (Previene crashes 0xC0000005 durante el arranque y carga de texturas)
 
       // 8. Sincronizar puente de amigos para ShubaHost in-game (shubacore-friends.json)
       try {

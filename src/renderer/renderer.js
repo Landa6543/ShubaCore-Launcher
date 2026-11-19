@@ -7365,6 +7365,15 @@ document.addEventListener('DOMContentLoaded', async () => {
           btnLaunchText.textContent = window.i18n?.t ? window.i18n.t('btn.launch', 'JUGAR') : 'JUGAR';
         }
       } catch (_) {}
+      try {
+        if (typeof renderControllerBindingsGrid === 'function') renderControllerBindingsGrid();
+      } catch (_) {}
+      try {
+        if (typeof renderJavaRuntimes === 'function') renderJavaRuntimes();
+      } catch (_) {}
+      try {
+        if (typeof renderServers === 'function') renderServers();
+      } catch (_) {}
     }, 50);
   });
 
@@ -10949,9 +10958,38 @@ document.addEventListener('DOMContentLoaded', async () => {
     for (const idx of buttonIndices) {
       const btnData = buttons[idx];
       const actionObj = availableControllerActions.find(a => a.id === btnData.action) || {
+        id: btnData.action,
         label: btnData.action || 'Desconocido',
         key: btnData.key || ''
       };
+
+      const actionLabel = (window.i18n && actionObj.id)
+        ? window.i18n.t(`controller.action.${actionObj.id}`, actionObj.label)
+        : actionObj.label;
+
+      let btnLabel = btnData.label || btnData.name || `Botón ${idx}`;
+      if (window.i18n && window.i18n.getLanguage() === 'en') {
+        btnLabel = btnLabel
+          .replace('Botón', 'Button')
+          .replace('(Verde)', '(Green)')
+          .replace('(Rojo)', '(Red)')
+          .replace('(Azul)', '(Blue)')
+          .replace('(Amarillo)', '(Yellow)')
+          .replace('Bumper Izquierdo', 'Left Bumper')
+          .replace('Bumper Derecho', 'Right Bumper')
+          .replace('Gatillo Izquierdo', 'Left Trigger')
+          .replace('Gatillo Derecho', 'Right Trigger')
+          .replace('Click Stick Izq', 'Left Stick Click')
+          .replace('Click Stick Der', 'Right Stick Click')
+          .replace('Correr', 'Sprint')
+          .replace('Agacharse', 'Sneak')
+          .replace('D-Pad Arriba', 'D-Pad Up')
+          .replace('D-Pad Abajo', 'D-Pad Down')
+          .replace('D-Pad Izquierda', 'D-Pad Left')
+          .replace('D-Pad Derecha', 'D-Pad Right')
+          .replace('(Perspectiva F5)', '(Perspective F5)')
+          .replace('(Logros L)', '(Advancements L)');
+      }
 
       containers.forEach(container => {
         const row = document.createElement('div');
@@ -10962,11 +11000,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         row.innerHTML = `
           <div class="binding-btn-info">
             <span class="binding-badge">${btnData.name || idx}</span>
-            <span class="binding-btn-name">${btnData.label || btnData.name || `Botón ${idx}`}</span>
+            <span class="binding-btn-name">${btnLabel}</span>
           </div>
           <div style="display: flex; align-items: center; gap: 8px;">
             <span class="binding-action-chip">
-              <span>${actionObj.label}</span>
+              <span>${actionLabel}</span>
               ${actionObj.key ? `<span class="chip-key">${actionObj.key}</span>` : ''}
             </span>
             <span style="font-size: 11px; color: var(--text-muted); opacity: 0.6;">✏️</span>
