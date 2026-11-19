@@ -850,10 +850,14 @@ document.addEventListener('DOMContentLoaded', async () => {
           if (modsSearchResults) {
             modsSearchResults.className = (catalogViewMode === 'grid') ? 'catalog-grid' : 'catalog-list-view';
           }
-          if (!inputModSearch.value.trim() && (!modsSearchResults || modsSearchResults.children.length <= 1)) {
+          const activeProf = catalogContextProfile || currentActiveProfile;
+          const hasProfileChanged = lastCatalogActiveProfileRef && activeProf && (lastCatalogActiveProfileRef.id !== activeProf.id);
+          if (hasProfileChanged || (!inputModSearch.value.trim() && (!modsSearchResults || modsSearchResults.children.length <= 1))) {
             performModSearch();
+          } else if (typeof syncCatalogInstalledStatus === 'function') {
+            syncCatalogInstalledStatus();
           }
-        } catch (e) { console.warn('[switchTab] Error en performModSearch:', e); }
+        } catch (e) { console.warn('[switchTab] Error en performModSearch/syncCatalogInstalledStatus:', e); }
       } else if (viewName === 'mods') {
         try {
           switchInstanceSubtab(currentInstanceSubtab || 'mods');
@@ -4039,6 +4043,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             appendLog(`[Mods] Mod "${fn}" eliminado con éxito.`, 'info');
             await loadInstalledMods();
+            await syncCatalogInstalledStatus();
           } catch (err) {
             console.error('Error al eliminar mod:', err);
             alert(`Error al eliminar mod: ${err.message}`);
@@ -5251,15 +5256,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!catalogActiveFilterChips) return;
     catalogActiveFilterChips.innerHTML = '';
 
+    const isModContent = (currentContentType === 'mods' || currentContentType === 'github');
     if (effectiveLoader && effectiveLoader !== 'all') {
-      const chip = document.createElement('div');
-      chip.className = 'catalog-filter-chip';
-      chip.innerHTML = `<span>⚙ ${escapeHtml(effectiveLoader.toUpperCase())}</span><button type="button" class="chip-remove-btn" title="Quitar filtro de Modloader">✕</button>`;
-      chip.querySelector('.chip-remove-btn').addEventListener('click', () => {
-        if (selectCatalogLoader) selectCatalogLoader.value = 'all';
-        performModSearch();
-      });
-      catalogActiveFilterChips.appendChild(chip);
+      const isVanilla = String(effectiveLoader).toLowerCase() === 'vanilla';
+      if (!(isModContent && isVanilla)) {
+        const chip = document.createElement('div');
+        chip.className = 'catalog-filter-chip';
+        chip.innerHTML = `<span>⚙ ${escapeHtml(effectiveLoader.toUpperCase())}</span><button type="button" class="chip-remove-btn" title="Quitar filtro de Modloader">✕</button>`;
+        chip.querySelector('.chip-remove-btn').addEventListener('click', () => {
+          if (selectCatalogLoader) selectCatalogLoader.value = 'all';
+          performModSearch();
+        });
+        catalogActiveFilterChips.appendChild(chip);
+      }
     }
 
     if (effectiveMcVersion && effectiveMcVersion !== 'all') {
@@ -5395,8 +5404,53 @@ document.addEventListener('DOMContentLoaded', async () => {
     container.className = (catalogViewMode === 'grid') ? 'catalog-grid' : 'catalog-list-view';
     container.innerHTML = '';
 
+    const isVanillaInstance = (activeProfileRef?.loader || '').toLowerCase() === 'vanilla';
+    if (isVanillaInstance && (currentContentType === 'mods' || currentContentType === 'github')) {
+      const vTitle = window.i18n?.t ? window.i18n.t('catalog.vanillaWarningTitle', 'Instancia Vanilla Seleccionada') : 'Instancia Vanilla Seleccionada';
+      const vDesc = window.i18n?.t ? window.i18n.t('catalog.vanillaWarningDesc', 'Minecraft Vanilla no admite mods...') : 'Minecraft Vanilla no cuenta con un cargador de mods y no admite la instalación de mods. Para usar mods, cambia el cargador a Fabric, NeoForge o Forge en Editar Instancia, o explora Texturas y Shaders.';
+      const vTex = window.i18n?.t ? window.i18n.t('catalog.viewTextures', 'Ver Texturas (Resource Packs)') : 'Ver Texturas (Resource Packs)';
+      const vSha = window.i18n?.t ? window.i18n.t('catalog.viewShaders', 'Ver Shaders') : 'Ver Shaders';
+      const vFab = window.i18n?.t ? window.i18n.t('catalog.changeToFabric', 'Cambiar Cargador a Fabric') : 'Cambiar Cargador a Fabric';
+
+      const bannerDiv = document.createElement('div');
+      bannerDiv.className = 'vanilla-notice-banner';
+      bannerDiv.style.cssText = 'margin-bottom: 14px; padding: 12px 16px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; width: 100%; box-sizing: border-box;';
+      bannerDiv.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 20px;">⚠️</span>
+          <div>
+            <strong style="color: #fbbf24; font-size: 13px;">${escapeHtml(vTitle)} (${escapeHtml(activeProfileRef?.name || 'Vanilla')})</strong>
+            <p style="margin: 2px 0 0; font-size: 12px; color: var(--text-secondary);">${escapeHtml(vDesc)}</p>
+          </div>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button type="button" class="btn btn-secondary btn-small btn-switch-cat-textures">${escapeHtml(vTex)}</button>
+          <button type="button" class="btn btn-secondary btn-small btn-switch-cat-shaders">${escapeHtml(vSha)}</button>
+          <button type="button" class="btn btn-primary btn-small btn-quick-edit-loader">${escapeHtml(vFab)}</button>
+        </div>
+      `;
+      const btnTex = bannerDiv.querySelector('.btn-switch-cat-textures');
+      if (btnTex) btnTex.addEventListener('click', () => {
+        const pill = document.querySelector('.cat-pill[data-cat="resourcepacks"]');
+        if (pill) pill.click();
+      });
+      const btnSha = bannerDiv.querySelector('.btn-switch-cat-shaders');
+      if (btnSha) btnSha.addEventListener('click', () => {
+        const pill = document.querySelector('.cat-pill[data-cat="shaders"]');
+        if (pill) pill.click();
+      });
+      const btnFab = bannerDiv.querySelector('.btn-quick-edit-loader');
+      if (btnFab) btnFab.addEventListener('click', () => {
+        if (activeProfileRef) openEditProfileModal(activeProfileRef);
+      });
+      container.appendChild(bannerDiv);
+    }
+
     if (!results || results.length === 0) {
-      container.innerHTML = `<div class="empty-state">No se encontraron ${(catLabel || 'proyectos').toLowerCase()} disponibles.</div>`;
+      const emptyDiv = document.createElement('div');
+      emptyDiv.className = 'empty-state';
+      emptyDiv.textContent = `No se encontraron ${(catLabel || 'proyectos').toLowerCase()} disponibles.`;
+      container.appendChild(emptyDiv);
       return;
     }
 
@@ -5437,21 +5491,21 @@ document.addEventListener('DOMContentLoaded', async () => {
       let installedActionHtml = '';
       if (!isInstalled) {
         installedActionHtml = `
-          <button type="button" class="btn btn-small btn-install-catalog btn-download-content" data-id="${escapeHtml(item.id || item.fileName)}" data-source="${escapeHtml(item.source)}" data-title="${escapeHtml(item.title || item.name)}" data-icon="${escapeHtml(iconSrc)}">
+          <button type="button" class="btn btn-small btn-install-catalog btn-download-content" data-id="${escapeHtml(item.id || item.fileName)}" data-source="${escapeHtml(item.source)}" data-title="${escapeHtml(item.title || item.name)}" data-filename="${escapeHtml(item.fileName || '')}" data-icon="${escapeHtml(iconSrc)}">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
             <span>${actionButtonText}</span>
           </button>
         `;
       } else if (isOutdated) {
         installedActionHtml = `
-          <button type="button" class="btn btn-small btn-catalog-update btn-download-content" data-id="${escapeHtml(item.id || item.fileName)}" data-source="${escapeHtml(item.source)}" data-title="${escapeHtml(item.title || item.name)}" data-icon="${escapeHtml(iconSrc)}">
+          <button type="button" class="btn btn-small btn-catalog-update btn-download-content" data-id="${escapeHtml(item.id || item.fileName)}" data-source="${escapeHtml(item.source)}" data-title="${escapeHtml(item.title || item.name)}" data-filename="${escapeHtml(item.fileName || '')}" data-icon="${escapeHtml(iconSrc)}">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 11 12 6 7 11"/><line x1="12" y1="6" x2="12" y2="18"/></svg>
             <span>Actualizar</span>
           </button>
         `;
       } else {
         installedActionHtml = `
-          <div class="badge-catalog-updated">
+          <div class="badge-catalog-updated" data-id="${escapeHtml(item.id || item.fileName)}" data-source="${escapeHtml(item.source)}" data-title="${escapeHtml(item.title || item.name)}" data-filename="${escapeHtml(item.fileName || '')}" data-icon="${escapeHtml(iconSrc)}">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
             <span>Actualizado</span>
           </div>
@@ -5466,7 +5520,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       const gVers = Array.isArray(item.gameVersions) && item.gameVersions.length > 0 ? item.gameVersions : [mcVersion || '1.21.1'];
       const gameVersionBadge = gVers.length > 1 ? `${gVers[0]} +${gVers.length - 1}` : gVers[0];
 
-      const itemLoaders = Array.isArray(item.loaders) && item.loaders.length > 0 ? item.loaders : [loader || 'NeoForge'];
+      const rawLoaders = Array.isArray(item.loaders) ? item.loaders : [];
+      let itemLoaders = rawLoaders.filter(l => String(l).toLowerCase() !== 'vanilla');
+      if (itemLoaders.length === 0) {
+        if (loader && loader.toLowerCase() !== 'vanilla') {
+          itemLoaders = [loader];
+        } else {
+          itemLoaders = ['Fabric'];
+        }
+      }
       const primaryLoader = itemLoaders[0];
       const loaderBadgeStr = itemLoaders.length > 1 ? `${primaryLoader} +${itemLoaders.length - 1}` : primaryLoader;
       const loaderSvg = getLoaderSvgIcon(primaryLoader);
@@ -5610,6 +5672,7 @@ document.addEventListener('DOMContentLoaded', async () => {
               target.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Actualizado</span>`;
               target.disabled = true;
               await loadInstalledMods();
+              await syncCatalogInstalledStatus();
             }
           } else {
             throw new Error(res.error || 'Error desconocido al descargar.');
@@ -5622,6 +5685,59 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       });
     });
+  }
+
+  async function syncCatalogInstalledStatus() {
+    const activeProfileRef = catalogContextProfile || currentActiveProfile;
+    const targetInstance = activeProfileRef?.instancePath || null;
+    if (!targetInstance) return;
+
+    let installedMods = [];
+    try {
+      installedMods = await api.mods.listInstalled(targetInstance);
+      currentInstalledModsList = installedMods;
+    } catch (_) {
+      return;
+    }
+
+    const installedMap = new Map();
+    (installedMods || []).forEach(m => {
+      if (m.projectId) installedMap.set(String(m.projectId).toLowerCase(), m);
+      if (m.fileName) installedMap.set(m.fileName.toLowerCase(), m);
+      if (m.name) installedMap.set(m.name.toLowerCase(), m);
+      if (m.title) installedMap.set(m.title.toLowerCase(), m);
+    });
+
+    lastCatalogInstalledMap = installedMap;
+
+    if (Array.isArray(lastCatalogResults) && lastCatalogResults.length > 0 && modsSearchResults) {
+      renderCatalogItems(
+        lastCatalogResults,
+        modsSearchResults,
+        installedMap,
+        lastCatalogActiveProfileRef || activeProfileRef,
+        lastCatalogMcVersion,
+        lastCatalogLoader,
+        lastCatalogCatLabel
+      );
+    }
+
+    if (modalModDetail && modalModDetail.classList.contains('active') && currentProjectDetail) {
+      const detailId = String(currentProjectDetail.id || currentProjectDetail.fileName || '').toLowerCase();
+      const detailTitle = String(currentProjectDetail.title || currentProjectDetail.name || '').toLowerCase();
+      const isDetailInstalled = installedMap.has(detailId) || installedMap.has(detailTitle);
+      if (btnDetailInstallTop && detailInstallTopLabel) {
+        if (isDetailInstalled) {
+          detailInstallTopLabel.textContent = window.i18n?.t ? window.i18n.t('catalog.installed', 'Instalado') : 'Instalado';
+          btnDetailInstallTop.className = 'badge-catalog-updated btn-small';
+          btnDetailInstallTop.disabled = true;
+        } else {
+          detailInstallTopLabel.textContent = window.i18n?.t ? window.i18n.t('catalog.install', 'Instalar') : 'Instalar';
+          btnDetailInstallTop.className = 'btn btn-install-catalog btn-small';
+          btnDetailInstallTop.disabled = false;
+        }
+      }
+    }
   }
 
   if (btnCatalogViewList) {
@@ -5716,10 +5832,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       : (activeProfileRef?.mcVersion || '1.21.1');
     if (mcVersion === 'all') mcVersion = '';
 
+    const isVanillaInstance = (activeProfileRef?.loader || '').toLowerCase() === 'vanilla';
     let loader = selectCatalogLoader?.value && selectCatalogLoader.value !== 'active'
       ? selectCatalogLoader.value
       : (activeProfileRef?.loader || 'neoforge').toLowerCase();
     if (loader === 'all') loader = '';
+
+    // Si la instancia es Vanilla y se exploran mods, no filtrar por 'vanilla' para no romper resultados
+    if (isVanillaInstance && (currentContentType === 'mods' || currentContentType === 'github')) {
+      if (!selectCatalogLoader || selectCatalogLoader.value === 'active' || selectCatalogLoader.value === 'vanilla') {
+        loader = '';
+      }
+    }
 
     renderActiveFilterChips(loader, mcVersion, query, category, source);
 
@@ -5943,6 +6067,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                   }
                 }
                 await loadInstalledMods();
+                await syncCatalogInstalledStatus();
               } else {
                 throw new Error(res.error || 'Error al descargar mod custom.');
               }
@@ -6789,8 +6914,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   api.events.on('launch:close', (data) => {
-    const isNormalExit = data.code === 0 || data.code === -1073740791 || data.code === 3221225477;
-    appendLog(`[Launcher] El proceso de Minecraft finalizó con código: ${data.code}${isNormalExit ? ' (Cierre exitoso del juego)' : ''}`, 'info');
+    const isNormalExit = data.code === 0;
+    appendLog(`[Launcher] El proceso de Minecraft finalizó con código: ${data.code}${isNormalExit ? ' (Cierre normal del juego)' : ' (Error o terminación del proceso)'}`, isNormalExit ? 'info' : 'error');
     if (dockLaunchProgress) dockLaunchProgress.style.display = 'none';
     progressBar.style.width = '0%';
     progressPercentLabel.textContent = '0%';

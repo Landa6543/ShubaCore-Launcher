@@ -342,6 +342,7 @@ class SkinManager {
 
   /**
    * Textura vanilla de élitros. La ruta cambió en 1.21.2+ (equipment/wings), se prueban ambas.
+   * Incluye fallback base64 oficial de Mojang si aún no se ha descargado ningún jar de versiones.
    */
   getVanillaElytraTexture() {
     if (this._elytraDataUrlCache) return this._elytraDataUrlCache;
@@ -350,8 +351,9 @@ class SkinManager {
       'assets/minecraft/textures/entity/elytra.png'
     ]);
     if (!buf) {
-      logger.warn('[SkinManager] No se encontró la textura de élitros en ningún jar de versions/.');
-      return null;
+      logger.info('[SkinManager] Utilizando textura oficial de élitros integrada por defecto.');
+      this._elytraDataUrlCache = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAAAgCAYAAACinX6EAAABCklEQVRo3u2YsQoCMRBE820WFiKIjVyhWAgKgliJdmcpNoKljZ8aGWFlCIGDnCK72YHhNOBx82Yj4UL4o4bTRRS3t2fWwboEQKhdAmIwbiJPhqxVBSAHoYop6QJgfhK6AJifAv4PSCFM5tu3qwEgn0ez1Sc8vNyf7UJAWAaA72KEb9YH+wA4MBtrAACbBSBB+crNw5vTVQeA4+URSyFI0xycAag4IpcCSEOn7e/auw4ApQ+Zax1rCK8KQOkEpG2nxnrpvVVMgATnxlOb3gIMgUHw+JveAgIg1z7uKTY9AQiI38tV5Zuivg8pQbl1VQD6nthy7avaAt84suaar+ZlqcvlcrlcLpfrx3oB++zXhEHDmtAAAAAASUVORK5CYII=';
+      return this._elytraDataUrlCache;
     }
     this._elytraDataUrlCache = `data:image/png;base64,${buf.toString('base64')}`;
     return this._elytraDataUrlCache;

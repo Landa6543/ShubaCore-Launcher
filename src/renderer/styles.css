@@ -6325,6 +6325,11 @@ body.has-custom-bg .titlebar {
   display: none !important;
 }
 
+#view-skins {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
 .skins-redesign-layout {
   display: grid;
   grid-template-columns: 360px 1fr;

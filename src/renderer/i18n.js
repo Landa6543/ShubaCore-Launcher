@@ -157,6 +157,71 @@ const translations = {
     'settings.cleanStandby': '🧹 Limpiar Memoria Ahora',
     'settings.discordRpc': 'Activar actividad en Discord (Rich Presence)',
     'settings.controller': '🎮 Soporte para Mando (Inyección Nativa JVM)',
+    'settings.detectedJavaDesc': 'Escaneadas en el sistema operativo y en la carpeta portable de ShubaCore.',
+    'settings.javaInstallHeader': 'Descarga e Instalación Oficial 1-Clic (Eclipse Temurin Windows x64):',
+    'settings.installJava25': 'Instalar Java 25 (MC 26+ / Snapshots)',
+    'settings.installJava21': 'Instalar Java 21 (MC 1.21.x)',
+    'settings.installJava17': 'Instalar Java 17 (MC 1.20.x)',
+    'settings.installJava8': 'Instalar Java 8 (MC 1.16.5 y anteriores)',
+    'settings.autoDetect': 'Automático (Según versión de Minecraft)',
+    'settings.forceJava25': 'Forzar Java 25 Global',
+    'settings.forceJava21': 'Forzar Java 21 Global',
+    'settings.forceJava17': 'Forzar Java 17 Global',
+    'settings.forceJava8': 'Forzar Java 8 Global',
+    'settings.customPath': 'Ruta Personalizada...',
+    'settings.minRam': 'RAM Mínima Global:',
+    'settings.maxRam': 'RAM Máxima Global:',
+    'settings.launchBehaviorLabel': 'Al iniciar el juego (launchBehavior):',
+    'settings.launchBehaviorHide': 'Ocultar launcher en segundo plano y volver a mostrar al cerrar Minecraft (Por defecto)',
+    'settings.launchBehaviorKeep': 'Mantener la ventana del launcher abierta',
+    'settings.launchBehaviorClose': 'Cerrar el launcher completamente al abrir el juego',
+    'settings.launchBehaviorHelp': 'Controla si ShubaCore se oculta para optimizar GPU/RAM y reaparece al salir de Minecraft, o si se mantiene abierto.',
+    'settings.discordRpcDesc': 'Muestra en tu perfil de Discord qué estás jugando, tiempo de sesión y mods activos en tiempo real.',
+    'settings.controllerDesc': 'Permite usar mando de Xbox/PS de forma nativa sin instalar mods en la carpeta del juego. 100% libre de conflictos con mochilas e inventarios.',
+    'settings.standbyTitle': 'Limpieza de Memoria Standby (Anti-Stuttering)',
+    'settings.standbyDesc': 'Trimea los Working Sets y vacía la caché Standby de Windows para evitar micro-tirones y congelamientos durante el juego.',
+    'settings.sharedFolderTitle': 'Carpeta de Almacenamiento Compartida (.shubacore)',
+    'settings.examine': 'Examinar',
+    'settings.diskCleanerTitle': '🧹 Limpiador de Basura y Logs Antiguos',
+    'settings.diskCleanerDesc': 'Libera espacio en disco eliminando logs comprimidos (.log.gz), crash-reports antiguos y caché temporal sin tocar mundos, mods ni capturas.',
+    'settings.scan': '🔍 Escanear',
+    'settings.cleanNow': '🧹 Limpiar Ahora',
+    'settings.updatesTitle': 'Actualizaciones del Launcher (ShubaCore)',
+    'settings.updatesDesc': 'Motor Auto-Updater integrado vía GitHub Releases.',
+    'settings.checkUpdates': 'Buscar actualizaciones del Launcher',
+    'settings.customBgTitle': '🎨 Personalización de Interfaz',
+    'settings.customBgDesc': 'Personaliza la apariencia del launcher con una imagen o GIF animado de fondo, ajustando la opacidad y el desenfoque.',
+    'settings.selectBg': '🖼 Seleccionar Imagen / GIF de Fondo',
+    'settings.resetBg': '↺ Restablecer Fondo Original',
+    'settings.bgOpacity': 'Oscurecimiento / Opacidad:',
+    'settings.bgBlur': 'Desenfoque (Blur):',
+
+    // Consola y Logs
+    'console.title': 'Consola del Juego',
+    'console.filterPlaceholder': 'Filtrar logs...',
+    'console.copyLog': 'Copiar Log',
+    'console.openLatestLog': 'Abrir latest.log',
+    'console.logsFolder': 'Carpeta Logs',
+    'console.jvmDiag': 'Diagnóstico JVM',
+    'console.clear': 'Limpiar',
+    'console.idle': 'En espera',
+    'console.activeJvmArgs': 'Argumentos JVM Activos:',
+
+    // Modal de Detalle de Mod
+    'detail.tabSummary': 'Resumen',
+    'detail.tabContent': 'Contenido',
+    'detail.tabChangelog': 'Registro de cambios',
+    'detail.tabGallery': 'Galería',
+    'detail.tabVersions': 'Versiones',
+    'detail.website': 'Sitio Web',
+    'detail.downloadServer': 'Descargar Servidor',
+
+    // Advertencia de Instancia Vanilla en Catálogo de Mods
+    'catalog.vanillaWarningTitle': 'Instancia Vanilla Seleccionada',
+    'catalog.vanillaWarningDesc': 'Minecraft Vanilla no cuenta con un cargador de mods y no admite la instalación de mods. Para usar mods, cambia el cargador a Fabric, NeoForge o Forge en Editar Instancia, o explora Texturas y Shaders.',
+    'catalog.viewTextures': 'Ver Texturas (Resource Packs)',
+    'catalog.viewShaders': 'Ver Shaders',
+    'catalog.changeToFabric': 'Cambiar Cargador a Fabric',
 
     // Modal Inicial de Bienvenida de Idioma
     'welcomeLang.title': '¡Bienvenido a ShubaCore Launcher!',
@@ -320,6 +385,71 @@ const translations = {
     'settings.cleanStandby': '🧹 Clean Memory Now',
     'settings.discordRpc': 'Enable Discord Activity (Rich Presence)',
     'settings.controller': '🎮 Controller Support (Native JVM Injection)',
+    'settings.detectedJavaDesc': 'Scanned across the operating system and ShubaCore portable directory.',
+    'settings.javaInstallHeader': 'Official 1-Click Download & Installation (Eclipse Temurin Windows x64):',
+    'settings.installJava25': 'Install Java 25 (MC 26+ / Snapshots)',
+    'settings.installJava21': 'Install Java 21 (MC 1.21.x)',
+    'settings.installJava17': 'Install Java 17 (MC 1.20.x)',
+    'settings.installJava8': 'Install Java 8 (MC 1.16.5 and older)',
+    'settings.autoDetect': 'Automatic (Based on Minecraft version)',
+    'settings.forceJava25': 'Force Global Java 25',
+    'settings.forceJava21': 'Force Global Java 21',
+    'settings.forceJava17': 'Force Global Java 17',
+    'settings.forceJava8': 'Force Global Java 8',
+    'settings.customPath': 'Custom Path...',
+    'settings.minRam': 'Global Minimum RAM:',
+    'settings.maxRam': 'Global Maximum RAM:',
+    'settings.launchBehaviorLabel': 'When launching Minecraft (launchBehavior):',
+    'settings.launchBehaviorHide': 'Hide launcher in background and restore on Minecraft exit (Default)',
+    'settings.launchBehaviorKeep': 'Keep launcher window open',
+    'settings.launchBehaviorClose': 'Close launcher completely on game launch',
+    'settings.launchBehaviorHelp': 'Controls whether ShubaCore hides to conserve GPU/RAM and reappears on exit, or remains open.',
+    'settings.discordRpcDesc': 'Displays in Discord what you are playing, session duration, and active mods in real time.',
+    'settings.controllerDesc': 'Enables native Xbox/PlayStation controller support without game mods. 100% free of inventory or backpack conflicts.',
+    'settings.standbyTitle': 'Standby Memory Cleaner (Anti-Stuttering)',
+    'settings.standbyDesc': 'Trims Working Sets and purges Windows Standby Cache to eliminate micro-stutters and frame drops.',
+    'settings.sharedFolderTitle': 'Shared Storage Directory (.shubacore)',
+    'settings.examine': 'Browse',
+    'settings.diskCleanerTitle': '🧹 Junk & Old Logs Cleaner',
+    'settings.diskCleanerDesc': 'Frees up disk space by removing compressed logs (.log.gz), old crash reports, and temp caches without touching worlds, mods, or screenshots.',
+    'settings.scan': '🔍 Scan',
+    'settings.cleanNow': '🧹 Clean Now',
+    'settings.updatesTitle': 'Launcher Updates (ShubaCore)',
+    'settings.updatesDesc': 'Built-in Auto-Updater powered by GitHub Releases.',
+    'settings.checkUpdates': 'Check for Launcher Updates',
+    'settings.customBgTitle': '🎨 Interface Customization',
+    'settings.customBgDesc': 'Customize the launcher appearance with an image or animated GIF background, tuning opacity and blur.',
+    'settings.selectBg': '🖼 Select Background Image / GIF',
+    'settings.resetBg': '↺ Reset Original Background',
+    'settings.bgOpacity': 'Dimming / Opacity:',
+    'settings.bgBlur': 'Blur Effect:',
+
+    // Console & Logs
+    'console.title': 'Game Console',
+    'console.filterPlaceholder': 'Filter logs...',
+    'console.copyLog': 'Copy Log',
+    'console.openLatestLog': 'Open latest.log',
+    'console.logsFolder': 'Logs Folder',
+    'console.jvmDiag': 'JVM Diagnostics',
+    'console.clear': 'Clear',
+    'console.idle': 'Idle',
+    'console.activeJvmArgs': 'Active JVM Arguments:',
+
+    // Mod Detail Modal
+    'detail.tabSummary': 'Summary',
+    'detail.tabContent': 'Content',
+    'detail.tabChangelog': 'Changelog',
+    'detail.tabGallery': 'Gallery',
+    'detail.tabVersions': 'Versions',
+    'detail.website': 'Official Website',
+    'detail.downloadServer': 'Download Server',
+
+    // Vanilla Instance Warning in Mods Catalog
+    'catalog.vanillaWarningTitle': 'Vanilla Instance Selected',
+    'catalog.vanillaWarningDesc': 'Vanilla Minecraft does not feature a modloader and cannot run mods. To play with mods, switch this instance to Fabric, NeoForge, or Forge in Edit Instance, or explore Resource Packs and Shaders.',
+    'catalog.viewTextures': 'View Resource Packs',
+    'catalog.viewShaders': 'View Shaders',
+    'catalog.changeToFabric': 'Switch Modloader to Fabric',
 
     // Initial Language Welcome Modal
     'welcomeLang.title': 'Welcome to ShubaCore Launcher!',
@@ -438,7 +568,10 @@ async function initI18n() {
     try {
       const lsLang = localStorage.getItem('shubacore_language');
       const lsChosen = localStorage.getItem('shubacore_language_chosen');
-      if (lsLang) savedLang = lsLang;
+      if (lsLang) {
+        savedLang = lsLang;
+        languageChosen = true; // Si ya hay un idioma en localStorage, ya fue configurado
+      }
       if (lsChosen === 'true') languageChosen = true;
     } catch (_) {}
   }
@@ -450,7 +583,10 @@ async function initI18n() {
       if (typeof api.config.getKey === 'function') {
         const cfgLang = await api.config.getKey('general.language', null);
         const cfgChosen = await api.config.getKey('general.languageChosen', null);
-        if (cfgLang) savedLang = cfgLang;
+        if (cfgLang) {
+          savedLang = cfgLang;
+          languageChosen = true; // Si ya está en config.json, ya fue seleccionado
+        }
         if (cfgChosen === true) languageChosen = true;
       }
     } catch (_) {}
@@ -536,6 +672,8 @@ function closeWelcomeLanguageModal() {
     try {
       if (typeof api.config.setKey === 'function') {
         api.config.setKey('general.languageChosen', true);
+      } else if (typeof api.config.set === 'function') {
+        api.config.set('general.languageChosen', true);
       }
     } catch (_) {}
   }

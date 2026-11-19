@@ -2003,13 +2003,13 @@
       <section id="view-settings" class="view-panel view-container hidden" style="display: none !important;">
         <div class="view-toolbar">
           <div>
-            <h2 class="view-title">Java y Ajustes</h2>
-            <p class="view-subtitle">Gestión de runtimes oficiales de Adoptium Temurin, asignación de memoria y rendimiento.</p>
+            <h2 class="view-title" data-i18n="settings.title">Java y Ajustes</h2>
+            <p class="view-subtitle" data-i18n="settings.subtitle">Gestión de runtimes oficiales de Adoptium Temurin, asignación de memoria y rendimiento.</p>
           </div>
           <div class="toolbar-actions">
             <button id="btn-scan-java" class="btn btn-secondary">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
-              <span>Escanear Runtimes</span>
+              <span data-i18n="settings.scanRuntimes">Escanear Runtimes</span>
             </button>
           </div>
         </div>
@@ -2038,8 +2038,8 @@
           <div class="settings-card">
             <div class="settings-card-header">
               <div>
-                <h3 class="settings-card-title">Versiones de Java Detectadas</h3>
-                <p class="settings-card-desc">Escaneadas en el sistema operativo y en la carpeta portable de ShubaCore.</p>
+                <h3 class="settings-card-title" data-i18n="settings.detectedJava">Versiones de Java Detectadas</h3>
+                <p class="settings-card-desc" data-i18n="settings.detectedJavaDesc">Escaneadas en el sistema operativo y en la carpeta portable de ShubaCore.</p>
               </div>
             </div>
 
@@ -2049,12 +2049,12 @@
 
             <!-- Instalación Oficial 1-Clic -->
             <div class="java-install-box">
-              <span class="java-install-header">Descarga e Instalación Oficial 1-Clic (Eclipse Temurin Windows x64):</span>
+              <span class="java-install-header" data-i18n="settings.javaInstallHeader">Descarga e Instalación Oficial 1-Clic (Eclipse Temurin Windows x64):</span>
               <div class="java-btn-row">
-                <button id="btn-install-java-25" class="btn btn-secondary btn-compact" data-version="25">Instalar Java 25 (MC 26+ / Snapshots)</button>
-                <button id="btn-install-java-21" class="btn btn-secondary btn-compact" data-version="21">Instalar Java 21 (MC 1.21.x)</button>
-                <button id="btn-install-java-17" class="btn btn-secondary btn-compact" data-version="17">Instalar Java 17 (MC 1.20.x)</button>
-                <button id="btn-install-java-8" class="btn btn-secondary btn-compact" data-version="8">Instalar Java 8 (MC 1.16.5 y anteriores)</button>
+                <button id="btn-install-java-25" class="btn btn-secondary btn-compact" data-version="25" data-i18n="settings.installJava25">Instalar Java 25 (MC 26+ / Snapshots)</button>
+                <button id="btn-install-java-21" class="btn btn-secondary btn-compact" data-version="21" data-i18n="settings.installJava21">Instalar Java 21 (MC 1.21.x)</button>
+                <button id="btn-install-java-17" class="btn btn-secondary btn-compact" data-version="17" data-i18n="settings.installJava17">Instalar Java 17 (MC 1.20.x)</button>
+                <button id="btn-install-java-8" class="btn btn-secondary btn-compact" data-version="8" data-i18n="settings.installJava8">Instalar Java 8 (MC 1.16.5 y anteriores)</button>
               </div>
               <div id="java-install-status-box" class="install-progress-box" style="display: none;">
                 <div class="install-progress-bar-bg">
@@ -2067,21 +2067,21 @@
             <!-- Selector Global y Java Personalizado -->
             <div class="form-row" style="margin-top: 14px;">
               <div class="form-group flex-1">
-                <label for="select-global-java">Selector Global de Java:</label>
+                <label for="select-global-java" data-i18n="settings.globalJava">Selector Global de Java:</label>
                 <select id="select-global-java" class="select-input">
-                  <option value="auto" selected>Automático (Según versión de Minecraft)</option>
-                  <option value="force-25">Forzar Java 25 Global</option>
-                  <option value="force-21">Forzar Java 21 Global</option>
-                  <option value="force-17">Forzar Java 17 Global</option>
-                  <option value="force-8">Forzar Java 8 Global</option>
-                  <option value="custom">Ruta Personalizada...</option>
+                  <option value="auto" data-i18n="settings.autoDetect" selected>Automático (Según versión de Minecraft)</option>
+                  <option value="force-25" data-i18n="settings.forceJava25">Forzar Java 25 Global</option>
+                  <option value="force-21" data-i18n="settings.forceJava21">Forzar Java 21 Global</option>
+                  <option value="force-17" data-i18n="settings.forceJava17">Forzar Java 17 Global</option>
+                  <option value="force-8" data-i18n="settings.forceJava8">Forzar Java 8 Global</option>
+                  <option value="custom" data-i18n="settings.customPath">Ruta Personalizada...</option>
                 </select>
               </div>
               <div class="form-group flex-1">
-                <label for="input-custom-java">Ruta Personalizada (javaw.exe):</label>
+                <label for="input-custom-java" data-i18n="settings.customJava">Ruta Personalizada (javaw.exe):</label>
                 <div class="input-group">
                   <input type="text" id="input-custom-java" class="text-input" placeholder="Automático (Detectado)">
-                  <button id="btn-browse-java" class="btn btn-secondary">Buscar</button>
+                  <button id="btn-browse-java" class="btn btn-secondary" data-i18n="settings.browse">Buscar</button>
                 </div>
               </div>
             </div>
@@ -2089,26 +2089,26 @@
 
           <!-- Memoria RAM y Rendimiento -->
           <div class="settings-card">
-            <h3 class="settings-card-title">Rendimiento y Asignación de Memoria</h3>
+            <h3 class="settings-card-title" data-i18n="settings.performance">Rendimiento y Asignación de Memoria</h3>
             <div class="form-row">
               <div class="form-group flex-1">
-                <label for="input-min-ram">RAM Mínima Global:</label>
+                <label for="input-min-ram" data-i18n="settings.minRam">RAM Mínima Global:</label>
                 <input type="text" id="input-min-ram" class="text-input" value="2G">
               </div>
               <div class="form-group flex-1">
-                <label for="input-max-ram">RAM Máxima Global:</label>
+                <label for="input-max-ram" data-i18n="settings.maxRam">RAM Máxima Global:</label>
                 <input type="text" id="input-max-ram" class="text-input" value="8G">
               </div>
             </div>
 
             <div class="form-group" style="margin-top: 14px;">
-              <label for="select-launch-behavior" style="font-weight: 600; display: block; margin-bottom: 6px;">Al iniciar el juego (launchBehavior):</label>
+              <label for="select-launch-behavior" style="font-weight: 600; display: block; margin-bottom: 6px;" data-i18n="settings.launchBehaviorLabel">Al iniciar el juego (launchBehavior):</label>
               <select id="select-launch-behavior" class="text-input" style="width: 100%; height: 38px; cursor: pointer;">
-                <option value="hide" selected>Ocultar launcher en segundo plano y volver a mostrar al cerrar Minecraft (Por defecto)</option>
-                <option value="keep">Mantener la ventana del launcher abierta</option>
-                <option value="close">Cerrar el launcher completamente al abrir el juego</option>
+                <option value="hide" data-i18n="settings.launchBehaviorHide" selected>Ocultar launcher en segundo plano y volver a mostrar al cerrar Minecraft (Por defecto)</option>
+                <option value="keep" data-i18n="settings.launchBehaviorKeep">Mantener la ventana del launcher abierta</option>
+                <option value="close" data-i18n="settings.launchBehaviorClose">Cerrar el launcher completamente al abrir el juego</option>
               </select>
-              <small style="color: var(--text-muted); display: block; margin-top: 4px;">Controla si ShubaCore se oculta para optimizar GPU/RAM y reaparece al salir de Minecraft, o si se mantiene abierto.</small>
+              <small style="color: var(--text-muted); display: block; margin-top: 4px;" data-i18n="settings.launchBehaviorHelp">Controla si ShubaCore se oculta para optimizar GPU/RAM y reaparece al salir de Minecraft, o si se mantiene abierto.</small>
             </div>
 
             <div class="toggle-row" style="margin-top: 14px;">
@@ -2117,8 +2117,8 @@
                 <span class="switch-slider"></span>
               </label>
               <div class="toggle-info">
-                <strong>Activar actividad en Discord (Rich Presence)</strong>
-                <small>Muestra en tu perfil de Discord qué estás jugando, tiempo de sesión y mods activos en tiempo real.</small>
+                <strong data-i18n="settings.discordRpc">Activar actividad en Discord (Rich Presence)</strong>
+                <small data-i18n="settings.discordRpcDesc">Muestra en tu perfil de Discord qué estás jugando, tiempo de sesión y mods activos en tiempo real.</small>
               </div>
             </div>
 
@@ -2128,22 +2128,22 @@
                 <span class="switch-slider"></span>
               </label>
               <div class="toggle-info">
-                <strong>🎮 Soporte para Mando (Inyección Nativa JVM)</strong>
-                <small>Permite usar mando de Xbox/PS de forma nativa sin instalar mods en la carpeta del juego. 100% libre de conflictos con mochilas e inventarios.</small>
+                <strong data-i18n="settings.controller">🎮 Soporte para Mando (Inyección Nativa JVM)</strong>
+                <small data-i18n="settings.controllerDesc">Permite usar mando de Xbox/PS de forma nativa sin instalar mods en la carpeta del juego. 100% libre de conflictos con mochilas e inventarios.</small>
               </div>
             </div>
 
             <!-- Optimización del Sistema Operativo & Memoria Standby -->
             <div style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
               <div>
-                <strong style="display: block; font-size: 13.5px; color: var(--text-primary);">Limpieza de Memoria Standby (Anti-Stuttering)</strong>
-                <small style="color: var(--text-secondary); display: block; margin-top: 2px;">Trimea los Working Sets y vacía la caché Standby de Windows para evitar micro-tirones y congelamientos durante el juego.</small>
+                <strong style="display: block; font-size: 13.5px; color: var(--text-primary);" data-i18n="settings.standbyTitle">Limpieza de Memoria Standby (Anti-Stuttering)</strong>
+                <small style="color: var(--text-secondary); display: block; margin-top: 2px;" data-i18n="settings.standbyDesc">Trimea los Working Sets y vacía la caché Standby de Windows para evitar micro-tirones y congelamientos durante el juego.</small>
               </div>
               <div style="display: flex; align-items: center; gap: 10px;">
                 <span id="standby-memory-status" style="font-size: 12px; color: var(--accent-success); font-weight: 600;"></span>
                 <button id="btn-clean-standby-memory" class="btn btn-secondary btn-small">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4"/><path d="M12 18v4"/><path d="M4.93 4.93l2.83 2.83"/><path d="M16.24 16.24l2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="M4.93 19.07l2.83-2.83"/><path d="M16.24 7.76l2.83-2.83"/></svg>
-                  <span>🧹 Limpiar Memoria Ahora</span>
+                  <span data-i18n="settings.cleanStandby">🧹 Limpiar Memoria Ahora</span>
                 </button>
               </div>
             </div>
@@ -2151,10 +2151,10 @@
 
           <!-- Directorio del Juego -->
           <div class="settings-card">
-            <h3 class="settings-card-title">Carpeta de Almacenamiento Compartida (.shubacore)</h3>
+            <h3 class="settings-card-title" data-i18n="settings.sharedFolderTitle">Carpeta de Almacenamiento Compartida (.shubacore)</h3>
             <div class="input-group">
               <input type="text" id="input-instance-path" class="text-input" readonly>
-              <button id="btn-browse-instance" class="btn btn-secondary">Examinar</button>
+              <button id="btn-browse-instance" class="btn btn-secondary" data-i18n="settings.examine">Examinar</button>
             </div>
           </div>
 
@@ -2162,14 +2162,14 @@
           <div class="settings-card" id="card-disk-cleaner">
             <div class="settings-card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
               <div>
-                <h3 class="settings-card-title">🧹 Limpiador de Basura y Logs Antiguos</h3>
-                <p class="settings-card-desc">Libera espacio en disco eliminando logs comprimidos (.log.gz), crash-reports antiguos y caché temporal sin tocar mundos, mods ni capturas.</p>
+                <h3 class="settings-card-title" data-i18n="settings.diskCleanerTitle">🧹 Limpiador de Basura y Logs Antiguos</h3>
+                <p class="settings-card-desc" data-i18n="settings.diskCleanerDesc">Libera espacio en disco eliminando logs comprimidos (.log.gz), crash-reports antiguos y caché temporal sin tocar mundos, mods ni capturas.</p>
               </div>
               <div style="display: flex; gap: 8px;">
-                <button id="btn-scan-garbage-settings" class="btn btn-secondary">
+                <button id="btn-scan-garbage-settings" class="btn btn-secondary" data-i18n="settings.scan">
                   🔍 Escanear
                 </button>
-                <button id="btn-clean-garbage-settings" class="btn btn-primary">
+                <button id="btn-clean-garbage-settings" class="btn btn-primary" data-i18n="settings.cleanNow">
                   🧹 Limpiar Ahora
                 </button>
               </div>
@@ -2183,12 +2183,12 @@
           <div class="settings-card">
             <div class="settings-card-header">
               <div>
-                <h3 class="settings-card-title">Actualizaciones del Launcher (ShubaCore)</h3>
-                <p class="settings-card-desc">Versión instalada: <strong id="launcher-current-version">v1.1.1</strong> · Motor Auto-Updater integrado vía GitHub Releases.</p>
+                <h3 class="settings-card-title" data-i18n="settings.updatesTitle">Actualizaciones del Launcher (ShubaCore)</h3>
+                <p class="settings-card-desc">Versión instalada: <strong id="launcher-current-version">v1.1.1</strong> · <span data-i18n="settings.updatesDesc">Motor Auto-Updater integrado vía GitHub Releases.</span></p>
               </div>
               <button id="btn-check-launcher-updates" class="btn btn-secondary">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
-                <span>Buscar actualizaciones del Launcher</span>
+                <span data-i18n="settings.checkUpdates">Buscar actualizaciones del Launcher</span>
               </button>
             </div>
             <div id="launcher-update-status" class="launcher-update-status" style="display: none;">
@@ -2200,8 +2200,8 @@
           <div class="settings-card">
             <div class="settings-card-header">
               <div>
-                <h3 class="settings-card-title">🎨 Personalización de Interfaz</h3>
-                <p class="settings-card-desc">Personaliza la apariencia del launcher con una imagen o GIF animado de fondo, ajustando la opacidad y el desenfoque.</p>
+                <h3 class="settings-card-title" data-i18n="settings.customBgTitle">🎨 Personalización de Interfaz</h3>
+                <p class="settings-card-desc" data-i18n="settings.customBgDesc">Personaliza la apariencia del launcher con una imagen o GIF animado de fondo, ajustando la opacidad y el desenfoque.</p>
               </div>
             </div>
 
@@ -2209,10 +2209,10 @@
               <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                 <button id="btn-select-custom-bg" class="btn btn-secondary">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                  <span>🖼 Seleccionar Imagen / GIF de Fondo</span>
+                  <span data-i18n="settings.selectBg">🖼 Seleccionar Imagen / GIF de Fondo</span>
                 </button>
                 <button id="btn-reset-custom-bg" class="btn btn-secondary" style="color: var(--text-muted);">
-                  <span>↺ Restablecer Fondo Original</span>
+                  <span data-i18n="settings.resetBg">↺ Restablecer Fondo Original</span>
                 </button>
                 <span id="custom-bg-current-name" style="font-size: 12px; color: var(--text-dim);">Fondo predeterminado activo</span>
               </div>
@@ -2220,7 +2220,7 @@
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 4px;">
                 <div class="form-group">
                   <div style="display: flex; justify-content: space-between; font-size: 12.5px; margin-bottom: 4px;">
-                    <label for="range-custom-bg-opacity" style="font-weight: 600;">Oscurecimiento / Opacidad:</label>
+                    <label for="range-custom-bg-opacity" style="font-weight: 600;" data-i18n="settings.bgOpacity">Oscurecimiento / Opacidad:</label>
                     <span id="val-custom-bg-opacity" style="color: var(--accent-emerald); font-weight: 700;">50%</span>
                   </div>
                   <input type="range" id="range-custom-bg-opacity" min="0" max="90" value="50" style="width: 100%; accent-color: var(--accent-emerald);" />
@@ -2228,7 +2228,7 @@
 
                 <div class="form-group">
                   <div style="display: flex; justify-content: space-between; font-size: 12.5px; margin-bottom: 4px;">
-                    <label for="range-custom-bg-blur" style="font-weight: 600;">Desenfoque (Blur):</label>
+                    <label for="range-custom-bg-blur" style="font-weight: 600;" data-i18n="settings.bgBlur">Desenfoque (Blur):</label>
                     <span id="val-custom-bg-blur" style="color: var(--accent-emerald); font-weight: 700;">0px</span>
                   </div>
                   <input type="range" id="range-custom-bg-blur" min="0" max="20" value="0" style="width: 100%; accent-color: var(--accent-emerald);" />
@@ -2243,32 +2243,32 @@
       <section id="view-console" class="view-panel view-container hidden" style="display: none !important;">
         <div class="view-toolbar">
           <div class="console-header-left">
-            <h2 class="view-title">Consola del Juego</h2>
-            <span id="launch-badge" class="badge badge-idle">En espera</span>
+            <h2 class="view-title" data-i18n="console.title">Consola del Juego</h2>
+            <span id="launch-badge" class="badge badge-idle" data-i18n="console.idle">En espera</span>
           </div>
           <div class="toolbar-actions" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
             <div class="search-input-wrapper" style="position: relative;">
-              <input type="text" id="input-filter-console-logs" class="text-input" placeholder="Filtrar logs..." style="width: 170px; height: 32px; font-size: 12px; padding: 4px 10px; box-sizing: border-box;" />
+              <input type="text" id="input-filter-console-logs" class="text-input" placeholder="Filtrar logs..." data-i18n-placeholder="console.filterPlaceholder" style="width: 170px; height: 32px; font-size: 12px; padding: 4px 10px; box-sizing: border-box;" />
             </div>
             <button id="btn-copy-console-logs" class="btn btn-secondary" title="Copiar todos los logs al portapapeles">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-              <span>Copiar Log</span>
+              <span data-i18n="console.copyLog">Copiar Log</span>
             </button>
             <button id="btn-open-latest-log" class="btn btn-secondary" title="Abrir archivo latest.log o launcher-output.log de la instancia activa">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-              <span>Abrir latest.log</span>
+              <span data-i18n="console.openLatestLog">Abrir latest.log</span>
             </button>
             <button id="btn-open-logs-folder" class="btn btn-secondary" title="Abrir carpeta de logs y crash reports en el explorador">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-              <span>Carpeta Logs</span>
+              <span data-i18n="console.logsFolder">Carpeta Logs</span>
             </button>
             <button id="btn-detect-java" class="btn btn-secondary">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-              <span>Diagnóstico JVM</span>
+              <span data-i18n="console.jvmDiag">Diagnóstico JVM</span>
             </button>
             <button id="btn-clear-console" class="btn btn-secondary">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-              <span>Limpiar</span>
+              <span data-i18n="console.clear">Limpiar</span>
             </button>
           </div>
         </div>
@@ -2528,7 +2528,7 @@
   <div id="modal-create-profile" class="modal-overlay">
     <div class="modal-content card" style="max-width: 500px;">
       <div class="modal-header">
-        <h3 style="font-size: 16px; font-weight: 700;">Crea el perfil</h3>
+        <h3 style="font-size: 16px; font-weight: 700;" data-i18n="modal.createTitle">Crea el perfil</h3>
         <button id="btn-close-modal" class="btn btn-small close-btn">✕</button>
       </div>
       <div class="modal-body" style="padding: 18px 20px;">
@@ -2542,18 +2542,18 @@
             <input type="hidden" id="input-create-profile-icon" value="">
           </div>
           <div class="profile-modal-name-group">
-            <label for="input-profile-name" style="display: block; font-size: 12.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">Nombre del Modpack</label>
-            <input type="text" id="input-profile-name" class="text-input" placeholder="Nombre del perfil" value="Mi Aventura">
+            <label for="input-profile-name" style="display: block; font-size: 12.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;" data-i18n="modal.packName">Nombre del Modpack</label>
+            <input type="text" id="input-profile-name" class="text-input" placeholder="Nombre del perfil" data-i18n-placeholder="createProfile.namePlaceholder" value="Mi Aventura">
           </div>
         </div>
 
         <!-- FILA: VERSIÓN DE MINECRAFT -->
         <div class="form-group" style="margin-bottom: 14px;">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
-            <label for="select-profile-mc" style="margin-bottom: 0; font-size: 12.5px; font-weight: 600; color: var(--text-primary);">Versión de Minecraft</label>
+            <label for="select-profile-mc" style="margin-bottom: 0; font-size: 12.5px; font-weight: 600; color: var(--text-primary);" data-i18n="modal.mcVersion">Versión de Minecraft</label>
             <label style="display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-secondary); cursor: pointer;" title="Muestra versiones de prueba y snapshots de Mojang">
               <input type="checkbox" id="check-include-snapshots-profile" style="cursor: pointer;" />
-              <span>🧪 Incluir Snapshots</span>
+              <span data-i18n="modal.snapshots">🧪 Incluir Snapshots</span>
             </label>
           </div>
           <select id="select-profile-mc" class="select-input">
@@ -2571,7 +2571,7 @@
         <!-- FILA: CARGADOR DE MODS (RADIO-PILLS) -->
         <div class="form-group" style="margin-bottom: 14px;">
           <label style="display: block; font-size: 12.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 2px;">
-            Cargador de mods <span style="font-size: 11px; color: var(--text-muted); cursor: help;" title="Selecciona qué cargador de mods ejecutará tu instancia">ⓘ</span>
+            <span data-i18n="modal.modLoader">Cargador de mods</span> <span style="font-size: 11px; color: var(--text-muted); cursor: help;" title="Selecciona qué cargador de mods ejecutará tu instancia">ⓘ</span>
           </label>
           <div id="create-loader-radio-pills" class="loader-radio-pills-row">
             <div class="loader-radio-pill" data-loader="forge"><span class="radio-indicator"></span><span>Forge</span></div>
@@ -2593,7 +2593,7 @@
         <!-- FILA: VERSIÓN DEL CARGADOR DE MODS -->
         <div class="form-group" style="margin-bottom: 14px;">
           <label for="select-profile-loader-version" style="display: block; font-size: 12.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">
-            Versión del cargador de mods
+            <span data-i18n="modal.loaderVersion">Versión del cargador de mods</span>
             <span id="loader-fetching-indicator" class="hint-inline" style="display: none;">Consultando API...</span>
           </label>
           <select id="select-profile-loader-version" class="select-input">
@@ -2603,18 +2603,18 @@
 
         <div class="form-row" style="margin-top: 10px;">
           <div class="form-group flex-1">
-            <label for="input-profile-ram-min" style="font-size: 11.5px; color: var(--text-muted);">RAM Mínima:</label>
+            <label for="input-profile-ram-min" style="font-size: 11.5px; color: var(--text-muted);" data-i18n="modal.ramMin">RAM Mínima:</label>
             <input type="text" id="input-profile-ram-min" class="text-input" value="2G">
           </div>
           <div class="form-group flex-1">
-            <label for="input-profile-ram-max" style="font-size: 11.5px; color: var(--text-muted);">RAM Máxima:</label>
+            <label for="input-profile-ram-max" style="font-size: 11.5px; color: var(--text-muted);" data-i18n="modal.ramMax">RAM Máxima:</label>
             <input type="text" id="input-profile-ram-max" class="text-input" value="8G">
           </div>
         </div>
       </div>
       <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; padding: 14px 20px;">
-        <button id="btn-cancel-modal" class="btn btn-secondary">Cancelar</button>
-        <button id="btn-confirm-create-profile" class="btn btn-primary">Crear</button>
+        <button id="btn-cancel-modal" class="btn btn-secondary" data-i18n="modal.cancel">Cancelar</button>
+        <button id="btn-confirm-create-profile" class="btn btn-primary" data-i18n="modal.create">Crear</button>
       </div>
     </div>
   </div>
@@ -2623,7 +2623,7 @@
   <div id="modal-edit-profile" class="modal-overlay">
     <div class="modal-content card" style="max-width: 500px;">
       <div class="modal-header">
-        <h3 style="font-size: 16px; font-weight: 700;">Editar el perfil</h3>
+        <h3 style="font-size: 16px; font-weight: 700;" data-i18n="modal.editTitle">Editar el perfil</h3>
         <button id="btn-close-edit-modal" class="btn btn-small close-btn">✕</button>
       </div>
       <div class="modal-body" style="padding: 18px 20px;">
@@ -2639,13 +2639,13 @@
             <input type="hidden" id="input-edit-profile-icon" value="">
           </div>
           <div class="profile-modal-name-group">
-            <label for="input-edit-profile-name" style="display: block; font-size: 12.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">Nombre del Modpack</label>
-            <input type="text" id="input-edit-profile-name" class="text-input" placeholder="Nombre del perfil">
+            <label for="input-edit-profile-name" style="display: block; font-size: 12.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;" data-i18n="modal.packName">Nombre del Modpack</label>
+            <input type="text" id="input-edit-profile-name" class="text-input" placeholder="Nombre del perfil" data-i18n-placeholder="createProfile.namePlaceholder">
           </div>
         </div>
 
         <div class="form-group" style="margin-bottom: 14px;">
-          <label for="select-edit-profile-mc" style="display: block; font-size: 12.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">Versión de Minecraft</label>
+          <label for="select-edit-profile-mc" style="display: block; font-size: 12.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px;" data-i18n="modal.mcVersion">Versión de Minecraft</label>
           <select id="select-edit-profile-mc" class="select-input">
             <option value="26.3">26.3</option>
             <option value="1.21.1" selected>1.21.1</option>
@@ -2660,7 +2660,7 @@
 
         <div class="form-group" style="margin-bottom: 14px;">
           <label style="display: block; font-size: 12.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 2px;">
-            Cargador de mods <span style="font-size: 11px; color: var(--text-muted); cursor: help;" title="Cargador de mods de la instancia">ⓘ</span>
+            <span data-i18n="modal.modLoader">Cargador de mods</span> <span style="font-size: 11px; color: var(--text-muted); cursor: help;" title="Cargador de mods de la instancia">ⓘ</span>
           </label>
           <div id="edit-loader-radio-pills" class="loader-radio-pills-row">
             <div class="loader-radio-pill" data-loader="forge"><span class="radio-indicator"></span><span>Forge</span></div>
@@ -2680,7 +2680,7 @@
 
         <div class="form-group" style="margin-bottom: 14px;">
           <label for="select-edit-profile-loader-version" style="display: block; font-size: 12.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">
-            Versión del cargador de mods
+            <span data-i18n="modal.loaderVersion">Versión del cargador de mods</span>
             <span id="edit-loader-fetching-indicator" class="hint-inline" style="display: none;">Consultando API...</span>
           </label>
           <div class="input-group">
@@ -2692,39 +2692,39 @@
         </div>
 
         <div class="form-group" style="margin-top: 10px;">
-          <label for="select-edit-profile-java">Runtime de Java:</label>
+          <label for="select-edit-profile-java" data-i18n="modal.javaRuntime">Runtime de Java:</label>
           <select id="select-edit-profile-java" class="select-input">
-            <option value="auto" selected>Automático (Según versión de Minecraft)</option>
+            <option value="auto" data-i18n="settings.autoDetect" selected>Automático (Según versión de Minecraft)</option>
             <option value="force-25">Forzar Java 25 (Adoptium 25 / MC 26+)</option>
             <option value="force-21">Forzar Java 21 (Adoptium 21 / MC 1.21.x)</option>
             <option value="force-17">Forzar Java 17 (Adoptium 17 / MC 1.20.x)</option>
             <option value="force-8">Forzar Java 8 (Adoptium 8 / MC 1.16.5 y anteriores)</option>
-            <option value="custom">Ruta Personalizada...</option>
+            <option value="custom" data-i18n="settings.customPath">Ruta Personalizada...</option>
           </select>
         </div>
 
         <div class="form-group" id="edit-profile-custom-java-group" style="display: none;">
-          <label for="input-edit-profile-custom-java">Ruta del ejecutable javaw.exe:</label>
+          <label for="input-edit-profile-custom-java" data-i18n="settings.customJava">Ruta del ejecutable javaw.exe:</label>
           <div class="input-group">
             <input type="text" id="input-edit-profile-custom-java" class="text-input" placeholder="C:\...\bin\javaw.exe">
-            <button id="btn-browse-edit-profile-java" class="btn btn-secondary">Buscar</button>
+            <button id="btn-browse-edit-profile-java" class="btn btn-secondary" data-i18n="settings.browse">Buscar</button>
           </div>
         </div>
 
         <div class="form-row" style="margin-top: 10px;">
           <div class="form-group flex-1">
-            <label for="input-edit-profile-ram-min" style="font-size: 11.5px; color: var(--text-muted);">RAM Mínima:</label>
+            <label for="input-edit-profile-ram-min" style="font-size: 11.5px; color: var(--text-muted);" data-i18n="modal.ramMin">RAM Mínima:</label>
             <input type="text" id="input-edit-profile-ram-min" class="text-input" value="2G">
           </div>
           <div class="form-group flex-1">
-            <label for="input-edit-profile-ram-max" style="font-size: 11.5px; color: var(--text-muted);">RAM Máxima:</label>
+            <label for="input-edit-profile-ram-max" style="font-size: 11.5px; color: var(--text-muted);" data-i18n="modal.ramMax">RAM Máxima:</label>
             <input type="text" id="input-edit-profile-ram-max" class="text-input" value="8G">
           </div>
         </div>
       </div>
       <div class="modal-footer">
-        <button id="btn-cancel-edit-modal" class="btn btn-secondary">Cancelar</button>
-        <button id="btn-confirm-edit-profile" class="btn btn-primary">Guardar Cambios</button>
+        <button id="btn-cancel-edit-modal" class="btn btn-secondary" data-i18n="modal.cancel">Cancelar</button>
+        <button id="btn-confirm-edit-profile" class="btn btn-primary" data-i18n="modal.save">Guardar Cambios</button>
       </div>
     </div>
   </div>
@@ -2798,7 +2798,7 @@
           </button>
           <button type="button" id="btn-open-mod-web" class="btn btn-secondary btn-small" title="Ver en la web oficial">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-            <span>Sitio Web</span>
+            <span data-i18n="detail.website">Sitio Web</span>
           </button>
           <button type="button" id="btn-close-mod-detail" class="btn btn-small close-btn" title="Cerrar">✕</button>
         </div>
@@ -2806,11 +2806,11 @@
 
       <!-- Barra de 5 Pestañas de Detalle Estilo CurseForge -->
       <div class="mod-detail-tabs">
-        <button type="button" id="tab-detail-summary" class="mod-detail-tab active">Resumen</button>
-        <button type="button" id="tab-detail-content" class="mod-detail-tab">Contenido (<span id="detail-dependencies-count">0</span>)</button>
-        <button type="button" id="tab-detail-changelog" class="mod-detail-tab">Registro de cambios</button>
-        <button type="button" id="tab-detail-gallery" class="mod-detail-tab">Galería (<span id="detail-gallery-count">0</span>)</button>
-        <button type="button" id="tab-detail-versions" class="mod-detail-tab">Versiones (<span id="detail-versions-count">0</span>)</button>
+        <button type="button" id="tab-detail-summary" class="mod-detail-tab active" data-i18n="detail.tabSummary">Resumen</button>
+        <button type="button" id="tab-detail-content" class="mod-detail-tab"><span data-i18n="detail.tabContent">Contenido</span> (<span id="detail-dependencies-count">0</span>)</button>
+        <button type="button" id="tab-detail-changelog" class="mod-detail-tab" data-i18n="detail.tabChangelog">Registro de cambios</button>
+        <button type="button" id="tab-detail-gallery" class="mod-detail-tab"><span data-i18n="detail.tabGallery">Galería</span> (<span id="detail-gallery-count">0</span>)</button>
+        <button type="button" id="tab-detail-versions" class="mod-detail-tab"><span data-i18n="detail.tabVersions">Versiones</span> (<span id="detail-versions-count">0</span>)</button>
         <!-- Compatibility alias for previous tab listener -->
         <button type="button" id="tab-detail-desc" style="display: none;"></button>
       </div>
@@ -3250,7 +3250,7 @@
   <div id="modal-import-code" class="modal-overlay" style="display: none;">
     <div class="modal-content card" style="max-width: 500px;">
       <div class="modal-header" style="display: flex; align-items: center; justify-content: space-between;">
-        <h3 class="modal-title" style="margin: 0;">📥 Importar Instancia por Código</h3>
+        <h3 class="modal-title" style="margin: 0;" data-i18n="importCode.title">📥 Importar Instancia por Código</h3>
         <button id="btn-close-import-code-modal" class="btn btn-small close-btn">✕</button>
       </div>
       <div class="modal-body" style="padding: 18px 20px; display: flex; flex-direction: column; gap: 14px;">
@@ -3267,7 +3267,7 @@
         </div>
 
         <div class="form-group">
-          <label for="input-import-code-name" style="font-size: 12.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px; display: block;">Nombre de la Nueva Instancia (Opcional):</label>
+          <label for="input-import-code-name" style="font-size: 12.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px; display: block;" data-i18n="importCode.customName">Nombre de la Nueva Instancia (Opcional):</label>
           <input type="text" id="input-import-code-name" class="text-input" placeholder="Dejar en blanco para usar el nombre original" />
         </div>
 

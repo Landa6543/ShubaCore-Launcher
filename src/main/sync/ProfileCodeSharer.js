@@ -87,6 +87,13 @@ class ProfileCodeSharer {
     } else if (profile.icon && profile.icon.startsWith('data:image/')) {
       const parts = profile.icon.split(',');
       if (parts[1]) iconBase64 = parts[1];
+    } else if (profile.icon && typeof profile.icon === 'string') {
+      const cleanPath = profile.icon.replace(/^file:\/\/\/?/, '');
+      if (fs.existsSync(cleanPath)) {
+        try {
+          iconBase64 = fs.readFileSync(cleanPath).toString('base64');
+        } catch (_) {}
+      }
     }
 
     const manifest = {

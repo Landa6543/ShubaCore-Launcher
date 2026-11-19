@@ -530,8 +530,7 @@ class LaunchManager {
       cleanedJvmArgs.unshift(`-XX:ErrorFile=${hsErrPattern}`);
       cleanedJvmArgs.push(`-Djava.library.path=${instanceNativesDir}`);
       cleanedJvmArgs.push(`-Dorg.lwjgl.librarypath=${instanceNativesDir}`);
-      // Prueba anti-crash nativo: el log muere al cargar unifont (hilos worker + memoria nativa). Usar el malloc del sistema en lugar de jemalloc.
-      cleanedJvmArgs.push('-Dorg.lwjgl.system.allocator=system');
+
 
       logger.info(`Flags JVM completas aplicadas (Java ${resolvedJavaMajor}):\n${cleanedJvmArgs.join(' ')}`);
 
@@ -610,43 +609,50 @@ class LaunchManager {
       // ClientModPatcher live injection eliminado.
       const isShubaClientEnabled = false;
 
-      // REQUISITO: Purgar mods de ModernFix en Fabric 26.3 para prevenir ClassTweakerFormatException (namespace official vs intermediary)
-      if ((loader === 'fabric' || loader === 'quilt') && (mcVersion === '26.3' || String(mcVersion).startsWith('26.'))) {
+      // REQUISITO: Purgar mods de ModernFix en Fabric/Quilt para prevenir ClassTweakerFormatException (namespace official vs intermediary)
+      // Y sanear dependencias de ShubaHost Fabric para que nunca requiera obligatoriamente Fabric API
+      if (loader === 'fabric' || loader === 'quilt') {
         try {
           const mDir = path.join(instancePath, 'mods');
           if (fs.existsSync(mDir)) {
             const mFiles = fs.readdirSync(mDir);
+            const AdmZip = require('adm-zip');
             for (const f of mFiles) {
+              // 1. Desactivar ModernFix en Fabric moderno (provoca ClassTweakerFormatException de inmediato)
               if (/modernfix/i.test(f)) {
                 try {
                   fs.unlinkSync(path.join(mDir, f));
                   logger.info(`[LaunchManager] ✅ Purgado mod incompatible ${f} en Fabric ${mcVersion} para prevenir ClassTweakerFormatException.`);
                 } catch (_) {}
               }
-              // REQUISITO: Auto-parchear ShubaHost Fabric para prevenir NoClassDefFoundError en CommandRegistrationCallback
+
+              // 2. Sanear ShubaHost Fabric para que nunca exija Fabric API si no está instalada
               if (/^shubahost-fabric.*\.jar$/i.test(f)) {
                 try {
                   const shubaJarPath = path.join(mDir, f);
-                  const AdmZip = require('adm-zip');
                   const sZip = new AdmZip(shubaJarPath);
-                  const sEntry = sZip.getEntry('link/e4mc/fabric/E4mcClientFabric.class');
-                  if (sEntry) {
-                    const sBuf = Buffer.from(sEntry.getData());
-                    const pattern = Buffer.from([0xb8, 0x00, 0x1f, 0xb2, 0x00, 0x25, 0xba, 0x00, 0x36, 0x00, 0x00, 0xb6, 0x00, 0x3b, 0xa7, 0x00, 0x0f, 0x4c, 0xb2, 0x00, 0x3e, 0xba, 0x00, 0x47, 0x00, 0x00, 0xb6, 0x00, 0x3b, 0xb1]);
-                    const idx = sBuf.indexOf(pattern);
-                    if (idx !== -1) {
-                      sBuf[idx + 3] = 0xb1;
-                      for (let i = idx + 4; i <= idx + 29; i++) {
-                        sBuf[i] = 0x00;
+                  const fmjEntry = sZip.getEntry('fabric.mod.json');
+                  if (fmjEntry) {
+                    const fmj = JSON.parse(fmjEntry.getData().toString('utf8'));
+                    let modified = false;
+                    if (fmj.depends) {
+                      if (fmj.depends['fabric']) {
+                        delete fmj.depends['fabric'];
+                        modified = true;
                       }
-                      sBuf.writeUInt16BE(0, idx + 30);
-                      sZip.updateFile('link/e4mc/fabric/E4mcClientFabric.class', sBuf);
+                      if (fmj.depends['fabric-api']) {
+                        delete fmj.depends['fabric-api'];
+                        modified = true;
+                      }
+                    }
+                    if (modified) {
+                      sZip.updateFile('fabric.mod.json', Buffer.from(JSON.stringify(fmj, null, 2), 'utf8'));
                       sZip.writeZip(shubaJarPath);
-                      logger.info(`[LaunchManager] ✅ ShubaHost Fabric parcheado exitosamente para compatibilidad con ${mcVersion}`);
+                      logger.info(`[LaunchManager] ✅ ShubaHost Fabric saneado exitosamente: eliminado requisito forzado de Fabric API.`);
                     }
                   }
                 } catch (shubaErr) {
-                  logger.warn(`[LaunchManager] Aviso al parchear ShubaHost: ${shubaErr.message}`);
+                  logger.warn(`[LaunchManager] Aviso al sanear ShubaHost Fabric: ${shubaErr.message}`);
                 }
               }
             }
@@ -657,7 +663,7 @@ class LaunchManager {
       // REQUISITO: Prevenir IndexOutOfBoundsException en Minecraft 26.3/SDL cuando se verifican teclas en KeyMapping.setAll()
       if (mcVersion === '26.3' || String(mcVersion).startsWith('26.')) {
         try {
-          const versionJar = path.join(this.versionsDir, String(mcVersion), `${mcVersion}.jar`);
+          const versionJar = path.join(sharedRoot, 'versions', String(mcVersion), `${mcVersion}.jar`);
           const patchClassPath = path.join(__dirname, 'patches', 'InputConstants_26.3.class');
           if (fs.existsSync(versionJar) && fs.existsSync(patchClassPath)) {
             const AdmZip = require('adm-zip');
@@ -1417,11 +1423,7 @@ class LaunchManager {
             if (!fs.existsSync(aliasPath)) fs.writeFileSync(aliasPath, data);
           };
           const lowerBase = baseName.toLowerCase();
-          if (lowerBase === 'freetype.dll') {
-            writeAliasIfMissing('lwjgl_freetype.dll');
-          } else if (lowerBase === 'lwjgl_freetype.dll') {
-            writeAliasIfMissing('freetype.dll');
-          } else if (lowerBase === 'sdl3.dll') {
+          if (lowerBase === 'sdl3.dll') {
             writeAliasIfMissing('lwjgl_sdl.dll');
           } else if (lowerBase === 'openal.dll') {
             writeAliasIfMissing('OpenAL32.dll');

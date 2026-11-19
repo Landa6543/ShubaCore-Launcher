@@ -92,6 +92,7 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
     get: () => ipcRenderer.invoke('config:get'),
     getKey: (keyPath, defaultValue) => ipcRenderer.invoke('config:get-key', keyPath, defaultValue),
     set: (keyPath, value) => ipcRenderer.invoke('config:set', keyPath, value),
+    setKey: (keyPath, value) => ipcRenderer.invoke('config:set', keyPath, value),
     update: (partial) => ipcRenderer.invoke('config:update', partial),
     selectDirectory: (defaultPath) => ipcRenderer.invoke('config:select-directory', defaultPath),
     selectJava: () => ipcRenderer.invoke('config:select-java')
