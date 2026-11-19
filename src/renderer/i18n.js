@@ -222,6 +222,14 @@ const translations = {
     'catalog.viewTextures': 'Ver Texturas (Resource Packs)',
     'catalog.viewShaders': 'Ver Shaders',
     'catalog.changeToFabric': 'Cambiar Cargador a Fabric',
+    'catalog.addingContent': 'Añadiendo contenido a la instancia:',
+
+    // Claves adicionales
+    'settings.browse': 'Buscar',
+    'createProfile.namePlaceholder': 'Nombre del perfil',
+    'account.switchAccount': 'Cambiar Cuenta',
+    'account.defaultPlayer': 'Jugador',
+    'btn.launch': 'JUGAR',
 
     // Modal Inicial de Bienvenida de Idioma
     'welcomeLang.title': '¡Bienvenido a ShubaCore Launcher!',
@@ -450,6 +458,14 @@ const translations = {
     'catalog.viewTextures': 'View Resource Packs',
     'catalog.viewShaders': 'View Shaders',
     'catalog.changeToFabric': 'Switch Modloader to Fabric',
+    'catalog.addingContent': 'Adding content to instance:',
+
+    // Additional keys
+    'settings.browse': 'Browse',
+    'createProfile.namePlaceholder': 'Profile name',
+    'account.switchAccount': 'Switch Account',
+    'account.defaultPlayer': 'Player',
+    'btn.launch': 'PLAY',
 
     // Initial Language Welcome Modal
     'welcomeLang.title': 'Welcome to ShubaCore Launcher!',
@@ -483,6 +499,11 @@ function getLanguage() {
 function applyTranslationsToDOM() {
   if (typeof document === 'undefined') return;
 
+  // Actualizar atributo lang en <html>
+  if (document.documentElement) {
+    document.documentElement.lang = currentLanguage;
+  }
+
   // Traducir texto de elementos con data-i18n
   document.querySelectorAll('[data-i18n]').forEach((el) => {
     const key = el.getAttribute('data-i18n');
@@ -510,10 +531,16 @@ function applyTranslationsToDOM() {
     }
   });
 
+  // Sincronizar el select de idioma
+  const selectEl = document.getElementById('select-launcher-language');
+  if (selectEl && selectEl.value !== currentLanguage) {
+    selectEl.value = currentLanguage;
+  }
+
   // Traducir dinámicamente elementos clave que no tienen atributo
-  const playBtnText = document.getElementById('play-btn-text') || document.getElementById('btn-launch-text');
+  const playBtnText = document.getElementById('btn-launch-text') || document.getElementById('play-btn-text');
   if (playBtnText) {
-    playBtnText.textContent = t('launch.play');
+    playBtnText.textContent = t('launch.play', 'JUGAR');
   }
 
   // Notificar al resto del frontend
@@ -559,6 +586,7 @@ async function setLanguage(lang, persist = true) {
   }
 }
 
+let i18nInitialized = false;
 async function initI18n() {
   let savedLang = 'es';
   let languageChosen = false;
@@ -598,9 +626,12 @@ async function initI18n() {
   const selectEl = document.getElementById('select-launcher-language');
   if (selectEl) {
     selectEl.value = currentLanguage;
-    selectEl.addEventListener('change', (e) => {
-      setLanguage(e.target.value, true);
-    });
+    if (!selectEl._i18nBound) {
+      selectEl._i18nBound = true;
+      selectEl.addEventListener('change', (e) => {
+        setLanguage(e.target.value, true);
+      });
+    }
   }
 
   // Vincular eventos del modal de bienvenida
@@ -610,6 +641,7 @@ async function initI18n() {
   if (!languageChosen) {
     showWelcomeLanguageModal();
   }
+  i18nInitialized = true;
 }
 
 let welcomeModalSetup = false;
@@ -693,11 +725,31 @@ if (typeof window !== 'undefined') {
   };
 }
 
+// Auto-ejecución inmediata de i18n para inicializar y registrar el delegado de eventos en el navegador
+if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      initI18n();
+    });
+  } else {
+    initI18n();
+  }
+
+  // Listener delegado global en document para #select-launcher-language
+  document.addEventListener('change', (e) => {
+    if (e.target && e.target.id === 'select-launcher-language') {
+      setLanguage(e.target.value, true);
+    }
+  });
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     translations,
     t,
     getLanguage,
-    setLanguage
+    setLanguage,
+    initI18n,
+    applyTranslationsToDOM
   };
 }

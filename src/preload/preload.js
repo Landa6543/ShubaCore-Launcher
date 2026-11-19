@@ -67,6 +67,7 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
   // ==========================================
   profiles: {
     getAll: () => ipcRenderer.invoke('profiles:get-all'),
+    list: () => ipcRenderer.invoke('profiles:get-all'),
     getActive: () => ipcRenderer.invoke('profiles:get-active'),
     setActive: (id) => ipcRenderer.invoke('profiles:set-active', id),
     create: (data) => ipcRenderer.invoke('profiles:create', data),

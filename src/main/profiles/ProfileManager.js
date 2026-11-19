@@ -733,6 +733,10 @@ class ProfileManager {
     return this.getActive();
   }
 
+  setActiveProfile(id) {
+    return this.setActive(id);
+  }
+
   getInstancePath(profileId) {
     return path.join(this.instancesDir, profileId);
   }

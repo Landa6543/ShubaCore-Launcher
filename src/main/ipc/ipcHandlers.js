@@ -630,69 +630,82 @@ function registerIpcHandlers(mainWindow) {
   });
 
   ipcMain.handle('friends:accept-and-join-invite', async (event, inviteId) => {
-    const shubaUser = authManager.getShubaCoreAccount();
-    if (!shubaUser?.id) return { success: false, error: 'Debes iniciar sesión en ShubaCore Network.' };
+    try {
+      const shubaUser = authManager.getShubaCoreAccount();
+      if (!shubaUser?.id) return { success: false, error: 'Debes iniciar sesión en ShubaCore Network.' };
 
-    const invites = await supabaseManager.getPendingGameInvites(shubaUser.id);
-    const invite = invites.find(i => i.id === inviteId);
-    if (!invite) return { success: false, error: 'Invitación no encontrada o ya expirada.' };
+      const invites = await supabaseManager.getPendingGameInvites(shubaUser.id);
+      const invite = invites.find(i => i.id === inviteId);
+      if (!invite) return { success: false, error: 'Invitación no encontrada o ya expirada.' };
 
-    // Responder como aceptada en Supabase
-    await supabaseManager.respondGameInvite(inviteId, shubaUser.id, true);
+      // Responder como aceptada en Supabase
+      await supabaseManager.respondGameInvite(inviteId, shubaUser.id, true);
 
-    const targetMc = invite.mcVersion || '26.3';
-    const targetLoader = invite.loader || 'fabric';
+      const targetMc = invite.mcVersion || '26.3';
+      const targetLoader = (invite.loader || 'fabric').toLowerCase();
 
-    // 1. Buscar si ya existe una instancia local compatible
-    const allProfiles = profileManager.getAllProfiles() || [];
-    let bestProfile = allProfiles.find(p => p.gameVersion === targetMc && p.loader === targetLoader);
-    if (!bestProfile) {
-      bestProfile = allProfiles.find(p => p.gameVersion === targetMc);
-    }
-
-    // 2. Si no existe, crear automáticamente la instancia compatible
-    if (!bestProfile) {
-      const hostName = invite.host?.displayName || invite.host?.username || 'Amigo';
-      const newInstName = `Partida con ${hostName} (${targetMc})`;
-      logger.info(`[ShubaCore Join] Creando instancia compatible con el host: "${newInstName}" (MC ${targetMc} ${targetLoader})...`);
-
-      if (targetMc === '26.3' && targetLoader === 'fabric') {
-        const { getModManager } = require('../mods/ModManager');
-        const modMgr = getModManager();
-        await modMgr.installOfficialShubaClientModpack(newInstName);
-        bestProfile = profileManager.getAllProfiles().find(p => p.name === newInstName);
-      } else {
-        const createRes = profileManager.createProfile({
-          name: newInstName,
-          gameVersion: targetMc,
-          loader: targetLoader
-        });
-        bestProfile = createRes?.profile || profileManager.getActiveProfile();
+      // 1. Buscar si ya existe una instancia local compatible
+      const allProfiles = (profileManager.getAllProfiles ? profileManager.getAllProfiles() : profileManager.getAll()?.profiles) || [];
+      let bestProfile = allProfiles.find(p => (p.mcVersion === targetMc || p.gameVersion === targetMc) && ((p.loader || '').toLowerCase() === targetLoader));
+      if (!bestProfile) {
+        bestProfile = allProfiles.find(p => p.mcVersion === targetMc || p.gameVersion === targetMc);
       }
+
+      // 2. Si no existe, crear automáticamente la instancia compatible
+      if (!bestProfile) {
+        const hostName = invite.host?.displayName || invite.host?.username || 'Amigo';
+        const newInstName = `Partida con ${hostName} (${targetMc})`;
+        logger.info(`[ShubaCore Join] Creando instancia compatible con el host: "${newInstName}" (MC ${targetMc} ${targetLoader})...`);
+
+        if (targetMc === '26.3' && targetLoader === 'fabric') {
+          const { getModManager } = require('../mods/ModManager');
+          const modMgr = getModManager();
+          await modMgr.installOfficialShubaClientModpack(newInstName);
+          bestProfile = (profileManager.getAllProfiles ? profileManager.getAllProfiles() : profileManager.getAll()?.profiles)?.find(p => p.name === newInstName);
+        } else {
+          const createRes = profileManager.createProfile({
+            name: newInstName,
+            mcVersion: targetMc,
+            gameVersion: targetMc,
+            loader: targetLoader
+          });
+          bestProfile = createRes?.profile || profileManager.getActive();
+        }
+      }
+
+      if (bestProfile && bestProfile.id) {
+        if (typeof profileManager.setActive === 'function') {
+          profileManager.setActive(bestProfile.id);
+        } else if (typeof profileManager.setActiveProfile === 'function') {
+          profileManager.setActiveProfile(bestProfile.id);
+        }
+      }
+
+      // 3. Iniciar Minecraft con QuickPlay directo a la IP de la partida del anfitrión
+      const activeProf = profileManager.getActive() || bestProfile;
+      const config = configManager.getAll();
+      const launchRes = await launchManager.launch({
+        instancePath: activeProf?.instancePath || null,
+        mcVersion: activeProf?.mcVersion || activeProf?.gameVersion || targetMc,
+        loader: activeProf?.loader || targetLoader,
+        memoryMin: config.java?.minRam || '2G',
+        memoryMax: config.java?.maxRam || '8G',
+        quickPlayMultiplayer: invite.serverAddress
+      });
+
+      return {
+        success: launchRes?.success !== false,
+        profile: activeProf,
+        serverAddress: invite.serverAddress,
+        error: launchRes?.error
+      };
+    } catch (joinErr) {
+      logger.error('[ShubaCore Join] Error al unirse a la partida:', joinErr);
+      return {
+        success: false,
+        error: joinErr.message
+      };
     }
-
-    if (bestProfile) {
-      profileManager.setActiveProfile(bestProfile.id);
-    }
-
-    // 3. Iniciar Minecraft con QuickPlay directo a la IP de la partida del anfitrión
-    const activeProf = profileManager.getActiveProfile();
-    const config = configManager.getAll();
-    const launchRes = await launchManager.launch({
-      instancePath: activeProf?.instancePath || null,
-      mcVersion: activeProf?.gameVersion || targetMc,
-      loader: activeProf?.loader || targetLoader,
-      memoryMin: config.java?.minRam || '2G',
-      memoryMax: config.java?.maxRam || '6G',
-      quickPlayMultiplayer: invite.serverAddress
-    });
-
-    return {
-      success: launchRes.success,
-      profile: activeProf,
-      serverAddress: invite.serverAddress,
-      error: launchRes.error
-    };
   });
 
   // ==========================================

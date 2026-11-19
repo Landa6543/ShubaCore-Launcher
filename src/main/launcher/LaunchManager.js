@@ -14,6 +14,7 @@ const Handler = require('minecraft-launcher-core/components/handler');
 const { getConfigManager } = require('../config/ConfigManager');
 const { getAuthManager } = require('../auth/AuthManager');
 const { getProfileManager } = require('../profiles/ProfileManager');
+const { getSupabaseManager } = require('../supabase/SupabaseManager');
 const { JVMOptimizer } = require('../jvm/JVMOptimizer');
 const { ModloaderResolver } = require('./ModloaderResolver');
 const { defaultLogger: logger } = require('../utils/logger');
@@ -171,6 +172,7 @@ class LaunchManager {
     this.configManager = getConfigManager();
     this.authManager = getAuthManager();
     this.profileManager = getProfileManager();
+    this.supabaseManager = getSupabaseManager();
     this.runningProcesses = new Map(); // key: sessionId -> { sessionId, pid, child, instanceId, instanceName, username, accountMode, startTime }
     this.isLaunching = false;
     this.hasGameStarted = false;
@@ -632,6 +634,7 @@ class LaunchManager {
                   const shubaJarPath = path.join(mDir, f);
                   const sZip = new AdmZip(shubaJarPath);
                   const fmjEntry = sZip.getEntry('fabric.mod.json');
+                  const clientEntry = sZip.getEntry('link/e4mc/fabric/E4mcClientFabric.class');
                   if (fmjEntry) {
                     const fmj = JSON.parse(fmjEntry.getData().toString('utf8'));
                     let modified = false;
@@ -779,8 +782,9 @@ class LaunchManager {
       // 8. Sincronizar puente de amigos para ShubaHost in-game (shubacore-friends.json)
       try {
         const shubaUser = this.authManager?.getShubaCoreAccount?.();
-        if (shubaUser?.id && this.supabaseManager) {
-          const friends = (await this.supabaseManager.getFriends(shubaUser.id).catch(() => [])) || [];
+        const sbManager = this.supabaseManager || getSupabaseManager();
+        if (shubaUser?.id && sbManager) {
+          const friends = (await sbManager.getFriends(shubaUser.id).catch(() => [])) || [];
           const bridgeData = {
             currentUser: shubaUser.username || auth.name,
             userId: shubaUser.id,
@@ -793,9 +797,19 @@ class LaunchManager {
           };
           const jsonStr = JSON.stringify(bridgeData, null, 2);
           fs.writeFileSync(path.join(instancePath, 'shubacore-friends.json'), jsonStr, 'utf8');
-          const homeDir = path.join(require('os').homedir(), '.shubacore');
-          if (!fs.existsSync(homeDir)) fs.mkdirSync(homeDir, { recursive: true });
-          fs.writeFileSync(path.join(homeDir, 'active-friends.json'), jsonStr, 'utf8');
+
+          const userHome = require('os').homedir();
+          const dotShuba = path.join(userHome, '.shubacore');
+          if (!fs.existsSync(dotShuba)) fs.mkdirSync(dotShuba, { recursive: true });
+          fs.writeFileSync(path.join(dotShuba, 'active-friends.json'), jsonStr, 'utf8');
+          fs.writeFileSync(path.join(dotShuba, 'shubacore-friends.json'), jsonStr, 'utf8');
+
+          const appDataRoaming = process.env.APPDATA || path.join(userHome, 'AppData', 'Roaming');
+          const roamingShuba = path.join(appDataRoaming, '.shubacore');
+          if (!fs.existsSync(roamingShuba)) fs.mkdirSync(roamingShuba, { recursive: true });
+          fs.writeFileSync(path.join(roamingShuba, 'active-friends.json'), jsonStr, 'utf8');
+          fs.writeFileSync(path.join(roamingShuba, 'shubacore-friends.json'), jsonStr, 'utf8');
+
           logger.info(`[LaunchManager] Puente in-game sincronizado: ${bridgeData.friends.length} amigo(s) para ShubaHost.`);
         }
       } catch (bridgeErr) {

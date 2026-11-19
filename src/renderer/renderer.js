@@ -7,6 +7,15 @@
 document.addEventListener('DOMContentLoaded', async () => {
   const api = window.shubaCoreAPI;
 
+  // Inicialización de Internacionalización (i18n)
+  if (window.i18n && typeof window.i18n.initI18n === 'function') {
+    try {
+      await window.i18n.initI18n();
+    } catch (e) {
+      console.warn('[i18n] Error inicializando en renderer.js:', e);
+    }
+  }
+
   // Íconos oficiales de loaders (Modrinth tag/loader). Se descargan una vez, se guardan en localStorage
   // y, mientras no estén disponibles, se usan los SVG de respaldo definidos abajo.
   const LOADER_ICON_COLORS = { fabric: '#dbb69b', forge: '#959eef', neoforge: '#f99e6b', quilt: '#c796f9' };
@@ -3442,6 +3451,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       const config = await api.config.get();
 
+      const selectLauncherLanguage = document.getElementById('select-launcher-language');
+      if (selectLauncherLanguage && window.i18n) {
+        selectLauncherLanguage.value = window.i18n.getLanguage();
+      }
+
       if (selectLaunchBehavior) {
         const behavior = config.performance?.launchBehavior || (config.performance?.closeOnLaunch ? 'close' : 'hide') || 'hide';
         selectLaunchBehavior.value = behavior;
@@ -3516,6 +3530,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     refreshJvmFlags();
   });
+
+  const selectLauncherLanguage = document.getElementById('select-launcher-language');
+  if (selectLauncherLanguage) {
+    selectLauncherLanguage.addEventListener('change', async (e) => {
+      if (window.i18n && typeof window.i18n.setLanguage === 'function') {
+        await window.i18n.setLanguage(e.target.value, true);
+      }
+    });
+  }
 
   if (selectLaunchBehavior) {
     selectLaunchBehavior.addEventListener('change', async () => {
@@ -6814,9 +6837,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       const launchRes = await api.launcher.launch({
         instancePath: currentActiveProfile?.instancePath || null,
-        mcVersion: currentActiveProfile?.mcVersion,
-        loader: currentActiveProfile?.loader,
-        loaderVersion: currentActiveProfile?.loaderVersion,
+        mcVersion: currentActiveProfile?.mcVersion || currentActiveProfile?.gameVersion || gameInfo.mc || '26.3',
+        loader: currentActiveProfile?.loader || gameInfo.loader || 'fabric',
+        loaderVersion: currentActiveProfile?.loaderVersion || '',
         memoryMin: inputMinRam.value.trim() || '2G',
         memoryMax: inputMaxRam.value.trim() || '8G',
         javaSelection: currentActiveProfile?.javaSelection || selectGlobalJava.value || 'auto',
@@ -8810,17 +8833,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     appendLog(`[ShubaCore Social] 🚀 Unirse a la partida: ${serverAddress} (${gameInfo.worldName || 'Mundo ShubaHost'})...`, 'info');
 
     try {
-      const allProfiles = await api.profiles.list().catch(() => []);
+      const res = await (api.profiles.getAll ? api.profiles.getAll() : (api.profiles.list ? api.profiles.list() : [])).catch(() => ({ profiles: [] }));
+      const allProfiles = Array.isArray(res) ? res : (res?.profiles || []);
       if (gameInfo.mc && Array.isArray(allProfiles) && allProfiles.length > 0) {
-        const exactMatch = allProfiles.find(p => p.mcVersion === gameInfo.mc && (!gameInfo.loader || p.loader === gameInfo.loader));
-        const mcMatch = allProfiles.find(p => p.mcVersion === gameInfo.mc);
+        const exactMatch = allProfiles.find(p => (p.mcVersion === gameInfo.mc || p.gameVersion === gameInfo.mc) && (!gameInfo.loader || (p.loader || '').toLowerCase() === (gameInfo.loader || '').toLowerCase()));
+        const mcMatch = allProfiles.find(p => p.mcVersion === gameInfo.mc || p.gameVersion === gameInfo.mc);
         const bestProfile = exactMatch || mcMatch;
         if (bestProfile && bestProfile.id !== currentActiveProfile?.id) {
-          appendLog(`[ShubaCore Social] Cambiando automáticamente al perfil compatible "${bestProfile.name}" (${bestProfile.mcVersion})...`, 'info');
+          appendLog(`[ShubaCore Social] Cambiando automáticamente al perfil compatible "${bestProfile.name}" (${bestProfile.mcVersion || bestProfile.gameVersion})...`, 'info');
           await api.profiles.setActive(bestProfile.id);
           currentActiveProfile = bestProfile;
           if (selectProfile) selectProfile.value = bestProfile.id;
         }
+      }
+
+      if (!currentActiveProfile) {
+        const activeRes = await api.profiles.getActive().catch(() => null);
+        if (activeRes) currentActiveProfile = activeRes;
       }
 
       if (btnLaunch) btnLaunch.disabled = true;
@@ -8837,9 +8866,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       const launchRes = await api.launcher.launch({
         instancePath: currentActiveProfile?.instancePath || null,
-        mcVersion: currentActiveProfile?.mcVersion,
-        loader: currentActiveProfile?.loader,
-        loaderVersion: currentActiveProfile?.loaderVersion,
+        mcVersion: currentActiveProfile?.mcVersion || currentActiveProfile?.gameVersion || gameInfo.mc || '26.3',
+        loader: currentActiveProfile?.loader || gameInfo.loader || 'fabric',
+        loaderVersion: currentActiveProfile?.loaderVersion || '',
         memoryMin: inputMinRam?.value?.trim() || '2G',
         memoryMax: inputMaxRam?.value?.trim() || '8G',
         javaSelection: currentActiveProfile?.javaSelection || selectGlobalJava?.value || 'auto',
@@ -9316,14 +9345,20 @@ document.addEventListener('DOMContentLoaded', async () => {
           btnJoin.textContent = 'Conectando...';
           try {
             appendLog(`[ShubaCore Social] Aceptando invitación de ${inv.host?.displayName || inv.host?.username} a ${inv.serverAddress}...`, 'info');
-            const res = await api.friends.acceptAndJoinInvite(inv.id);
-            if (!res || !res.success) {
-              alert(res?.error || 'No se pudo conectar a la partida.');
+            if (typeof launchJoinGame === 'function') {
+              await api.friends.respondGameInvite(inv.id, true).catch(() => {});
+              await launchJoinGame(inv.serverAddress, { mc: inv.mcVersion, loader: inv.loader, worldName: inv.worldName });
+            } else {
+              const res = await api.friends.acceptAndJoinInvite(inv.id);
+              if (!res || !res.success) {
+                alert(res?.error || 'No se pudo conectar a la partida.');
+              }
             }
           } catch (err) {
             alert('Error al unirse: ' + err.message);
           } finally {
             btnJoin.disabled = false;
+            btnJoin.innerHTML = '<span>🚀 Unirse</span>';
             loadFriendsView();
           }
         });

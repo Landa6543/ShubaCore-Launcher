@@ -78,12 +78,15 @@ class JavaManager {
       }
     }
 
-    // 2. Rutas del Launcher oficial de Minecraft
+    // 2. Rutas del Launcher oficial de Minecraft (epsilon = 25, delta = 21, gamma = 17, alpha = 8)
     const localAppData = process.env.LOCALAPPDATA || '';
     const appData = process.env.APPDATA || '';
+    const mcRuntimes = ['java-runtime-epsilon', 'java-runtime-delta', 'java-runtime-gamma', 'java-runtime-alpha', 'jre-legacy'];
 
-    const mcOfficialDelta = path.join(appData, '.minecraft', 'runtime', 'java-runtime-delta', 'windows-x64', 'java-runtime-delta', 'bin', 'javaw.exe');
-    if (fs.existsSync(mcOfficialDelta)) candidates.add(mcOfficialDelta);
+    for (const rt of mcRuntimes) {
+      const mcOfficialRt = path.join(appData, '.minecraft', 'runtime', rt, 'windows-x64', rt, 'bin', 'javaw.exe');
+      if (fs.existsSync(mcOfficialRt)) candidates.add(mcOfficialRt);
+    }
 
     const packagesDir = path.join(localAppData, 'Packages');
     if (fs.existsSync(packagesDir)) {
@@ -91,8 +94,10 @@ class JavaManager {
         const pkgs = fs.readdirSync(packagesDir);
         for (const pkg of pkgs) {
           if (pkg.toLowerCase().startsWith('microsoft.4297127d')) {
-            const deltaBin = path.join(packagesDir, pkg, 'LocalCache', 'Local', 'runtime', 'java-runtime-delta', 'windows-x64', 'java-runtime-delta', 'bin', 'javaw.exe');
-            if (fs.existsSync(deltaBin)) candidates.add(deltaBin);
+            for (const rt of mcRuntimes) {
+              const rtBin = path.join(packagesDir, pkg, 'LocalCache', 'Local', 'runtime', rt, 'windows-x64', rt, 'bin', 'javaw.exe');
+              if (fs.existsSync(rtBin)) candidates.add(rtBin);
+            }
           }
         }
       } catch (_) {}

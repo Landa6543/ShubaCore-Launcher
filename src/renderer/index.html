@@ -77,10 +77,10 @@
         <canvas id="sidebar-avatar-canvas" width="64" height="64" class="player-avatar-canvas"></canvas>
         <div class="player-info">
           <div class="player-name-row">
-            <span id="player-name" class="player-name">Jugador</span>
+            <span id="player-name" class="player-name" data-i18n="account.defaultPlayer">Jugador</span>
             <span id="account-status-badge" class="badge badge-offline">OFFLINE</span>
           </div>
-          <span class="player-action-hint">Cambiar Cuenta</span>
+          <span class="player-action-hint" data-i18n="account.switchAccount">Cambiar Cuenta</span>
         </div>
         <!-- Elementos ocultos para compatibilidad con código existente -->
         <span id="player-uuid" style="display: none;"></span>
@@ -282,7 +282,7 @@
           <div class="catalog-instance-context-left">
             <img id="catalog-context-icon" class="catalog-context-thumb" src="assets/logo.png" alt="Instancia" onerror="this.onerror=null;this.src='assets/logo.png';" />
             <div class="catalog-context-info">
-              <span class="catalog-context-label">Añadiendo contenido a la instancia:</span>
+              <span class="catalog-context-label" data-i18n="catalog.addingContent">Añadiendo contenido a la instancia:</span>
               <div class="catalog-context-title-row">
                 <h3 id="catalog-context-title" class="catalog-context-name">Nombre de la Instancia</h3>
                 <span id="catalog-context-badge" class="badge badge-loader">Minecraft 1.21.1 · NeoForge</span>

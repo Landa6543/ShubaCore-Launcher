@@ -79,12 +79,71 @@ assert.ok(indexHtml.includes('data-i18n="instances.newInstance"'), 'Botón nueva
 console.log('   ✔ Elementos y atributos i18n en index.html validados.');
 
 // 5. Verificar estilos CSS de selección de idioma en styles.css
-console.log('\n▶ [5/5] Verificando estilos visuales en styles.css...');
+console.log('\n▶ [5/6] Verificando estilos visuales en styles.css...');
 const stylesCss = fs.readFileSync(path.join(__dirname, '../src/renderer/styles.css'), 'utf8');
 assert.ok(stylesCss.includes('.welcome-lang-grid'), 'styles.css debe incluir .welcome-lang-grid');
 assert.ok(stylesCss.includes('.welcome-lang-card'), 'styles.css debe incluir .welcome-lang-card');
 assert.ok(stylesCss.includes('.welcome-lang-card.selected'), 'styles.css debe incluir .welcome-lang-card.selected');
 console.log('   ✔ Estilos CSS de selección de idioma validados con éxito.');
+
+// 6. Simulación DOM: Conmutación a Inglés y traducción reactiva de vista de Ajustes y Navegación
+console.log('\n▶ [6/6] Verificando traducción reactiva en elementos DOM simulados...');
+class MockElement {
+  constructor(tag, id = '', dataI18n = '', text = '') {
+    this.tagName = tag;
+    this.id = id;
+    this.attributes = { 'data-i18n': dataI18n };
+    this.textContent = text;
+    this.value = '';
+  }
+  getAttribute(name) { return this.attributes[name] || null; }
+  setAttribute(name, val) { this.attributes[name] = val; }
+}
+
+const mockSettingsTitle = new MockElement('h2', '', 'settings.title', 'Java y Ajustes');
+const mockNavSettings = new MockElement('span', '', 'nav.settings', 'Java y Ajustes');
+const mockLanguageTitle = new MockElement('h3', '', 'settings.languageTitle', '🌐 Idioma del Launcher');
+const mockPlayBtn = new MockElement('span', 'btn-launch-text', 'launch.play', 'JUGAR');
+const mockSelect = new MockElement('select', 'select-launcher-language', '', '');
+mockSelect.value = 'es';
+
+const mockElements = [mockSettingsTitle, mockNavSettings, mockLanguageTitle, mockPlayBtn];
+
+global.document = {
+  documentElement: { lang: 'es' },
+  querySelectorAll: (selector) => {
+    if (selector === '[data-i18n]') return mockElements;
+    if (selector === '[data-i18n-placeholder]' || selector === '[data-i18n-title]') return [];
+    return [];
+  },
+  getElementById: (id) => {
+    if (id === 'select-launcher-language') return mockSelect;
+    if (id === 'btn-launch-text') return mockPlayBtn;
+    return null;
+  }
+};
+global.window = {
+  dispatchEvent: () => {}
+};
+
+// Cambiar a inglés
+i18n.setLanguage('en', false);
+assert.strictEqual(global.document.documentElement.lang, 'en', 'Atributo html lang debe ser "en"');
+assert.strictEqual(mockSettingsTitle.textContent, 'Java & Settings', 'Título de ajustes debe traducirse a inglés');
+assert.strictEqual(mockNavSettings.textContent, 'Java & Settings', 'Botón de navegación debe traducirse a inglés');
+assert.strictEqual(mockLanguageTitle.textContent, '🌐 Launcher Language', 'Título de idioma debe traducirse a inglés');
+assert.strictEqual(mockPlayBtn.textContent, 'PLAY', 'Botón de jugar debe traducirse a PLAY');
+assert.strictEqual(mockSelect.value, 'en', 'Select de idioma debe sincronizarse a "en"');
+
+// Cambiar de vuelta a español
+i18n.setLanguage('es', false);
+assert.strictEqual(global.document.documentElement.lang, 'es', 'Atributo html lang debe volver a "es"');
+assert.strictEqual(mockSettingsTitle.textContent, 'Java y Ajustes', 'Título de ajustes debe volver a español');
+assert.strictEqual(mockNavSettings.textContent, 'Java y Ajustes', 'Botón de navegación debe volver a español');
+assert.strictEqual(mockLanguageTitle.textContent, '🌐 Idioma del Launcher', 'Título de idioma debe volver a español');
+assert.strictEqual(mockPlayBtn.textContent, 'JUGAR', 'Botón de jugar debe volver a JUGAR');
+assert.strictEqual(mockSelect.value, 'es', 'Select de idioma debe sincronizarse a "es"');
+console.log('   ✔ Conmutación reactiva a inglés y español comprobada en DOM.');
 
 console.log('\n====================================================');
 console.log('🎉 TODAS LAS PRUEBAS DE LA FASE 28 (i18n) PASARON CON ÉXITO');
