@@ -7,6 +7,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const crypto = require('crypto');
 const { execSync } = require('child_process');
 const AdmZip = require('adm-zip');
@@ -387,6 +388,41 @@ class GitHubModsManager {
         }
       } catch (uiErr) {
         logger.warn(`[GitHubMods] Fallo local al preparar ShubaClient UI: ${uiErr.message}`);
+      }
+    }
+
+    // Comprobar si existe copia local prioritaria para compilaciones de ShubaHost
+    if (fileName.toLowerCase().startsWith('shubahost-')) {
+      const localCandidates = [
+        path.join(os.homedir(), 'Desktop', 'ShubaCore-Mods', 'mods', fileName),
+        path.join(os.homedir(), 'Desktop', 'Mods NeoForge', 'ShubaHost-builds', fileName)
+      ];
+      for (const candidate of localCandidates) {
+        if (fs.existsSync(candidate)) {
+          try {
+            logger.info(`[GitHubMods] Utilizando compilación local prioritaria para ${fileName}: ${candidate}`);
+            fs.copyFileSync(candidate, targetFilePath);
+            const fileBuf = fs.readFileSync(targetFilePath);
+            const sha1 = crypto.createHash('sha1').update(fileBuf).digest('hex');
+            let extractedMeta = null;
+            try {
+              extractedMeta = this._extractJarMetadata(targetFilePath);
+            } catch (_) {}
+            this._recordInLockFile(instancePath, {
+              fileName,
+              sha1,
+              downloadUrl: downloadUrl || `local://${fileName}`,
+              source: 'local_override',
+              installedAt: new Date().toISOString(),
+              size: fileBuf.length,
+              metadata: extractedMeta
+            });
+            if (onProgress) onProgress({ type: 'finish', message: `${fileName} instalado correctamente`, percent: 100 });
+            return { success: true, filePath: targetFilePath, fileName };
+          } catch (localErr) {
+            logger.warn(`[GitHubMods] Fallo al copiar mod local ${candidate}: ${localErr.message}`);
+          }
+        }
       }
     }
 

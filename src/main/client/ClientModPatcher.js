@@ -495,8 +495,10 @@ class ClientModPatcher {
     zip.addFile('assets/polyplus/mainmenu/footer-logo.svg', Buffer.from(this.getFooterLogoSvgContent(), 'utf8'));
     zip.addFile('assets/polyplus/modicons/polyplus.svg', Buffer.from(this.getMainLogoSvgContent(), 'utf8'));
 
-    // Reemplazar icon.png con el logo oficial de ShubaCore si está disponible
+    // Reemplazar icon.png con el logo oficial azul de ShubaClient (S sobre fondo azul)
     const localLogoPaths = [
+      path.join(__dirname, '..', '..', 'renderer', 'assets', 'shubaclient_mod_logo.png'),
+      path.join(__dirname, '..', '..', '..', 'shubaclient_mod_logo.png'),
       path.join(__dirname, '..', '..', 'renderer', 'assets', 'logo.png'),
       path.join(__dirname, '..', '..', '..', 'logo.png'),
       path.join(__dirname, '..', '..', '..', 'shubacore_logo.png')
@@ -511,134 +513,29 @@ class ClientModPatcher {
       }
     }
 
-    // 4. CONSTANTES UTF-8 EN .CLASS (REEMPLAZO SEGURO Y EXACTO DE 9 BYTES)
-    // "ONECLIENT" (9 bytes) -> "SHUBACORE" (9 bytes)
-    // "OneClient" (9 bytes) -> "ShubaCore" (9 bytes)
-    const TARGET_ONECLIENT_UTF8 = Buffer.from([0x01, 0x00, 0x09, 0x4f, 0x4e, 0x45, 0x43, 0x4c, 0x49, 0x45, 0x4e, 0x54]);
-    const REPL_SHUBACORE_UTF8 = Buffer.from([0x01, 0x00, 0x09, 0x53, 0x48, 0x55, 0x42, 0x41, 0x43, 0x4f, 0x52, 0x45]);
-
-    const TARGET_ONECLIENT_PASCAL = Buffer.from([0x01, 0x00, 0x09, 0x4f, 0x6e, 0x65, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74]);
-    const REPL_SHUBACORE_PASCAL = Buffer.from([0x01, 0x00, 0x09, 0x53, 0x68, 0x75, 0x62, 0x61, 0x43, 0x6f, 0x72, 0x65]);
-
-    // Clases seguras de interfaz donde se reemplaza "OneClient"
-    const safeUiClasses = [
-      'org/polyfrost/polyplus/client/gui/PolyPlusMainMenuScreenKt.class',
-      'org/polyfrost/polyplus/client/gui/MenuWidgetsKt.class',
-      'org/polyfrost/polyplus/client/gui/PolyPlusOnboardingScreenKt.class',
-      'org/polyfrost/polyplus/client/gui/PauseMenuPanel.class'
-    ];
-
-    let patchedClassesCount = 0;
-    for (const entry of entries) {
-      if (entry.entryName.endsWith('.class')) {
-        let classBuf = zip.readFile(entry);
-        let changed = false;
-
-        // 4.1 Parser binario formal de Constant Pool de JVM
-        const cpRes = this._patchClassConstantPool(classBuf, {
-          'ONECLIENT': 'SHUBACORE',
-          'POLYFROST': 'SHUBATECH',
-          'polyfrost': 'shubatech',
-          'oneclient': 'shubacore'
-        });
-        if (cpRes.modified) {
-          classBuf = cpRes.buffer;
-          changed = true;
-        }
-
-        if (safeUiClasses.includes(entry.entryName)) {
-          const uiCpRes = this._patchClassConstantPool(classBuf, {
-            'OneClient': 'ShubaCore',
-            'Polyfrost': 'SHUBATECH'
-          });
-          if (uiCpRes.modified) {
-            classBuf = uiCpRes.buffer;
-            changed = true;
-          }
-        }
-
-        // Reemplazo de ONECLIENT -> SHUBACORE (Global en cualquier clase)
-        let idx = classBuf.indexOf(TARGET_ONECLIENT_UTF8);
-        while (idx !== -1) {
-          REPL_SHUBACORE_UTF8.copy(classBuf, idx);
-          changed = true;
-          idx = classBuf.indexOf(TARGET_ONECLIENT_UTF8, idx + TARGET_ONECLIENT_UTF8.length);
-        }
-
-        // Reemplazo de OneClient -> ShubaCore solo en pantallas de UI para evitar romper nombres de clases
-        if (safeUiClasses.includes(entry.entryName)) {
-          let pIdx = classBuf.indexOf(TARGET_ONECLIENT_PASCAL);
-          while (pIdx !== -1) {
-            REPL_SHUBACORE_PASCAL.copy(classBuf, pIdx);
-            changed = true;
-            pIdx = classBuf.indexOf(TARGET_ONECLIENT_PASCAL, pIdx + TARGET_ONECLIENT_PASCAL.length);
-          }
-        }
-
-        // Reemplazo de Marketplace -> Vestidor y redirección de navegación a Wardrobe en LobbyChromeKt
-        if (entry.entryName === 'org/polyfrost/polyplus/client/gui/lobbyshell/LobbyChromeKt.class') {
-          const TARGET_MARKETPLACE_UTF8 = Buffer.from([0x01, 0x00, 0x0b, 0x4d, 0x61, 0x72, 0x6b, 0x65, 0x74, 0x70, 0x6c, 0x61, 0x63, 0x65]);
-          const REPL_VESTIDOR_UTF8 = Buffer.from([0x01, 0x00, 0x0b, 0x56, 0x65, 0x73, 0x74, 0x69, 0x64, 0x6f, 0x72, 0x20, 0x20, 0x20]);
-          let mIdx = classBuf.indexOf(TARGET_MARKETPLACE_UTF8);
-          if (mIdx !== -1) {
-            REPL_VESTIDOR_UTF8.copy(classBuf, mIdx);
-            changed = true;
-          }
-
-          // Redirección de getstatic LobbyPage.Marketplace -> getstatic LobbyPage.Wardrobe
-          const GETSTATIC_MKT = Buffer.from([0xb2, 0x00, 0x22]);
-          const GETSTATIC_WDR = Buffer.from([0xb2, 0x00, 0x1c]);
-          let gIdx = 0;
-          while ((gIdx = classBuf.indexOf(GETSTATIC_MKT, gIdx)) !== -1) {
-            GETSTATIC_WDR.copy(classBuf, gIdx);
-            changed = true;
-            gIdx += GETSTATIC_MKT.length;
-          }
-        }
-
-        // Cosméticos desbloqueados 100% gratis en Vestidor (CosmeticUiItem.getOwned() -> true)
-        if (entry.entryName === 'org/polyfrost/polyplus/client/gui/wardrobe/CosmeticUiItem.class') {
-          const CUI_TARGET = Buffer.from([0x2a, 0xb4, 0x00, 0x2c, 0xac]); // aload_0, getfield owned, ireturn
-          const CUI_REPL = Buffer.from([0x04, 0xac, 0x00, 0x00, 0x00]);   // iconst_1, ireturn, nop, nop, nop
-          let cIdx = classBuf.indexOf(CUI_TARGET);
-          if (cIdx !== -1) {
-            CUI_REPL.copy(classBuf, cIdx);
-            changed = true;
-          }
-        }
-
-        // Validación de propiedad en tienda/vestidor (WardrobeModelsKt.fullyOwned() -> true)
-        if (entry.entryName === 'org/polyfrost/polyplus/client/gui/wardrobe/WardrobeModelsKt.class') {
-          const WM_TARGET = Buffer.from([0x2a, 0x12, 0x0a, 0xb8, 0x00, 0x10, 0x2b]);
-          const WM_REPL = Buffer.from([0x04, 0xac, 0x00, 0x00, 0x00, 0x00, 0x00]); // iconst_1, ireturn, nop...
-          let wIdx = classBuf.indexOf(WM_TARGET);
-          if (wIdx !== -1) {
-            WM_REPL.copy(classBuf, wIdx);
-            changed = true;
-          }
-        }
-
-        if (changed) {
-          zip.updateFile(entry, classBuf);
-          patchedClassesCount++;
-        }
-      }
+    // 4. LIMPIEZA DE COSMÉTICOS Y PRESERVACIÓN ABSOLUTA DE BYTECODE
+    // Requisito: "elimina los cosméticos" y CERO parcheo de archivos .class binarios.
+    // En Java 21+ y Kotlin Compose, cualquier modificación directa de bytes o constant pool
+    // en archivos .class invalida la StackMapTable y provoca ClassFormatError fatal (3221225477).
+    // Toda la interfaz, nombres y logos se adaptan de forma 100% nativa vía lang JSON y assets vectoriales.
+    const cosmeticEntries = entries.filter((e) => /^assets\/polycosmetics\//i.test(e.entryName));
+    for (const cEntry of cosmeticEntries) {
+      zip.deleteFile(cEntry);
     }
-
-    logger.info(`[SHUBATECH] [ShubaClient] Parcheadas ${patchedClassesCount} clases JVM con constantes SHUBACORE, vestidor gratuito y redirección de Marketplace.`);
+    logger.info(`[SHUBATECH] [ShubaClient] Eliminados ${cosmeticEntries.length} archivos de cosméticos. Bytecode JVM preservado al 100%.`);
 
     // 5. GUARDAR ShubaClient-UI.jar
     zip.writeZip(outputJar);
     this.customJarPath = outputJar;
 
     const stats = fs.statSync(outputJar);
-    logger.info(`[SHUBATECH] [ShubaClient] ✅ Parcheo y rebranding a ShubaClient-UI.jar completado exitosamente (${stats.size} bytes).`);
+    logger.info(`[SHUBATECH] [ShubaClient] ✅ Rebranding a ShubaClient-UI.jar completado exitosamente (${stats.size} bytes).`);
 
     return {
       success: true,
       outputPath: outputJar,
       size: stats.size,
-      patchedClassesCount
+      patchedClassesCount: 0
     };
   }
 
@@ -646,11 +543,34 @@ class ClientModPatcher {
    * Asegura que el archivo ShubaClient-UI.jar esté listo para usarse.
    * Si no existe, realiza la extracción y el parcheo automáticamente.
    */
-  ensureShubaClientReady() {
+  ensureShubaClientReady(force = false) {
     const runtimeDir = this.getRuntimeClientModsDir();
     const customJar = path.join(runtimeDir, 'ShubaClient-UI.jar');
 
-    if (fs.existsSync(customJar) && fs.statSync(customJar).size > 1000000) {
+    // Priorizar siempre la compilación oficial de ShubaCoreMod si está disponible
+    const builtShubaMod = path.join(os.homedir(), 'Desktop', 'ShubaCoreMod', 'build', 'libs', 'ShubaClient-UI.jar');
+    const distShubaMod = path.join(os.homedir(), 'Desktop', 'ShubaCoreMod', 'dist-shubaclient-mods', '26.3', 'ShubaClient-UI.jar');
+    const masterMod = fs.existsSync(builtShubaMod) ? builtShubaMod : (fs.existsSync(distShubaMod) ? distShubaMod : null);
+
+    if (masterMod) {
+      try {
+        if (!fs.existsSync(customJar) || fs.statSync(customJar).size !== fs.statSync(masterMod).size) {
+          fs.copyFileSync(masterMod, customJar);
+          logger.info(`[ClientModPatcher] ShubaClient-UI.jar sincronizado desde compilación oficial (${masterMod}).`);
+        }
+        this.customJarPath = customJar;
+        return {
+          ready: true,
+          customJarPath: customJar,
+          depsDir: path.join(runtimeDir, 'deps'),
+          optDir: path.join(runtimeDir, 'opt')
+        };
+      } catch (err) {
+        logger.warn(`[ClientModPatcher] Aviso al sincronizar mod oficial: ${err.message}`);
+      }
+    }
+
+    if (!force && fs.existsSync(customJar) && fs.statSync(customJar).size > 1000000) {
       this.customJarPath = customJar;
       return {
         ready: true,
@@ -660,7 +580,7 @@ class ClientModPatcher {
       };
     }
 
-    // Realizar extracción
+    // Realizar extracción solo si no hay build disponible
     const extraction = this.extractBaseJar(runtimeDir);
     // Realizar parcheo
     const patchResult = this.patchClientMod(extraction.baseJarPath, customJar);

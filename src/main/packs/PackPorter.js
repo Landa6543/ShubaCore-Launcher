@@ -58,7 +58,14 @@ class PackPorter {
   /**
    * REQUISITO 4: Exporta un perfil completo a un archivo .shubapack
    */
-  async exportPack({ profileId, outputPath = null, onProgress = null }) {
+  async exportPack(args, legacyOutputPath = null) {
+    let profileId, outputPath, onProgress;
+    if (typeof args === 'string') {
+      profileId = args;
+      outputPath = legacyOutputPath;
+    } else {
+      ({ profileId, outputPath = null, onProgress = null } = (args || {}));
+    }
     const profile = (this.profileManager.getById ? this.profileManager.getById(profileId) : null) ||
       (this.profileManager.getAll ? this.profileManager.getAll().profiles?.find((p) => p.id === profileId) : null) ||
       (this.profileManager.getActive ? this.profileManager.getActive() : null);
@@ -66,7 +73,7 @@ class PackPorter {
       throw new Error(`El perfil con ID "${profileId}" no fue encontrado.`);
     }
 
-    const instancePath = this.profileManager.getInstancePath(profileId);
+    const instancePath = this.profileManager.getInstancePath(profile.id || profileId);
     if (!fs.existsSync(instancePath)) {
       throw new Error(`La carpeta física del perfil no existe: ${instancePath}`);
     }
@@ -99,6 +106,23 @@ class PackPorter {
       createdAt: new Date().toISOString(),
       mods: lockData.mods || {}
     };
+
+    // 2b. Incluir icon.png en el paquete y en el manifest si existe
+    const iconPath = path.join(instancePath, 'icon.png');
+    if (fs.existsSync(iconPath)) {
+      try {
+        zip.addLocalFile(iconPath);
+        manifest.icon = `data:image/png;base64,${fs.readFileSync(iconPath).toString('base64')}`;
+      } catch (_) {}
+    } else if (profile.icon && profile.icon.startsWith('data:image/')) {
+      manifest.icon = profile.icon;
+      try {
+        const parts = profile.icon.split(',');
+        if (parts[1]) {
+          zip.addFile('icon.png', Buffer.from(parts[1], 'base64'));
+        }
+      } catch (_) {}
+    }
 
     zip.addFile('shubapack.json', Buffer.from(JSON.stringify(manifest, null, 2), 'utf8'));
 

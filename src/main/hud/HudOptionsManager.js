@@ -168,6 +168,12 @@ class HudOptionsManager {
         }
         if (trimmed.startsWith('autoJump:')) hasAutoJump = true;
 
+        // Prevención de crash IndexOutOfBoundsException en GLFW/SDL3 por teclas unbound con valor negativo (-1)
+        if (lines[i].includes('key.keyboard.-1')) {
+          lines[i] = lines[i].replace(/key\.keyboard\.-1/g, 'key.keyboard.unknown');
+          modified = true;
+        }
+
         // Limpieza de paquetes incompatibles de resourcePacks e incompatibleResourcePacks y cualquier config legada
         if (trimmed.includes('ShubaSkinOverride') || trimmed.includes('ShubaCoreSplash')) {
           lines[i] = lines[i]

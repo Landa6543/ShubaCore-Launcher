@@ -44,10 +44,20 @@ class ProfileSyncManager {
   /**
    * Publica o actualiza el perfil en GitHub (shared-profiles/<slug>.shubasync.json)
    */
-  async publishProfile(profileId, options = {}) {
-    const profile = profileId
-      ? this.profileManager.getById(profileId)
-      : this.profileManager.getActive();
+  async publishProfile(profileIdOrOptions, maybeOptions = {}) {
+    let targetId = null;
+    let options = maybeOptions;
+    if (profileIdOrOptions && typeof profileIdOrOptions === 'object') {
+      targetId = profileIdOrOptions.profileId || profileIdOrOptions.id || null;
+      options = profileIdOrOptions;
+    } else {
+      targetId = profileIdOrOptions;
+    }
+
+    const allProfiles = this.profileManager.getAll();
+    const profile = targetId
+      ? this.profileManager.getById(targetId)
+      : (this.profileManager.getActive() || (allProfiles && allProfiles[0]));
 
     if (!profile) throw new Error('No se encontró el perfil especificado para publicar.');
 
@@ -55,11 +65,12 @@ class ProfileSyncManager {
     const modsDir = path.join(instancePath, 'mods');
     const lockPath = path.join(instancePath, 'mods-lock.json');
 
-    let lockData = { mods: [] };
+    let lockData = { mods: {} };
     if (fs.existsSync(lockPath)) {
       try { lockData = JSON.parse(fs.readFileSync(lockPath, 'utf8')); } catch (_) {}
     }
-    const lockMap = new Map((lockData.mods || []).map((m) => [m.fileName?.toLowerCase(), m]));
+    const rawMods = Array.isArray(lockData.mods) ? lockData.mods : Object.values(lockData.mods || {});
+    const lockMap = new Map(rawMods.map((m) => [m.fileName?.toLowerCase(), m]));
 
     // 1. Escanear todos los mods instalados
     const installedFiles = fs.existsSync(modsDir)
@@ -448,6 +459,12 @@ class ProfileSyncManager {
 
     // 6. Actualizar mods-lock.json con el manifiesto completo
     try {
+      const modsMap = {};
+      (manifest.mods || []).forEach((m) => {
+        if (m && m.fileName) {
+          modsMap[m.fileName] = m;
+        }
+      });
       const lockData = {
         name: manifest.name,
         slug: manifest.slug,
@@ -456,7 +473,7 @@ class ProfileSyncManager {
         mcVersion: manifest.mcVersion,
         loader: manifest.loader,
         loaderVersion: manifest.loaderVersion,
-        mods: manifest.mods
+        mods: modsMap
       };
       fs.writeFileSync(path.join(instancePath, 'mods-lock.json'), JSON.stringify(lockData, null, 2), 'utf8');
     } catch (_) {}

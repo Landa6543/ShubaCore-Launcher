@@ -257,6 +257,34 @@ class ModManager {
       }
     }
 
+    // REQUISITO: Joyas Ocultas oficiales de CurseForge en el tope del catálogo
+    if (safePage === 1 && !query && shouldSearchCurseForge && (safeType === 'mods' || safeType === 'modpacks')) {
+      try {
+        const featuredRes = await this._searchCurseForgeContent('', mcVersion, normalizedLoader, safeType, 10, 0, 'featured', category, environment);
+        if (featuredRes && featuredRes.items && featuredRes.items.length > 0) {
+          // Filtrar estrictamente los proyectos que CurseForge cataloga oficialmente como isFeatured === true
+          const featuredItems = featuredRes.items
+            .filter((item) => item.isFeatured)
+            .map((item) => ({
+              ...item,
+              isHiddenGem: true,
+              isFeatured: true
+            }));
+          const existingIds = new Set(pagedResults.map((p) => p.id));
+          const newFeatured = featuredItems.filter((f) => !existingIds.has(f.id));
+          if (newFeatured.length > 0) {
+            if (safeType === 'modpacks' && pagedResults[0]?.isOfficial) {
+              pagedResults = [pagedResults[0], ...newFeatured, ...pagedResults.slice(1)].slice(0, safePageSize);
+            } else {
+              pagedResults = [...newFeatured, ...pagedResults].slice(0, safePageSize);
+            }
+          }
+        }
+      } catch (fErr) {
+        logger.debug('[Joyas Ocultas] Fallback:', fErr.message);
+      }
+    }
+
     const totalPages = Math.max(1, Math.ceil(totalCount / safePageSize));
     const hasMore = safePage < totalPages;
 
@@ -331,6 +359,9 @@ class ModManager {
       } else if (sortBy === 'updated') {
         url.searchParams.append('sortField', '3'); // LastUpdated
         url.searchParams.append('sortOrder', 'desc');
+      } else if (sortBy === 'featured') {
+        url.searchParams.append('sortField', '1'); // Featured (Joyas Ocultas oficiales de CurseForge)
+        url.searchParams.append('sortOrder', 'desc');
       } else {
         // Popularidad (Total Downloads = 2)
         url.searchParams.append('sortField', '2');
@@ -348,7 +379,7 @@ class ModManager {
           Accept: 'application/json',
           'User-Agent': USER_AGENT
         },
-        signal: AbortSignal.timeout(6000)
+        signal: AbortSignal.timeout(12000)
       });
 
       if (!response.ok) {
@@ -397,6 +428,8 @@ class ModManager {
           clientSide: cSide,
           serverSide: sSide,
           environment: detectedEnv,
+          isFeatured: Boolean(mod.isFeatured || sortBy === 'featured'),
+          isHiddenGem: Boolean(mod.isFeatured || sortBy === 'featured'),
           latestFileId: latestFile.id ? String(latestFile.id) : null
         };
       });
@@ -413,7 +446,11 @@ class ModManager {
 
       return { items: filtered, totalCount: filtered.length < mapped.length ? filtered.length : totalCount };
     } catch (err) {
-      logger.error('[CurseForge Exception]:', err.message);
+      if (err.name === 'TimeoutError' || (err.message && err.message.toLowerCase().includes('timeout'))) {
+        logger.warn(`[CurseForge] Tiempo de espera agotado al consultar API (${err.message}).`);
+      } else {
+        logger.error('[CurseForge Exception]:', err.message);
+      }
       return { items: [], totalCount: 0 };
     }
   }
@@ -471,7 +508,7 @@ class ModManager {
 
       const response = await fetch(url.toString(), {
         headers: { 'User-Agent': USER_AGENT },
-        signal: AbortSignal.timeout(6000)
+        signal: AbortSignal.timeout(12000)
       });
 
       if (!response.ok) {
@@ -523,7 +560,11 @@ class ModManager {
 
       return { items: filtered, totalCount: filtered.length < mapped.length ? filtered.length : totalCount };
     } catch (err) {
-      logger.error('[Modrinth Exception]:', err.message);
+      if (err.name === 'TimeoutError' || (err.message && err.message.toLowerCase().includes('timeout'))) {
+        logger.warn(`[Modrinth] Tiempo de espera agotado al consultar API (${err.message}).`);
+      } else {
+        logger.error('[Modrinth Exception]:', err.message);
+      }
       return { items: [], totalCount: 0 };
     }
   }
@@ -770,6 +811,11 @@ class ModManager {
       logger.info(`Descargando ${fileInfo.fileName} desde: ${fileInfo.downloadUrl}`);
       await this._downloadStream(fileInfo.downloadUrl, targetFilePath, (pct) => {
         if (onProgress) onProgress({ type: 'mod', fileName: fileInfo.fileName, percent: pct });
+      }, {
+        sha1: fileInfo.sha1,
+        fileName: fileInfo.fileName,
+        mcVersion,
+        loader
       });
       logger.info(`Descarga finalizada: ${fileInfo.fileName}`);
     }
@@ -822,6 +868,25 @@ class ModManager {
 
     if (!versions || versions.length === 0) {
       return null;
+    }
+
+    // Filtrar estrictamente por loader para no instalar mods de loaders incompatibles (ej. Forge en Fabric)
+    if (loader && loader !== 'vanilla') {
+      const normLoader = String(loader).toLowerCase().trim();
+      const loaderFiltered = versions.filter((v) => {
+        const vLoaders = (v.loaders || []).map((l) => String(l).toLowerCase().trim());
+        if (normLoader === 'fabric') return vLoaders.includes('fabric') || vLoaders.includes('quilt');
+        if (normLoader === 'quilt') return vLoaders.includes('quilt') || vLoaders.includes('fabric');
+        if (normLoader === 'neoforge') return vLoaders.includes('neoforge');
+        if (normLoader === 'forge') return vLoaders.includes('forge');
+        return vLoaders.includes(normLoader);
+      });
+      if (loaderFiltered.length > 0) {
+        versions = loaderFiltered;
+      } else {
+        logger.warn(`[ResolveModrinthFile] Mod ${projectId} no tiene versiones para el loader ${loader}. Rechazando instalación incompatible.`);
+        return null;
+      }
     }
 
     const candidateChannel = (channel || 'release').toLowerCase();
@@ -879,9 +944,10 @@ class ModManager {
       files = data.data || [];
     }
 
-    // Fallback sin filtros si no se encontró con versión o loader específico
+    // Fallback: si con versión exacta no se encontró, buscar respetando siempre el loader
     if (files.length === 0) {
-      res = await fetch(`${CURSEFORGE_API_URL}/mods/${projectId}/files`, {
+      const fallbackParams = cfLoader > 0 ? `?modLoaderType=${cfLoader}` : '';
+      res = await fetch(`${CURSEFORGE_API_URL}/mods/${projectId}/files${fallbackParams}`, {
         headers: {
           'x-api-key': apiKey,
           Accept: 'application/json',
@@ -894,6 +960,26 @@ class ModManager {
       }
     }
 
+    // Filtrar estrictamente por loader para no instalar mods de loaders incompatibles
+    if (loader && loader !== 'vanilla' && files.length > 0) {
+      const normLoader = String(loader).toLowerCase().trim();
+      const loaderFiltered = files.filter((f) => {
+        const gv = (f.gameVersions || []).map((v) => String(v).toLowerCase().trim());
+        const fn = (f.fileName || '').toLowerCase();
+        if (normLoader === 'fabric') return gv.includes('fabric') || fn.includes('fabric');
+        if (normLoader === 'neoforge') return gv.includes('neoforge') || fn.includes('neoforge');
+        if (normLoader === 'forge') return (gv.includes('forge') && !gv.includes('neoforge')) || (fn.includes('forge') && !fn.includes('neoforge'));
+        if (normLoader === 'quilt') return gv.includes('quilt') || gv.includes('fabric');
+        return true;
+      });
+      if (loaderFiltered.length > 0) {
+        files = loaderFiltered;
+      } else {
+        logger.warn(`[ResolveCurseForgeFile] Mod ${projectId} no tiene archivos para el loader ${loader}. Rechazando instalación incompatible.`);
+        return null;
+      }
+    }
+
     if (files.length === 0) return null;
 
     const file = files[0];
@@ -903,9 +989,19 @@ class ModManager {
       .filter((dep) => dep.relationType === 3 && dep.modId)
       .map((dep) => String(dep.modId));
 
+    const sha1Obj = (file.hashes || []).find((h) => h.algo === 1);
+    const sha1 = sha1Obj ? sha1Obj.value : null;
+
     let downloadUrl = file.downloadUrl;
     if (!downloadUrl && file.id && file.fileName) {
       downloadUrl = this._buildCurseForgeEdgeUrl(file.id, file.fileName);
+    }
+
+    if (!downloadUrl && (sha1 || file.fileName)) {
+      const fallback = await this._tryResolveModrinthFallback(sha1, file.fileName, mcVersion, loader);
+      if (fallback && fallback.url) {
+        downloadUrl = fallback.url;
+      }
     }
 
     return {
@@ -914,13 +1010,102 @@ class ModManager {
       fileId: String(file.id),
       downloadUrl: downloadUrl,
       versionNumber: file.gameVersions ? file.gameVersions.join(', ') : '',
-      requiredDependencies
+      requiredDependencies,
+      sha1
     };
   }
 
-  async _downloadStream(url, destPath, onProgress = null) {
-    const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
-    if (!res.ok) throw new Error(`HTTP ${res.status} al descargar ${url}`);
+  /**
+   * Intenta resolver una URL de descarga alternativa en Modrinth usando el hash SHA-1
+   * del archivo o el nombre de archivo cuando CurseForge bloquea la descarga por terceros (HTTP 403 / URL nula).
+   * Equivalente al comportamiento de Prism Launcher (FileResolvingTask.cpp).
+   */
+  async _tryResolveModrinthFallback(sha1 = null, fileName = null, mcVersion = null, loader = null) {
+    // 1. Búsqueda exacta por hash SHA-1 en Modrinth (método oficial y exacto de Prism)
+    if (sha1) {
+      try {
+        const hashRes = await fetch(`https://api.modrinth.com/v2/version_file/${sha1}?algorithm=sha1`, {
+          headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' }
+        });
+        if (hashRes.ok) {
+          const versionData = await hashRes.json();
+          if (versionData && Array.isArray(versionData.files) && versionData.files.length > 0) {
+            const matchedFile = versionData.files.find((f) => f.hashes && f.hashes.sha1 && f.hashes.sha1.toLowerCase() === sha1.toLowerCase()) || versionData.files[0];
+            if (matchedFile && matchedFile.url) {
+              logger.info(`[Modrinth Fallback] Archivo idéntico localizado en Modrinth por SHA-1: ${matchedFile.filename} (${matchedFile.url})`);
+              return { url: matchedFile.url, fileName: matchedFile.filename || fileName };
+            }
+          }
+        }
+      } catch (err) {
+        logger.debug(`[Modrinth Fallback] Falló búsqueda por SHA-1: ${err.message}`);
+      }
+    }
+
+    // 2. Búsqueda por nombre de archivo o slug si el hash no resolvió
+    if (fileName) {
+      try {
+        const cleanSlug = fileName.replace(/\.jar$/i, '').split(/[-_+](?:neoforge|forge|fabric|quilt|mc\d|\d+\.\d+)/i)[0].toLowerCase().trim();
+        if (cleanSlug && cleanSlug.length >= 2) {
+          const searchUrl = `https://api.modrinth.com/v2/search?query=${encodeURIComponent(cleanSlug)}&limit=1`;
+          const sRes = await fetch(searchUrl, { headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' } });
+          if (sRes.ok) {
+            const sData = await sRes.json();
+            const hit = sData.hits && sData.hits[0];
+            if (hit && hit.slug) {
+              const fileInfo = await this._resolveModrinthFile(hit.slug, mcVersion, loader);
+              if (fileInfo && fileInfo.downloadUrl) {
+                logger.info(`[Modrinth Fallback] Mod compatible encontrado en Modrinth por slug "${hit.slug}": ${fileInfo.downloadUrl}`);
+                return { url: fileInfo.downloadUrl, fileName: fileInfo.fileName || fileName };
+              }
+            }
+          }
+        }
+      } catch (err) {
+        logger.debug(`[Modrinth Fallback] Falló búsqueda por slug: ${err.message}`);
+      }
+    }
+
+    return null;
+  }
+
+  async _downloadStream(url, destPath, onProgress = null, fallbackOptions = null) {
+    let targetUrl = url;
+    let res = null;
+
+    if (targetUrl) {
+      try {
+        res = await fetch(targetUrl, { headers: { 'User-Agent': USER_AGENT } });
+      } catch (netErr) {
+        logger.warn(`[Download] Error de red al conectar a ${targetUrl}: ${netErr.message}`);
+      }
+    }
+
+    if (!res || !res.ok) {
+      const status = res ? res.status : 'ERR';
+      logger.warn(`[Download] Descarga inicial fallida (${status}) en ${targetUrl}. Verificando fallback de Modrinth...`);
+      if (fallbackOptions) {
+        const fallback = await this._tryResolveModrinthFallback(
+          fallbackOptions.sha1,
+          fallbackOptions.fileName,
+          fallbackOptions.mcVersion,
+          fallbackOptions.loader
+        );
+        if (fallback && fallback.url) {
+          logger.info(`[Modrinth Fallback] Reintentando descarga exitosa desde: ${fallback.url}`);
+          targetUrl = fallback.url;
+          try {
+            res = await fetch(targetUrl, { headers: { 'User-Agent': USER_AGENT } });
+          } catch (retryErr) {
+            logger.warn(`[Download] Error en reintento con Modrinth: ${retryErr.message}`);
+          }
+        }
+      }
+    }
+
+    if (!res || !res.ok) {
+      throw new Error(`HTTP ${res ? res.status : 'error'} al descargar ${targetUrl}`);
+    }
 
     const total = parseInt(res.headers.get('content-length') || '0', 10);
     let received = 0;
@@ -1598,6 +1783,8 @@ class ModManager {
       return this.getOfficialShubaClientModpackDetails();
     }
 
+    let serverPack = null;
+
     if (source === 'curseforge') {
       const apiKey = this._getCurseForgeKey();
       const cfLoader = CF_LOADER_TYPES[loader] !== undefined ? CF_LOADER_TYPES[loader] : CF_LOADER_TYPES.any;
@@ -1649,6 +1836,41 @@ class ModManager {
         }
       }
 
+      // Detección de Paquete de Servidor (Server Pack) para Modpacks en CurseForge
+      serverPack = null;
+      const fileWithServer = filesData.find((f) => f.serverPackFileId);
+      if (fileWithServer && fileWithServer.serverPackFileId) {
+        try {
+          const sRes = await fetch(`${CURSEFORGE_API_URL}/mods/${projectId}/files/${fileWithServer.serverPackFileId}`, {
+            headers: { 'x-api-key': apiKey, Accept: 'application/json', 'User-Agent': USER_AGENT },
+            signal: AbortSignal.timeout(4000)
+          });
+          if (sRes.ok) {
+            const sData = (await sRes.json()).data;
+            if (sData) {
+              let sUrl = sData.downloadUrl;
+              if (!sUrl && sData.id && sData.fileName) {
+                sUrl = this._buildCurseForgeEdgeUrl(sData.id, sData.fileName);
+              }
+              let sSize = '';
+              if (sData.fileLength) {
+                sSize = sData.fileLength >= 1048576 ? (sData.fileLength / 1048576).toFixed(1) + ' MB' : (sData.fileLength / 1024).toFixed(0) + ' KB';
+              }
+              serverPack = {
+                fileId: String(sData.id),
+                fileName: sData.fileName,
+                displayName: sData.displayName || sData.fileName,
+                downloadUrl: sUrl,
+                sizeFormatted: sSize,
+                parentFileName: fileWithServer.fileName
+              };
+            }
+          }
+        } catch (sErr) {
+          logger.debug('[ProjectDetails] No se pudo consultar server pack:', sErr.message);
+        }
+      }
+
       const files = filesData.map((f) => {
         const releaseType = f.releaseType === 1 ? 'Release' : (f.releaseType === 2 ? 'Beta' : 'Alpha');
         let dlUrl = f.downloadUrl;
@@ -1668,7 +1890,8 @@ class ModManager {
           releaseDate: f.fileDate ? new Date(f.fileDate).toLocaleDateString() : '',
           gameVersions: f.gameVersions || [],
           downloadUrl: dlUrl,
-          sizeFormatted
+          sizeFormatted,
+          serverPackFileId: f.serverPackFileId ? String(f.serverPackFileId) : null
         };
       });
 
@@ -1703,7 +1926,8 @@ class ModManager {
         gallery: (modData.screenshots || []).map((s) => ({ url: s.url || s.thumbnailUrl, title: s.title || modData.name, description: s.description || '' })).filter((g) => Boolean(g.url)),
         changelogs,
         dependencies,
-        files
+        files,
+        serverPack
       };
     } else {
       // Modrinth
@@ -1788,7 +2012,8 @@ class ModManager {
         gallery: (modData.gallery || []).map((g) => ({ url: g.url, title: g.title || modData.title, description: g.description || '' })),
         changelogs,
         dependencies,
-        files
+        files,
+        serverPack
       };
     }
   }
@@ -3011,8 +3236,8 @@ class ModManager {
   // 3. OPTIMIZACIÓN INSTANTÁNEA & MODPACKS PÚBLICOS
   // =========================================================================
 
-  async installPerformancePack({ mcVersion = '1.21.1', loader = 'neoforge', instancePath = null, onProgress = null } = {}) {
-    logger.info(`⚡ [SHUBATECH] Instalando Pack de Optimización Instantánea para MC ${mcVersion} (${loader.toUpperCase()})...`);
+  async installPerformancePack({ mcVersion = '1.21.1', loader = 'neoforge', instancePath = null, includeShaders = false, onProgress = null } = {}) {
+    logger.info(`⚡ [SHUBATECH] Instalando Pack de Optimización Instantánea para MC ${mcVersion} (${loader.toUpperCase()}) (Shaders: ${includeShaders ? 'SÍ' : 'NO'})...`);
 
     const activeInstance = instancePath || this.configManager.getInstanceDirectory();
     const normalizedLoader = (loader || 'neoforge').toLowerCase();
@@ -3020,15 +3245,36 @@ class ModManager {
     // En 1.21.1 NeoForge y Fabric se usa Sodium directamente; en 1.20.1 Forge se usa Embeddium
     const mainRendererSlug = (normalizedLoader === 'fabric' || (mcVersion.startsWith('1.21') && normalizedLoader === 'neoforge')) ? 'sodium' : 'embeddium';
 
+    // ModernFix excluido de 26.3 (incompatible con official runtime namespace en Fabric 0.20+)
+    const isMc26_3 = mcVersion === '26.3' || String(mcVersion).startsWith('26.');
     const performanceSlugs = [
       mainRendererSlug,
-      ...(normalizedLoader === 'fabric' ? ['fabric-api', 'lithium', 'iris'] : []),
+      ...(normalizedLoader === 'fabric' ? ['fabric-api', 'lithium', ...(includeShaders ? ['iris'] : [])] : []),
+      ...(normalizedLoader === 'forge' || normalizedLoader === 'neoforge' ? (includeShaders ? ['oculus'] : []) : []),
       'ferrite-core',
-      'modernfix',
+      ...(!isMc26_3 ? ['modernfix'] : []),
       'immediatelyfast',
       'entityculling',
       'clumps'
     ];
+
+    const modsDir = path.join(activeInstance, 'mods');
+    const existingJarNames = fs.existsSync(modsDir) ? fs.readdirSync(modsDir).map((f) => f.toLowerCase()) : [];
+
+    // Purgar ModernFix si se ejecuta en 26.3
+    if (isMc26_3 && fs.existsSync(modsDir)) {
+      try {
+        const mFiles = fs.readdirSync(modsDir);
+        for (const f of mFiles) {
+          if (/modernfix/i.test(f)) {
+            try {
+              fs.unlinkSync(path.join(modsDir, f));
+              logger.info(`[ModManager] Purgado mod incompatible ${f} de instancia 26.3.`);
+            } catch (_) {}
+          }
+        }
+      } catch (_) {}
+    }
 
     const installed = [];
     const errors = [];
@@ -3045,6 +3291,14 @@ class ModManager {
         });
       }
 
+      // Si el optimizador ya existe físicamente en /mods, evitar descarga duplicada
+      const slugKey = slug.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const alreadyInstalled = existingJarNames.some((f) => f.replace(/[^a-z0-9]/g, '').includes(slugKey));
+      if (alreadyInstalled) {
+        logger.info(`[ModManager] Optimizador "${slug}" ya presente en instancia. Omitiendo descarga duplicada.`);
+        continue;
+      }
+
       try {
         const record = await this.downloadMod({
           projectId: slug,
@@ -3058,25 +3312,6 @@ class ModManager {
           installed.push(record);
         }
       } catch (err) {
-        if (slug === 'modernfix' && mcVersion === '26.3') {
-          try {
-            const userAppdata = process.env.APPDATA || (process.platform === 'darwin' ? path.join(os.homedir(), 'Library', 'Application Support') : os.homedir());
-            const localCandidates = [
-              path.join(userAppdata, '.shubacore', 'runtime', 'client-mods', 'opt', 'modernfix-5.27.20-build.2.jar'),
-              path.join(this.configManager.getInstanceDirectory(), 'runtime', 'client-mods', 'opt', 'modernfix-5.27.20-build.2.jar'),
-              path.join(userAppdata, '.shubacore', 'instances', 'Mi Aventura', 'mods', 'modernfix-5.27.20-build.2.jar')
-            ];
-            for (const cand of localCandidates) {
-              if (fs.existsSync(cand)) {
-                const target = path.join(activeInstance, 'mods', 'modernfix-5.27.20-build.2.jar');
-                fs.copyFileSync(cand, target);
-                installed.push({ fileName: 'modernfix-5.27.20-build.2.jar', name: 'ModernFix' });
-                break;
-              }
-            }
-            if (installed.some(m => m.name === 'ModernFix')) continue;
-          } catch (_) {}
-        }
         logger.warn(`No se pudo instalar automáticamente ${slug}: ${err.message}`);
         errors.push({ slug, error: err.message });
       }
@@ -3109,7 +3344,7 @@ class ModManager {
       title: 'ShubaClient Oficial 26.3 (FPS Boost & Vulkan)',
       name: 'ShubaClient Oficial 26.3',
       author: 'SHUBATECH',
-      summary: 'Cliente oficial ShubaClient: máxima optimización y tasa de FPS en Minecraft 26.3 con Fabric, Vulkan/Sodium, Iris Shaders, menú 3D y cosméticos gratis.',
+      summary: 'Cliente oficial ShubaClient: máxima optimización y tasa de FPS en Minecraft 26.3 con Fabric, Vulkan/Sodium, Iris Shaders y menú 3D.',
       description: 'El modpack oficial de ShubaCore pre-configurado para exprimir el máximo rendimiento en Minecraft 26.3. Incluye el motor gráfico Vulkan (Sodium/ShubaDium), compatibilidad nativa con shaders (Iris), reducción masiva de RAM (FerriteCore/ModernFix), física optimizada (Lithium) y la interfaz de usuario moderna ShubaClient UI en español.',
       iconUrl,
       downloads: 999999,
@@ -3150,7 +3385,7 @@ class ModManager {
             <li><strong>Reducción de Memoria RAM (FerriteCore & ModernFix):</strong> Estabilidad garantizada con un consumo acotado a 6 GB máximos.</li>
             <li><strong>Física y Entidades Suaves (Lithium & Entity Culling):</strong> Cero micro-tirones (stuttering) en granjas y multijugador.</li>
             <li><strong>Menú Panorámico 3D & Pausa Step-Back:</strong> Interfaz cinemática con renderizado en tiempo real.</li>
-            <li><strong>ShubaClient UI & Cosméticos Gratis:</strong> Menús rediseñados en español (España - es_es) y controles listos para jugar.</li>
+            <li><strong>ShubaClient UI:</strong> Menús rediseñados y controles listos para jugar.</li>
           </ul>
         </div>
       </div>
@@ -3207,7 +3442,7 @@ class ModManager {
       title: 'ShubaClient Oficial 26.3 (FPS Boost & Vulkan)',
       name: 'ShubaClient Oficial 26.3',
       author: 'SHUBATECH',
-      summary: 'Cliente oficial ShubaClient: máxima optimización y tasa de FPS en Minecraft 26.3 con Fabric, Vulkan/Sodium, Iris Shaders, menú 3D y cosméticos gratis.',
+      summary: 'Cliente oficial ShubaClient: máxima optimización y tasa de FPS en Minecraft 26.3 con Fabric, Vulkan/Sodium, Iris Shaders y menú 3D.',
       descriptionHtml,
       iconUrl: logoB64,
       downloads: 999999,
@@ -3232,7 +3467,8 @@ class ModManager {
 
     const { getProfileManager } = require('../profiles/ProfileManager');
     const profileManager = getProfileManager();
-    const logoB64 = profileManager._getOfficialLogoBase64();
+    const logoB64 = profileManager._getBlueLogoBase64();
+    const blueBuf = profileManager._getBlueLogoBuffer();
 
     const createdProfile = profileManager.createProfile({
       name: targetName,
@@ -3250,6 +3486,11 @@ class ModManager {
     if (onProgress) onProgress({ type: 'modpack_file', message: 'Inyectando optimizadores y mods oficiales...', percent: 45 });
 
     const instancePath = createdProfile.instancePath;
+    if (blueBuf) {
+      try {
+        fs.writeFileSync(path.join(instancePath, 'icon.png'), blueBuf);
+      } catch (_) {}
+    }
     profileManager._populateDefaultShubaClientMods(instancePath, onProgress);
 
     const allMods = this.scanAndSyncMods(instancePath);
@@ -3273,7 +3514,7 @@ class ModManager {
     };
   }
 
-  async installModpackFile({ packPath, instancePath = null, createProfile = false, onProgress = null, iconUrl = null }) {
+  async installModpackFile({ packPath, instancePath = null, createProfile = false, onProgress = null, iconUrl = null, profileManager = null }) {
     if (!fs.existsSync(packPath)) {
       throw new Error(`El archivo de modpack no existe: ${packPath}`);
     }
@@ -3287,19 +3528,19 @@ class ModManager {
     // 1. Modrinth (.mrpack)
     const modrinthIndexEntry = zipEntries.find((e) => e.entryName === 'modrinth.index.json');
     if (modrinthIndexEntry) {
-      return await this._installModrinthMrpack(zip, modrinthIndexEntry, targetInstance, onProgress, packPath, iconUrl);
+      return await this._installModrinthMrpack(zip, modrinthIndexEntry, targetInstance, onProgress, packPath, iconUrl, profileManager);
     }
 
     // 2. CurseForge (.zip)
     const cfManifestEntry = zipEntries.find((e) => e.entryName === 'manifest.json');
     if (cfManifestEntry) {
-      return await this._installCurseForgeZip(zip, cfManifestEntry, targetInstance, onProgress, packPath, iconUrl);
+      return await this._installCurseForgeZip(zip, cfManifestEntry, targetInstance, onProgress, packPath, iconUrl, profileManager);
     }
 
     throw new Error('El archivo comprimido no contiene un modrinth.index.json ni un manifest.json válido.');
   }
 
-  async _installModrinthMrpack(zip, indexEntry, targetInstance, onProgress, packPath = null, iconUrl = null) {
+  async _installModrinthMrpack(zip, indexEntry, targetInstance, onProgress, packPath = null, iconUrl = null, profileManager = null) {
     logger.info('[Modpack:Modrinth] Procesando modrinth.index.json...');
     const indexJson = JSON.parse(indexEntry.getData().toString('utf8'));
     const files = indexJson.files || [];
@@ -3330,9 +3571,8 @@ class ModManager {
     let createdProfile = null;
 
     if (!instancePath) {
-      const { getProfileManager } = require('../profiles/ProfileManager');
-      const profileManager = getProfileManager();
-      createdProfile = profileManager.createProfile({
+      const pm = profileManager || this.profileManager || require('../profiles/ProfileManager').getProfileManager();
+      createdProfile = pm.createProfile({
         name: packName,
         mcVersion,
         loader,
@@ -3340,8 +3580,8 @@ class ModManager {
         ramMin: '2G',
         ramMax: '8G'
       });
-      instancePath = createdProfile.instancePath;
-      profileManager.setActive(createdProfile.id);
+      instancePath = createdProfile.instancePath || pm.getInstancePath(createdProfile.id);
+      pm.setActive(createdProfile.id);
       logger.info(`[Modpack:Modrinth] Creada nueva instancia para modpack: "${packName}" (${loader} ${mcVersion})`);
     }
 
@@ -3377,7 +3617,23 @@ class ModManager {
       const targetDir = path.dirname(targetPath);
       if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
 
-      await this._downloadStream(downloadUrl, targetPath);
+      if (!fs.existsSync(targetPath) || fs.statSync(targetPath).size < 100) {
+        let downloaded = false;
+        let lastErr = null;
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          try {
+            await this._downloadStream(downloadUrl, targetPath);
+            downloaded = true;
+            break;
+          } catch (dlErr) {
+            lastErr = dlErr;
+            logger.warn(`[Modpack:Modrinth] Intento ${attempt} fallido para ${path.basename(f.path)}: ${dlErr.message}`);
+          }
+        }
+        if (!downloaded) {
+          logger.error(`[Modpack:Modrinth] No se pudo descargar el archivo ${path.basename(f.path)} tras reintentos.`);
+        }
+      }
 
       completed++;
       const fileName = path.basename(f.path);
@@ -3415,7 +3671,7 @@ class ModManager {
       fs.writeFileSync(this._getLockFilePath(instancePath), JSON.stringify(lockData, null, 2), 'utf8');
     }
 
-    this.purgeDuplicateMods(instancePath);
+    // Los archivos de modpacks curados por el autor no se purgan automáticamente para evitar eliminar mods intencionales
     const allMods = this.scanAndSyncMods(instancePath);
     return {
       success: true,
@@ -3432,7 +3688,7 @@ class ModManager {
     };
   }
 
-  async _installCurseForgeZip(zip, manifestEntry, targetInstance, onProgress, packPath = null, iconUrl = null) {
+  async _installCurseForgeZip(zip, manifestEntry, targetInstance, onProgress, packPath = null, iconUrl = null, profileManager = null) {
     logger.info('[Modpack:CurseForge] Procesando manifest.json...');
     const manifest = JSON.parse(manifestEntry.getData().toString('utf8'));
     const apiKey = this._getCurseForgeKey();
@@ -3446,9 +3702,8 @@ class ModManager {
     let createdProfile = null;
 
     if (!instancePath) {
-      const { getProfileManager } = require('../profiles/ProfileManager');
-      const profileManager = getProfileManager();
-      createdProfile = profileManager.createProfile({
+      const pm = profileManager || this.profileManager || require('../profiles/ProfileManager').getProfileManager();
+      createdProfile = pm.createProfile({
         name: packName,
         mcVersion,
         loader: loaderInfo.loader,
@@ -3456,8 +3711,8 @@ class ModManager {
         ramMin: '2G',
         ramMax: '8G'
       });
-      instancePath = createdProfile.instancePath;
-      profileManager.setActive(createdProfile.id);
+      instancePath = createdProfile.instancePath || pm.getInstancePath(createdProfile.id);
+      pm.setActive(createdProfile.id);
       logger.info(`[Modpack:CurseForge] Creada nueva instancia para modpack: "${packName}" (${loaderInfo.loader} ${mcVersion})`);
     }
 
@@ -3550,16 +3805,16 @@ class ModManager {
           downloadUrl = this._buildCurseForgeEdgeUrl(fileData.id, fileData.fileName);
         }
 
-        if (downloadUrl) {
-          downloadTasks.push({
-            projectID: f.projectID,
-            fileID: f.fileID,
-            fileData,
-            downloadUrl
-          });
-        } else {
-          logger.warn(`[Modpack:CurseForge] Mod ${f.projectID}/${f.fileID} (${fileData.fileName}) sin URL de descarga disponible.`);
-        }
+        const sha1Obj = (fileData.hashes || []).find((h) => h.algo === 1);
+        const sha1 = sha1Obj ? sha1Obj.value : null;
+
+        downloadTasks.push({
+          projectID: f.projectID,
+          fileID: f.fileID,
+          fileData,
+          downloadUrl,
+          sha1
+        });
       } else {
         logger.warn(`[Modpack:CurseForge] No se pudieron obtener metadatos para Mod ${f.projectID}/${f.fileID}.`);
       }
@@ -3571,7 +3826,7 @@ class ModManager {
     let lockModified = false;
 
     await this._runWithConcurrency(downloadTasks, 6, async (task) => {
-      const { fileData, downloadUrl, projectID, fileID } = task;
+      const { fileData, downloadUrl, projectID, fileID, sha1 } = task;
       let targetDir = modsDir;
       const lowerName = fileData.fileName.toLowerCase();
       if (lowerName.endsWith('.zip')) {
@@ -3584,7 +3839,28 @@ class ModManager {
       }
 
       const targetPath = path.join(targetDir, fileData.fileName);
-      await this._downloadStream(downloadUrl, targetPath);
+      if (!fs.existsSync(targetPath) || fs.statSync(targetPath).size < 100) {
+        let downloaded = false;
+        let lastErr = null;
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          try {
+            await this._downloadStream(downloadUrl, targetPath, null, {
+              sha1,
+              fileName: fileData.fileName,
+              mcVersion,
+              loader: loaderInfo.loader
+            });
+            downloaded = true;
+            break;
+          } catch (dlErr) {
+            lastErr = dlErr;
+            logger.warn(`[Modpack:CurseForge] Intento ${attempt} fallido para ${fileData.fileName}: ${dlErr.message}`);
+          }
+        }
+        if (!downloaded) {
+          logger.error(`[Modpack:CurseForge] No se pudo descargar ${fileData.fileName} tras reintentos.`);
+        }
+      }
 
       completedCount++;
       if (onProgress) {
@@ -3619,7 +3895,7 @@ class ModManager {
       fs.writeFileSync(this._getLockFilePath(instancePath), JSON.stringify(lockData, null, 2), 'utf8');
     }
 
-    this.purgeDuplicateMods(instancePath);
+    // Los archivos de modpacks curados por el autor no se purgan automáticamente para evitar eliminar mods intencionales
     const allMods = this.scanAndSyncMods(instancePath);
     logger.info(`[Modpack:CurseForge] Instalación completa de "${packName}". ${completedCount} archivos instalados.`);
 
@@ -3668,6 +3944,21 @@ class ModManager {
           iconSaved = true;
           logger.info(`[Modpack] Icono oficial extraído del paquete a: ${localIconPath}`);
         }
+      }
+
+      // 1b. Si el manifiesto (.json) incluye icono embebido en base64 / data:image
+      const manifestIcon = (cfManifest && (cfManifest.icon || cfManifest.iconBase64)) ||
+                           (modrinthIndex && (modrinthIndex.icon || modrinthIndex.iconBase64));
+      if (!iconSaved && manifestIcon && typeof manifestIcon === 'string') {
+        try {
+          const rawB64 = manifestIcon.includes(',') ? manifestIcon.split(',')[1] : manifestIcon;
+          const iconBuf = Buffer.from(rawB64, 'base64');
+          if (iconBuf && iconBuf.length > 50) {
+            fs.writeFileSync(localIconPath, iconBuf);
+            iconSaved = true;
+            logger.info(`[Modpack] Icono oficial restaurado desde manifest a: ${localIconPath}`);
+          }
+        } catch (_) {}
       }
 
       // 2. Si no viene en el zip y hay una iconUrl válida, descargarla
@@ -3895,17 +4186,38 @@ class ModManager {
       });
     }
 
-    // Agrupar archivos que representen el mismo mod
-    // Dos archivos pertenecen al mismo grupo si comparten projectId (no nulo), internalModId (no nulo) o baseClean (no nulo)
+    // Agrupar archivos que representen inequívocamente el mismo mod
+    // Solo se agrupan si comparten el MISMO internalModId no nulo, o el MISMO projectId no nulo.
+    // Si los modId o projectIds difieren, NUNCA se agrupan (evita borrar mods distintos de modpacks).
     const groups = [];
     for (const entry of fileEntries) {
       let matchedGroup = null;
       for (const g of groups) {
-        const sharesProject = entry.projectId && g.some((x) => x.projectId && x.projectId === entry.projectId);
-        const sharesModId = entry.internalModId && g.some((x) => x.internalModId && x.internalModId === entry.internalModId);
-        const sharesBase = entry.baseClean && g.some((x) => x.baseClean && x.baseClean === entry.baseClean);
+        const isMatch = g.some((other) => {
+          // Si ambos tienen internalModId y son distintos -> mods diferentes
+          if (entry.internalModId && other.internalModId && entry.internalModId !== other.internalModId) {
+            return false;
+          }
+          // Si ambos tienen projectId y son distintos -> mods diferentes
+          if (entry.projectId && other.projectId && entry.projectId !== other.projectId) {
+            return false;
+          }
+          // Coincidencia segura por modId interno verificado
+          if (entry.internalModId && other.internalModId && entry.internalModId === other.internalModId) {
+            return true;
+          }
+          // Coincidencia segura por projectId de Modrinth o CurseForge
+          if (entry.projectId && other.projectId && entry.projectId === other.projectId) {
+            return true;
+          }
+          // Fallback a baseClean idéntico SOLO si ninguno tiene modId ni projectId definidos y baseClean es robusto (>= 6 caracteres)
+          if (!entry.internalModId && !other.internalModId && !entry.projectId && !other.projectId) {
+            return Boolean(entry.baseClean && other.baseClean && entry.baseClean === other.baseClean && entry.baseClean.length >= 6);
+          }
+          return false;
+        });
 
-        if (sharesProject || sharesModId || sharesBase) {
+        if (isMatch) {
           matchedGroup = g;
           break;
         }

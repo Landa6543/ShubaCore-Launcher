@@ -21,6 +21,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const crypto = require('crypto');
 const { getConfigManager } = require('../config/ConfigManager');
 const { defaultLogger: logger } = require('../utils/logger');
 
@@ -193,11 +194,13 @@ class ProfileManager {
 
     let icon = rawObj.icon;
     const localIconPath = path.join(this.getInstancePath(id), 'icon.png');
-    if (fs.existsSync(localIconPath)) {
+    if (icon && typeof icon === 'string' && icon.startsWith('data:image')) {
+      // Si se pasa un nuevo icono explícito (data:image), se respeta la nueva imagen
+    } else if (fs.existsSync(localIconPath)) {
       try {
         const stats = fs.statSync(localIconPath);
         // Si es ShubaClient, sincronizar con el logo oficial del cliente (S azul oficial de 103 KB)
-        if (isShubaClient && (stats.size === 79584 || stats.size < 1000 || stats.size === 160405) && blueBuf) {
+        if (isShubaClient && blueBuf && (stats.size !== blueBuf.length || stats.size === 132277 || stats.size === 79584 || stats.size === 160405 || stats.size < 1000)) {
           fs.writeFileSync(localIconPath, blueBuf);
           icon = blueB64;
         } else {
@@ -437,16 +440,19 @@ class ProfileManager {
       }
     }
 
-    // 2. Buscar mods en directorios locales disponibles
+    // 2. Buscar mods en directorios locales disponibles (exclusivamente Fabric 26.3)
     const userAppdata = process.env.APPDATA || (process.platform === 'darwin' ? path.join(os.homedir(), 'Library', 'Application Support') : os.homedir());
     const potentialDirs = [
+      path.join(os.homedir(), 'Desktop', 'ShubaCoreMod', 'build', 'libs'),
+      path.join(os.homedir(), 'Desktop', 'ShubaCoreMod', 'dist-shubaclient-mods', '26.3'),
       path.join(this.sharedRoot, 'runtime', 'client-mods'),
       path.join(this.sharedRoot, 'runtime', 'client-mods', 'deps'),
       path.join(this.sharedRoot, 'runtime', 'client-mods', 'opt'),
       path.join(userAppdata, '.shubacore', 'runtime', 'client-mods'),
       path.join(userAppdata, '.shubacore', 'runtime', 'client-mods', 'deps'),
       path.join(userAppdata, '.shubacore', 'runtime', 'client-mods', 'opt'),
-      path.join(userAppdata, '.shubacore', 'instances', 'Mi Aventura', 'mods'),
+      path.join(userAppdata, 'Polyfrost', 'OneClient', 'clusters', '26.3 Fabric', 'mods'),
+      path.join(userAppdata, 'Polyfrost', 'OneClient', '.minecraft', 'mods', '26.3 Fabric'),
       path.resolve(process.cwd(), '.shubacore-data', 'runtime', 'client-mods'),
       path.resolve(process.cwd(), '.shubacore-data', 'runtime', 'client-mods', 'deps'),
       path.resolve(process.cwd(), '.shubacore-data', 'runtime', 'client-mods', 'opt')
@@ -461,6 +467,8 @@ class ProfileManager {
             if (f.toLowerCase().endsWith('.jar')) {
               const lower = f.toLowerCase();
               if (lower === 'shubaclient-base.jar' || lower === 'shubaclient-custom.jar') continue;
+              // Rechazar estrictamente mods empaquetados para Forge dentro de instancias de Fabric
+              if (lower.includes('-forge-') || lower.endsWith('-forge.jar')) continue;
               if (!availableJars.has(lower)) {
                 availableJars.set(lower, path.join(dir, f));
               }
@@ -477,15 +485,13 @@ class ProfileManager {
       { pattern: /^fabric-api.*26\.3.*\.jar$/i, name: 'fabric-api-0.166.2+26.3.jar' },
       { pattern: /^fabric-language-kotlin.*\.jar$/i, name: 'fabric-language-kotlin-1.14.2+kotlin.2.4.21.jar' },
       { pattern: /^compose-bundle.*\.jar$/i, name: 'compose-bundle-2.1.0+compose.1.13.0-alpha02.jar' },
-      { pattern: /^iris-fabric.*26\.3.*\.jar$/i, name: 'iris-fabric-1.11.7+mc26.3.jar' },
       { pattern: /^lithium-fabric.*26\.3.*\.jar$/i, name: 'lithium-fabric-0.26.3+mc26.3.jar' },
       { pattern: /^ferritecore.*fabric.*\.jar$/i, name: 'ferritecore-9.0.0-fabric.jar' },
       { pattern: /^immediatelyfast.*26\.3.*\.jar$/i, name: 'ImmediatelyFast-Fabric-1.17.1+26.3.jar' },
-      { pattern: /^entityculling-fabric.*26\.3.*\.jar$/i, name: 'entityculling-fabric-1.12.1-mc26.3.jar' },
-      { pattern: /^modernfix.*\.jar$/i, name: 'modernfix-5.27.20-build.2.jar' },
+      { pattern: /^entityculling-fabric.*1\.12.*26\.3.*\.jar$/i, name: 'entityculling-fabric-1.12.1-mc26.3.jar' },
       { pattern: /^rsls.*\.jar$/i, name: 'rsls-1.4.0.jar' },
       { pattern: /^sodium-extra-fabric.*26\.3.*\.jar$/i, name: 'sodium-extra-fabric-0.9.5+mc26.3.jar' },
-      { pattern: /^sodium-fabric.*26\.3.*\.jar$/i, name: 'sodium-fabric-0.9.3-beta.5-mc26.3.jar' },
+      { pattern: /^sodium-fabric.*26\.3.*\.jar$/i, name: 'sodium-fabric-0.9.2+mc26.3.jar' },
       { pattern: /^sodium-shadowy-path-blocks.*\.jar$/i, name: 'sodium-shadowy-path-blocks-fabric-8.0.0.jar' },
       { pattern: /^clumps-fabric.*26\.3.*\.jar$/i, name: 'Clumps-fabric-26.3-26.3.2.jar' }
     ];
@@ -538,6 +544,21 @@ class ProfileManager {
         }
       }
     }
+
+    // Purgar cualquier archivo arcaico de ModernFix en instancias de 26.3 para prevenir ClassTweakerFormatException
+    try {
+      if (fs.existsSync(modsDir)) {
+        const currentMods = fs.readdirSync(modsDir);
+        for (const f of currentMods) {
+          if (/modernfix/i.test(f)) {
+            try {
+              fs.unlinkSync(path.join(modsDir, f));
+              logger.info(`[ProfileManager] ✅ Purgado mod incompatible ${f} de instancia 26.3`);
+            } catch (_) {}
+          }
+        }
+      }
+    } catch (_) {}
 
     try {
       const { getModManager } = require('../mods/ModManager');
@@ -600,7 +621,8 @@ class ProfileManager {
         logger.warn('No se pudo guardar icon.png:', iconErr.message);
       }
     } else if (!fs.existsSync(localIconPath)) {
-      const logoBuf = this._getOfficialLogoBuffer();
+      const isShuba = profileId === 'shubaclient-263' || (profileData.name && profileData.name.toLowerCase().includes('shubaclient'));
+      const logoBuf = isShuba ? (this._getBlueLogoBuffer() || this._getOfficialLogoBuffer()) : this._getOfficialLogoBuffer();
       if (logoBuf) {
         try {
           fs.writeFileSync(localIconPath, logoBuf);
@@ -608,20 +630,20 @@ class ProfileManager {
       }
     }
 
-    // Si es la instancia oficial ShubaClient y está vacía, poblarla automáticamente
+    // Si es la instancia oficial ShubaClient, sincronizar con el logo azul oficial
     const isShubaClient = profileId === 'shubaclient-263' || (profileData.name && profileData.name.toLowerCase().includes('shubaclient'));
     if (isShubaClient) {
-      const officialBuf = this._getOfficialLogoBuffer();
-      if (officialBuf) {
+      const blueBuf = this._getBlueLogoBuffer();
+      if (blueBuf) {
         let needsWrite = !fs.existsSync(localIconPath);
         if (!needsWrite) {
           try {
             const st = fs.statSync(localIconPath);
-            if (st.size === 79584 || st.size < 1000) needsWrite = true;
+            if (st.size !== blueBuf.length || st.size === 132277 || st.size === 79584 || st.size < 1000) needsWrite = true;
           } catch (_) {}
         }
         if (needsWrite) {
-          try { fs.writeFileSync(localIconPath, officialBuf); } catch (_) {}
+          try { fs.writeFileSync(localIconPath, blueBuf); } catch (_) {}
         }
       }
     }
@@ -764,6 +786,15 @@ class ProfileManager {
     const metaFile = path.join(instanceDir, 'profile.json');
     if (fs.existsSync(instanceDir)) {
       fs.writeFileSync(metaFile, JSON.stringify(updated, null, 2), 'utf8');
+      if (updated.icon && updated.icon.startsWith('data:image')) {
+        try {
+          const parts = updated.icon.split(',');
+          if (parts[1]) {
+            fs.writeFileSync(path.join(instanceDir, 'icon.png'), Buffer.from(parts[1], 'base64'));
+            this.saveCustomIcon(updated.icon);
+          }
+        } catch (_) {}
+      }
     }
 
     this.save();
@@ -800,6 +831,86 @@ class ProfileManager {
     this.save();
     logger.info(`Perfil "${profileToDelete.name}" (${id}) eliminado.`);
     return true;
+  }
+
+  getIconsHistoryDir() {
+    const dir = path.join(this.sharedRoot, 'cache', 'profile-icons');
+    if (!fs.existsSync(dir)) {
+      try { fs.mkdirSync(dir, { recursive: true }); } catch (_) {}
+    }
+    return dir;
+  }
+
+  getIconHistory() {
+    const icons = [];
+    const seenHashes = new Set();
+
+    // 1. Añadir iconos guardados en cache/profile-icons/
+    const historyDir = this.getIconsHistoryDir();
+    if (fs.existsSync(historyDir)) {
+      try {
+        const files = fs.readdirSync(historyDir);
+        for (const file of files) {
+          if (/\.(png|jpe?g|webp)$/i.test(file)) {
+            const fullPath = path.join(historyDir, file);
+            try {
+              const buf = fs.readFileSync(fullPath);
+              const hash = crypto.createHash('md5').update(buf).digest('hex');
+              if (!seenHashes.has(hash)) {
+                seenHashes.add(hash);
+                icons.push({
+                  id: `history-${file}`,
+                  name: file,
+                  dataUrl: `data:image/png;base64,${buf.toString('base64')}`
+                });
+              }
+            } catch (_) {}
+          }
+        }
+      } catch (_) {}
+    }
+
+    // 2. Escanear iconos existentes de todas las instancias
+    if (fs.existsSync(this.instancesDir)) {
+      try {
+        const dirs = fs.readdirSync(this.instancesDir);
+        for (const d of dirs) {
+          const iconPath = path.join(this.instancesDir, d, 'icon.png');
+          if (fs.existsSync(iconPath)) {
+            try {
+              const buf = fs.readFileSync(iconPath);
+              const hash = crypto.createHash('md5').update(buf).digest('hex');
+              if (!seenHashes.has(hash)) {
+                seenHashes.add(hash);
+                icons.push({
+                  id: `instance-${d}`,
+                  name: d,
+                  dataUrl: `data:image/png;base64,${buf.toString('base64')}`
+                });
+              }
+            } catch (_) {}
+          }
+        }
+      } catch (_) {}
+    }
+
+    return icons;
+  }
+
+  saveCustomIcon(dataUrl) {
+    if (!dataUrl || typeof dataUrl !== 'string') return null;
+    try {
+      const parts = dataUrl.split(',');
+      if (!parts[1]) return null;
+      const buf = Buffer.from(parts[1], 'base64');
+      const hash = crypto.createHash('md5').update(buf).digest('hex');
+      const historyDir = this.getIconsHistoryDir();
+      const destPath = path.join(historyDir, `icon_${hash}.png`);
+      fs.writeFileSync(destPath, buf);
+      return `data:image/png;base64,${buf.toString('base64')}`;
+    } catch (_) {
+      return null;
+    }
   }
 }
 

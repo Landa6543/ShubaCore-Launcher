@@ -328,6 +328,10 @@ function registerIpcHandlers(mainWindow) {
       const base64Data = fs.readFileSync(filePath).toString('base64');
       const dataUrl = `data:${mime};base64,${base64Data}`;
 
+      try {
+        profileManager.saveCustomIcon(dataUrl);
+      } catch (_) {}
+
       return {
         canceled: false,
         filePath,
@@ -336,6 +340,24 @@ function registerIpcHandlers(mainWindow) {
     } catch (err) {
       logger.error('Error al seleccionar icono de instancia:', err);
       return { canceled: true, error: err.message };
+    }
+  });
+
+  ipcMain.handle('profiles:get-icon-history', async () => {
+    try {
+      return profileManager.getIconHistory();
+    } catch (err) {
+      logger.error('Error en profiles:get-icon-history IPC:', err);
+      return [];
+    }
+  });
+
+  ipcMain.handle('profiles:save-custom-icon', async (event, dataUrl) => {
+    try {
+      return profileManager.saveCustomIcon(dataUrl);
+    } catch (err) {
+      logger.error('Error en profiles:save-custom-icon IPC:', err);
+      return null;
     }
   });
 
@@ -1057,6 +1079,28 @@ function registerIpcHandlers(mainWindow) {
       return await modManager.getProjectDetails(options);
     } catch (err) {
       logger.error('Error en mods:get-project-details IPC:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('mods:get-server-pack-url', async (event, { projectId, serverPackFileId }) => {
+    try {
+      const apiKey = modManager._getCurseForgeKey();
+      const sRes = await fetch(`https://api.curseforge.com/v1/mods/${projectId}/files/${serverPackFileId}`, {
+        headers: { 'x-api-key': apiKey, Accept: 'application/json', 'User-Agent': 'SHUBATECH/ShubaCore-Launcher/1.0.0 (contact@shubatech.com)' }
+      });
+      if (sRes.ok) {
+        const sData = (await sRes.json()).data;
+        if (sData) {
+          let sUrl = sData.downloadUrl;
+          if (!sUrl && sData.id && sData.fileName) {
+            sUrl = modManager._buildCurseForgeEdgeUrl(sData.id, sData.fileName);
+          }
+          return { success: true, downloadUrl: sUrl, fileName: sData.fileName };
+        }
+      }
+      return { success: false, error: 'No se pudo obtener URL del paquete de servidor' };
+    } catch (err) {
       return { success: false, error: err.message };
     }
   });

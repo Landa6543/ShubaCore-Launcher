@@ -599,30 +599,104 @@ class LaunchManager {
       process.env.SHIM_MCCOMPAT = '0x800000001';
       process.env.__GL_THREADED_OPTIMIZATIONS = '1';
 
-      // Si el perfil tiene activo el Motor ShubaCore (por defecto true), inyectar optimizadores de renderizado
+      // ShubaCore Engine: Variables de alto rendimiento para GPU aplicadas
       const isEngineEnabled = activeProfile.shubaEngine !== false && overrideOptions.shubaEngine !== false;
       if (isEngineEnabled && loader !== 'vanilla') {
-        logger.info('⚡ [SHUBACORE ENGINE] Inyección interna activa. Verificando optimizadores base de motor...');
-        try {
-          const { getModManager } = require('../mods/ModManager');
-          const modMgr = getModManager();
-          await modMgr.installPerformancePack({
-            mcVersion,
-            loader,
-            instancePath,
-            onProgress: (p) => {
-              this._emit('launch:progress', { type: 'engine_opt', message: p.message, percent: p.percent });
-            }
-          });
-        } catch (engineErr) {
-          logger.warn(`[SHUBACORE ENGINE] Aviso al inyectar optimizadores base: ${engineErr.message}`);
-        }
+        logger.info('⚡ [SHUBACORE ENGINE] Aceleración de motor activa (GPU threaded optimizations & compat shim habilitados).');
       }
 
       // REQUISITO: Parcheo en vivo desactivado permanentemente para evitar roturas de UI y crasheos
       // Los mods se instalan limpia y directamente desde el catálogo oficial de GitHub (Landa6543/ShubaCore-Mods)
       // ClientModPatcher live injection eliminado.
       const isShubaClientEnabled = false;
+
+      // REQUISITO: Purgar mods de ModernFix en Fabric 26.3 para prevenir ClassTweakerFormatException (namespace official vs intermediary)
+      if ((loader === 'fabric' || loader === 'quilt') && (mcVersion === '26.3' || String(mcVersion).startsWith('26.'))) {
+        try {
+          const mDir = path.join(instancePath, 'mods');
+          if (fs.existsSync(mDir)) {
+            const mFiles = fs.readdirSync(mDir);
+            for (const f of mFiles) {
+              if (/modernfix/i.test(f)) {
+                try {
+                  fs.unlinkSync(path.join(mDir, f));
+                  logger.info(`[LaunchManager] ✅ Purgado mod incompatible ${f} en Fabric ${mcVersion} para prevenir ClassTweakerFormatException.`);
+                } catch (_) {}
+              }
+              // REQUISITO: Auto-parchear ShubaHost Fabric para prevenir NoClassDefFoundError en CommandRegistrationCallback
+              if (/^shubahost-fabric.*\.jar$/i.test(f)) {
+                try {
+                  const shubaJarPath = path.join(mDir, f);
+                  const AdmZip = require('adm-zip');
+                  const sZip = new AdmZip(shubaJarPath);
+                  const sEntry = sZip.getEntry('link/e4mc/fabric/E4mcClientFabric.class');
+                  if (sEntry) {
+                    const sBuf = Buffer.from(sEntry.getData());
+                    const pattern = Buffer.from([0xb8, 0x00, 0x1f, 0xb2, 0x00, 0x25, 0xba, 0x00, 0x36, 0x00, 0x00, 0xb6, 0x00, 0x3b, 0xa7, 0x00, 0x0f, 0x4c, 0xb2, 0x00, 0x3e, 0xba, 0x00, 0x47, 0x00, 0x00, 0xb6, 0x00, 0x3b, 0xb1]);
+                    const idx = sBuf.indexOf(pattern);
+                    if (idx !== -1) {
+                      sBuf[idx + 3] = 0xb1;
+                      for (let i = idx + 4; i <= idx + 29; i++) {
+                        sBuf[i] = 0x00;
+                      }
+                      sBuf.writeUInt16BE(0, idx + 30);
+                      sZip.updateFile('link/e4mc/fabric/E4mcClientFabric.class', sBuf);
+                      sZip.writeZip(shubaJarPath);
+                      logger.info(`[LaunchManager] ✅ ShubaHost Fabric parcheado exitosamente para compatibilidad con ${mcVersion}`);
+                    }
+                  }
+                } catch (shubaErr) {
+                  logger.warn(`[LaunchManager] Aviso al parchear ShubaHost: ${shubaErr.message}`);
+                }
+              }
+            }
+          }
+        } catch (_) {}
+      }
+
+      // REQUISITO: Prevenir IndexOutOfBoundsException en Minecraft 26.3/SDL cuando se verifican teclas en KeyMapping.setAll()
+      if (mcVersion === '26.3' || String(mcVersion).startsWith('26.')) {
+        try {
+          const versionJar = path.join(this.versionsDir, String(mcVersion), `${mcVersion}.jar`);
+          const patchClassPath = path.join(__dirname, 'patches', 'InputConstants_26.3.class');
+          if (fs.existsSync(versionJar) && fs.existsSync(patchClassPath)) {
+            const AdmZip = require('adm-zip');
+            const vZip = new AdmZip(versionJar);
+            const entry = vZip.getEntry('com/mojang/blaze3d/platform/InputConstants.class');
+            if (entry) {
+              const entryBuf = entry.getData();
+              // Verificar si el JAR tiene el chequeo de límites seguro (sipush 512 = 0x11 0x02 0x00)
+              if (!entryBuf.includes(Buffer.from([0x11, 0x02, 0x00]))) {
+                const patchBuf = fs.readFileSync(patchClassPath);
+                vZip.updateFile('com/mojang/blaze3d/platform/InputConstants.class', patchBuf);
+                vZip.writeZip(versionJar);
+                logger.info(`[LaunchManager] ✅ Inyectado parche de seguridad de teclas (InputConstants SDL bounds check) en ${versionJar}`);
+              }
+            }
+          }
+        } catch (patchErr) {
+          logger.warn(`[LaunchManager] Advertencia al verificar parche InputConstants: ${patchErr.message}`);
+        }
+      }
+
+      // REQUISITO: Garantizar compatibilidad estricta de loader (evitar que un JAR de Forge crashee Fabric)
+      if (loader === 'fabric' || loader === 'quilt') {
+        try {
+          const mDir = path.join(instancePath, 'mods');
+          if (fs.existsSync(mDir)) {
+            const mFiles = fs.readdirSync(mDir);
+            for (const f of mFiles) {
+              const lowerF = f.toLowerCase();
+              if (lowerF.includes('-forge-') || lowerF.endsWith('-forge.jar')) {
+                try {
+                  fs.unlinkSync(path.join(mDir, f));
+                  logger.info(`[LaunchManager] ✅ Eliminado mod incompatible de Forge en perfil Fabric: ${f}`);
+                } catch (_) {}
+              }
+            }
+          }
+        } catch (_) {}
+      }
 
       // REQUISITO 1: BORRAR skin-agent.jar DEL DISCO SI EXISTE
       try {

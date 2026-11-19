@@ -939,6 +939,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  // Establecer vista inicial limpia en Mis Instancias (oculta rigurosamente todas las demás vistas)
+  switchTab('profiles');
+
   // =======================================================
   // GESTOR DE CUENTAS (SHUBACORE, MICROSOFT Y OFFLINE)
   // =======================================================
@@ -1967,14 +1970,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     if (!skinViewer3D) return;
     try {
-      let texture = capeHidden ? null : currentActiveCapeUrl;
-      if (isElytraMode && !texture && !capeHidden) {
-        if (!vanillaElytraDataUrl) {
-          const el = await api.skins.getVanillaElytra();
-          if (el && el.success) vanillaElytraDataUrl = el.dataUrl;
+      let texture = null;
+      if (isElytraMode) {
+        if (!capeHidden && currentActiveCapeUrl) {
+          texture = currentActiveCapeUrl;
+        } else {
+          if (!vanillaElytraDataUrl) {
+            try {
+              const el = await api.skins.getVanillaElytra();
+              if (el && el.success && el.dataUrl) vanillaElytraDataUrl = el.dataUrl;
+            } catch (_) {}
+          }
+          texture = vanillaElytraDataUrl;
         }
-        texture = vanillaElytraDataUrl;
+      } else if (!capeHidden && currentActiveCapeUrl) {
+        texture = currentActiveCapeUrl;
       }
+
       if (!texture) {
         skinViewer3D.resetCape();
         return;
@@ -2610,32 +2622,32 @@ document.addEventListener('DOMContentLoaded', async () => {
 
           <div class="instance-card-actions">
             <div class="instance-card-actions-left">
-              <button class="btn btn-small btn-primary btn-select-profile" data-id="${p.id}" title="Jugar con esta instancia">
+              <button class="btn btn-small btn-primary btn-select-profile" data-id="${p.id}" title="${window.i18n?.t ? window.i18n.t('card.play', 'Jugar') : 'Jugar'}">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>
-                <span>Jugar</span>
+                <span>${window.i18n?.t ? window.i18n.t('card.play', 'Jugar') : 'Jugar'}</span>
               </button>
-              <button class="btn btn-small btn-secondary btn-manage-mods" data-id="${p.id}" title="Ver mods de esta instancia">
-                <span>Mods</span>
+              <button class="btn btn-small btn-secondary btn-manage-mods" data-id="${p.id}" title="${window.i18n?.t ? window.i18n.t('card.mods', 'Mods') : 'Mods'}">
+                <span>${window.i18n?.t ? window.i18n.t('card.mods', 'Mods') : 'Mods'}</span>
               </button>
             </div>
             <div class="instance-card-actions-right">
-              <button class="btn btn-small btn-secondary btn-icon-square btn-edit-profile" data-id="${p.id}" title="Editar instancia">
+              <button class="btn btn-small btn-secondary btn-icon-square btn-edit-profile" data-id="${p.id}" title="${window.i18n?.t ? window.i18n.t('card.edit', 'Editar instancia') : 'Editar instancia'}">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
               </button>
-              <button class="btn btn-small btn-secondary btn-icon-square btn-open-logs" data-id="${p.id}" title="Ver logs y reportes de la instancia">
+              <button class="btn btn-small btn-secondary btn-icon-square btn-open-logs" data-id="${p.id}" title="${window.i18n?.t ? window.i18n.t('card.logs', 'Ver logs y reportes') : 'Ver logs y reportes'}">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
               </button>
-              <button class="btn btn-small btn-secondary btn-icon-square btn-open-folder" data-id="${p.id}" title="Abrir carpeta en el explorador">
+              <button class="btn btn-small btn-secondary btn-icon-square btn-open-folder" data-id="${p.id}" title="${window.i18n?.t ? window.i18n.t('card.openFolder', 'Abrir carpeta') : 'Abrir carpeta'}">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
               </button>
-              <button class="btn btn-small btn-secondary btn-icon-square btn-export-pack" data-id="${p.id}" data-name="${escapeHtml(p.name || 'perfil')}" title="Exportar como .shubapack">
+              <button class="btn btn-small btn-secondary btn-icon-square btn-export-pack" data-id="${p.id}" data-name="${escapeHtml(p.name || 'perfil')}" title="${window.i18n?.t ? window.i18n.t('card.export', 'Exportar como .shubapack') : 'Exportar como .shubapack'}">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
               </button>
-              <button class="btn btn-small btn-secondary btn-icon-square btn-share-instance-code" data-id="${p.id}" title="Compartir con amigos por código corto (GitHub)">
+              <button class="btn btn-small btn-secondary btn-icon-square btn-share-instance-code" data-id="${p.id}" title="${window.i18n?.t ? window.i18n.t('card.share', 'Compartir con amigos por código corto') : 'Compartir con amigos por código corto'}">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
               </button>
               ${profiles.length > 1 ? `
-                <button class="btn btn-small btn-danger btn-icon-square btn-delete-profile" data-id="${p.id}" title="Eliminar instancia">
+                <button class="btn btn-small btn-danger btn-icon-square btn-delete-profile" data-id="${p.id}" title="${window.i18n?.t ? window.i18n.t('card.delete', 'Eliminar instancia') : 'Eliminar instancia'}">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 </button>
               ` : ''}
@@ -3136,6 +3148,168 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (inputEditProfileIcon) inputEditProfileIcon.value = '';
       if (editProfileIconPreview) editProfileIconPreview.src = 'assets/logo.png';
     });
+  }
+
+  // =======================================================
+  // MODAL ELEGIR IMAGEN DE PERFIL (HISTORIAL Y MIS IMÁGENES)
+  // =======================================================
+  const modalChooseProfileIcon = document.getElementById('modal-choose-profile-icon');
+  const btnCloseChooseIconModal = document.getElementById('btn-close-choose-icon-modal');
+  const btnCancelChooseIcon = document.getElementById('btn-cancel-choose-icon');
+  const btnConfirmChooseIcon = document.getElementById('btn-confirm-choose-icon');
+  const btnUploadCustomIcon = document.getElementById('btn-upload-custom-icon');
+  const gridUserCustomIcons = document.getElementById('grid-user-custom-icons');
+  const gridOfficialCovers = document.getElementById('grid-official-covers');
+  const btnOpenChooseIconCreate = document.getElementById('btn-open-choose-icon-create');
+  const btnOpenChooseIconEdit = document.getElementById('btn-open-choose-icon-edit');
+  const chooseIconTabs = document.querySelectorAll('.choose-icon-tab');
+  const chooseIconPanels = document.querySelectorAll('.choose-icon-tab-panel');
+
+  let currentIconTarget = 'create';
+  let selectedIconDataUrl = null;
+
+  async function openChooseIconModal(target = 'create') {
+    if (!modalChooseProfileIcon) return;
+    currentIconTarget = target;
+    selectedIconDataUrl = null;
+    if (btnConfirmChooseIcon) btnConfirmChooseIcon.disabled = true;
+
+    modalChooseProfileIcon.classList.add('active');
+    modalChooseProfileIcon.style.setProperty('display', 'flex', 'important');
+
+    switchChooseIconTab('user');
+    await loadUserIconHistory();
+    loadOfficialIcons();
+  }
+
+  function closeChooseIconModal() {
+    if (!modalChooseProfileIcon) return;
+    modalChooseProfileIcon.classList.remove('active');
+    modalChooseProfileIcon.style.setProperty('display', 'none', 'important');
+  }
+
+  function switchChooseIconTab(tabName) {
+    chooseIconTabs.forEach((t) => {
+      if (t.dataset.tab === tabName) t.classList.add('active');
+      else t.classList.remove('active');
+    });
+    chooseIconPanels.forEach((p) => {
+      if ((tabName === 'user' && p.id === 'tab-content-user-icons') || (tabName === 'official' && p.id === 'tab-content-official-icons')) {
+        p.classList.add('active');
+        p.style.setProperty('display', 'block', 'important');
+      } else {
+        p.classList.remove('active');
+        p.style.setProperty('display', 'none', 'important');
+      }
+    });
+  }
+
+  chooseIconTabs.forEach((t) => {
+    t.addEventListener('click', () => switchChooseIconTab(t.dataset.tab));
+  });
+
+  async function loadUserIconHistory() {
+    if (!gridUserCustomIcons) return;
+    const existingCards = gridUserCustomIcons.querySelectorAll('.choose-icon-item-card');
+    existingCards.forEach((c) => c.remove());
+
+    try {
+      const history = await api.profiles.getIconHistory();
+      if (Array.isArray(history) && history.length > 0) {
+        history.forEach((item) => {
+          if (!item || !item.dataUrl) return;
+          const card = document.createElement('div');
+          card.className = 'choose-icon-item-card';
+          card.dataset.url = item.dataUrl;
+          card.title = item.fileName || 'Icono previo';
+          card.innerHTML = `<img src="${item.dataUrl}" alt="Icono" />`;
+          card.addEventListener('click', () => {
+            gridUserCustomIcons.querySelectorAll('.choose-icon-item-card').forEach((c) => c.classList.remove('selected'));
+            if (gridOfficialCovers) gridOfficialCovers.querySelectorAll('.choose-icon-item-card').forEach((c) => c.classList.remove('selected'));
+            card.classList.add('selected');
+            selectedIconDataUrl = item.dataUrl;
+            if (btnConfirmChooseIcon) btnConfirmChooseIcon.disabled = false;
+          });
+          gridUserCustomIcons.appendChild(card);
+        });
+      }
+    } catch (err) {
+      console.warn('Error cargando historial de iconos:', err);
+    }
+  }
+
+  function loadOfficialIcons() {
+    if (!gridOfficialCovers) return;
+    gridOfficialCovers.innerHTML = '';
+    const officialCovers = [
+      { name: 'ShubaCore Oficial', url: 'assets/logo.png' },
+      { name: 'ShubaClient Mod', url: 'assets/shubaclient_mod_logo.png' }
+    ];
+    officialCovers.forEach((item) => {
+      const card = document.createElement('div');
+      card.className = 'choose-icon-item-card';
+      card.dataset.url = item.url;
+      card.title = item.name;
+      card.innerHTML = `<img src="${item.url}" alt="${item.name}" />`;
+      card.addEventListener('click', () => {
+        gridOfficialCovers.querySelectorAll('.choose-icon-item-card').forEach((c) => c.classList.remove('selected'));
+        if (gridUserCustomIcons) gridUserCustomIcons.querySelectorAll('.choose-icon-item-card').forEach((c) => c.classList.remove('selected'));
+        card.classList.add('selected');
+        selectedIconDataUrl = item.url;
+        if (btnConfirmChooseIcon) btnConfirmChooseIcon.disabled = false;
+      });
+      gridOfficialCovers.appendChild(card);
+    });
+  }
+
+  if (btnUploadCustomIcon) {
+    btnUploadCustomIcon.addEventListener('click', async () => {
+      const res = await api.profiles.selectIconDialog();
+      if (!res.canceled && res.dataUrl) {
+        selectedIconDataUrl = res.dataUrl;
+        if (btnConfirmChooseIcon) btnConfirmChooseIcon.disabled = false;
+        await loadUserIconHistory();
+        const firstCard = gridUserCustomIcons.querySelector('.choose-icon-item-card');
+        if (firstCard) firstCard.classList.add('selected');
+      }
+    });
+  }
+
+  if (btnConfirmChooseIcon) {
+    btnConfirmChooseIcon.addEventListener('click', () => {
+      if (!selectedIconDataUrl) return;
+      if (currentIconTarget === 'create') {
+        if (inputCreateProfileIcon) inputCreateProfileIcon.value = selectedIconDataUrl;
+        if (createProfileIconPreview) createProfileIconPreview.src = selectedIconDataUrl;
+      } else {
+        if (inputEditProfileIcon) inputEditProfileIcon.value = selectedIconDataUrl;
+        if (editProfileIconPreview) editProfileIconPreview.src = selectedIconDataUrl;
+      }
+      closeChooseIconModal();
+    });
+  }
+
+  if (btnCloseChooseIconModal) btnCloseChooseIconModal.addEventListener('click', closeChooseIconModal);
+  if (btnCancelChooseIcon) btnCancelChooseIcon.addEventListener('click', closeChooseIconModal);
+
+  if (btnOpenChooseIconCreate) {
+    btnOpenChooseIconCreate.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openChooseIconModal('create');
+    });
+  }
+  if (createProfileIconPreview) {
+    createProfileIconPreview.addEventListener('click', () => openChooseIconModal('create'));
+  }
+
+  if (btnOpenChooseIconEdit) {
+    btnOpenChooseIconEdit.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openChooseIconModal('edit');
+    });
+  }
+  if (editProfileIconPreview) {
+    editProfileIconPreview.addEventListener('click', () => openChooseIconModal('edit'));
   }
 
   selectEditProfileMc.addEventListener('change', () => updateEditLoaderVersions());
@@ -3973,8 +4147,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Controles de Vista y Barra de Contexto de Catálogo
   function updateCatalogContextBar() {
     if (!catalogInstanceContextBar) return;
-    if (catalogContextProfile) {
+    const modpackOpt = selectCatalogContentType?.querySelector('option[value="modpacks"]');
+    // Si estamos en modpacks, nunca mostramos "Añadiendo contenido a la instancia" porque los modpacks son instancias independientes
+    if (catalogContextProfile && currentContentType !== 'modpacks') {
       catalogInstanceContextBar.style.display = 'flex';
+      if (modpackOpt) {
+        modpackOpt.style.display = 'none';
+        modpackOpt.disabled = true;
+      }
+      catPills.forEach((b) => {
+        if (b.getAttribute('data-cat') === 'modpacks') b.style.display = 'none';
+      });
       if (catalogContextIcon) {
         catalogContextIcon.src = resolveInstanceIcon(catalogContextProfile.icon);
       }
@@ -3988,11 +4171,23 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     } else {
       catalogInstanceContextBar.style.display = 'none';
+      if (modpackOpt) {
+        modpackOpt.style.display = '';
+        modpackOpt.disabled = false;
+      }
+      catPills.forEach((b) => {
+        if (b.getAttribute('data-cat') === 'modpacks') b.style.display = '';
+      });
     }
   }
 
   function openCatalogForInstance(profile) {
     catalogContextProfile = profile || currentActiveProfile;
+    if (currentContentType === 'modpacks') {
+      currentContentType = 'mods';
+      if (selectCatalogContentType) selectCatalogContentType.value = 'mods';
+      catPills.forEach((b) => b.classList.toggle('active', b.getAttribute('data-cat') === 'mods'));
+    }
     updateCatalogContextBar();
     switchMainView('catalog');
     if (typeof performModSearch === 'function') {
@@ -5155,6 +5350,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       catPills.forEach((b) => {
         b.classList.toggle('active', b.getAttribute('data-cat') === currentContentType);
       });
+      if (currentContentType === 'modpacks') {
+        catalogContextProfile = null;
+      }
+      updateCatalogContextBar();
       if (currentContentType === 'github') {
         if (selectModSource) selectModSource.value = 'github';
         if (selectCatalogPlatform) selectCatalogPlatform.disabled = true;
@@ -6297,9 +6496,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             itemDiv.className = 'gallery-grid-item';
             itemDiv.innerHTML = `<img src="${escapeHtml(imgUrl)}" alt="${escapeHtml(itemTitle)}" loading="lazy" />`;
             itemDiv.addEventListener('click', () => {
-              if (lightboxImage && imageLightbox) {
-                lightboxImage.src = imgUrl;
-                imageLightbox.classList.add('active');
+              if (imgUrl) {
+                openActiveImageLightbox(imgUrl);
               } else {
                 api.system.openExternal(imgUrl);
               }
@@ -6644,16 +6842,63 @@ document.addEventListener('DOMContentLoaded', async () => {
   // =======================================================
   // LIGHTBOX DE IMÁGENES / CAPTURAS
   // =======================================================
+  const btnCloseSimpleLightbox = document.getElementById('btn-close-simple-lightbox');
+
+  const closeActiveImageLightbox = () => {
+    if (imageLightbox) {
+      imageLightbox.classList.remove('active');
+      imageLightbox.style.setProperty('display', 'none', 'important');
+    }
+    const simpleImg = document.getElementById('simple-lightbox-image');
+    if (simpleImg) {
+      simpleImg.src = '';
+      simpleImg.style.display = 'none';
+    }
+    if (lightboxImage) {
+      lightboxImage.src = '';
+      lightboxImage.style.display = 'none';
+    }
+  };
+
+  const openActiveImageLightbox = (imgUrl) => {
+    if (!imageLightbox || !imgUrl) return;
+    const simpleImg = document.getElementById('simple-lightbox-image');
+    if (simpleImg) {
+      simpleImg.style.display = 'block';
+      simpleImg.src = imgUrl;
+      simpleImg.onerror = () => {
+        closeActiveImageLightbox();
+        if (typeof showToast === 'function') {
+          showToast('No se pudo cargar la imagen en resolución completa.', 'warning');
+        }
+      };
+    }
+    if (lightboxImage) {
+      lightboxImage.style.display = 'block';
+      lightboxImage.src = imgUrl;
+    }
+    imageLightbox.classList.add('active');
+    imageLightbox.style.setProperty('display', 'flex', 'important');
+  };
+
+  if (btnCloseSimpleLightbox) {
+    btnCloseSimpleLightbox.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeActiveImageLightbox();
+    });
+  }
+
   if (btnCloseLightbox) {
-    btnCloseLightbox.addEventListener('click', () => {
-      if (imageLightbox) imageLightbox.classList.remove('active');
+    btnCloseLightbox.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeActiveImageLightbox();
     });
   }
 
   if (imageLightbox) {
     imageLightbox.addEventListener('click', (e) => {
-      if (e.target === imageLightbox) {
-        imageLightbox.classList.remove('active');
+      if (e.target === imageLightbox || e.target.classList.contains('image-lightbox-wrapper') || e.target.closest('#btn-close-simple-lightbox')) {
+        closeActiveImageLightbox();
       }
     });
   }
@@ -6666,7 +6911,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Prioridad 1: Cerrar lightbox / visor de imágenes a pantalla completa
     if (imageLightbox && imageLightbox.classList.contains('active')) {
-      imageLightbox.classList.remove('active');
+      closeActiveImageLightbox();
       return;
     }
 
@@ -6685,6 +6930,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     if (modalCreateProfile && modalCreateProfile.classList.contains('active')) {
       closeCreateProfileModal();
+      return;
+    }
+    if (modalChooseProfileIcon && modalChooseProfileIcon.classList.contains('active')) {
+      closeChooseIconModal();
       return;
     }
     if (modalEditProfile && modalEditProfile.classList.contains('active')) {
@@ -6755,6 +7004,23 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (launcherUpdateBanner) launcherUpdateBanner.style.display = 'none';
     });
   }
+
+  // Sincronización reactiva ante cambio de idioma (i18n)
+  window.addEventListener('shubacore:language-changed', () => {
+    try {
+      if (typeof loadProfiles === 'function') loadProfiles();
+    } catch (_) {}
+    try {
+      if (btnLaunchText && !currentRunningProcess) {
+        btnLaunchText.textContent = window.i18n?.t ? window.i18n.t('btn.launch', 'JUGAR') : 'JUGAR';
+      }
+    } catch (_) {}
+    try {
+      if (window.i18n?.applyTranslationsToDOM) {
+        window.i18n.applyTranslationsToDOM();
+      }
+    } catch (_) {}
+  });
 
   // Eventos de auto-actualización emitidos desde Main Process
   api.events.on('updater:checking', () => {
@@ -9910,7 +10176,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   function openScreenshotLightbox(item) {
     if (!modalScreenshotLightbox) return;
     currentActiveLightboxScreenshot = item;
-    if (lightboxImage) lightboxImage.src = item.fileUrl;
+    const modalImg = document.getElementById('lightbox-image');
+    if (modalImg) modalImg.src = item.fileUrl;
     if (lightboxFilename) lightboxFilename.textContent = item.fileName;
     if (lightboxMeta) lightboxMeta.textContent = `Instancia: ${item.instanceName} · ${item.sizeFormatted} · ${item.dateFormatted}`;
     modalScreenshotLightbox.classList.remove('hidden');
@@ -9920,7 +10187,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!modalScreenshotLightbox) return;
     modalScreenshotLightbox.classList.add('hidden');
     currentActiveLightboxScreenshot = null;
-    if (lightboxImage) lightboxImage.src = '';
+    const modalImg = document.getElementById('lightbox-image');
+    if (modalImg) modalImg.src = '';
   }
 
   if (btnCloseScreenshotLightbox) {

@@ -64,7 +64,7 @@ console.log('   ✔ Reemplazo de lang:en_us por lang:es_es preservando ajustes v
 // 3. Verificar UI sin emoji duplicado en la barra lateral y botón de prueba de inyección
 console.log('\n▶ [3/5] Verificando UI (sin emoji duplicado y botón de prueba de inyección)...');
 const indexHtml = fs.readFileSync(path.join(__dirname, '../src/renderer/index.html'), 'utf8');
-assert.ok(indexHtml.includes('<span>Configurar Mando</span>'), 'La barra lateral debe decir <span>Configurar Mando</span>');
+assert.ok(/<span[^>]*>Configurar Mando<\/span>/.test(indexHtml), 'La barra lateral debe decir <span>Configurar Mando</span>');
 assert.ok(!indexHtml.includes('<span>🎮 Configurar Mando</span>'), 'La barra lateral NO debe tener emoji duplicado');
 assert.ok(indexHtml.includes('id="btn-test-controller-injection"'), 'Debe existir el botón de prueba de inyección de 5 seg');
 console.log('   ✔ Barra lateral y botón [⚡ Probar Inyección (5 seg)] verificados.');

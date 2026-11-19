@@ -73,7 +73,9 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
     update: (id, partial) => ipcRenderer.invoke('profiles:update', { id, partial }),
     delete: (id) => ipcRenderer.invoke('profiles:delete', id),
     openFolder: (id) => ipcRenderer.invoke('profiles:open-folder', id),
-    selectIconDialog: () => ipcRenderer.invoke('profiles:select-icon-dialog')
+    selectIconDialog: () => ipcRenderer.invoke('profiles:select-icon-dialog'),
+    getIconHistory: () => ipcRenderer.invoke('profiles:get-icon-history'),
+    saveCustomIcon: (dataUrl) => ipcRenderer.invoke('profiles:save-custom-icon', dataUrl)
   },
 
   // ==========================================
@@ -198,6 +200,7 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
     installModpackFile: (options) => ipcRenderer.invoke('mods:install-modpack-file', options),
     selectModpackFile: () => ipcRenderer.invoke('mods:select-modpack-file'),
     getProjectDetails: (options) => ipcRenderer.invoke('mods:get-project-details', options),
+    getServerPackUrl: (options) => ipcRenderer.invoke('mods:get-server-pack-url', options),
     installVersion: (options) => ipcRenderer.invoke('mods:install-version', options),
     checkUpdates: (options) => ipcRenderer.invoke('mods:check-updates', options),
     updateAll: (options) => ipcRenderer.invoke('mods:update-all', options),

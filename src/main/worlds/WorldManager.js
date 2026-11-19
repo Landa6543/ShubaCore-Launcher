@@ -57,21 +57,36 @@ class WorldManager {
     return fallbackName;
   }
 
-  _calcDirSize(dirPath) {
+  _calcDirSize(dirPath, levelDatMtimeMs = 0) {
+    if (!this._worldSizeCache) this._worldSizeCache = new Map();
+    const cached = this._worldSizeCache.get(dirPath);
+    if (cached && cached.mtimeMs === levelDatMtimeMs) {
+      return cached.size;
+    }
+
     let totalSize = 0;
+    let filesCount = 0;
+    const stack = [dirPath];
+
     try {
-      const files = fs.readdirSync(dirPath, { withFileTypes: true });
-      for (const file of files) {
-        const full = path.join(dirPath, file.name);
-        if (file.isDirectory()) {
-          totalSize += this._calcDirSize(full);
-        } else if (file.isFile()) {
-          try {
-            totalSize += fs.statSync(full).size;
-          } catch (_) {}
+      while (stack.length > 0 && filesCount < 500) {
+        const currentDir = stack.pop();
+        const files = fs.readdirSync(currentDir, { withFileTypes: true });
+        for (const file of files) {
+          const full = path.join(currentDir, file.name);
+          if (file.isDirectory()) {
+            stack.push(full);
+          } else if (file.isFile()) {
+            filesCount++;
+            try {
+              totalSize += fs.statSync(full).size;
+            } catch (_) {}
+          }
         }
       }
     } catch (_) {}
+
+    this._worldSizeCache.set(dirPath, { mtimeMs: levelDatMtimeMs, size: totalSize });
     return totalSize;
   }
 
@@ -120,7 +135,7 @@ class WorldManager {
         const stat = fs.statSync(levelDatPath);
         lastPlayed = stat.mtime.toISOString();
         worldName = this._extractLevelName(levelDatPath, ent.name);
-        sizeBytes = this._calcDirSize(worldPath);
+        sizeBytes = this._calcDirSize(worldPath, stat.mtimeMs);
 
         const iconPath = path.join(worldPath, 'icon.png');
         if (fs.existsSync(iconPath)) {

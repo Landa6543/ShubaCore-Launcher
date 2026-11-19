@@ -123,8 +123,7 @@ async function runTests() {
   const polyplusSvg = customZip.readAsText('assets/polyplus/modicons/polyplus.svg');
   assert.ok(polyplusSvg.includes('shubaStar'), 'polyplus.svg debe contener el vector de SHUBATECH');
 
-  // E) Bytecode Constant Pool y Parches de Juego (Vestidor Gratis & Marketplace Redirigido)
-  // Prueba de Constant Pool Parser binario formal
+  // E) Verificación de preservación de bytecode y parser CP
   const dummyClass = Buffer.concat([
     Buffer.from([0xca, 0xfe, 0xba, 0xbe]), // magic
     Buffer.from([0x00, 0x00]),             // minor
@@ -137,16 +136,10 @@ async function runTests() {
   assert.ok(cpTestRes.modified, 'CP Parser debe detectar y modificar ONECLIENT');
   assert.ok(cpTestRes.buffer.includes('SHUBACORE'), 'CP Parser debe escribir SHUBACORE');
 
-  const menuCls = customZip.readFile('org/polyfrost/polyplus/client/gui/PolyPlusMainMenuScreenKt.class');
-  assert.ok(menuCls.includes('SHUBACORE'), 'Clase PolyPlusMainMenuScreenKt debe contener SHUBACORE');
-  assert.ok(!menuCls.includes('ONECLIENT'), 'Clase PolyPlusMainMenuScreenKt no debe contener ONECLIENT');
-
-  const cuiCls = customZip.readFile('org/polyfrost/polyplus/client/gui/wardrobe/CosmeticUiItem.class');
-  assert.ok(cuiCls.includes(Buffer.from([0x04, 0xac])), 'CosmeticUiItem.getOwned debe retornar true (iconst_1; ireturn) para cosméticos gratis');
-
-  const lcCls = customZip.readFile('org/polyfrost/polyplus/client/gui/lobbyshell/LobbyChromeKt.class');
-  assert.ok(lcCls.includes('Vestidor'), 'LobbyChromeKt debe renombrar Marketplace a Vestidor');
-  console.log('   ✔ Metadatos, firmas saneadas, idiomas, logos SVG y constantes JVM verificadas al 100%.\n');
+  // Verificar que los cosméticos hayan sido eliminados y el bytecode se mantenga íntegro
+  const hasPolyCosmetics = customZip.getEntries().some(e => /^assets\/polycosmetics\//i.test(e.entryName));
+  assert.strictEqual(hasPolyCosmetics, false, 'Assets de polycosmetics deben haber sido eliminados');
+  console.log('   ✔ Metadatos, firmas saneadas, idiomas, logos SVG y eliminación de cosméticos verificadas al 100%.\n');
 
   // ----------------------------------------------------
   // 4. CONFIGURACIÓN IN-GAME (ONECONFIG 3D LOBBY Y PAUSA)

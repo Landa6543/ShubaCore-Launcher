@@ -493,7 +493,9 @@ class SupabaseManager {
         logger.warn('[Supabase] Error en búsqueda de usuarios:', error.message);
         return [];
       }
-      return (data || []).map(p => ({
+      const isTestEnv = process.env.NODE_ENV === 'test' || process.argv.some(a => a.includes('test'));
+      const testRegex = /^(guest_|host_|chat_|player_|shubadev_|shubaplayer_|shubahost_|shuba_a_|shuba_b_|user_test_|dbg_|test_|user_)/i;
+      return (data || []).filter(p => p.username && (isTestEnv || !testRegex.test(p.username) || p.username.toLowerCase() === cleanQuery)).map(p => ({
         id: p.id,
         username: p.username,
         displayName: p.display_name || p.username,
@@ -517,7 +519,7 @@ class SupabaseManager {
   /**
    * Obtener lista de todos los jugadores registrados en la comunidad ShubaCore
    */
-  async getCommunityUsers(excludeUserId = null, limit = 100) {
+  async getCommunityUsers(excludeUserId = null, limit = 500) {
     if (!this.client) return [];
     try {
       let req = this.client
@@ -535,7 +537,9 @@ class SupabaseManager {
         logger.warn('[Supabase] Error en getCommunityUsers:', error.message);
         return [];
       }
-      return (data || []).map(p => ({
+      const isTestEnv = process.env.NODE_ENV === 'test' || process.argv.some(a => a.includes('test'));
+      const testRegex = /^(guest_|host_|chat_|player_|shubadev_|shubaplayer_|shubahost_|shuba_a_|shuba_b_|user_test_|dbg_|test_|user_)/i;
+      return (data || []).filter(p => p.username && (isTestEnv || !testRegex.test(p.username))).map(p => ({
         id: p.id,
         username: p.username,
         displayName: p.display_name || p.username,

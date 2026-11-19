@@ -4,7 +4,7 @@
  * Private High-Performance Minecraft Launcher
  */
 
-const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { autoUpdater } = require('electron-updater');
@@ -93,6 +93,33 @@ function createMainWindow() {
   });
 
   mainWindow.webContents.setBackgroundThrottling(false);
+
+  // Soporte para trailers y videos embebidos de YouTube (evita Error 153 por falta de Referer en Electron)
+  try {
+    const ses = session.defaultSession;
+    const ytFilter = {
+      urls: [
+        '*://*.youtube.com/*',
+        '*://*.youtube-nocookie.com/*',
+        '*://*.googlevideo.com/*'
+      ]
+    };
+
+    ses.webRequest.onBeforeSendHeaders(ytFilter, (details, callback) => {
+      details.requestHeaders['Referer'] = 'https://www.curseforge.com/';
+      details.requestHeaders['Origin'] = 'https://www.curseforge.com';
+      callback({ cancel: false, requestHeaders: details.requestHeaders });
+    });
+
+    ses.webRequest.onHeadersReceived(ytFilter, (details, callback) => {
+      const responseHeaders = Object.assign({}, details.responseHeaders);
+      delete responseHeaders['x-frame-options'];
+      delete responseHeaders['X-Frame-Options'];
+      callback({ cancel: false, responseHeaders });
+    });
+  } catch (ytErr) {
+    logger.warn('[YouTube] Error configurando interceptor de encabezados:', ytErr.message);
+  }
 
   // Registrar todos los manejadores IPC con la ventana activa
   registerIpcHandlers(mainWindow);
