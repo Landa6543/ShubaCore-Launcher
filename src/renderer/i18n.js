@@ -496,56 +496,56 @@ function getLanguage() {
   return currentLanguage;
 }
 
+let isTranslating = false;
 function applyTranslationsToDOM() {
-  if (typeof document === 'undefined') return;
-
-  // Actualizar atributo lang en <html>
-  if (document.documentElement) {
-    document.documentElement.lang = currentLanguage;
-  }
-
-  // Traducir texto de elementos con data-i18n
-  document.querySelectorAll('[data-i18n]').forEach((el) => {
-    const key = el.getAttribute('data-i18n');
-    const trans = t(key);
-    if (trans) {
-      el.textContent = trans;
+  if (typeof document === 'undefined' || isTranslating) return;
+  isTranslating = true;
+  try {
+    // Actualizar atributo lang en <html>
+    if (document.documentElement) {
+      document.documentElement.lang = currentLanguage;
     }
-  });
 
-  // Traducir placeholders
-  document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
-    const key = el.getAttribute('data-i18n-placeholder');
-    const trans = t(key);
-    if (trans) {
-      el.setAttribute('placeholder', trans);
+    // Traducir texto de elementos con data-i18n
+    document.querySelectorAll('[data-i18n]').forEach((el) => {
+      const key = el.getAttribute('data-i18n');
+      const trans = t(key);
+      if (trans) {
+        el.textContent = trans;
+      }
+    });
+
+    // Traducir placeholders
+    document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
+      const key = el.getAttribute('data-i18n-placeholder');
+      const trans = t(key);
+      if (trans) {
+        el.setAttribute('placeholder', trans);
+      }
+    });
+
+    // Traducir títulos (tooltips)
+    document.querySelectorAll('[data-i18n-title]').forEach((el) => {
+      const key = el.getAttribute('data-i18n-title');
+      const trans = t(key);
+      if (trans) {
+        el.setAttribute('title', trans);
+      }
+    });
+
+    // Sincronizar el select de idioma
+    const selectEl = document.getElementById('select-launcher-language');
+    if (selectEl && selectEl.value !== currentLanguage) {
+      selectEl.value = currentLanguage;
     }
-  });
 
-  // Traducir títulos (tooltips)
-  document.querySelectorAll('[data-i18n-title]').forEach((el) => {
-    const key = el.getAttribute('data-i18n-title');
-    const trans = t(key);
-    if (trans) {
-      el.setAttribute('title', trans);
+    // Traducir dinámicamente elementos clave que no tienen atributo
+    const playBtnText = document.getElementById('btn-launch-text') || document.getElementById('play-btn-text');
+    if (playBtnText) {
+      playBtnText.textContent = t('launch.play', 'JUGAR');
     }
-  });
-
-  // Sincronizar el select de idioma
-  const selectEl = document.getElementById('select-launcher-language');
-  if (selectEl && selectEl.value !== currentLanguage) {
-    selectEl.value = currentLanguage;
-  }
-
-  // Traducir dinámicamente elementos clave que no tienen atributo
-  const playBtnText = document.getElementById('btn-launch-text') || document.getElementById('play-btn-text');
-  if (playBtnText) {
-    playBtnText.textContent = t('launch.play', 'JUGAR');
-  }
-
-  // Notificar al resto del frontend
-  if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
-    window.dispatchEvent(new CustomEvent('shubacore:language-changed', { detail: { language: currentLanguage } }));
+  } finally {
+    isTranslating = false;
   }
 }
 
@@ -583,6 +583,11 @@ async function setLanguage(lang, persist = true) {
     if (selectEl && selectEl.value !== lang) {
       selectEl.value = lang;
     }
+  }
+
+  // Notificar al resto del frontend de manera limpia una sola vez
+  if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+    window.dispatchEvent(new CustomEvent('shubacore:language-changed', { detail: { language: currentLanguage } }));
   }
 }
 

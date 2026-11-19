@@ -94,15 +94,9 @@ async function runTests() {
   assert.strictEqual(currentSkinInfo.clonedUuid, 'b876ec32-e396-476b-a115-8438d83c67d4', 'Mecanismo 1 debe proveer el UUID oficial real de Mojang');
   console.log(`  Mecanismo 1 (Passthrough UUID): "${currentSkinInfo.clonedUuid}" confirmado para sesión offline.`);
 
-  // 1.4: PROHIBIDO SHUBASKINOPVERRIDE: Desactivación y Auto-purga en Vanilla puro
+  // 1.4: Inyección y activación de ShubaSkinOverride Nativo (Vanilla puro)
   const mockInstancePath = path.join(testRoot, 'mock-instance');
   fs.mkdirSync(mockInstancePath, { recursive: true });
-
-  // Crear un falso ShubaSkinOverride legacy para validar auto-purga
-  const legacyPack = path.join(mockInstancePath, 'resourcepacks', 'ShubaSkinOverride');
-  fs.mkdirSync(legacyPack, { recursive: true });
-  const optionsPath = path.join(mockInstancePath, 'options.txt');
-  fs.writeFileSync(optionsPath, 'resourcePacks:["vanilla","file/ShubaSkinOverride"]\nincompatibleResourcePacks:["file/ShubaSkinOverride"]\n', 'utf8');
 
   const packResult = await skinManager.injectSkinResourcePack({
     instancePath: mockInstancePath,
@@ -110,13 +104,16 @@ async function runTests() {
     mcVersion: '1.21.1'
   });
 
-  assert.strictEqual(packResult.applied, false, 'injectSkinResourcePack debe estar desactivado para evitar crash 3221225477');
-  assert.strictEqual(packResult.reason, 'disabled');
-  assert.strictEqual(fs.existsSync(legacyPack), false, 'El directorio ShubaSkinOverride debe ser purgado de disco');
+  assert.strictEqual(packResult.applied, true, 'injectSkinResourcePack debe estar activado y aplicarse');
+  const targetPackDir = path.join(mockInstancePath, 'resourcepacks', 'ShubaSkinOverride');
+  assert.strictEqual(fs.existsSync(targetPackDir), true, 'El directorio ShubaSkinOverride debe existir');
+  const mcmetaPath = path.join(targetPackDir, 'pack.mcmeta');
+  assert.strictEqual(fs.existsSync(mcmetaPath), true, 'pack.mcmeta debe existir');
 
+  const optionsPath = path.join(mockInstancePath, 'options.txt');
   const optionsContent = fs.readFileSync(optionsPath, 'utf8');
-  assert.ok(!optionsContent.includes('ShubaSkinOverride'), 'options.txt debe ser purgado de ShubaSkinOverride');
-  console.log('  Regla Obligatoria: ShubaSkinOverride desactivado y purgado de disco y options.txt.');
+  assert.ok(optionsContent.includes('file/ShubaSkinOverride'), 'options.txt debe contener file/ShubaSkinOverride');
+  console.log('  Regla Obligatoria: ShubaSkinOverride generado exitosamente y activado en options.txt.');
 
   // REGLA OBLIGATORIA: CERO DEPENDENCIAS DE MODS (Sin CustomSkinLoader)
   const modsPath = path.join(mockInstancePath, 'mods');

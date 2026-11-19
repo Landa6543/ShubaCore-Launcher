@@ -343,11 +343,12 @@ class SupabaseManager {
     if (!this.client || !userId) return;
     await this.ensureSession(userId);
     try {
+      const isPlaying = status === 'playing' && Boolean(currentGame);
       await this.client
         .from('profiles')
         .update({
           status: status || 'online',
-          current_game: currentGame || {},
+          current_game: isPlaying ? currentGame : null,
           last_seen: new Date().toISOString()
         })
         .eq('id', userId);

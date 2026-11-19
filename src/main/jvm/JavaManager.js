@@ -181,7 +181,17 @@ class JavaManager {
     }
 
     // Ordenar de mayor a menor versión (ej. 25, 21, 17, 8)
-    results.sort((a, b) => b.majorVersion - a.majorVersion);
+    // Para versiones iguales (especialmente Java 25), priorizar Microsoft OpenJDK / runtime oficial de Mojang sobre builds externos
+    results.sort((a, b) => {
+      if (b.majorVersion !== a.majorVersion) {
+        return b.majorVersion - a.majorVersion;
+      }
+      const isOfficialA = a.path.toLowerCase().includes('java-runtime-') || (a.vendor && a.vendor.toLowerCase().includes('microsoft'));
+      const isOfficialB = b.path.toLowerCase().includes('java-runtime-') || (b.vendor && b.vendor.toLowerCase().includes('microsoft'));
+      if (isOfficialA && !isOfficialB) return -1;
+      if (!isOfficialA && isOfficialB) return 1;
+      return 0;
+    });
     return results;
   }
 

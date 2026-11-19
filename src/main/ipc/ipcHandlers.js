@@ -1307,9 +1307,10 @@ function registerIpcHandlers(mainWindow) {
     }
   });
 
-  ipcMain.handle('skins:set-from-file', async (event, { offlineUser, filePath, skinModel }) => {
+  ipcMain.handle('skins:set-from-file', async (event, { offlineUser, filePath, skinModel, skinData }) => {
     try {
-      const skinData = await skinManager.setSkinFromFile(offlineUser, filePath, skinModel);
+      const source = filePath || skinData;
+      const resultData = await skinManager.setSkinFromFile(offlineUser, source, skinModel);
       try {
         const activePath = profileManager.getActiveInstancePath();
         if (activePath && fs.existsSync(activePath)) {
@@ -1318,7 +1319,7 @@ function registerIpcHandlers(mainWindow) {
       } catch (applyErr) {
         logger.warn('No se pudo aplicar Resource Pack automáticamente a la instancia:', applyErr.message);
       }
-      return { success: true, skin: skinData };
+      return { success: true, skin: resultData };
     } catch (err) {
       logger.error('Error en skins:set-from-file IPC:', err);
       return { success: false, error: err.message };
@@ -1344,7 +1345,18 @@ function registerIpcHandlers(mainWindow) {
     });
 
     if (!result.canceled && result.filePaths.length > 0) {
-      return { canceled: false, path: result.filePaths[0] };
+      const selected = result.filePaths[0];
+      let dataUrl = null;
+      try {
+        const buf = fs.readFileSync(selected);
+        dataUrl = `data:image/png;base64,${buf.toString('base64')}`;
+      } catch (_) {}
+      return {
+        canceled: false,
+        path: selected,
+        name: path.basename(selected),
+        dataUrl
+      };
     }
     return { canceled: true };
   });
@@ -2658,6 +2670,38 @@ function registerIpcHandlers(mainWindow) {
       return { success: false, error: err.message };
     }
   });
+
+  // Sincronización proactiva de presencia en inicio
+  setTimeout(() => {
+    try {
+      const session = authManager._readSessionFile?.();
+      if (session && session.shubacoreAccount && session.shubacoreAccount.id) {
+        if (launchManager.getRunningCount() === 0) {
+          authManager.supabaseManager?.updatePresence(session.shubacoreAccount.id, 'online', null).catch(() => {});
+        }
+      }
+    } catch (_) {}
+  }, 3000);
+
+  // Heartbeat de presencia periódica de ShubaCore (cada 40s) para evitar estados colgados
+  setInterval(() => {
+    try {
+      const session = authManager._readSessionFile?.();
+      if (session && session.shubacoreAccount && session.shubacoreAccount.id) {
+        if (launchManager.getRunningCount() === 0) {
+          authManager.supabaseManager?.updatePresence(session.shubacoreAccount.id, 'online', null).catch(() => {});
+        } else if (launchManager.activeHostServer) {
+          const activeProf = profileManager.getActive();
+          authManager.supabaseManager?.updatePresence(session.shubacoreAccount.id, 'playing', {
+            server: launchManager.activeHostServer,
+            worldName: activeProf?.name || 'Mundo LAN',
+            mc: activeProf?.mcVersion || '',
+            loader: activeProf?.loader || ''
+          }).catch(() => {});
+        }
+      }
+    } catch (_) {}
+  }, 40000);
 
   logger.info('Canales IPC registrados con éxito (incluyendo Perfiles y Versiones de Loaders).');
 }

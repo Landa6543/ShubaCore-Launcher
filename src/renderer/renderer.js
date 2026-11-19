@@ -16,6 +16,47 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  // Helper seguro para manejo de rutas en renderer sin Node.js path
+  const safePath = {
+    join: (...parts) => parts.map((p, i) => i === 0 ? String(p || '').replace(/[\\/]+$/, '') : String(p || '').replace(/^[\\/]+|[\\/]+$/g, '')).filter(Boolean).join('/'),
+    basename: (p) => String(p || '').split(/[\\/]/).pop() || ''
+  };
+
+  // Helper para resolver el nombre de usuario activo de Minecraft
+  async function getActivePlayerUsername() {
+    try {
+      const sess = await api.auth?.getSavedSession?.().catch(() => null);
+      if (sess) {
+        if (sess.activeMode === 'shubacore' && sess.shubacoreAccount) {
+          return sess.shubacoreAccount.inGameName || sess.shubacoreAccount.username;
+        }
+        if (sess.activeMode === 'microsoft' && sess.microsoftAccount) {
+          return sess.microsoftAccount.username;
+        }
+        if (sess.activeMode === 'offline' && sess.offlineAccount) {
+          return sess.offlineAccount.username;
+        }
+        if (sess.account?.name || sess.account?.username) {
+          return sess.account.name || sess.account.username;
+        }
+        if (sess.shubacoreAccount?.inGameName || sess.shubacoreAccount?.username) {
+          return sess.shubacoreAccount.inGameName || sess.shubacoreAccount.username;
+        }
+        if (sess.microsoftAccount?.username) {
+          return sess.microsoftAccount.username;
+        }
+        if (sess.offlineAccount?.username) {
+          return sess.offlineAccount.username;
+        }
+      }
+    } catch (_) {}
+    const offlineInput = document.getElementById('offline-username');
+    if (offlineInput && offlineInput.value && offlineInput.value.trim()) {
+      return offlineInput.value.trim();
+    }
+    return 'Jugador';
+  }
+
   // Íconos oficiales de loaders (Modrinth tag/loader). Se descargan una vez, se guardan en localStorage
   // y, mientras no estén disponibles, se usan los SVG de respaldo definidos abajo.
   const LOADER_ICON_COLORS = { fabric: '#dbb69b', forge: '#959eef', neoforge: '#f99e6b', quilt: '#c796f9' };
@@ -472,7 +513,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (btnOpenDataPacksFolder) {
     btnOpenDataPacksFolder.addEventListener('click', async () => {
       if (currentActiveProfile?.instancePath) {
-        const dpDir = path.join(currentActiveProfile.instancePath, 'datapacks');
+        const dpDir = safePath.join(currentActiveProfile.instancePath, 'datapacks');
         await api.system?.openPath(dpDir).catch(() => {});
       }
     });
@@ -1697,6 +1738,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (lastLoadedSkinUrl) {
         skinViewer3D.loadSkin(lastLoadedSkinUrl, { model: currentModelType });
       }
+
+      // Pre-cargar textura vanilla oficial de élitros
+      if (!vanillaElytraDataUrl && api.skins?.getVanillaElytra) {
+        api.skins.getVanillaElytra().then((el) => {
+          if (el && el.success && el.dataUrl) vanillaElytraDataUrl = el.dataUrl;
+        }).catch(() => {});
+      }
     } catch (err) {
       console.error('[SkinViewer 3D] Error al instanciar visor:', err);
     }
@@ -2060,10 +2108,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 2. Toggle Élitros 3D
   const btnSkinElytraToggle = document.getElementById('btn-skin-elytra-toggle');
   if (btnSkinElytraToggle) {
-    btnSkinElytraToggle.addEventListener('click', () => {
+    btnSkinElytraToggle.addEventListener('click', async () => {
       isElytraMode = !isElytraMode;
       btnSkinElytraToggle.classList.toggle('active', isElytraMode);
-      applyCapeOrElytra();
+      await applyCapeOrElytra();
+      if (isElytraMode && skinViewer3D) {
+        if (Math.abs(skinViewer3D.playerWrapper.rotation.y) < 0.25) {
+          skinViewer3D.playerWrapper.rotation.y = Math.PI;
+        }
+      }
     });
   }
 
@@ -2201,7 +2254,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // La skin real de la cuenta premium siempre va primero
     if (accountSkin && accountSkin.dataUrl) {
-      saved = [{ name: `${accountSkin.name} (cuenta)`, dataUrl: accountSkin.dataUrl, model: accountSkin.model === 'slim' ? 'slim' : 'default', mojangUser: accountSkin.name, isAccountSkin: true }]
+      saved = [{ name: `${accountSkin.name} (cuenta)`, dataUrl: accountSkin.dataUrl, url: accountSkin.dataUrl, model: accountSkin.model === 'slim' ? 'slim' : 'default', mojangUser: accountSkin.name, isAccountSkin: true }]
         .concat(saved.filter((s) => !s.isAccountSkin));
     }
 
@@ -2218,19 +2271,31 @@ document.addEventListener('DOMContentLoaded', async () => {
         <span class="skin-card-badge">${item.model === 'slim' ? 'Delgado' : 'Clásico'}</span>
       `;
 
+      // Miniatura recortada de la cara para que no se vea la textura plana desplegada
+      if (item.dataUrl || item.url) {
+        skinFaceDataUrl(item.dataUrl || item.url).then((face) => {
+          const img = card.querySelector('img');
+          if (face && img) img.src = face;
+        }).catch(() => {});
+      }
+
       card.addEventListener('click', () => {
         document.querySelectorAll('.skin-grid-card').forEach(c => c.classList.remove('active'));
         card.classList.add('active');
-        if (item.model) setSkinModelType(item.model);
-        loadSkinIn3DViewer(item.dataUrl || item.url);
-        renderSkinFaceToCanvas(item.dataUrl || item.url, vestidorFaceCanvas);
+        if (item.model) setSkinModelType(item.model === 'slim' ? 'slim' : 'default');
+        const srcUrl = item.dataUrl || item.url || item.filePath;
+        if (srcUrl) {
+          loadSkinIn3DViewer(srcUrl);
+          renderSkinFaceToCanvas(srcUrl, vestidorFaceCanvas);
+        }
         if (skinPreviewLabel) skinPreviewLabel.textContent = item.name || 'Guardada';
         if (skinAppliedStatus) skinAppliedStatus.textContent = 'Skin guardada seleccionada (lista para aplicar)';
-        if (item.filePath) {
-          pendingSkinData = { type: 'file', value: item.filePath };
-        } else if (item.mojangUser) {
-          pendingSkinData = { type: 'mojang', value: item.mojangUser };
-        }
+        pendingSkinData = {
+          type: item.filePath ? 'file' : (item.mojangUser ? 'mojang' : 'dataUrl'),
+          value: item.filePath || item.mojangUser || item.dataUrl || srcUrl,
+          dataUrl: item.dataUrl || srcUrl,
+          name: item.name
+        };
       });
 
       grid.appendChild(card);
@@ -2242,26 +2307,42 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (cardUploadNewSkin) {
     cardUploadNewSkin.addEventListener('click', async () => {
       const res = await api.skins?.selectFile?.().catch(() => null);
-      if (res && !res.canceled && res.path) {
-        inputLocalSkinPath.value = res.path;
-        const fileUrl = `file:///${res.path.replace(/\\/g, '/')}`;
-        renderSkinFaceToCanvas(fileUrl, vestidorFaceCanvas);
-        loadSkinIn3DViewer(fileUrl);
-        if (skinPreviewLabel) skinPreviewLabel.textContent = path.basename(res.path);
-        if (skinAppliedStatus) skinAppliedStatus.textContent = 'Archivo PNG seleccionado (listo para aplicar)';
-        pendingSkinData = { type: 'file', value: res.path };
+      if (res && !res.canceled && (res.path || res.dataUrl)) {
+        if (inputLocalSkinPath && res.path) inputLocalSkinPath.value = res.path;
+        const fileUrl = res.path ? `file:///${res.path.replace(/\\/g, '/')}` : null;
+        const skinDataUrl = res.dataUrl || fileUrl;
+        const skinName = (res.name || safePath.basename(res.path) || 'Custom').replace(/\.png$/i, '');
 
-        // Guardar en lista de Mis Skins
+        if (skinDataUrl) {
+          renderSkinFaceToCanvas(skinDataUrl, vestidorFaceCanvas);
+          loadSkinIn3DViewer(skinDataUrl);
+        }
+        if (skinPreviewLabel) skinPreviewLabel.textContent = skinName;
+        if (skinAppliedStatus) skinAppliedStatus.textContent = 'Archivo PNG seleccionado (listo para aplicar)';
+        pendingSkinData = { type: 'file', value: res.path || skinDataUrl, dataUrl: skinDataUrl, name: skinName };
+
+        // Guardar en lista de Mis Skins con persistencia segura en localStorage
         try {
           const list = JSON.parse(localStorage.getItem('shuba_user_saved_skins') || '[]');
-          const skinName = path.basename(res.path).replace(/\.png$/i, '');
-          if (!list.some(s => s.filePath === res.path)) {
-            list.unshift({ name: skinName, filePath: res.path, url: fileUrl, dataUrl: fileUrl, model: currentModelType });
-            if (list.length > 20) list.pop();
-            localStorage.setItem('shuba_user_saved_skins', JSON.stringify(list));
-            renderUserSavedSkinsGrid();
+          const newEntry = {
+            name: skinName,
+            filePath: res.path || null,
+            url: skinDataUrl,
+            dataUrl: skinDataUrl,
+            model: currentModelType === 'slim' ? 'slim' : 'default'
+          };
+          const existingIdx = list.findIndex(s => (res.path && s.filePath === res.path) || s.name === skinName);
+          if (existingIdx >= 0) {
+            list[existingIdx] = newEntry;
+          } else {
+            list.unshift(newEntry);
           }
-        } catch (_) {}
+          if (list.length > 20) list.pop();
+          localStorage.setItem('shuba_user_saved_skins', JSON.stringify(list));
+          renderUserSavedSkinsGrid();
+        } catch (saveErr) {
+          console.warn('[Skins] Error guardando en Mis Skins:', saveErr);
+        }
       }
     });
   }
@@ -2290,8 +2371,9 @@ document.addEventListener('DOMContentLoaded', async () => {
           renderSkinBodyToCanvas(data.skinUrl, vestidorBodyCanvas);
           loadSkinIn3DViewer(data.skinUrl);
           if (skinPreviewLabel) skinPreviewLabel.textContent = `${data.officialName} (Mojang)`;
-          if (skinAppliedStatus) skinAppliedStatus.textContent = `Skin clonada lista para aplicar a ${inputOfflineUser.value.trim()}`;
-          pendingSkinData = { type: 'mojang', value: targetUser };
+          const currentUsername = await getActivePlayerUsername();
+          if (skinAppliedStatus) skinAppliedStatus.textContent = `Skin clonada lista para aplicar a ${currentUsername}`;
+          pendingSkinData = { type: 'mojang', value: targetUser, dataUrl: data.skinUrl };
         } else {
           throw new Error('No se encontraron texturas para ese jugador.');
         }
@@ -2306,56 +2388,88 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (btnSelectLocalSkin) {
     btnSelectLocalSkin.addEventListener('click', async () => {
-      const res = await api.skins.selectFile();
-      if (!res.canceled && res.path) {
-        inputLocalSkinPath.value = res.path;
-        const fileUrl = `file:///${res.path.replace(/\\/g, '/')}`;
-        renderSkinFaceToCanvas(fileUrl, vestidorFaceCanvas);
-        renderSkinBodyToCanvas(fileUrl, vestidorBodyCanvas);
-        loadSkinIn3DViewer(fileUrl);
-        if (skinPreviewLabel) skinPreviewLabel.textContent = 'Archivo PNG local';
+      const res = await api.skins.selectFile().catch(() => null);
+      if (res && !res.canceled && (res.path || res.dataUrl)) {
+        if (inputLocalSkinPath && res.path) inputLocalSkinPath.value = res.path;
+        const fileUrl = res.path ? `file:///${res.path.replace(/\\/g, '/')}` : null;
+        const skinDataUrl = res.dataUrl || fileUrl;
+        const skinName = (res.name || safePath.basename(res.path) || 'Custom').replace(/\.png$/i, '');
+
+        if (skinDataUrl) {
+          renderSkinFaceToCanvas(skinDataUrl, vestidorFaceCanvas);
+          renderSkinBodyToCanvas(skinDataUrl, vestidorBodyCanvas);
+          loadSkinIn3DViewer(skinDataUrl);
+        }
+        if (skinPreviewLabel) skinPreviewLabel.textContent = skinName;
         if (skinAppliedStatus) skinAppliedStatus.textContent = 'Archivo PNG seleccionado (listo para aplicar)';
-        pendingSkinData = { type: 'file', value: res.path };
+        pendingSkinData = { type: 'file', value: res.path || skinDataUrl, dataUrl: skinDataUrl, name: skinName };
+
+        // Añadir a Mis Skins
+        try {
+          const list = JSON.parse(localStorage.getItem('shuba_user_saved_skins') || '[]');
+          const newEntry = {
+            name: skinName,
+            filePath: res.path || null,
+            url: skinDataUrl,
+            dataUrl: skinDataUrl,
+            model: currentModelType === 'slim' ? 'slim' : 'default'
+          };
+          if (!list.some(s => (res.path && s.filePath === res.path) || s.name === skinName)) {
+            list.unshift(newEntry);
+            if (list.length > 20) list.pop();
+            localStorage.setItem('shuba_user_saved_skins', JSON.stringify(list));
+            renderUserSavedSkinsGrid();
+          }
+        } catch (_) {}
       }
     });
   }
 
   if (btnSaveSkin) {
     btnSaveSkin.addEventListener('click', async () => {
-      const activeUser = inputOfflineUser.value.trim() || 'Steve';
-      if (!pendingSkinData && inputMojangSkinClone.value.trim()) {
+      const activeUser = await getActivePlayerUsername();
+      if (!pendingSkinData && inputMojangSkinClone && inputMojangSkinClone.value.trim()) {
         pendingSkinData = { type: 'mojang', value: inputMojangSkinClone.value.trim() };
       }
+      if (!pendingSkinData && inputLocalSkinPath && inputLocalSkinPath.value.trim()) {
+        pendingSkinData = { type: 'file', value: inputLocalSkinPath.value.trim() };
+      }
+      if (!pendingSkinData && lastLoadedSkinUrl) {
+        pendingSkinData = { type: 'dataUrl', value: lastLoadedSkinUrl, dataUrl: lastLoadedSkinUrl };
+      }
       if (!pendingSkinData) {
-        alert('Ingresa el nombre de una cuenta Premium o selecciona un archivo PNG local.');
+        alert('Ingresa el nombre de una cuenta Premium o selecciona una skin de la lista.');
         return;
       }
 
       btnSaveSkin.disabled = true;
+      const originalBtnText = btnSaveSkin.textContent;
       btnSaveSkin.textContent = 'Guardando...';
 
       try {
-        let result;
+        let result = null;
         if (pendingSkinData.type === 'mojang') {
           appendLog(`[Skins] Conectando a Mojang y clonando skin de "${pendingSkinData.value}" para "${activeUser}"...`, 'info');
           result = await api.skins.setFromUsername(activeUser, pendingSkinData.value);
-        } else if (pendingSkinData.type === 'file') {
-          appendLog(`[Skins] Guardando skin local para "${activeUser}"...`, 'info');
+        } else {
+          appendLog(`[Skins] Guardando skin para "${activeUser}"...`, 'info');
           result = await api.skins.setFromFile(activeUser, pendingSkinData.value, currentModelType === 'slim' ? 'slim' : 'classic');
         }
 
         if (result && result.success) {
-          appendLog(`[Skins] Skin de ${activeUser} guardada con éxito.`, 'success');
-          const finalSkin = result.skin?.dataUrl || result.dataUrl;
-          renderSkinFaceToCanvas(finalSkin, sidebarAvatarCanvas);
-          renderSkinFaceToCanvas(finalSkin, vestidorFaceCanvas);
-          renderSkinBodyToCanvas(finalSkin, vestidorBodyCanvas);
-          loadSkinIn3DViewer(finalSkin);
+          appendLog(`[Skins] ¡Skin de ${activeUser} guardada y aplicada con éxito!`, 'success');
+          const finalSkin = result.skin?.dataUrl || result.dataUrl || pendingSkinData.dataUrl;
+          if (finalSkin) {
+            renderSkinFaceToCanvas(finalSkin, sidebarAvatarCanvas);
+            renderSkinFaceToCanvas(finalSkin, vestidorFaceCanvas);
+            renderSkinBodyToCanvas(finalSkin, vestidorBodyCanvas);
+            loadSkinIn3DViewer(finalSkin);
+          }
           if (skinAppliedStatus) skinAppliedStatus.textContent = 'Skin activa en el juego';
 
           // Si la cuenta activa es Premium, sincronizar con la API oficial de Mojang
           const sess = await api.auth.getSavedSession().catch(() => null);
-          if (sess && sess.isPremium && sess.microsoftAccount?.mcAccessToken) {
+          if (sess && sess.isPremium && sess.microsoftAccount?.mcAccessToken && finalSkin) {
             appendLog('[Skins] Cuenta Premium detectada: enviando skin a los servidores oficiales de Mojang...', 'info');
             try {
               const uploadRes = await api.skins.uploadToMojang(
@@ -2380,14 +2494,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         alert(`Error al guardar la skin: ${err.message}`);
       } finally {
         btnSaveSkin.disabled = false;
-        btnSaveSkin.textContent = 'Guardar y Aplicar';
+        btnSaveSkin.textContent = originalBtnText || 'Guardar y Aplicar';
       }
     });
   }
 
   if (btnRemoveSkin) {
     btnRemoveSkin.addEventListener('click', async () => {
-      const activeUser = inputOfflineUser.value.trim() || 'Steve';
+      const activeUser = await getActivePlayerUsername();
       if (confirm(`¿Restaurar la skin por defecto (Steve/Alex) para "${activeUser}"?`)) {
         await api.skins.remove(activeUser);
         const defaultSteveUrl = `https://mc-heads.net/skin/${activeUser}`;
@@ -2861,8 +2975,50 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // =======================================================
-  // CREACIÓN DE INSTANCIAS
+  // CREACIÓN DE INSTANCIAS & MODLOADER RADIO PILLS
   // =======================================================
+  function setupLoaderRadioPills(containerId, selectId, onChangeCallback) {
+    const container = document.getElementById(containerId);
+    const select = document.getElementById(selectId);
+    if (!container || !select) return;
+
+    container.addEventListener('click', (e) => {
+      const pill = e.target.closest('.loader-radio-pill');
+      if (!pill) return;
+      const loader = (pill.getAttribute('data-loader') || '').toLowerCase().trim();
+      if (!loader) return;
+
+      container.querySelectorAll('.loader-radio-pill').forEach((p) => p.classList.remove('active'));
+      pill.classList.add('active');
+
+      if (select.value !== loader) {
+        select.value = loader;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      if (typeof onChangeCallback === 'function') {
+        onChangeCallback(loader);
+      }
+    });
+  }
+
+  function syncLoaderRadioPills(containerId, loaderValue) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const target = (loaderValue || 'vanilla').toLowerCase().trim();
+    container.querySelectorAll('.loader-radio-pill').forEach((pill) => {
+      const pLoader = (pill.getAttribute('data-loader') || '').toLowerCase().trim();
+      if (pLoader === target) {
+        pill.classList.add('active');
+      } else {
+        pill.classList.remove('active');
+      }
+    });
+  }
+
+  // Inicializar radio pills interactivos para Creación y Edición
+  setupLoaderRadioPills('create-loader-radio-pills', 'select-profile-loader', () => updateLoaderVersionsInModal());
+  setupLoaderRadioPills('edit-loader-radio-pills', 'select-edit-profile-loader', () => updateEditLoaderVersions());
+
   function openCreateProfileModal() {
     if (!modalCreateProfile) return;
     modalCreateProfile.classList.add('active');
@@ -2870,19 +3026,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (inputProfileName) inputProfileName.value = '';
     if (inputCreateProfileIcon) inputCreateProfileIcon.value = '';
     if (createProfileIconPreview) createProfileIconPreview.src = 'assets/logo.png';
-    // REGLA OBLIGATORIA: Siempre por defecto en Vanilla y última versión estable de Minecraft
-    if (selectProfileLoader) selectProfileLoader.value = 'vanilla';
+    
+    // Sincronizar radio pills con el loader inicial
+    const currentLoader = selectProfileLoader ? selectProfileLoader.value || 'vanilla' : 'vanilla';
+    syncLoaderRadioPills('create-loader-radio-pills', currentLoader);
+
     if (selectProfileMc) {
       if (!selectProfileMc.options || selectProfileMc.options.length === 0) {
         if (typeof loadVersionsList === 'function') {
           loadVersionsList().then(() => {
             if (allCachedMcVersions && allCachedMcVersions.length > 0) {
-              selectProfileMc.value = allCachedMcVersions[0];
+              const bestVer = allCachedMcVersions.includes('1.21.1') ? '1.21.1' : allCachedMcVersions[0];
+              selectProfileMc.value = bestVer;
             }
+            updateLoaderVersionsInModal().catch(() => {});
           }).catch(() => {});
         }
       } else if (allCachedMcVersions && allCachedMcVersions.length > 0) {
-        selectProfileMc.value = allCachedMcVersions[0];
+        if (!selectProfileMc.value) {
+          const bestVer = allCachedMcVersions.includes('1.21.1') ? '1.21.1' : allCachedMcVersions[0];
+          selectProfileMc.value = bestVer;
+        }
       }
     }
     updateLoaderVersionsInModal().catch(() => {});
@@ -2926,7 +3090,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   async function updateLoaderVersionsInModal() {
     const mc = selectProfileMc ? selectProfileMc.value : '1.21.1';
-    const loader = selectProfileLoader ? (selectProfileLoader.value || 'vanilla').toLowerCase() : 'vanilla';
+    const loader = selectProfileLoader ? (selectProfileLoader.value || 'vanilla').toLowerCase().trim() : 'vanilla';
+    syncLoaderRadioPills('create-loader-radio-pills', loader);
 
     if (loader === 'vanilla') {
       if (loaderFetchingIndicator) loaderFetchingIndicator.style.display = 'none';
@@ -3061,6 +3226,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       else if (currentLoader.includes('vanilla')) matched = 'vanilla';
       else matched = 'neoforge';
       selectEditProfileLoader.value = matched;
+      syncLoaderRadioPills('edit-loader-radio-pills', matched);
     }
 
     const currentLoaderVer = (profile.loaderVersion || '21.1.265').split(' ')[0].trim();
@@ -3089,7 +3255,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function updateEditLoaderVersions(preselectVer = null) {
     if (!selectEditProfileMc || !selectEditProfileLoader || !selectEditProfileLoaderVersion) return;
     const mc = selectEditProfileMc.value;
-    const loader = selectEditProfileLoader.value;
+    const loader = (selectEditProfileLoader.value || 'neoforge').toLowerCase().trim();
+    syncLoaderRadioPills('edit-loader-radio-pills', loader);
 
     if (editLoaderFetchingIndicator) editLoaderFetchingIndicator.style.display = 'inline';
     selectEditProfileLoaderVersion.disabled = true;
@@ -4135,7 +4302,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       // Actualizar contadores de sub-pestañas en segundo plano
       if (targetInstance && window.api?.system?.readDir) {
-        const dpDir = path.join(targetInstance, 'datapacks');
+        const dpDir = safePath.join(targetInstance, 'datapacks');
         window.api.system.readDir(dpDir).then((items) => {
           const badge = document.getElementById('badge-subtab-datapacks');
           if (badge) {
@@ -4348,7 +4515,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       let list = [];
       if (targetInstance && window.api?.system?.readDir) {
-        const dpDir = path.join(targetInstance, 'datapacks');
+        const dpDir = safePath.join(targetInstance, 'datapacks');
         const items = await window.api.system.readDir(dpDir).catch(() => []);
         list = (items || []).filter((item) => {
           const name = typeof item === 'string' ? item : (item.name || '');
@@ -7153,21 +7320,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // Sincronización reactiva ante cambio de idioma (i18n)
+  // Sincronización reactiva ante cambio de idioma (i18n) sin bucle recursivo
+  let langDebounceTimer = null;
   window.addEventListener('shubacore:language-changed', () => {
-    try {
-      if (typeof loadProfiles === 'function') loadProfiles();
-    } catch (_) {}
-    try {
-      if (btnLaunchText && !currentRunningProcess) {
-        btnLaunchText.textContent = window.i18n?.t ? window.i18n.t('btn.launch', 'JUGAR') : 'JUGAR';
-      }
-    } catch (_) {}
-    try {
-      if (window.i18n?.applyTranslationsToDOM) {
-        window.i18n.applyTranslationsToDOM();
-      }
-    } catch (_) {}
+    if (langDebounceTimer) clearTimeout(langDebounceTimer);
+    langDebounceTimer = setTimeout(() => {
+      try {
+        if (typeof loadProfiles === 'function') loadProfiles();
+      } catch (_) {}
+      try {
+        if (btnLaunchText && !currentRunningProcess) {
+          btnLaunchText.textContent = window.i18n?.t ? window.i18n.t('btn.launch', 'JUGAR') : 'JUGAR';
+        }
+      } catch (_) {}
+    }, 50);
   });
 
   // Eventos de auto-actualización emitidos desde Main Process
@@ -8830,7 +8996,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     appendLog('===========================================================', 'info');
-    appendLog(`[ShubaCore Social] 🚀 Unirse a la partida: ${serverAddress} (${gameInfo.worldName || 'Mundo ShubaHost'})...`, 'info');
+    appendLog(`[ShubaCore Social] 🚀 Unirse a la partida (${gameInfo.worldName || 'Mundo ShubaHost'})...`, 'info');
 
     try {
       const res = await (api.profiles.getAll ? api.profiles.getAll() : (api.profiles.list ? api.profiles.list() : [])).catch(() => ({ profiles: [] }));
@@ -8843,7 +9009,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           appendLog(`[ShubaCore Social] Cambiando automáticamente al perfil compatible "${bestProfile.name}" (${bestProfile.mcVersion || bestProfile.gameVersion})...`, 'info');
           await api.profiles.setActive(bestProfile.id);
           currentActiveProfile = bestProfile;
-          if (selectProfile) selectProfile.value = bestProfile.id;
+          if (typeof loadProfiles === 'function') await loadProfiles().catch(() => {});
         }
       }
 
@@ -8861,7 +9027,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       if (dockLaunchProgress) dockLaunchProgress.style.display = 'flex';
       if (progressBar) progressBar.style.width = '20%';
-      if (progressTaskLabel) progressTaskLabel.textContent = `Conectando con ${serverAddress}...`;
+      if (progressTaskLabel) progressTaskLabel.textContent = `Conectando con la partida...`;
       if (progressPercentLabel) progressPercentLabel.textContent = '20%';
 
       const launchRes = await api.launcher.launch({
@@ -8879,7 +9045,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (!launchRes.success) {
         throw new Error(launchRes.error || 'Fallo al iniciar Minecraft.');
       }
-      appendLog(`[ShubaCore Social] ¡Minecraft iniciado con éxito! Conexión directa a ${serverAddress} establecida.`, 'success');
+      appendLog(`[ShubaCore Social] ¡Minecraft iniciado con éxito! Conexión directa establecida.`, 'success');
     } catch (err) {
       appendLog(`[ShubaCore Social Error] No se pudo unir a la partida: ${err.message}`, 'error');
       alert(`No se pudo conectar a la partida: ${err.message}`);
@@ -8907,8 +9073,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       const card = document.createElement('div');
       card.className = 'friend-card';
 
-      const isPlaying = friend.status === 'playing';
-      const isOnline = isPlaying || friend.status === 'online';
+      let isRecent = true;
+      if (friend.lastSeen) {
+        const diffMs = Date.now() - new Date(friend.lastSeen).getTime();
+        if (diffMs > 3 * 60 * 1000) {
+          isRecent = false;
+        }
+      }
+      const hasActiveGame = Boolean(friend.currentGame && friend.currentGame.server);
+      const isPlaying = friend.status === 'playing' && hasActiveGame && isRecent;
+      const isOnline = (isPlaying || friend.status === 'online') && isRecent;
       const statusClass = isPlaying ? 'playing' : (isOnline ? 'online' : 'offline');
       const statusText = isPlaying ? 'Jugando a Minecraft' : (isOnline ? 'En línea' : 'Desconectado');
 
@@ -9321,7 +9495,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             <div style="display: flex; gap: 8px; margin-top: 4px; font-size: 11px; color: var(--text-dim); flex-wrap: wrap;">
               <span>MC ${escapeHtml(inv.mcVersion || '26.3')} (${escapeHtml(inv.loader || 'Fabric')})</span>
               <span>·</span>
-              <span>Servidor: ${escapeHtml(inv.serverAddress)}</span>
+              <span style="color: #10b981; font-weight: 500;">⚡ Conexión Directa Automática</span>
             </div>
           </div>
         </div>
@@ -9344,7 +9518,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           btnJoin.disabled = true;
           btnJoin.textContent = 'Conectando...';
           try {
-            appendLog(`[ShubaCore Social] Aceptando invitación de ${inv.host?.displayName || inv.host?.username} a ${inv.serverAddress}...`, 'info');
+            appendLog(`[ShubaCore Social] Aceptando invitación de ${inv.host?.displayName || inv.host?.username}...`, 'info');
             if (typeof launchJoinGame === 'function') {
               await api.friends.respondGameInvite(inv.id, true).catch(() => {});
               await launchJoinGame(inv.serverAddress, { mc: inv.mcVersion, loader: inv.loader, worldName: inv.worldName });
@@ -9803,8 +9977,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     if (chatFriendPresenceDot && chatFriendStatus) {
-      const isPlaying = friend.status === 'playing';
-      const isOnline = isPlaying || friend.status === 'online';
+      let isRecent = true;
+      if (friend.lastSeen) {
+        const diffMs = Date.now() - new Date(friend.lastSeen).getTime();
+        if (diffMs > 3 * 60 * 1000) isRecent = false;
+      }
+      const hasActiveGame = Boolean(friend.currentGame && friend.currentGame.server);
+      const isPlaying = friend.status === 'playing' && hasActiveGame && isRecent;
+      const isOnline = (isPlaying || friend.status === 'online') && isRecent;
       chatFriendPresenceDot.className = `presence-dot ${isPlaying ? 'playing' : (isOnline ? 'online' : 'offline')}`;
       chatFriendStatus.textContent = isPlaying 
         ? `Jugando a ${friend.currentGame?.worldName || 'Minecraft'} (MC ${friend.currentGame?.mc || ''})` 

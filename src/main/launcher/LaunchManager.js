@@ -596,14 +596,12 @@ class LaunchManager {
 
       logger.info(`[SHUBACORE ENGINE] Iniciando sesión: Perfil "${activeProfile.name}", MC ${mcVersion} (${loader}), RAM: ${memoryMin}-${memoryMax}`);
 
-      // REQUISITO 2: ShubaCore Engine - Inyección de variables de entorno de alto rendimiento para GPU
+      // REQUISITO 2: ShubaCore Engine - Inyección de variables de entorno de compatibilidad para GPU
       process.env.SHIM_MCCOMPAT = '0x800000001';
-      process.env.__GL_THREADED_OPTIMIZATIONS = '1';
 
-      // ShubaCore Engine: Variables de alto rendimiento para GPU aplicadas
       const isEngineEnabled = activeProfile.shubaEngine !== false && overrideOptions.shubaEngine !== false;
       if (isEngineEnabled && loader !== 'vanilla') {
-        logger.info('⚡ [SHUBACORE ENGINE] Aceleración de motor activa (GPU threaded optimizations & compat shim habilitados).');
+        logger.info('⚡ [SHUBACORE ENGINE] Aceleración de motor activa.');
       }
 
       // REQUISITO: Parcheo en vivo desactivado permanentemente para evitar roturas de UI y crasheos
@@ -663,30 +661,6 @@ class LaunchManager {
         } catch (_) {}
       }
 
-      // REQUISITO: Prevenir IndexOutOfBoundsException en Minecraft 26.3/SDL cuando se verifican teclas en KeyMapping.setAll()
-      if (mcVersion === '26.3' || String(mcVersion).startsWith('26.')) {
-        try {
-          const versionJar = path.join(sharedRoot, 'versions', String(mcVersion), `${mcVersion}.jar`);
-          const patchClassPath = path.join(__dirname, 'patches', 'InputConstants_26.3.class');
-          if (fs.existsSync(versionJar) && fs.existsSync(patchClassPath)) {
-            const AdmZip = require('adm-zip');
-            const vZip = new AdmZip(versionJar);
-            const entry = vZip.getEntry('com/mojang/blaze3d/platform/InputConstants.class');
-            if (entry) {
-              const entryBuf = entry.getData();
-              // Verificar si el JAR tiene el chequeo de límites seguro (sipush 512 = 0x11 0x02 0x00)
-              if (!entryBuf.includes(Buffer.from([0x11, 0x02, 0x00]))) {
-                const patchBuf = fs.readFileSync(patchClassPath);
-                vZip.updateFile('com/mojang/blaze3d/platform/InputConstants.class', patchBuf);
-                vZip.writeZip(versionJar);
-                logger.info(`[LaunchManager] ✅ Inyectado parche de seguridad de teclas (InputConstants SDL bounds check) en ${versionJar}`);
-              }
-            }
-          }
-        } catch (patchErr) {
-          logger.warn(`[LaunchManager] Advertencia al verificar parche InputConstants: ${patchErr.message}`);
-        }
-      }
 
       // REQUISITO: Garantizar compatibilidad estricta de loader (evitar que un JAR de Forge crashee Fabric)
       if (loader === 'fabric' || loader === 'quilt') {
@@ -724,51 +698,36 @@ class LaunchManager {
         }
       } catch (_) {}
 
-      // REQUISITO 2: BORRAR ShubaSkinOverride, PURGAR .lock Y LIMPIAR options.txt ANTES DE LANZAR
+      // Purgar archivos temporales de bloqueo (.lock/.tmp) y packs obsoletos (ShubaCoreSplash) en la instancia
       try {
         const rpDir = path.join(instancePath, 'resourcepacks');
-        fs.rmSync(path.join(rpDir, 'ShubaSkinOverride'), { recursive: true, force: true });
         fs.rmSync(path.join(rpDir, 'ShubaCoreSplash'), { recursive: true, force: true });
-        fs.rmSync(path.join(rpDir, 'ShubaSkinOverride.zip'), { force: true });
         fs.rmSync(path.join(rpDir, 'ShubaCoreSplash.zip'), { force: true });
 
-        // Purgar archivos temporales de bloqueo (.lock/.tmp) en la instancia
-        try {
-          const instanceFiles = fs.readdirSync(instancePath);
-          for (const f of instanceFiles) {
-            if (f.endsWith('.lock') || f === '.lock' || f.endsWith('.tmp')) {
-              try { fs.rmSync(path.join(instancePath, f), { force: true, recursive: true }); } catch (_) {}
-            }
-          }
-        } catch (_) {}
-
-        const optsFile = path.join(instancePath, 'options.txt');
-        if (fs.existsSync(optsFile)) {
-          let content = fs.readFileSync(optsFile, 'utf8');
-          let modified = false;
-
-          if (content.includes('ShubaSkinOverride') || content.includes('ShubaCoreSplash')) {
-            content = content
-              .replace(/"file\/ShubaSkinOverride",?/g, '')
-              .replace(/,?"file\/ShubaSkinOverride"/g, '')
-              .replace(/"ShubaSkinOverride",?/g, '')
-              .replace(/,?"ShubaSkinOverride"/g, '')
-              .replace(/"file\/ShubaCoreSplash",?/g, '')
-              .replace(/,?"file\/ShubaCoreSplash"/g, '')
-              .replace(/"ShubaCoreSplash",?/g, '')
-              .replace(/,?"ShubaCoreSplash"/g, '')
-              .replace(/\[\s*,/g, '[')
-              .replace(/,\s*\]/g, ']');
-            modified = true;
-          }
-
-          if (modified) {
-            fs.writeFileSync(optsFile, content, 'utf8');
-            logger.info(`[LaunchManager] ✅ options.txt saneado en: ${optsFile}`);
+        const instanceFiles = fs.readdirSync(instancePath);
+        for (const f of instanceFiles) {
+          if (f.endsWith('.lock') || f === '.lock' || f.endsWith('.tmp')) {
+            try { fs.rmSync(path.join(instancePath, f), { force: true, recursive: true }); } catch (_) {}
           }
         }
-      } catch (cleanErr) {
-        logger.warn(`[LaunchManager] Aviso al purgar archivos temporales y resourcepacks: ${cleanErr.message}`);
+      } catch (_) {}
+
+      // Inyección automática del Resource Pack nativo ShubaSkinOverride antes de lanzar el juego
+      try {
+        const { getSkinManager } = require('../skins/SkinManager');
+        const skinMgr = getSkinManager();
+        const playerName = auth?.name || (currentAccount && (currentAccount.username || currentAccount.name)) || 'Jugador';
+        const mcVer = (activeProfile && activeProfile.mcVersion) || '1.21.1';
+        const skinRes = await skinMgr.injectSkinResourcePack({
+          instancePath,
+          username: playerName,
+          mcVersion: mcVer
+        });
+        if (skinRes && skinRes.applied) {
+          logger.info(`[LaunchManager] ✅ Skin nativa inyectada para "${playerName}" en ${instancePath}`);
+        }
+      } catch (skinInjErr) {
+        logger.warn(`[LaunchManager] Aviso al inyectar skin pack: ${skinInjErr.message}`);
       }
 
       // 7. ShubaCore Pro - Limpieza de memoria Standby (Anti-Stuttering) antes del despegue
@@ -1036,6 +995,21 @@ class LaunchManager {
   }
 
   _monitorGameProcess(gameProcess, clientLauncher, sessionId, profileName) {
+    if (gameProcess && gameProcess.stderr) {
+      gameProcess.stderr.on('data', (data) => {
+        const raw = typeof data === 'string' ? data : data.toString();
+        const lines = raw.split(/\r?\n/);
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          this.recentLogsBuffer.push(line);
+          if (this.recentLogsBuffer.length > 2000) {
+            this.recentLogsBuffer.shift();
+          }
+          this.pendingLogBatch.push(line);
+        }
+      });
+    }
+
     const fallbackTimer = setTimeout(() => {
       if (this.runningProcesses.has(sessionId)) {
         logger.info(`Tiempo de espera cumplido: la sesión ${sessionId} está activa y estable.`);
