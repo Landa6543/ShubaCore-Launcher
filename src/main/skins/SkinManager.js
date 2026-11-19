@@ -745,14 +745,23 @@ class SkinManager {
     }
 
     // 2. pack.mcmeta nativo universal (1.8 hasta 26.3+)
+    // En MC 26.3+ (pack_format >= 65), supported_formats está OBSOLETO y Mojang exige
+    // estrictamente min_format y max_format. Para versiones anteriores (15 a 64) se usa supported_formats.
     const packFormat = this._getPackFormat(mcVersion);
     const mcmeta = {
       pack: {
         pack_format: packFormat,
-        supported_formats: [1, 999],
         description: 'ShubaCore Native Skin System'
       }
     };
+
+    if (packFormat >= 65) {
+      mcmeta.pack.min_format = packFormat;
+      mcmeta.pack.max_format = 999;
+    } else if (packFormat >= 15) {
+      mcmeta.pack.supported_formats = [packFormat, 64];
+    }
+
     fs.writeFileSync(path.join(packDir, 'pack.mcmeta'), JSON.stringify(mcmeta, null, 2), 'utf8');
 
     // 2.1 pack.png icono estándar para validación completa del ResourceManager de Minecraft
@@ -765,16 +774,20 @@ class SkinManager {
     // 3. Crear carpetas de destino de texturas
     const wideDir = path.join(packDir, 'assets', 'minecraft', 'textures', 'entity', 'player', 'wide');
     const slimDir = path.join(packDir, 'assets', 'minecraft', 'textures', 'entity', 'player', 'slim');
+    const playerDir = path.join(packDir, 'assets', 'minecraft', 'textures', 'entity', 'player');
     const legacyDir = path.join(packDir, 'assets', 'minecraft', 'textures', 'entity');
 
     fs.mkdirSync(wideDir, { recursive: true });
     fs.mkdirSync(slimDir, { recursive: true });
+    fs.mkdirSync(playerDir, { recursive: true });
     fs.mkdirSync(legacyDir, { recursive: true });
 
-    // Copiar a todas las 9 skins por defecto en wide y slim
+    // Copiar a todas las 9 skins por defecto en wide, slim, raíz de player y legacy entity
     for (const skinFileName of DEFAULT_PLAYER_SKIN_NAMES) {
       fs.writeFileSync(path.join(wideDir, skinFileName), skinBuffer);
       fs.writeFileSync(path.join(slimDir, skinFileName), skinBuffer);
+      fs.writeFileSync(path.join(playerDir, skinFileName), skinBuffer);
+      fs.writeFileSync(path.join(legacyDir, skinFileName), skinBuffer);
     }
 
     // Copiar para versiones legacy (1.8 a 1.19.2)

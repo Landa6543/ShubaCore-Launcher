@@ -730,7 +730,7 @@ class LaunchManager {
         const { getSkinManager } = require('../skins/SkinManager');
         const skinMgr = getSkinManager();
         const playerName = auth?.name || (currentAccount && (currentAccount.username || currentAccount.name)) || 'Jugador';
-        const mcVer = (activeProfile && activeProfile.mcVersion) || '1.21.1';
+        const mcVer = mcVersion || (activeProfile && activeProfile.mcVersion) || '1.21.1';
         const skinRes = await skinMgr.injectSkinResourcePack({
           instancePath,
           username: playerName,

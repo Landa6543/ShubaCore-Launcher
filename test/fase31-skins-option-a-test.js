@@ -68,12 +68,49 @@ async function runTests() {
   console.log('   ✔ "vanilla" preservado como primer pack base incondicionalmente.');
 
   // 4. Verificando authlib-injector.jar en src/main/runtime/
-  console.log('\n▶ [4/4] Verificando presencia de authlib-injector.jar (Opción A - Ely.by)...');
+  console.log('\n▶ [4/5] Verificando presencia de authlib-injector.jar (Opción A - Ely.by)...');
   const injectorSrc = path.join(__dirname, '..', 'src', 'main', 'runtime', 'authlib-injector.jar');
   assert.ok(fs.existsSync(injectorSrc), 'authlib-injector.jar debe existir en src/main/runtime/');
   const stats = fs.statSync(injectorSrc);
   assert.ok(stats.size > 200000, `Tamaño del JAR (${stats.size} bytes) debe ser mayor a 200KB`);
   console.log(`   ✔ authlib-injector.jar verificado (${stats.size} bytes).`);
+
+  // 5. Verificando inyección de ShubaSkinOverride con formato para MC 26.3 y MC 1.21.1
+  console.log('\n▶ [5/5] Verificando esquema estricto de pack.mcmeta (min_format/max_format en MC 26.3+ y supported_formats en 1.21.1)...');
+  const instance263 = path.join(testDir, 'instance263');
+  fs.mkdirSync(instance263, { recursive: true });
+  await skinMgr.injectSkinResourcePack({
+    instancePath: instance263,
+    username: 'TesterNoPremium',
+    mcVersion: '26.3'
+  });
+
+  const mcmeta263 = JSON.parse(fs.readFileSync(path.join(instance263, 'resourcepacks', 'ShubaSkinOverride', 'pack.mcmeta'), 'utf8'));
+  assert.strictEqual(mcmeta263.pack.pack_format, 97, 'pack_format en 26.3 debe ser 97');
+  assert.strictEqual(mcmeta263.pack.min_format, 97, 'min_format en 26.3 debe ser 97');
+  assert.strictEqual(mcmeta263.pack.max_format, 999, 'max_format en 26.3 debe ser 999');
+  assert.strictEqual(mcmeta263.pack.supported_formats, undefined, 'supported_formats debe estar omitido en 26.3');
+
+  // Verificar texturas en player/wide, player/slim, player/ y entity/
+  const overridePack = path.join(instance263, 'resourcepacks', 'ShubaSkinOverride', 'assets', 'minecraft', 'textures', 'entity');
+  assert.ok(fs.existsSync(path.join(overridePack, 'player', 'wide', 'sunny.png')), 'sunny.png debe existir en wide');
+  assert.ok(fs.existsSync(path.join(overridePack, 'player', 'slim', 'sunny.png')), 'sunny.png debe existir en slim');
+  assert.ok(fs.existsSync(path.join(overridePack, 'player', 'sunny.png')), 'sunny.png debe existir en entity/player');
+  assert.ok(fs.existsSync(path.join(overridePack, 'sunny.png')), 'sunny.png debe existir en entity');
+  console.log('   ✔ MC 26.3 pack.mcmeta y 9 texturas de jugador validadas con éxito.');
+
+  const instance121 = path.join(testDir, 'instance121');
+  fs.mkdirSync(instance121, { recursive: true });
+  await skinMgr.injectSkinResourcePack({
+    instancePath: instance121,
+    username: 'TesterNoPremium',
+    mcVersion: '1.21.1'
+  });
+
+  const mcmeta121 = JSON.parse(fs.readFileSync(path.join(instance121, 'resourcepacks', 'ShubaSkinOverride', 'pack.mcmeta'), 'utf8'));
+  assert.strictEqual(mcmeta121.pack.pack_format, 34, 'pack_format en 1.21.1 debe ser 34');
+  assert.deepStrictEqual(mcmeta121.pack.supported_formats, [34, 64], 'supported_formats en 1.21.1 debe ser [34, 64]');
+  console.log('   ✔ MC 1.21.1 pack.mcmeta validado con supported_formats [34, 64].');
 
   // Limpieza
   fs.rmSync(testDir, { recursive: true, force: true });
