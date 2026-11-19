@@ -795,6 +795,10 @@ class SupabaseManager {
       const friends = (friendships || []).map(f => {
         const isSender = f.user_id === currentUserId;
         const profile = isSender ? f.receiver : f.sender;
+        const isRecent = profile?.last_seen ? (Date.now() - new Date(profile.last_seen).getTime() < 3 * 60 * 1000) : false;
+        const isPlaying = profile?.status === 'playing' && Boolean(profile?.current_game?.server) && isRecent;
+        const status = isPlaying ? 'playing' : (isRecent && profile?.status === 'online' ? 'online' : 'offline');
+        const currentGame = isPlaying ? profile?.current_game : null;
         return {
           friendshipId: f.id,
           friendId: profile?.id,
@@ -803,8 +807,8 @@ class SupabaseManager {
           accountType: profile?.account_type,
           msGamertag: profile?.ms_gamertag,
           skinUrl: profile?.skin_url,
-          status: profile?.status || 'offline',
-          currentGame: profile?.current_game || null,
+          status,
+          currentGame,
           lastSeen: profile?.last_seen,
           since: f.created_at,
           createdAt: profile?.created_at,
@@ -1128,11 +1132,13 @@ class SupabaseManager {
     if (!sessionOk) return [];
 
     try {
+      const cutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString();
       const { data, error } = await this.client
         .from('game_invites')
         .select('id, host_id, guest_id, world_name, mc_version, loader, server_address, status, created_at, host:profiles!game_invites_host_id_fkey(id, username, display_name, skin_url, account_type)')
         .eq('guest_id', guestId)
         .eq('status', 'pending')
+        .gte('created_at', cutoff)
         .order('created_at', { ascending: false });
 
       if (error) {

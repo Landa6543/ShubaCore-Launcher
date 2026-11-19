@@ -10175,7 +10175,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       } else if (update.table === 'profiles') {
         api.friends.getList().then((updatedFriends) => {
           (updatedFriends || []).forEach((fr) => {
-            if (fr.status === 'playing' && fr.currentGame?.server) {
+            const isRecent = fr.lastSeen ? (Date.now() - new Date(fr.lastSeen).getTime() < 3 * 60 * 1000) : false;
+            if (fr.status === 'playing' && fr.currentGame?.server && isRecent) {
               const serverAddr = fr.currentGame.server;
               if (!notifiedHostServers.has(serverAddr)) {
                 notifiedHostServers.add(serverAddr);
@@ -10216,7 +10217,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           }
           renderGameInvites(invites);
 
-          if (count > 0 && (update.eventType === 'INSERT' || !update.eventType)) {
+          if (count > 0 && update.eventType === 'INSERT') {
             const latest = invites[0];
             const hostName = latest?.host?.displayName || latest?.host?.username || 'Un amigo';
             api.system.showNotification({

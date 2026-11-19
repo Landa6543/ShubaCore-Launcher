@@ -83,6 +83,8 @@ class SkinManager {
    */
   _getPackFormat(mcVersion = '1.21.1') {
     const ver = String(mcVersion || '1.21.1').trim();
+    if (ver.startsWith('26.') || ver.includes('26.3')) return 97;
+    if (ver.startsWith('25w') || ver.startsWith('25.')) return 60;
     if (ver.startsWith('1.21.4')) return 46;
     if (ver.startsWith('1.21.2') || ver.startsWith('1.21.3')) return 42;
     if (ver.startsWith('1.21')) return 34;
@@ -721,16 +723,18 @@ class SkinManager {
     const mcmeta = {
       pack: {
         pack_format: packFormat,
-        supported_formats: {
-          min_inclusive: 1,
-          max_inclusive: 999
-        },
-        min_format: 1,
-        max_format: 999,
+        supported_formats: [1, 999],
         description: 'ShubaCore Native Skin System'
       }
     };
     fs.writeFileSync(path.join(packDir, 'pack.mcmeta'), JSON.stringify(mcmeta, null, 2), 'utf8');
+
+    // 2.1 pack.png icono estándar para validación completa del ResourceManager de Minecraft
+    const packPngPath = path.join(packDir, 'pack.png');
+    if (!fs.existsSync(packPngPath)) {
+      const minimalPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAEUlEQVR42mNk+M+ABzCOqh5oAQAZ7AEF5r0rRAAAAABJRU5ErkJggg==', 'base64');
+      try { fs.writeFileSync(packPngPath, minimalPng); } catch (_) {}
+    }
 
     // 3. Crear carpetas de destino de texturas
     const wideDir = path.join(packDir, 'assets', 'minecraft', 'textures', 'entity', 'player', 'wide');
@@ -765,14 +769,14 @@ class SkinManager {
   }
 
   /**
-   * Asegura que el resource pack figure en resourcePacks e incompatibleResourcePacks de options.txt
+   * Asegura que el resource pack figure en resourcePacks de options.txt preservando 'vanilla' como base
    */
   _enablePackInOptionsTxt(optionsPath, packEntry = 'file/ShubaSkinOverride') {
     try {
       if (!fs.existsSync(optionsPath)) {
         fs.writeFileSync(
           optionsPath,
-          `resourcePacks:["vanilla","${packEntry}"]\nincompatibleResourcePacks:["${packEntry}"]\n`,
+          `resourcePacks:["vanilla","${packEntry}"]\n`,
           'utf8'
         );
         return;
@@ -781,7 +785,6 @@ class SkinManager {
       const content = fs.readFileSync(optionsPath, 'utf8');
       const lines = content.split(/\r?\n/);
       let foundResourcePacks = false;
-      let foundIncompatible = false;
 
       const newLines = lines.map((line) => {
         if (line.startsWith('resourcePacks:')) {
@@ -794,13 +797,13 @@ class SkinManager {
             list = rawVal.replace(/[\[\]"']/g, '').split(',').map((s) => s.trim()).filter(Boolean);
           }
           if (!Array.isArray(list)) list = [];
-          if (!list.includes(packEntry)) {
-            list.push(packEntry);
-          }
+          // Filtrar duplicados y asegurar 'vanilla' al inicio siempre
+          list = list.filter((p) => p !== 'vanilla' && p !== packEntry && p !== 'ShubaSkinOverride');
+          list.unshift('vanilla');
+          list.push(packEntry);
           return `resourcePacks:${JSON.stringify(list)}`;
         }
         if (line.startsWith('incompatibleResourcePacks:')) {
-          foundIncompatible = true;
           const rawVal = line.substring('incompatibleResourcePacks:'.length).trim();
           let list = [];
           try {
@@ -808,20 +811,17 @@ class SkinManager {
           } catch (_) {
             list = rawVal.replace(/[\[\]"']/g, '').split(',').map((s) => s.trim()).filter(Boolean);
           }
-          if (!Array.isArray(list)) list = [];
-          if (!list.includes(packEntry)) {
-            list.push(packEntry);
+          if (Array.isArray(list)) {
+            list = list.filter((p) => p !== packEntry && p !== 'ShubaSkinOverride');
+            return `incompatibleResourcePacks:${JSON.stringify(list)}`;
           }
-          return `incompatibleResourcePacks:${JSON.stringify(list)}`;
+          return line;
         }
         return line;
       });
 
       if (!foundResourcePacks) {
         newLines.push(`resourcePacks:["vanilla","${packEntry}"]`);
-      }
-      if (!foundIncompatible) {
-        newLines.push(`incompatibleResourcePacks:["${packEntry}"]`);
       }
 
       fs.writeFileSync(optionsPath, newLines.join('\n') + '\n', 'utf8');

@@ -1294,8 +1294,10 @@ function registerIpcHandlers(mainWindow) {
       const skinData = await skinManager.setSkinFromMojang(offlineUser, mojangUser);
       try {
         const activePath = profileManager.getActiveInstancePath();
+        const activeProfile = profileManager.getActiveProfile();
+        const mcVersion = activeProfile?.mcVersion || '1.21.1';
         if (activePath && fs.existsSync(activePath)) {
-          await skinManager.injectSkinResourcePack({ instancePath: activePath, username: offlineUser });
+          await skinManager.injectSkinResourcePack({ instancePath: activePath, username: offlineUser, mcVersion });
         }
       } catch (applyErr) {
         logger.warn('No se pudo aplicar Resource Pack automáticamente a la instancia:', applyErr.message);
@@ -1313,8 +1315,10 @@ function registerIpcHandlers(mainWindow) {
       const resultData = await skinManager.setSkinFromFile(offlineUser, source, skinModel);
       try {
         const activePath = profileManager.getActiveInstancePath();
+        const activeProfile = profileManager.getActiveProfile();
+        const mcVersion = activeProfile?.mcVersion || '1.21.1';
         if (activePath && fs.existsSync(activePath)) {
-          await skinManager.injectSkinResourcePack({ instancePath: activePath, username: offlineUser });
+          await skinManager.injectSkinResourcePack({ instancePath: activePath, username: offlineUser, mcVersion });
         }
       } catch (applyErr) {
         logger.warn('No se pudo aplicar Resource Pack automáticamente a la instancia:', applyErr.message);
