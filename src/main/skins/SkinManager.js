@@ -404,7 +404,7 @@ class SkinManager {
   /**
    * REQUISITO 1: Clona la skin de un jugador Premium y la guarda localmente
    */
-  async setSkinFromMojang(offlineUsername, mojangUsername) {
+  async setSkinFromMojang(offlineUsername, mojangUsername, forcedModel = null) {
     const cleanOffline = (offlineUsername || '').trim();
     if (!cleanOffline) throw new Error('El nombre de usuario offline es obligatorio.');
 
@@ -415,18 +415,32 @@ class SkinManager {
     const userPath = this.getSkinPath(cleanOffline);
     fs.writeFileSync(userPath, mojangInfo.pngBuffer);
 
+    // Si el usuario especificó explícitamente un modelo (slim o classic), respetarlo sobre el default de Mojang
+    const prevConfig = this.configManager.get('skin') || {};
+    const finalModel = (forcedModel === 'slim' || forcedModel === 'classic')
+      ? forcedModel
+      : (prevConfig.skinModel === 'slim' ? 'slim' : (mojangInfo.skinModel || 'classic'));
+
     // Persistir metadatos en config.json
     const skinConfig = {
       skinSource: 'premium_clone',
       clonedUuid: mojangInfo.formattedUuid,
-      skinModel: mojangInfo.skinModel,
+      skinModel: finalModel,
       capeUrl: mojangInfo.capeUrl,
       originalUsername: mojangInfo.officialName,
       updatedAt: new Date().toISOString()
     };
     this.configManager.set('skin', skinConfig);
 
-    logger.info(`[SkinManager] Skin de "${mojangInfo.officialName}" clonada con éxito para "${cleanOffline}". UUID Oficial: ${mojangInfo.formattedUuid}`);
+    try {
+      const authConfig = this.configManager.get('auth') || {};
+      if (authConfig.currentUser) {
+        authConfig.currentUser.skinModel = finalModel;
+        this.configManager.set('auth', authConfig);
+      }
+    } catch (_) {}
+
+    logger.info(`[SkinManager] Skin de "${mojangInfo.officialName}" clonada con éxito para "${cleanOffline}" (${finalModel}). UUID Oficial: ${mojangInfo.formattedUuid}`);
 
     return {
       success: true,
@@ -434,7 +448,7 @@ class SkinManager {
       source: mojangInfo.officialName,
       skinSource: 'premium_clone',
       clonedUuid: mojangInfo.formattedUuid,
-      skinModel: mojangInfo.skinModel,
+      skinModel: finalModel,
       capeUrl: mojangInfo.capeUrl,
       path: this.currentSkinPath,
       dataUrl: mojangInfo.dataUrl
@@ -508,6 +522,14 @@ class SkinManager {
     };
     this.configManager.set('skin', skinConfig);
 
+    try {
+      const authConfig = this.configManager.get('auth') || {};
+      if (authConfig.currentUser) {
+        authConfig.currentUser.skinModel = resolvedModel;
+        this.configManager.set('auth', authConfig);
+      }
+    } catch (_) {}
+
     logger.info(`[SkinManager] Skin local guardada con éxito para "${cleanOffline}" (${resolvedModel}) en: ${this.currentSkinPath}`);
 
     return {
@@ -530,6 +552,15 @@ class SkinManager {
     skinConfig.skinModel = model;
     skinConfig.updatedAt = new Date().toISOString();
     this.configManager.set('skin', skinConfig);
+
+    try {
+      const authConfig = this.configManager.get('auth') || {};
+      if (authConfig.currentUser) {
+        authConfig.currentUser.skinModel = model;
+        this.configManager.set('auth', authConfig);
+      }
+    } catch (_) {}
+
     logger.info(`[SkinManager] Variante de skin actualizada a: "${model}"`);
     return { success: true, skinModel: model };
   }
@@ -703,10 +734,12 @@ class SkinManager {
    * Reemplaza las 9 texturas de jugador por defecto (wide y slim) y texturas legacy
    * y asegura su activación automática en options.txt sin requerir ningún mod.
    */
-  async injectSkinResourcePack({ instancePath, username = 'steve', mcVersion = '1.21.1' }) {
+  async injectSkinResourcePack({ instancePath, username = 'steve', mcVersion = '1.21.1', skinModel = null }) {
     if (!instancePath || !fs.existsSync(instancePath)) {
       return { applied: false, reason: 'invalid_instance_path' };
     }
+
+    const resolvedModel = skinModel || this.configManager.get('skin')?.skinModel || 'classic';
 
     // Buscar archivo .png de la skin (específico del usuario o current_skin.png)
     let skinSourcePath = null;

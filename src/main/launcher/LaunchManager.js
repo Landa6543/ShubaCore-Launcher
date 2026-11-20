@@ -258,14 +258,17 @@ class LaunchManager {
         typeof auth.access_token !== 'string' ||
         auth.access_token.startsWith('offline_');
 
+      let skinModel = 'classic';
+
       if (isOfflineAccount) {
         const playerName = (auth && auth.name) || (currentAccount && (currentAccount.username || currentAccount.name)) || 'Jugador';
-        let skinModel = 'classic';
         try {
           const { getSkinManager } = require('../skins/SkinManager');
           const skinInfo = getSkinManager().getCurrentSkinInfo(playerName);
-          skinModel = skinInfo?.skinModel || 'classic';
-        } catch (_) {}
+          skinModel = skinInfo?.skinModel || currentAccount?.skinModel || 'classic';
+        } catch (_) {
+          skinModel = currentAccount?.skinModel || 'classic';
+        }
 
         const { generateOfflineUUIDForModel } = require('../auth/OfflineAuth');
         const offlineUuid = generateOfflineUUIDForModel(playerName, skinModel);
@@ -758,7 +761,8 @@ class LaunchManager {
         const skinRes = await skinMgr.injectSkinResourcePack({
           instancePath,
           username: playerName,
-          mcVersion: mcVer
+          mcVersion: mcVer,
+          skinModel: (typeof skinModel !== 'undefined' ? skinModel : 'classic')
         });
         if (skinRes && skinRes.applied) {
           logger.info(`[LaunchManager] ✅ Skin nativa inyectada para "${playerName}" en ${instancePath}`);

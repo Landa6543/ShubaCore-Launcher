@@ -1841,8 +1841,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnAnimRun = document.getElementById('btn-anim-run');
   const btnAnimRotate = document.getElementById('btn-anim-rotate');
 
-  if (btnModelClassic) btnModelClassic.addEventListener('click', () => setSkinModelType('default'));
-  if (btnModelSlim) btnModelSlim.addEventListener('click', () => setSkinModelType('slim'));
+  if (btnModelClassic) btnModelClassic.addEventListener('click', () => {
+    setSkinModelType('default');
+    if (pendingSkinData) pendingSkinData.model = 'default';
+  });
+  if (btnModelSlim) btnModelSlim.addEventListener('click', () => {
+    setSkinModelType('slim');
+    if (pendingSkinData) pendingSkinData.model = 'slim';
+  });
   if (btnAnimIdle) btnAnimIdle.addEventListener('click', () => setSkinAnimation('idle'));
   if (btnAnimWalk) btnAnimWalk.addEventListener('click', () => setSkinAnimation('walk'));
   if (btnAnimRun) btnAnimRun.addEventListener('click', () => setSkinAnimation('run'));
@@ -2448,17 +2454,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       try {
         let result = null;
+        const chosenModel = currentModelType === 'slim' ? 'slim' : 'classic';
         if (pendingSkinData.type === 'mojang') {
-          appendLog(`[Skins] Conectando a Mojang y clonando skin de "${pendingSkinData.value}" para "${activeUser}"...`, 'info');
-          result = await api.skins.setFromUsername(activeUser, pendingSkinData.value);
+          appendLog(`[Skins] Conectando a Mojang y clonando skin de "${pendingSkinData.value}" para "${activeUser}" (${chosenModel})...`, 'info');
+          result = await api.skins.setFromUsername(activeUser, pendingSkinData.value, chosenModel);
         } else {
-          appendLog(`[Skins] Guardando skin para "${activeUser}"...`, 'info');
-          result = await api.skins.setFromFile(activeUser, pendingSkinData.value, currentModelType === 'slim' ? 'slim' : 'classic');
+          appendLog(`[Skins] Guardando skin para "${activeUser}" (${chosenModel})...`, 'info');
+          result = await api.skins.setFromFile(activeUser, pendingSkinData.value, chosenModel);
         }
 
         if (result && result.success) {
           appendLog(`[Skins] ¡Skin de ${activeUser} guardada y aplicada con éxito!`, 'success');
           const finalSkin = result.skin?.dataUrl || result.dataUrl || pendingSkinData.dataUrl;
+          pendingSkinData = null;
           if (finalSkin) {
             renderSkinFaceToCanvas(finalSkin, sidebarAvatarCanvas);
             renderSkinFaceToCanvas(finalSkin, vestidorFaceCanvas);

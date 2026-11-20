@@ -78,38 +78,16 @@ class JavaManager {
       }
     }
 
-    // 2. Rutas del Launcher oficial de Minecraft (epsilon = 25, delta = 21, gamma = 17, alpha = 8)
+    // 2. Directorios estándar de Program Files (Adoptium, Oracle, Zulu, BellSoft)
     const localAppData = process.env.LOCALAPPDATA || '';
     const appData = process.env.APPDATA || '';
-    const mcRuntimes = ['java-runtime-epsilon', 'java-runtime-delta', 'java-runtime-gamma', 'java-runtime-alpha', 'jre-legacy'];
 
-    for (const rt of mcRuntimes) {
-      const mcOfficialRt = path.join(appData, '.minecraft', 'runtime', rt, 'windows-x64', rt, 'bin', 'javaw.exe');
-      if (fs.existsSync(mcOfficialRt)) candidates.add(mcOfficialRt);
-    }
-
-    const packagesDir = path.join(localAppData, 'Packages');
-    if (fs.existsSync(packagesDir)) {
-      try {
-        const pkgs = fs.readdirSync(packagesDir);
-        for (const pkg of pkgs) {
-          if (pkg.toLowerCase().startsWith('microsoft.4297127d')) {
-            for (const rt of mcRuntimes) {
-              const rtBin = path.join(packagesDir, pkg, 'LocalCache', 'Local', 'runtime', rt, 'windows-x64', rt, 'bin', 'javaw.exe');
-              if (fs.existsSync(rtBin)) candidates.add(rtBin);
-            }
-          }
-        }
-      } catch (_) {}
-    }
-
-    // 3. Directorios estándar de Program Files
     const searchRoots = [
       'C:\\Program Files\\Eclipse Adoptium',
       'C:\\Program Files\\Java',
-      'C:\\Program Files\\Microsoft',
-      'C:\\Program Files\\BellSoft',
       'C:\\Program Files\\Zulu',
+      'C:\\Program Files\\BellSoft',
+      'C:\\Program Files\\Microsoft',
       'C:\\Program Files\\Common Files\\Oracle\\Java\\javapath',
       path.join(localAppData, 'Programs', 'Eclipse Adoptium')
     ];
@@ -137,7 +115,7 @@ class JavaManager {
       } catch (_) {}
     }
 
-    // 4. Comando 'where java' del sistema
+    // 3. Comando 'where java' del sistema
     try {
       const whereRes = spawnSync('where', ['java'], { windowsHide: true });
       if (whereRes && whereRes.stdout) {
@@ -152,6 +130,29 @@ class JavaManager {
         }
       }
     } catch (_) {}
+
+    // 4. Rutas del Launcher oficial de Minecraft (último recurso por posibles bugs en builds de preview)
+    const mcRuntimes = ['java-runtime-epsilon', 'java-runtime-delta', 'java-runtime-gamma', 'java-runtime-alpha', 'jre-legacy'];
+
+    for (const rt of mcRuntimes) {
+      const mcOfficialRt = path.join(appData, '.minecraft', 'runtime', rt, 'windows-x64', rt, 'bin', 'javaw.exe');
+      if (fs.existsSync(mcOfficialRt)) candidates.add(mcOfficialRt);
+    }
+
+    const packagesDir = path.join(localAppData, 'Packages');
+    if (fs.existsSync(packagesDir)) {
+      try {
+        const pkgs = fs.readdirSync(packagesDir);
+        for (const pkg of pkgs) {
+          if (pkg.toLowerCase().startsWith('microsoft.4297127d')) {
+            for (const rt of mcRuntimes) {
+              const rtBin = path.join(packagesDir, pkg, 'LocalCache', 'Local', 'runtime', rt, 'windows-x64', rt, 'bin', 'javaw.exe');
+              if (fs.existsSync(rtBin)) candidates.add(rtBin);
+            }
+          }
+        }
+      } catch (_) {}
+    }
 
     // 5. Analizar cada ejecutable encontrado
     const results = [];
@@ -180,16 +181,49 @@ class JavaManager {
       } catch (_) {}
     }
 
-    // Ordenar de mayor a menor versión (ej. 25, 21, 17, 8)
-    // Para versiones iguales (especialmente Java 25), priorizar Microsoft OpenJDK / runtime oficial de Mojang sobre builds externos
+    // Función de puntuación de estabilidad por vendedor y ruta (criterio estándar de PrismLauncher)
+    const getStabilityScore = (item) => {
+      let score = 50;
+      if (item.isPortable) score += 50; // Runtimes oficiales descargados por ShubaCore
+      const v = (item.vendor || '').toLowerCase();
+      const p = (item.path || '').toLowerCase();
+      if (v.includes('adoptium') || v.includes('temurin') || p.includes('eclipse adoptium')) score += 40;
+      else if (v.includes('corretto') || v.includes('zulu') || v.includes('bellsoft') || v.includes('oracle')) score += 30;
+      else if (p.includes('program files')) score += 20;
+
+      // Penalizar runtimes de preview en LocalCache/Packages de Microsoft (conocidos por fallos 0xC0000005 con Sodium/OpenGL)
+      if (p.includes('packages\\microsoft.') || p.includes('java-runtime-epsilon')) {
+        score -= 40;
+      }
+      return score;
+    };
+
+    // Parsear subversión numérica (ej. "25.0.4.1" -> [25, 0, 4, 1]) para ordenar de mayor a menor parche
+    const parseVersionParts = (vStr) => {
+      const m = String(vStr || '').match(/(\d+(?:\.\d+)+)/);
+      if (!m) return [0];
+      return m[1].split('.').map((n) => parseInt(n, 10) || 0);
+    };
+
+    // Ordenar de mayor a menor versión mayor (ej. 25, 21, 17, 8)
+    // Para versiones iguales, priorizar distribuidores JDK certificados (Adoptium Temurin, Corretto, Zulu, Oracle)
+    // y versiones de parche más recientes sobre las copias incompletas del launcher oficial
     results.sort((a, b) => {
       if (b.majorVersion !== a.majorVersion) {
         return b.majorVersion - a.majorVersion;
       }
-      const isOfficialA = a.path.toLowerCase().includes('java-runtime-') || (a.vendor && a.vendor.toLowerCase().includes('microsoft'));
-      const isOfficialB = b.path.toLowerCase().includes('java-runtime-') || (b.vendor && b.vendor.toLowerCase().includes('microsoft'));
-      if (isOfficialA && !isOfficialB) return -1;
-      if (!isOfficialA && isOfficialB) return 1;
+      const scoreA = getStabilityScore(a);
+      const scoreB = getStabilityScore(b);
+      if (scoreB !== scoreA) {
+        return scoreB - scoreA;
+      }
+      const partsA = parseVersionParts(a.fullVersion);
+      const partsB = parseVersionParts(b.fullVersion);
+      for (let i = 0; i < Math.max(partsA.length, partsB.length); i++) {
+        const numA = partsA[i] || 0;
+        const numB = partsB[i] || 0;
+        if (numB !== numA) return numB - numA;
+      }
       return 0;
     });
     return results;

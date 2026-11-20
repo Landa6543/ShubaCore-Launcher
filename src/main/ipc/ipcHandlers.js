@@ -1289,15 +1289,15 @@ function registerIpcHandlers(mainWindow) {
     }
   });
 
-  ipcMain.handle('skins:set-from-username', async (event, { offlineUser, mojangUser }) => {
+  ipcMain.handle('skins:set-from-username', async (event, { offlineUser, mojangUser, skinModel }) => {
     try {
-      const skinData = await skinManager.setSkinFromMojang(offlineUser, mojangUser);
+      const skinData = await skinManager.setSkinFromMojang(offlineUser, mojangUser, skinModel);
       try {
         const activePath = profileManager.getActiveInstancePath();
         const activeProfile = profileManager.getActiveProfile();
         const mcVersion = activeProfile?.mcVersion || '1.21.1';
         if (activePath && fs.existsSync(activePath)) {
-          await skinManager.injectSkinResourcePack({ instancePath: activePath, username: offlineUser, mcVersion });
+          await skinManager.injectSkinResourcePack({ instancePath: activePath, username: offlineUser, mcVersion, skinModel: skinData.skinModel });
         }
       } catch (applyErr) {
         logger.warn('No se pudo aplicar Resource Pack automáticamente a la instancia:', applyErr.message);
@@ -1318,7 +1318,7 @@ function registerIpcHandlers(mainWindow) {
         const activeProfile = profileManager.getActiveProfile();
         const mcVersion = activeProfile?.mcVersion || '1.21.1';
         if (activePath && fs.existsSync(activePath)) {
-          await skinManager.injectSkinResourcePack({ instancePath: activePath, username: offlineUser, mcVersion });
+          await skinManager.injectSkinResourcePack({ instancePath: activePath, username: offlineUser, mcVersion, skinModel: resultData.skinModel });
         }
       } catch (applyErr) {
         logger.warn('No se pudo aplicar Resource Pack automáticamente a la instancia:', applyErr.message);
@@ -1332,7 +1332,19 @@ function registerIpcHandlers(mainWindow) {
 
   ipcMain.handle('skins:set-model', async (event, { skinModel }) => {
     try {
-      return skinManager.setSkinModel(skinModel);
+      const res = skinManager.setSkinModel(skinModel);
+      try {
+        const activePath = profileManager.getActiveInstancePath();
+        const activeProfile = profileManager.getActiveProfile();
+        const mcVersion = activeProfile?.mcVersion || '1.21.1';
+        const activeUser = authManager.getActivePlayerUsername ? await authManager.getActivePlayerUsername() : 'Jugador';
+        if (activePath && fs.existsSync(activePath)) {
+          await skinManager.injectSkinResourcePack({ instancePath: activePath, username: activeUser, mcVersion, skinModel });
+        }
+      } catch (applyErr) {
+        logger.debug('Aviso al refrescar pack tras cambio de modelo:', applyErr.message);
+      }
+      return res;
     } catch (err) {
       logger.error('Error en skins:set-model IPC:', err);
       return { success: false, error: err.message };
