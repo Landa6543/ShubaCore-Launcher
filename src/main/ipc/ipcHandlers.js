@@ -267,9 +267,19 @@ function registerIpcHandlers(mainWindow) {
 
   ipcMain.handle('profiles:delete', async (event, id) => {
     try {
+      if (launchManager && typeof launchManager.getRunningProcesses === 'function') {
+        const running = launchManager.getRunningProcesses();
+        for (const sess of running) {
+          if (sess.instanceId === id) {
+            logger.warn(`[profiles:delete] Deteniendo proceso Minecraft PID ${sess.pid} antes de eliminar.`);
+            launchManager.killSession(sess.sessionId);
+          }
+        }
+      }
       profileManager.deleteProfile(id);
       return { success: true, all: profileManager.getAll() };
     } catch (err) {
+      logger.error(`Error en profiles:delete IPC para ${id}:`, err);
       return { success: false, error: err.message };
     }
   });

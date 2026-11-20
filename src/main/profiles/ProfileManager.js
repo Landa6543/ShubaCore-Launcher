@@ -34,6 +34,11 @@ class ProfileManager {
     this.sharedRoot = rootPath;
     this.instancesDir = path.join(this.sharedRoot, 'instances');
     this.profilesFile = path.join(this.sharedRoot, 'profiles.json');
+    this.deletedInstancesFile = path.join(this.sharedRoot, '.deleted_instances.json');
+
+    this.deletedProfileIds = new Set();
+    this._loadDeletedProfileIds();
+    this._cleanTrash();
 
     this.data = {
       activeProfileId: 'default-1211',
@@ -41,6 +46,97 @@ class ProfileManager {
     };
 
     this.init();
+  }
+
+  _loadDeletedProfileIds() {
+    try {
+      if (fs.existsSync(this.deletedInstancesFile)) {
+        const raw = fs.readFileSync(this.deletedInstancesFile, 'utf8');
+        const list = JSON.parse(raw);
+        if (Array.isArray(list)) {
+          this.deletedProfileIds = new Set(list);
+        }
+      }
+    } catch (_) {}
+  }
+
+  _saveDeletedProfileIds() {
+    try {
+      fs.writeFileSync(this.deletedInstancesFile, JSON.stringify(Array.from(this.deletedProfileIds), null, 2), 'utf8');
+    } catch (_) {}
+  }
+
+  _cleanTrash() {
+    try {
+      const trashDir = path.join(this.sharedRoot, '.trash');
+      if (fs.existsSync(trashDir)) {
+        this._safeRemoveDirectory(trashDir, true);
+      }
+    } catch (_) {}
+  }
+
+  /**
+   * Eliminación segura y definitiva de carpetas en Windows (manejando EBUSY, EPERM y bloqueos)
+   */
+  _safeRemoveDirectory(targetDir, isTrashCleanup = false) {
+    if (!targetDir || !fs.existsSync(targetDir)) return true;
+
+    // 1. Quitar atributos de sólo lectura en Windows de forma recursiva
+    if (process.platform === 'win32') {
+      try {
+        const { spawnSync } = require('child_process');
+        spawnSync('attrib', ['-r', `${targetDir}\\*.*`, '/s', '/d'], { windowsHide: true, timeout: 5000 });
+      } catch (_) {}
+    }
+
+    // 2. Intentar eliminación nativa con reintentos
+    try {
+      fs.rmSync(targetDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+      if (!fs.existsSync(targetDir)) {
+        logger.info(`[ProfileManager] Carpeta eliminada limpiamente: ${targetDir}`);
+        return true;
+      }
+    } catch (rmErr) {
+      logger.warn(`[ProfileManager] fs.rmSync falló para ${targetDir}: ${rmErr.message}`);
+    }
+
+    // 3. Fallback en Windows: cmd.exe /c rmdir /s /q
+    if (process.platform === 'win32') {
+      try {
+        const { spawnSync } = require('child_process');
+        spawnSync('cmd.exe', ['/c', 'rmdir', '/s', '/q', `"${targetDir}"`], { windowsHide: true, timeout: 8000 });
+        if (!fs.existsSync(targetDir)) {
+          logger.info(`[ProfileManager] Carpeta eliminada mediante cmd rmdir: ${targetDir}`);
+          return true;
+        }
+      } catch (cmdErr) {
+        logger.warn(`[ProfileManager] cmd rmdir falló: ${cmdErr.message}`);
+      }
+    }
+
+    // 4. Fallback definitivo: Si aún existe y no es la papelera, mover fuera de instances/
+    if (!isTrashCleanup && fs.existsSync(targetDir)) {
+      try {
+        const trashDir = path.join(this.sharedRoot, '.trash');
+        if (!fs.existsSync(trashDir)) {
+          fs.mkdirSync(trashDir, { recursive: true });
+        }
+        const movedTrashPath = path.join(trashDir, `${path.basename(targetDir)}-${Date.now()}`);
+        fs.renameSync(targetDir, movedTrashPath);
+        logger.info(`[ProfileManager] Carpeta con archivos bloqueados movida fuera de instances/ a papelera: ${movedTrashPath}`);
+        // Intentar eliminar la carpeta movida en segundo plano
+        setTimeout(() => {
+          try {
+            fs.rmSync(movedTrashPath, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+          } catch (_) {}
+        }, 3000);
+        return true;
+      } catch (renameErr) {
+        logger.error(`[ProfileManager] No se pudo mover a papelera: ${renameErr.message}`);
+      }
+    }
+
+    return !fs.existsSync(targetDir);
   }
 
   /**
@@ -270,11 +366,23 @@ class ProfileManager {
     // 1. Sanear los que ya están en memoria/JSON
     for (const p of this.data.profiles) {
       if (!p) continue;
+      // Si fue marcado como eliminado, descartarlo
+      if (this.deletedProfileIds && this.deletedProfileIds.has(p.id)) {
+        hasChanges = true;
+        continue;
+      }
+
       const sanitized = this.sanitizeProfile(p);
+      const instPath = this.getInstancePath(sanitized.id);
+
       if (!knownIds.has(sanitized.id)) {
         knownIds.add(sanitized.id);
         sanitizedProfiles.push(sanitized);
-        this._setupInstanceFolder(sanitized.id, sanitized);
+        // Sólo configurar la carpeta si ya existe en disco
+        // Evita recrear carpetas que el usuario eliminó externamente
+        if (fs.existsSync(instPath)) {
+          this._setupInstanceFolder(sanitized.id, sanitized);
+        }
       }
     }
 
@@ -288,6 +396,19 @@ class ProfileManager {
       for (const entry of entries) {
         if (entry.isDirectory()) {
           const folderId = entry.name;
+
+          // Ignorar carpetas del sistema
+          if (folderId === '.trash' || folderId.startsWith('.')) {
+            continue;
+          }
+
+          // Si el ID está en la lista de eliminados, NUNCA resucitarlo
+          if (this.deletedProfileIds && this.deletedProfileIds.has(folderId)) {
+            logger.info(`[ProfileManager] Ignorando carpeta de instancia eliminada: ${folderId}`);
+            this._safeRemoveDirectory(path.join(this.instancesDir, folderId));
+            continue;
+          }
+
           if (!knownIds.has(folderId)) {
             const metaFile = path.join(this.instancesDir, folderId, 'profile.json');
             let metaData = {};
@@ -755,6 +876,12 @@ class ProfileManager {
     // Generar nombre de carpeta limpio en instances/ sin sufijos aleatorios
     const id = this.generateUniqueFolderName(rawName);
 
+    // Si este ID estuvo previamente en la lista de eliminados, reactivarlo limpiamente
+    if (this.deletedProfileIds && this.deletedProfileIds.has(id)) {
+      this.deletedProfileIds.delete(id);
+      this._saveDeletedProfileIds();
+    }
+
     const newProfile = this.sanitizeProfile({
       ...data,
       id,
@@ -807,33 +934,46 @@ class ProfileManager {
 
   deleteProfile(id) {
     const idx = this.data.profiles.findIndex((p) => p.id === id);
-    if (idx < 0) throw new Error(`Perfil ${id} no encontrado.`);
-
-    const profileToDelete = this.data.profiles[idx];
-    const instanceDir = this.getInstancePath(id);
-
-    try {
-      if (fs.existsSync(instanceDir)) {
-        fs.rmSync(instanceDir, { recursive: true, force: true });
-        logger.info(`Carpeta de instancia eliminada: ${instanceDir}`);
-      }
-    } catch (err) {
-      logger.warn(`No se pudo eliminar completamente la carpeta de instancia ${id}: ${err.message}`);
+    if (idx < 0) {
+      this.deletedProfileIds.add(id);
+      this._saveDeletedProfileIds();
+      const instanceDir = this.getInstancePath(id);
+      this._safeRemoveDirectory(instanceDir);
+      return true;
     }
 
+    const profileToDelete = this.data.profiles[idx];
+    const defaultInstDir = this.getInstancePath(id);
+    const customInstDir = profileToDelete.instancePath;
+
+    // 1. Marcar como ID eliminado persistentemente para NUNCA resucitarlo
+    this.deletedProfileIds.add(id);
+    this._saveDeletedProfileIds();
+
+    // 2. Eliminar carpeta física en disco de forma segura
+    this._safeRemoveDirectory(defaultInstDir);
+    if (customInstDir && customInstDir !== defaultInstDir && customInstDir !== this.sharedRoot) {
+      this._safeRemoveDirectory(customInstDir);
+    }
+
+    // 3. Remover de la lista de perfiles
     this.data.profiles.splice(idx, 1);
 
+    // 4. Si la lista quedó vacía, regenerar el perfil por defecto oficial
     if (this.data.profiles.length === 0) {
+      this.deletedProfileIds.delete('shubaclient-263');
+      this._saveDeletedProfileIds();
       this.init();
       return true;
     }
 
+    // 5. Si se eliminó el perfil activo, cambiar al primer perfil disponible
     if (this.data.activeProfileId === id) {
       this.data.activeProfileId = this.data.profiles[0].id;
     }
 
     this.save();
-    logger.info(`Perfil "${profileToDelete.name}" (${id}) eliminado.`);
+    logger.info(`Perfil "${profileToDelete.name}" (${id}) eliminado definitivamente.`);
     return true;
   }
 

@@ -2890,9 +2890,20 @@ document.addEventListener('DOMContentLoaded', async () => {
           const pName = target ? target.name : id;
           const confirmed = await showConfirmDialog(`¿Estás seguro de que deseas eliminar la instancia "${pName}"? Esta acción es irreversible.`, 'Eliminar Instancia');
           if (confirmed) {
-            await api.profiles.delete(id);
-            await loadProfiles();
-            appendLog(`[Instancias] Instancia "${pName}" eliminada.`, 'warn');
+            btn.disabled = true;
+            try {
+              const delRes = await api.profiles.delete(id);
+              if (delRes && delRes.success === false) {
+                alert(`Error al eliminar la instancia: ${delRes.error || 'Fallo desconocido'}`);
+                btn.disabled = false;
+                return;
+              }
+              await loadProfiles();
+              appendLog(`[Instancias] Instancia "${pName}" eliminada permanentemente.`, 'warn');
+            } catch (delErr) {
+              alert(`Error al eliminar la instancia: ${delErr.message}`);
+              btn.disabled = false;
+            }
           }
         });
       });
@@ -4488,6 +4499,42 @@ document.addEventListener('DOMContentLoaded', async () => {
         instanceOptionsMenu.style.display = 'none';
       });
     });
+
+    const btnDeleteCurrentInstance = document.getElementById('btn-delete-current-instance');
+    if (btnDeleteCurrentInstance) {
+      btnDeleteCurrentInstance.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (!currentActiveProfile) return;
+        const allRes = await api.profiles.getAll();
+        const profiles = allRes.profiles || [];
+        if (profiles.length <= 1) {
+          alert(window.i18n?.t ? window.i18n.t('card.cannotDeleteOnlyProfile', 'No puedes eliminar la única instancia disponible.') : 'No puedes eliminar la única instancia disponible.');
+          return;
+        }
+        const pName = currentActiveProfile.name || currentActiveProfile.id;
+        const confirmed = await showConfirmDialog(
+          `¿Estás seguro de que deseas eliminar permanentemente la instancia "${pName}"? Esta acción es irreversible y eliminará todos sus mods y archivos.`,
+          'Eliminar Instancia'
+        );
+        if (confirmed) {
+          btnDeleteCurrentInstance.disabled = true;
+          try {
+            const delRes = await api.profiles.delete(currentActiveProfile.id);
+            btnDeleteCurrentInstance.disabled = false;
+            if (delRes && delRes.success === false) {
+              alert(`Error al eliminar la instancia: ${delRes.error || 'Fallo desconocido'}`);
+              return;
+            }
+            await loadProfiles();
+            switchView('profiles');
+            appendLog(`[Instancias] Instancia "${pName}" eliminada permanentemente.`, 'warn');
+          } catch (delErr) {
+            btnDeleteCurrentInstance.disabled = false;
+            alert(`Error al eliminar la instancia: ${delErr.message}`);
+          }
+        }
+      });
+    }
   }
 
   // =======================================================

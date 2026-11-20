@@ -147,6 +147,35 @@ async function runProfileTests() {
   assert.ok(jvm21Flags.includes('-Xmx8G'), 'Debe incluir -Xmx8G');
   console.log('  ✔ JVMOptimizer flags de Java 21 validadas.\n');
 
+  // 6. Eliminación definitiva de instancias y prevención de resurrección
+  console.log('▶ [6/6] Verificando eliminación robusta de perfiles y anti-resurrección (Tombstones & Safe Cleanup)...');
+  const forDelete = profileManager.createProfile({
+    name: 'Instancia Descartable',
+    mcVersion: '1.21.1',
+    loader: 'Fabric',
+    loaderVersion: '0.16.9'
+  });
+  const forDeletePath = profileManager.getInstancePath(forDelete.id);
+  assert.ok(fs.existsSync(forDeletePath), 'La carpeta de la instancia a eliminar debe existir');
+
+  // Ejecutar eliminación
+  const deletedOk = profileManager.deleteProfile(forDelete.id);
+  assert.strictEqual(deletedOk, true, 'deleteProfile debe retornar true');
+  assert.ok(!fs.existsSync(forDeletePath), 'La carpeta física debe haber sido eliminada o movida a .trash');
+
+  // Verificar que getAll() no lo devuelve
+  let allAfterDelete = profileManager.getAll();
+  assert.ok(!allAfterDelete.profiles.some((p) => p.id === forDelete.id), 'La instancia eliminada no debe estar en getAll()');
+
+  // Simular que Windows dejó una carpeta zombie residual con ese mismo ID
+  fs.mkdirSync(forDeletePath, { recursive: true });
+  fs.writeFileSync(path.join(forDeletePath, 'profile.json'), JSON.stringify({ name: 'Zombi Resucitado' }));
+
+  // Ejecutar getAll() nuevamente: NO DEBE RESUCITAR la instancia
+  allAfterDelete = profileManager.getAll();
+  assert.ok(!allAfterDelete.profiles.some((p) => p.id === forDelete.id), 'La carpeta zombi no debe ser resucitada en getAll()');
+  console.log('  ✔ Eliminación definitiva y protección anti-resurrección comprobadas al 100%.\n');
+
   // Cleanup
   fs.rmSync(testRoot, { recursive: true, force: true });
   console.log('====================================================');
