@@ -561,6 +561,15 @@ class LaunchManager {
       cleanedJvmArgs.push(`-Djava.library.path=${instanceNativesDir}`);
       cleanedJvmArgs.push(`-Dorg.lwjgl.librarypath=${instanceNativesDir}`);
 
+      // Estabilidad de memoria off-heap (OpenGL / Sodium / OpenAL / RTX) y timeouts de red HTTP
+      if (!cleanedJvmArgs.some((a) => typeof a === 'string' && a.startsWith('-XX:MaxDirectMemorySize='))) {
+        cleanedJvmArgs.push('-XX:MaxDirectMemorySize=1G');
+      }
+      if (!cleanedJvmArgs.some((a) => typeof a === 'string' && a.startsWith('-Dsun.net.client.defaultConnectTimeout='))) {
+        cleanedJvmArgs.push('-Dsun.net.client.defaultConnectTimeout=5000');
+        cleanedJvmArgs.push('-Dsun.net.client.defaultReadTimeout=10000');
+      }
+
 
       logger.info(`Flags JVM completas aplicadas (Java ${resolvedJavaMajor}):\n${cleanedJvmArgs.join(' ')}`);
 
