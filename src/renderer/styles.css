@@ -2352,14 +2352,21 @@ input:checked + .switch-slider:before {
   bottom: 0 !important;
   background: rgba(0, 0, 0, 0.75);
   backdrop-filter: blur(4px);
-  display: none !important;
+  display: none;
   align-items: center;
   justify-content: center;
   z-index: 99999 !important;
 }
 
-.modal-overlay.active {
+.modal-overlay.active,
+.modal-overlay[style*="display: flex"],
+.modal-overlay[style*="display:flex"] {
   display: flex !important;
+}
+
+.modal-overlay[style*="display: none"],
+.modal-overlay[style*="display:none"] {
+  display: none !important;
 }
 
 .modal-content {

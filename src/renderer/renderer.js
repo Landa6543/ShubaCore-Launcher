@@ -3452,7 +3452,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           const card = document.createElement('div');
           card.className = 'choose-icon-item-card';
           card.dataset.url = item.dataUrl;
-          card.title = item.fileName || 'Icono previo';
+          card.title = item.fileName || (window.i18n?.t ? window.i18n.t('chooseIcon.prevIcon', 'Icono previo') : 'Icono previo');
           card.innerHTML = `<img src="${item.dataUrl}" alt="Icono" />`;
           card.addEventListener('click', () => {
             gridUserCustomIcons.querySelectorAll('.choose-icon-item-card').forEach((c) => c.classList.remove('selected'));
@@ -3473,8 +3473,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!gridOfficialCovers) return;
     gridOfficialCovers.innerHTML = '';
     const officialCovers = [
-      { name: 'ShubaCore Oficial', url: 'assets/logo.png' },
-      { name: 'ShubaClient Mod', url: 'assets/shubaclient_mod_logo.png' }
+      { name: window.i18n?.t ? window.i18n.t('chooseIcon.officialShubaCore', 'ShubaCore Oficial') : 'ShubaCore Oficial', url: 'assets/logo.png' },
+      { name: window.i18n?.t ? window.i18n.t('chooseIcon.officialShubaClient', 'ShubaClient Mod') : 'ShubaClient Mod', url: 'assets/shubaclient_mod_logo.png' }
     ];
     officialCovers.forEach((item) => {
       const card = document.createElement('div');
@@ -4650,7 +4650,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (headerBadge) headerBadge.textContent = `${list.length} datapack${list.length === 1 ? '' : 's'}`;
 
       if (list.length === 0) {
-        container.innerHTML = '<div class="empty-state">No hay datapacks instalados en esta instancia todavía.</div>';
+        container.innerHTML = `<div class="empty-state" data-i18n="manager.noDatapacks">${escapeHtml(window.i18n?.t ? window.i18n.t('manager.noDatapacks', 'No hay datapacks instalados en esta instancia todavía.') : 'No hay datapacks instalados en esta instancia todavía.')}</div>`;
         return;
       }
 
@@ -4669,7 +4669,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         `;
       }).join('');
     } catch (_) {
-      container.innerHTML = '<div class="empty-state">No hay datapacks instalados en esta instancia todavía.</div>';
+      container.innerHTML = `<div class="empty-state" data-i18n="manager.noDatapacks">${escapeHtml(window.i18n?.t ? window.i18n.t('manager.noDatapacks', 'No hay datapacks instalados en esta instancia todavía.') : 'No hay datapacks instalados en esta instancia todavía.')}</div>`;
     }
   }
 
@@ -4692,7 +4692,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (list.length === 0) {
         container.innerHTML = `
           <div class="empty-state" style="padding: 30px 20px;">
-            <p style="font-size: 14px; margin-bottom: 6px;">No hay shaders instalados en esta instancia todavía.</p>
+            <p style="font-size: 14px; margin-bottom: 6px;" data-i18n="manager.noShaders">${escapeHtml(window.i18n?.t ? window.i18n.t('manager.noShaders', 'No hay shaders instalados en esta instancia todavía.') : 'No hay shaders instalados en esta instancia todavía.')}</p>
             <small style="color: var(--text-dim);">Haz clic en "➕ Buscar Shaders en Catálogo" para explorar e instalar shaders compatibles.</small>
           </div>
         `;
@@ -4773,7 +4773,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (list.length === 0) {
         container.innerHTML = `
           <div class="empty-state" style="padding: 30px 20px;">
-            <p style="font-size: 14px; margin-bottom: 6px;">No hay resource packs instalados en esta instancia todavía.</p>
+            <p style="font-size: 14px; margin-bottom: 6px;" data-i18n="manager.noResourcepacks">${escapeHtml(window.i18n?.t ? window.i18n.t('manager.noResourcepacks', 'No hay resource packs instalados en esta instancia todavía.') : 'No hay resource packs instalados en esta instancia todavía.')}</p>
             <small style="color: var(--text-dim);">Haz clic en "➕ Buscar Texturas en Catálogo" para explorar e instalar paquetes de texturas.</small>
           </div>
         `;
@@ -4854,7 +4854,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (list.length === 0) {
         container.innerHTML = `
           <div class="empty-state" style="padding: 30px 20px;">
-            <p style="font-size: 14px; margin-bottom: 6px;">No hay partidas guardadas en esta instancia todavía.</p>
+            <p style="font-size: 14px; margin-bottom: 6px;" data-i18n="manager.noWorlds">${escapeHtml(window.i18n?.t ? window.i18n.t('manager.noWorlds', 'No se encontraron mundos en esta instancia todavía.') : 'No se encontraron mundos en esta instancia todavía.')}</p>
             <small style="color: var(--text-dim);">Crea un nuevo mundo en el juego o copia una carpeta de mundo en <code>saves/</code>.</small>
           </div>
         `;
@@ -5547,19 +5547,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function formatRelativeDate(dateStr) {
-    if (!dateStr) return 'Reciente';
+    const isEn = window.i18n?.getLanguage() === 'en';
+    if (!dateStr) return isEn ? 'Recent' : 'Reciente';
     try {
       const d = new Date(dateStr);
-      if (isNaN(d.getTime())) return 'Reciente';
+      if (isNaN(d.getTime())) return isEn ? 'Recent' : 'Reciente';
       const diffMs = Date.now() - d.getTime();
       const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-      if (diffDays <= 0) return 'hace unas horas';
-      if (diffDays === 1) return 'hace 1 día';
-      if (diffDays < 30) return `hace ${diffDays} días`;
-      if (diffDays < 365) return `hace ${Math.floor(diffDays / 30)} meses`;
-      return d.toLocaleDateString();
+      if (diffDays <= 0) return isEn ? 'a few hours ago' : 'hace unas horas';
+      if (diffDays === 1) return isEn ? '1 day ago' : 'hace 1 día';
+      if (diffDays < 30) return isEn ? `${diffDays} days ago` : `hace ${diffDays} días`;
+      if (diffDays < 365) { const m = Math.floor(diffDays / 30); return isEn ? (m === 1 ? '1 month ago' : `${m} months ago`) : (m === 1 ? 'hace 1 mes' : `hace ${m} meses`); }
+      return d.toLocaleDateString(isEn ? 'en-US' : 'es-ES');
     } catch (_) {
-      return 'Reciente';
+      return isEn ? 'Recent' : 'Reciente';
     }
   }
 
@@ -5800,10 +5801,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         (installedMod.version && item.latestVersion && installedMod.version !== item.latestVersion)
       );
 
-      let actionButtonText = 'Instalar';
-      if (currentContentType === 'resourcepacks') actionButtonText = 'Descargar';
-      else if (currentContentType === 'shaders') actionButtonText = 'Descargar';
-      else if (currentContentType === 'modpacks') actionButtonText = 'Instalar Pack';
+      let actionButtonText = window.i18n?.t ? window.i18n.t('catalog.installBtn', 'Instalar') : 'Instalar';
+      if (currentContentType === 'resourcepacks') actionButtonText = window.i18n?.t ? window.i18n.t('catalog.downloadBtn', 'Descargar') : 'Descargar';
+      else if (currentContentType === 'shaders') actionButtonText = window.i18n?.t ? window.i18n.t('catalog.downloadBtn', 'Descargar') : 'Descargar';
+      else if (currentContentType === 'modpacks') actionButtonText = window.i18n?.t ? window.i18n.t('catalog.installPackBtn', 'Instalar Pack') : 'Instalar Pack';
 
       let installedActionHtml = '';
       if (!isInstalled) {
@@ -5817,14 +5818,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         installedActionHtml = `
           <button type="button" class="btn btn-small btn-catalog-update btn-download-content" data-id="${escapeHtml(item.id || item.fileName)}" data-source="${escapeHtml(item.source)}" data-title="${escapeHtml(item.title || item.name)}" data-filename="${escapeHtml(item.fileName || '')}" data-icon="${escapeHtml(iconSrc)}">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 11 12 6 7 11"/><line x1="12" y1="6" x2="12" y2="18"/></svg>
-            <span>Actualizar</span>
+            <span>${window.i18n?.t ? window.i18n.t('catalog.updateBtn', 'Actualizar') : 'Actualizar'}</span>
           </button>
         `;
       } else {
         installedActionHtml = `
           <div class="badge-catalog-updated" data-id="${escapeHtml(item.id || item.fileName)}" data-source="${escapeHtml(item.source)}" data-title="${escapeHtml(item.title || item.name)}" data-filename="${escapeHtml(item.fileName || '')}" data-icon="${escapeHtml(iconSrc)}">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-            <span>Actualizado</span>
+            <span>${window.i18n?.t ? window.i18n.t('catalog.updatedBadge', 'Actualizado') : 'Actualizado'}</span>
           </div>
         `;
       }
@@ -5851,13 +5852,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       const loaderSvg = getLoaderSvgIcon(primaryLoader);
 
       const itemEnv = resolveModEnvironment(item);
-      let environmentStr = 'Cliente y Servidor';
+      let environmentStr = window.i18n?.t ? window.i18n.t('catalog.clientAndServer', 'Cliente y Servidor') : 'Cliente y Servidor';
       let envBadgeClass = 'env-both';
       if (itemEnv === 'client') {
-        environmentStr = 'Solo Cliente';
+        environmentStr = window.i18n?.t ? window.i18n.t('catalog.clientOnly', 'Solo Cliente') : 'Solo Cliente';
         envBadgeClass = 'env-client';
       } else if (itemEnv === 'server') {
-        environmentStr = 'Solo Servidor';
+        environmentStr = window.i18n?.t ? window.i18n.t('catalog.serverOnly', 'Solo Servidor') : 'Solo Servidor';
         envBadgeClass = 'env-server';
       }
 
@@ -5870,7 +5871,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             <div class="mod-row-header">
               <span class="mod-source-icon ${sourceClass}">${escapeHtml(sourceName)}</span>
               <h3 class="mod-row-title" title="${escapeHtml(item.title || item.name)}">${escapeHtml(item.title || item.name)}</h3>
-              <span class="mod-row-author">por <strong>${escapeHtml(item.author || 'Autor')}</strong></span>
+              <span class="mod-row-author">${window.i18n?.t ? window.i18n.t('catalog.byAuthor', 'por') : 'por'} <strong>${escapeHtml(item.author || 'Autor')}</strong></span>
             </div>
             <p class="mod-row-desc">${escapeHtml(item.summary || item.description || 'Sin descripción disponible.')}</p>
             <div class="mod-row-categories">
@@ -5919,12 +5920,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <span class="mod-card-title" title="${escapeHtml(item.title || item.name)}">${escapeHtml(item.title || item.name)}</span>
                 <span class="badge ${sourceClass}">${escapeHtml(sourceName.toUpperCase())}</span>
               </div>
-              <div class="mod-card-author">de ${escapeHtml(item.author || 'Autor')}</div>
+              <div class="mod-card-author">${window.i18n?.t ? window.i18n.t('catalog.byAuthor', 'por') : 'de'} ${escapeHtml(item.author || 'Autor')}</div>
               <div class="mod-card-desc" title="${escapeHtml(item.summary || item.description)}">${escapeHtml(item.summary || item.description || 'Sin descripción disponible.')}</div>
             </div>
           </div>
           <div class="mod-card-footer">
-            <span class="hint">${escapeHtml(formattedDownloads)} descargas</span>
+            <span class="hint">${escapeHtml(formattedDownloads)} ${window.i18n?.t ? window.i18n.t('catalog.downloads', 'descargas') : 'descargas'}</span>
             ${installedActionHtml}
           </div>
         `;
@@ -6173,11 +6174,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (isGithub) {
       if (query) {
-        resultsHeadline.textContent = `Resultados para "${query}" (Mods Custom GitHub)`;
-        resultsSubhint.textContent = `Filtrando en repositorio de GitHub`;
+        resultsHeadline.textContent = (window.i18n?.getLanguage() === 'en') ? `Results for "${query}" (Custom GitHub Mods)` : `Resultados para "${query}" (Mods Custom GitHub)`;
+        resultsSubhint.textContent = (window.i18n?.getLanguage() === 'en') ? 'Filtering community GitHub repository' : 'Filtrando en repositorio de GitHub';
       } else {
         resultsHeadline.textContent = `🔥 Mods Custom (GitHub Repository)`;
-        resultsSubhint.textContent = `Directos desde el repositorio comunitario de GitHub`;
+        resultsSubhint.textContent = (window.i18n?.getLanguage() === 'en') ? 'Direct from community GitHub repository' : 'Directos desde el repositorio comunitario de GitHub';
       }
       modsSearchResults.innerHTML = '<div class="empty-state">Consultando mods custom en GitHub...</div>';
 
@@ -6221,7 +6222,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         totalContentPages = 1;
         spanPageIndicator.textContent = `Página 1 de 1 (${totalContentCount} mods)`;
         if (catalogResultsCount) {
-          catalogResultsCount.textContent = `${totalContentCount} proyectos encontrados`;
+          catalogResultsCount.textContent = (window.i18n?.getLanguage() === 'en') ? `${totalContentCount} projects found` : `${totalContentCount} proyectos encontrados`;
         }
 
         if (filtered.length === 0) {
@@ -6269,7 +6270,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             actionBtnHtml = `
               <div class="badge-catalog-updated">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span>Actualizado</span>
+                <span>${window.i18n?.t ? window.i18n.t('catalog.updatedBadge', 'Actualizado') : 'Actualizado'}</span>
               </div>
             `;
           }
@@ -6418,11 +6419,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     const catLabel = catLabels[currentContentType] || 'Proyectos';
 
     if (query) {
-      resultsHeadline.textContent = `Resultados para "${query}" (${catLabel})`;
-      resultsSubhint.textContent = `Página ${currentContentPage} de ~${totalContentPages}`;
+      const isEn = window.i18n?.getLanguage() === 'en';
+      resultsHeadline.textContent = isEn ? `Results for "${query}" (${catLabel})` : `Resultados para "${query}" (${catLabel})`;
+      resultsSubhint.textContent = (window.i18n?.getLanguage() === 'en') ? `Page ${currentContentPage} of ~${totalContentPages}` : `Página ${currentContentPage} de ~${totalContentPages}`;
     } else {
-      resultsHeadline.textContent = `${catLabel} Más Populares`;
-      resultsSubhint.textContent = `Compatibles con Minecraft ${mcVersion || 'todas'}`;
+      resultsHeadline.textContent = (window.i18n?.getLanguage() === 'en') ? `Most Popular ${catLabel}` : `${catLabel} Más Populares`;
+      resultsSubhint.textContent = (window.i18n?.getLanguage() === 'en') ? `Compatible with Minecraft ${mcVersion || 'all'}` : `Compatibles con Minecraft ${mcVersion || 'todas'}`;
     }
 
     modsSearchResults.innerHTML = '<div class="empty-state">Consultando catálogo en tiempo real...</div>';
@@ -6446,9 +6448,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       const results = Array.isArray(data) ? data : (data.results || []);
       totalContentCount = data.totalCount !== undefined ? data.totalCount : results.length;
       totalContentPages = data.totalPages || Math.max(1, Math.ceil(totalContentCount / contentPageSize));
-      spanPageIndicator.textContent = `Página ${currentContentPage} de ${totalContentPages}`;
+      spanPageIndicator.textContent = (window.i18n?.getLanguage() === 'en') ? `Page ${currentContentPage} of ${totalContentPages}` : `Página ${currentContentPage} de ${totalContentPages}`;
       if (catalogResultsCount) {
-        catalogResultsCount.textContent = `${totalContentCount} proyectos encontrados`;
+        catalogResultsCount.textContent = (window.i18n?.getLanguage() === 'en') ? `${totalContentCount} projects found` : `${totalContentCount} proyectos encontrados`;
       }
 
       if (!results || results.length === 0) {
@@ -7073,23 +7075,23 @@ document.addEventListener('DOMContentLoaded', async () => {
       btnLaunch.disabled = false;
       btnLaunch.classList.add('btn-launch-multi');
       if (btnLaunchText) {
-        btnLaunchText.textContent = `+ Sesión (${activeSessionsCount})`;
+        btnLaunchText.textContent = `${window.i18n?.t ? window.i18n.t('launch.session', '+ Sesión') : '+ Sesión'} (${activeSessionsCount})`;
       }
       if (btnStopSessions) {
         btnStopSessions.style.display = 'inline-flex';
       }
-      launchBadge.textContent = `${activeSessionsCount} en juego`;
+      launchBadge.textContent = `${activeSessionsCount} ${window.i18n?.t ? window.i18n.t('launch.inGame', 'en juego') : 'en juego'}`;
       launchBadge.className = 'badge badge-running';
     } else {
       btnLaunch.disabled = false;
       btnLaunch.classList.remove('btn-launch-multi');
       if (btnLaunchText) {
-        btnLaunchText.textContent = 'JUGAR';
+        btnLaunchText.textContent = window.i18n?.t ? window.i18n.t('launch.play', 'JUGAR') : 'JUGAR';
       }
       if (btnStopSessions) {
         btnStopSessions.style.display = 'none';
       }
-      launchBadge.textContent = 'En espera';
+      launchBadge.textContent = window.i18n?.t ? window.i18n.t('launch.idle', 'En espera') : 'En espera';
       launchBadge.className = 'badge badge-idle';
     }
   }
@@ -7116,8 +7118,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   btnLaunch.addEventListener('click', async () => {
     btnLaunch.disabled = true;
-    if (btnLaunchText) btnLaunchText.textContent = 'INICIANDO...';
-    launchBadge.textContent = 'Iniciando';
+    if (btnLaunchText) btnLaunchText.textContent = window.i18n?.t ? window.i18n.t('launch.launching', 'INICIANDO...') : 'INICIANDO...';
+    launchBadge.textContent = window.i18n?.t ? window.i18n.t('launch.launchingShort', 'Iniciando') : 'Iniciando';
     launchBadge.className = 'badge badge-launching';
 
     if (dockLaunchProgress) dockLaunchProgress.style.display = 'flex';
@@ -7457,7 +7459,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       } catch (_) {}
       try {
         if (btnLaunchText && !currentRunningProcess) {
-          btnLaunchText.textContent = window.i18n?.t ? window.i18n.t('btn.launch', 'JUGAR') : 'JUGAR';
+          btnLaunchText.textContent = window.i18n?.t ? window.i18n.t('launch.play', 'JUGAR') : 'JUGAR';
         }
       } catch (_) {}
       try {
@@ -7468,6 +7470,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       } catch (_) {}
       try {
         if (typeof renderServers === 'function') renderServers();
+        if (typeof renderServersList === 'function') renderServersList();
+        const curServer = localServersCache.find((s) => s.id === currentSelectedServerId);
+        if (curServer && typeof updateServerStatusUI === 'function') updateServerStatusUI(curServer.status);
+        if (curServer && typeof updateServerPlayersUI === 'function') updateServerPlayersUI(curServer.players || []);
+        if (typeof loadNewsFeed === 'function') loadNewsFeed(false);
+        if (typeof loadScreenshotsInstancesFilter === 'function') loadScreenshotsInstancesFilter();
+        if (typeof loadHudState === 'function') loadHudState();
+        if (typeof updateLaunchUIState === 'function') updateLaunchUIState(activeSessionsCount);
+        if (typeof loadMySocialProfile === 'function') loadMySocialProfile();
+        if (typeof renderCatalogItems === 'function' && Array.isArray(lastCatalogResults) && lastCatalogResults.length > 0 && modsSearchResults) {
+          renderCatalogItems(lastCatalogResults, modsSearchResults, lastCatalogInstalledMap, lastCatalogActiveProfileRef, lastCatalogMcVersion, lastCatalogLoader, lastCatalogCatLabel);
+        }
       } catch (_) {}
     }, 50);
   });
@@ -7988,7 +8002,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   function renderServersList() {
     if (!serversListContainer) return;
     if (localServersCache.length === 0) {
-      serversListContainer.innerHTML = '<div class="empty-state" style="padding: 24px 12px; font-size: 13px;">No hay servidores creados aún. Haz clic en "➕ Crear Nuevo Servidor".</div>';
+      const emptyMsg = window.i18n?.t ? window.i18n.t('servers.noServers', 'No hay servidores creados aún. Haz clic en "➕ Crear Nuevo Servidor".') : 'No hay servidores creados aún. Haz clic en "➕ Crear Nuevo Servidor".';
+      serversListContainer.innerHTML = `<div class="empty-state" style="padding: 24px 12px; font-size: 13px;" data-i18n="servers.noServers">${escapeHtml(emptyMsg)}</div>`;
       return;
     }
 
@@ -7998,13 +8013,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       card.className = `server-item-card ${server.id === currentSelectedServerId ? 'active' : ''}`;
       card.setAttribute('data-server-id', server.id);
 
-      let statusBadge = '<span class="badge badge-idle" style="font-size: 10px;">🔴 Apagado</span>';
+      let statusBadge = `<span class="badge badge-idle" style="font-size: 10px;">${escapeHtml(window.i18n?.t ? window.i18n.t('servers.statusOff', '🔴 APAGADO') : '🔴 APAGADO')}</span>`;
       if (server.status === 'online') {
-        statusBadge = '<span class="badge badge-success" style="font-size: 10px;">🟢 En línea</span>';
+        statusBadge = `<span class="badge badge-success" style="font-size: 10px;">${escapeHtml(window.i18n?.t ? window.i18n.t('servers.statusRunning', '🟢 EN LÍNEA') : '🟢 EN LÍNEA')}</span>`;
       } else if (server.status === 'starting') {
-        statusBadge = '<span class="badge badge-warning" style="font-size: 10px;">🟡 Iniciando...</span>';
+        statusBadge = `<span class="badge badge-warning" style="font-size: 10px;">${escapeHtml(window.i18n?.t ? window.i18n.t('servers.statusStarting', '🟡 INICIANDO...') : '🟡 INICIANDO...')}</span>`;
       } else if (server.status === 'stopping') {
-        statusBadge = '<span class="badge badge-danger" style="font-size: 10px;">🟡 Deteniendo...</span>';
+        statusBadge = `<span class="badge badge-danger" style="font-size: 10px;">${escapeHtml(window.i18n?.t ? window.i18n.t('servers.statusStopping', '🟠 DETENIENDO...') : '🟠 DETENIENDO...')}</span>`;
       }
 
       card.innerHTML = `
@@ -8047,7 +8062,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (serverDetailPort) serverDetailPort.textContent = server.port;
     if (serverDetailRam) serverDetailRam.textContent = server.ram || '6G';
     if (serverDetailModsCount) serverDetailModsCount.textContent = server.modsCount || 0;
-    if (serverStatRamMax) serverStatRamMax.textContent = `Límite: ${server.ram || '6G'}`;
+    if (serverStatRamMax) serverStatRamMax.textContent = `${window.i18n?.t ? window.i18n.t('servers.limitLabel', 'Límite:') : 'Límite:'} ${server.ram || '6G'}`;
     if (serverStatIp) serverStatIp.textContent = `localhost:${server.port}`;
 
     updateServerStatusUI(server.status);
@@ -8065,21 +8080,21 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (status === 'online') {
       serverStatusPill.className = 'badge badge-success';
-      serverStatusPill.textContent = '🟢 EN LÍNEA';
+      serverStatusPill.textContent = window.i18n?.t ? window.i18n.t('servers.statusRunning', '🟢 EN LÍNEA') : '🟢 EN LÍNEA';
       if (btnStartServer) btnStartServer.style.display = 'none';
       if (btnStopServer) btnStopServer.style.display = 'inline-flex';
     } else if (status === 'starting') {
       serverStatusPill.className = 'badge badge-warning';
-      serverStatusPill.textContent = '🟡 INICIANDO...';
+      serverStatusPill.textContent = window.i18n?.t ? window.i18n.t('servers.statusStarting', '🟡 INICIANDO...') : '🟡 INICIANDO...';
       if (btnStartServer) {
         btnStartServer.style.display = 'inline-flex';
         btnStartServer.disabled = true;
-        if (btnStartServerText) btnStartServerText.textContent = 'Iniciando...';
+        if (btnStartServerText) btnStartServerText.textContent = window.i18n?.t ? window.i18n.t('servers.starting', 'Iniciando...') : 'Iniciando...';
       }
       if (btnStopServer) btnStopServer.style.display = 'none';
     } else if (status === 'stopping') {
       serverStatusPill.className = 'badge badge-danger';
-      serverStatusPill.textContent = '🟡 DETENIENDO...';
+      serverStatusPill.textContent = window.i18n?.t ? window.i18n.t('servers.statusStopping', '🟠 DETENIENDO...') : '🟠 DETENIENDO...';
       if (btnStartServer) btnStartServer.style.display = 'none';
       if (btnStopServer) {
         btnStopServer.style.display = 'inline-flex';
@@ -8087,11 +8102,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     } else {
       serverStatusPill.className = 'badge badge-idle';
-      serverStatusPill.textContent = '🔴 APAGADO';
+      serverStatusPill.textContent = window.i18n?.t ? window.i18n.t('servers.statusOff', '🔴 APAGADO') : '🔴 APAGADO';
       if (btnStartServer) {
         btnStartServer.style.display = 'inline-flex';
         btnStartServer.disabled = false;
-        if (btnStartServerText) btnStartServerText.textContent = 'Iniciar Servidor';
+        if (btnStartServerText) btnStartServerText.textContent = window.i18n?.t ? window.i18n.t('servers.start', 'Iniciar Servidor') : 'Iniciar Servidor';
       }
       if (btnStopServer) {
         btnStopServer.style.display = 'none';
@@ -8107,12 +8122,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function updateServerPlayersUI(players) {
     const list = Array.isArray(players) ? players : [];
-    if (serverPlayersHeaderCount) serverPlayersHeaderCount.textContent = `${list.length} jugador${list.length === 1 ? '' : 'es'}`;
+    const playerUnit = list.length === 1
+      ? (window.i18n?.t ? window.i18n.t('servers.playerSingular', 'jugador') : 'jugador')
+      : (window.i18n?.t ? window.i18n.t('servers.playerPlural', 'jugadores') : 'jugadores');
+    if (serverPlayersHeaderCount) serverPlayersHeaderCount.textContent = `${list.length} ${playerUnit}`;
     if (serverStatPlayersCount) serverStatPlayersCount.textContent = `${list.length} / 20`;
     if (!serverPlayersList) return;
 
     if (list.length === 0) {
-      serverPlayersList.innerHTML = '<div class="empty-state" style="padding: 12px; font-size: 12.5px;">Sin jugadores conectados en este momento.</div>';
+      const noPlayersMsg = window.i18n?.t ? window.i18n.t('servers.noPlayersConnected', 'Sin jugadores conectados en este momento.') : 'Sin jugadores conectados en este momento.';
+      serverPlayersList.innerHTML = `<div class="empty-state" style="padding: 12px; font-size: 12.5px;" data-i18n="servers.noPlayersConnected">${escapeHtml(noPlayersMsg)}</div>`;
       return;
     }
 
@@ -8257,8 +8276,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnCopyServerIp.addEventListener('click', () => {
       const text = serverStatIp ? serverStatIp.textContent : 'localhost:25565';
       navigator.clipboard.writeText(text);
-      btnCopyServerIp.textContent = '¡Copiado!';
-      setTimeout(() => { btnCopyServerIp.textContent = 'Copiar IP'; }, 2000);
+      btnCopyServerIp.textContent = window.i18n?.t ? window.i18n.t('servers.ipCopied', '¡Copiado!') : '¡Copiado!';
+      setTimeout(() => { btnCopyServerIp.textContent = window.i18n?.t ? window.i18n.t('servers.copyIp', 'Copiar IP') : 'Copiar IP'; }, 2000);
     });
   }
 
@@ -8728,7 +8747,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (btnOpenCreateServerModal) {
     btnOpenCreateServerModal.addEventListener('click', async () => {
-      if (modalCreateServer) modalCreateServer.style.display = 'flex';
+      if (modalCreateServer) {
+        modalCreateServer.classList.add('active');
+        modalCreateServer.style.setProperty('display', 'flex', 'important');
+      }
       await populateServerMcVersions();
       await populateInstancesDropdown(selectServerSyncInstance);
     });
@@ -8736,14 +8758,27 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (btnEmptyCreateServer) {
     btnEmptyCreateServer.addEventListener('click', async () => {
-      if (modalCreateServer) modalCreateServer.style.display = 'flex';
+      if (modalCreateServer) {
+        modalCreateServer.classList.add('active');
+        modalCreateServer.style.setProperty('display', 'flex', 'important');
+      }
       await populateServerMcVersions();
       await populateInstancesDropdown(selectServerSyncInstance);
     });
   }
 
-  if (btnCloseCreateServerModal) btnCloseCreateServerModal.addEventListener('click', () => { if (modalCreateServer) modalCreateServer.style.display = 'none'; });
-  if (btnCancelCreateServer) btnCancelCreateServer.addEventListener('click', () => { if (modalCreateServer) modalCreateServer.style.display = 'none'; });
+  if (btnCloseCreateServerModal) btnCloseCreateServerModal.addEventListener('click', () => {
+    if (modalCreateServer) {
+      modalCreateServer.classList.remove('active');
+      modalCreateServer.style.setProperty('display', 'none', 'important');
+    }
+  });
+  if (btnCancelCreateServer) btnCancelCreateServer.addEventListener('click', () => {
+    if (modalCreateServer) {
+      modalCreateServer.classList.remove('active');
+      modalCreateServer.style.setProperty('display', 'none', 'important');
+    }
+  });
 
   if (btnSubmitCreateServer) {
     btnSubmitCreateServer.addEventListener('click', async () => {
@@ -8779,7 +8814,10 @@ document.addEventListener('DOMContentLoaded', async () => {
           if (res.server?.syncStats) {
             appendLog(`[ServerModFilter] Sincronizados ${res.server.syncStats.totalCopied} mods al servidor (${res.server.syncStats.totalSkipped} mods exclusivos de cliente omitidos).`, 'info');
           }
-          if (modalCreateServer) modalCreateServer.style.display = 'none';
+          if (modalCreateServer) {
+            modalCreateServer.classList.remove('active');
+            modalCreateServer.style.setProperty('display', 'none', 'important');
+          }
           await loadDedicatedServers();
           if (res.server?.id) selectDedicatedServer(res.server.id);
         } else {
@@ -8799,7 +8837,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   // --- MODAL: SINCRONIZAR MODS DESDE INSTANCIA CLIENTE ---
   async function openSyncServerModal() {
     if (!currentSelectedServerId || !modalSyncServerMods) return;
-    modalSyncServerMods.style.display = 'flex';
+    modalSyncServerMods.classList.add('active');
+    modalSyncServerMods.style.setProperty('display', 'flex', 'important');
     if (syncServerResultBox) syncServerResultBox.style.display = 'none';
     await populateInstancesDropdown(selectSyncSourceInstance);
   }
@@ -8808,8 +8847,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (btnSyncServerMods) btnSyncServerMods.addEventListener('click', openSyncServerModal);
   if (btnSyncServerModsTop) btnSyncServerModsTop.addEventListener('click', openSyncServerModal);
 
-  if (btnCloseSyncServerModal) btnCloseSyncServerModal.addEventListener('click', () => { if (modalSyncServerMods) modalSyncServerMods.style.display = 'none'; });
-  if (btnCancelSyncServer) btnCancelSyncServer.addEventListener('click', () => { if (modalSyncServerMods) modalSyncServerMods.style.display = 'none'; });
+  if (btnCloseSyncServerModal) btnCloseSyncServerModal.addEventListener('click', () => {
+    if (modalSyncServerMods) {
+      modalSyncServerMods.classList.remove('active');
+      modalSyncServerMods.style.setProperty('display', 'none', 'important');
+    }
+  });
+  if (btnCancelSyncServer) btnCancelSyncServer.addEventListener('click', () => {
+    if (modalSyncServerMods) {
+      modalSyncServerMods.classList.remove('active');
+      modalSyncServerMods.style.setProperty('display', 'none', 'important');
+    }
+  });
 
   if (btnExecuteSyncServer) {
     btnExecuteSyncServer.addEventListener('click', async () => {
@@ -8834,7 +8883,10 @@ document.addEventListener('DOMContentLoaded', async () => {
           await loadDedicatedServers();
           await loadServerMods(currentSelectedServerId);
           setTimeout(() => {
-            if (modalSyncServerMods) modalSyncServerMods.style.display = 'none';
+            if (modalSyncServerMods) {
+              modalSyncServerMods.classList.remove('active');
+              modalSyncServerMods.style.setProperty('display', 'none', 'important');
+            }
           }, 1800);
         }
       } catch (err) {
@@ -8989,12 +9041,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function formatCreationDate(dateStr) {
-    if (!dateStr) return 'Reciente';
+    const isEn = window.i18n?.getLanguage() === 'en';
+    if (!dateStr) return isEn ? 'Recent' : 'Reciente';
     try {
       const d = new Date(dateStr);
-      return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+      return d.toLocaleDateString(isEn ? 'en-US' : 'es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
     } catch (_) {
-      return String(dateStr).split('T')[0] || 'Reciente';
+      return String(dateStr).split('T')[0] || (isEn ? 'Recent' : 'Reciente');
     }
   }
 
@@ -9155,7 +9208,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       if (btnLaunch) btnLaunch.disabled = true;
-      if (btnLaunchText) btnLaunchText.textContent = 'CONECTANDO...';
+      if (btnLaunchText) btnLaunchText.textContent = window.i18n?.t ? window.i18n.t('launch.connecting', 'CONECTANDO...') : 'CONECTANDO...';
       if (launchBadge) {
         launchBadge.textContent = 'Unirse';
         launchBadge.className = 'badge badge-launching';
@@ -9220,7 +9273,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       const isPlaying = friend.status === 'playing' && hasActiveGame && isRecent;
       const isOnline = (isPlaying || friend.status === 'online') && isRecent;
       const statusClass = isPlaying ? 'playing' : (isOnline ? 'online' : 'offline');
-      const statusText = isPlaying ? 'Jugando a Minecraft' : (isOnline ? 'En línea' : 'Desconectado');
+      const statusText = isPlaying
+        ? (window.i18n?.t ? window.i18n.t('social.playingStatus', 'Jugando a Minecraft') : 'Jugando a Minecraft')
+        : (isOnline
+            ? (window.i18n?.t ? window.i18n.t('social.online', 'En línea') : 'En línea')
+            : (window.i18n?.t ? window.i18n.t('social.offline', 'Desconectado') : 'Desconectado'));
 
       const isPrem = friend.accountType === 'premium' || Boolean(friend.msGamertag);
 
@@ -9255,14 +9312,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         <div class="friend-card-actions" style="display: flex; gap: 6px; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.06); flex-wrap: wrap;">
           <button class="btn btn-secondary btn-small btn-open-friend-chat" data-id="${friend.friendId}" style="flex: 1; min-width: 65px; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 6px 10px; font-size: 12px; border-radius: 6px;">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-            <span>Chat</span>
+            <span>${window.i18n?.t ? window.i18n.t('social.chatBtn', 'Chat') : 'Chat'}</span>
             ${unreadCount > 0 ? `<span class="badge" style="background: #ef4444; color: #fff; font-size: 10px; padding: 1px 6px; border-radius: 10px; font-weight: bold; margin-left: 2px;">${unreadCount}</span>` : ''}
           </button>
           <button class="btn btn-secondary btn-small btn-view-profile" data-id="${friend.friendId}" style="padding: 6px 10px; font-size: 12px; border-radius: 6px;" title="Ver perfil detallado">
-            <span>Perfil</span>
+            <span>${window.i18n?.t ? window.i18n.t('social.profileBtn', 'Perfil') : 'Perfil'}</span>
           </button>
           <button class="btn btn-primary btn-small btn-invite-game" data-id="${friend.friendId}" style="padding: 6px 12px; font-size: 12px; border-radius: 6px;" title="Invitar a tu partida abierta con ShubaHost">
-            <span>🎮 Invitar</span>
+            <span>${window.i18n?.t ? window.i18n.t('social.inviteBtn', '🎮 Invitar') : '🎮 Invitar'}</span>
           </button>
         </div>
       `;
@@ -9276,7 +9333,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             <span style="font-size: 10.5px; opacity: 0.85;">MC ${escapeHtml(friend.currentGame.mc || '')} · ${escapeHtml(friend.currentGame.loader || '')}</span>
           </div>
           <button class="btn btn-primary btn-small btn-join-game" data-server="${escapeHtml(friend.currentGame.server)}">
-            <span>🚀 Unirse</span>
+            <span>${window.i18n?.t ? window.i18n.t('social.joinBtn', '🚀 Unirse') : '🚀 Unirse'}</span>
           </button>
         `;
         const btnJoin = gameDiv.querySelector('.btn-join-game');
@@ -9411,15 +9468,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         </div>
         <div class="friend-card-actions" style="display: flex; gap: 8px; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.06); justify-content: flex-end;">
           <button class="btn btn-secondary btn-small btn-view-community-profile" style="font-size: 11.5px; padding: 4px 10px;">
-            <span>Ver Perfil</span>
+            <span>${window.i18n?.t ? window.i18n.t('social.viewProfile', 'Ver Perfil') : 'Ver Perfil'}</span>
           </button>
           ${isFriend ? `
             <button class="btn btn-secondary btn-small" disabled style="opacity: 0.8; font-size: 11.5px; padding: 4px 10px;">
-              <span>✔ Amigos</span>
+              <span>${window.i18n?.t ? window.i18n.t('social.friendsBadge', '✔ Amigos') : '✔ Amigos'}</span>
             </button>
           ` : `
             <button class="btn btn-primary btn-small btn-add-community-friend" data-username="${escapeHtml(user.username)}" style="font-size: 11.5px; padding: 4px 12px;">
-              <span>+ Agregar Amigo</span>
+              <span>${window.i18n?.t ? window.i18n.t('social.addFriend', '+ Agregar Amigo') : '+ Agregar Amigo'}</span>
             </button>
           `}
         </div>
@@ -9637,7 +9694,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         </div>
         <div style="display: flex; gap: 8px;">
           <button class="btn btn-primary btn-small btn-join-invite" data-id="${inv.id}" style="padding: 6px 14px;">
-            <span>🚀 Unirse</span>
+            <span>${window.i18n?.t ? window.i18n.t('social.joinBtn', '🚀 Unirse') : '🚀 Unirse'}</span>
           </button>
           <button class="btn btn-secondary btn-small btn-reject-invite" data-id="${inv.id}" style="padding: 6px 12px;">
             <span>✕ Rechazar</span>
@@ -9731,7 +9788,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             renderSkinFaceToCanvas(myCustomAvatarDataUrl, myProfileAvatarCanvas);
           }
           if (myProfileAvatarLabel) {
-            myProfileAvatarLabel.textContent = 'Personalizado';
+            myProfileAvatarLabel.textContent = window.i18n?.t ? window.i18n.t('social.avatarCustom', 'Personalizado') : 'Personalizado';
             myProfileAvatarLabel.className = 'badge badge-success';
           }
         };
@@ -9752,7 +9809,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderSkinFaceToCanvas(defaultSkinUrl, myProfileAvatarCanvas);
       }
       if (myProfileAvatarLabel) {
-        myProfileAvatarLabel.textContent = 'Skin Oficial';
+        myProfileAvatarLabel.textContent = window.i18n?.t ? window.i18n.t('social.avatarOfficial', 'Skin Oficial') : 'Skin Oficial';
         myProfileAvatarLabel.className = 'badge badge-idle';
       }
     });
@@ -9769,8 +9826,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       if (myProfileNameTitle) myProfileNameTitle.textContent = prof.displayName || prof.username;
       if (myProfileUsernameTag) myProfileUsernameTag.textContent = `@${prof.username}`;
-      if (myProfileCreatedDate) myProfileCreatedDate.textContent = `📅 Miembro desde: ${formatCreationDate(prof.createdAt)}`;
-      if (myProfilePlaytimeBadge) myProfilePlaytimeBadge.textContent = `⏱ Tiempo jugado: ${formatPlayTime(prof.playTimeSeconds)}`;
+      if (myProfileCreatedDate) myProfileCreatedDate.textContent = `${window.i18n?.t ? window.i18n.t('social.memberSince', '📅 Miembro desde:') : '📅 Miembro desde:'} ${formatCreationDate(prof.createdAt)}`;
+      if (myProfilePlaytimeBadge) myProfilePlaytimeBadge.textContent = `${window.i18n?.t ? window.i18n.t('social.timePlayed', '⏱ Tiempo jugado:') : '⏱ Tiempo jugado:'} ${formatPlayTime(prof.playTimeSeconds)}`;
 
       if (inputProfileDisplayName) inputProfileDisplayName.value = prof.displayName || prof.username;
       if (selectProfileModloader) selectProfileModloader.value = prof.favoriteModloader || 'Fabric';
@@ -9780,7 +9837,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const isCustomAvatar = Boolean(prof.skinUrl && (prof.skinUrl.startsWith('data:') || prof.skinUrl.includes('custom')));
       myCustomAvatarDataUrl = prof.skinUrl || null;
       if (myProfileAvatarLabel) {
-        myProfileAvatarLabel.textContent = isCustomAvatar ? 'Personalizado' : 'Skin Oficial';
+        myProfileAvatarLabel.textContent = isCustomAvatar ? (window.i18n?.t ? window.i18n.t('social.avatarCustom', 'Personalizado') : 'Personalizado') : (window.i18n?.t ? window.i18n.t('social.avatarOfficial', 'Skin Oficial') : 'Skin Oficial');
         myProfileAvatarLabel.className = isCustomAvatar ? 'badge badge-success' : 'badge badge-idle';
       }
 
@@ -9881,8 +9938,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       friendSearchResults.innerHTML = `
         <div class="friend-search-card">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 6px;">
-            <span style="font-size: 11.5px; color: var(--text-secondary); font-weight: 600;">Resultado de Búsqueda</span>
-            <button id="btn-clear-search-result" class="btn btn-secondary btn-small" style="font-size: 11px; padding: 2px 8px;" title="Cerrar resultado">✕ Limpiar</button>
+            <span style="font-size: 11.5px; color: var(--text-secondary); font-weight: 600;" data-i18n="social.searchResultTitle">${window.i18n?.t ? window.i18n.t('social.searchResultTitle', 'Resultado de Búsqueda') : 'Resultado de Búsqueda'}</span>
+            <button id="btn-clear-search-result" class="btn btn-secondary btn-small" style="font-size: 11px; padding: 2px 8px;" title="Cerrar resultado">${window.i18n?.t ? window.i18n.t('social.clearBtn', '✕ Limpiar') : '✕ Limpiar'}</button>
           </div>
           <div style="display: flex; gap: 14px; align-items: center;">
             <div class="friend-avatar-wrap" style="width: 52px; height: 52px;">
@@ -9895,19 +9952,19 @@ document.addEventListener('DOMContentLoaded', async () => {
               </div>
               <span style="font-size: 12px; color: var(--text-dim);">@${escapeHtml(prof.username)}</span>
               <div style="display: flex; gap: 12px; margin-top: 6px; font-size: 11px; color: var(--text-secondary); flex-wrap: wrap;">
-                <span>📅 Miembro desde: <b>${formatCreationDate(prof.createdAt)}</b></span>
-                <span>⏱ Jugado: <b>${formatPlayTime(prof.playTimeSeconds)}</b></span>
-                <span>⚙ Modloader fav: <b style="color: #10b981;">${escapeHtml(prof.favoriteModloader || 'Fabric')}</b></span>
-                <span>🎮 Estilo: <b style="color: #c4b5fd;">${escapeHtml(prof.playStyle || 'Modded')}</b></span>
+                <span>${window.i18n?.t ? window.i18n.t('social.memberSince', '📅 Miembro desde:') : '📅 Miembro desde:'} <b>${formatCreationDate(prof.createdAt)}</b></span>
+                <span>${window.i18n?.t ? window.i18n.t('social.timePlayed', '⏱ Tiempo jugado:') : '⏱ Jugado:'} <b>${formatPlayTime(prof.playTimeSeconds)}</b></span>
+                <span>${window.i18n?.t ? window.i18n.t('social.favModloaderShort', '⚙ Modloader fav:') : '⚙ Modloader fav:'} <b style="color: #10b981;">${escapeHtml(prof.favoriteModloader || 'Fabric')}</b></span>
+                <span>${window.i18n?.t ? window.i18n.t('social.playstyleShort', '🎮 Estilo:') : '🎮 Estilo:'} <b style="color: #c4b5fd;">${escapeHtml(prof.playStyle || 'Modded')}</b></span>
               </div>
             </div>
           </div>
           ${prof.bio ? `<div style="font-size: 12px; color: var(--text-primary); background: rgba(0,0,0,0.25); border-left: 3px solid #10b981; padding: 8px 12px; border-radius: 4px; margin-top: 8px;"><i>"${escapeHtml(prof.bio)}"</i></div>` : ''}
           <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;">
-            ${isMe ? '<span style="font-size: 12px; color: var(--text-dim); margin-top: 6px;">Este es tu propio perfil</span>' :
-              (isFriend ? '<button class="btn btn-secondary btn-small" disabled style="opacity: 0.9;">✔ Ya son amigos</button>' :
+            ${isMe ? `<span style="font-size: 12px; color: var(--text-dim); margin-top: 6px;">${window.i18n?.t ? window.i18n.t('social.ownProfile', 'Este es tu propio perfil') : 'Este es tu propio perfil'}</span>` :
+              (isFriend ? `<button class="btn btn-secondary btn-small" disabled style="opacity: 0.9;">${window.i18n?.t ? window.i18n.t('social.alreadyFriends', '✔ Ya son amigos') : '✔ Ya son amigos'}</button>` :
                 `<button id="btn-add-from-search" class="btn btn-primary btn-small">
-                  <span>+ Agregar a Amigos</span>
+                  <span>${window.i18n?.t ? window.i18n.t('social.addFriend', '+ Agregar Amigo') : '+ Agregar a Amigos'}</span>
                 </button>`
               )
             }
@@ -9999,26 +10056,26 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12px;">
         <div class="card" style="padding: 10px;">
-          <small style="color: var(--text-dim); display: block;">Miembro Desde</small>
+          <small style="color: var(--text-dim); display: block;" data-i18n="social.memberSinceTitle">${window.i18n?.t ? window.i18n.t('social.memberSinceTitle', 'Miembro Desde') : 'Miembro Desde'}</small>
           <strong style="color: var(--text-primary);">${formatCreationDate(user.createdAt || user.since)}</strong>
         </div>
         <div class="card" style="padding: 10px;">
-          <small style="color: var(--text-dim); display: block;">Tiempo Jugado</small>
+          <small style="color: var(--text-dim); display: block;" data-i18n="social.timePlayedTitle">${window.i18n?.t ? window.i18n.t('social.timePlayedTitle', 'Tiempo Jugado') : 'Tiempo Jugado'}</small>
           <strong style="color: #10b981;">${formatPlayTime(user.playTimeSeconds)}</strong>
         </div>
         <div class="card" style="padding: 10px;">
-          <small style="color: var(--text-dim); display: block;">Modloader Favorito</small>
+          <small style="color: var(--text-dim); display: block;" data-i18n="social.favModloaderTitle">${window.i18n?.t ? window.i18n.t('social.favModloaderTitle', 'Modloader Favorito') : 'Modloader Favorito'}</small>
           <strong style="color: var(--text-primary);">${escapeHtml(user.favoriteModloader || 'Fabric')}</strong>
         </div>
         <div class="card" style="padding: 10px;">
-          <small style="color: var(--text-dim); display: block;">Estilo de Juego</small>
+          <small style="color: var(--text-dim); display: block;" data-i18n="social.playstyleTitle">${window.i18n?.t ? window.i18n.t('social.playstyleTitle', 'Estilo de Juego') : 'Estilo de Juego'}</small>
           <strong style="color: #c4b5fd;">${escapeHtml(user.playStyle || 'Modded')}</strong>
         </div>
       </div>
 
       ${user.bio ? `
         <div style="background: rgba(0,0,0,0.25); border-left: 3px solid #10b981; padding: 10px 12px; border-radius: 4px;">
-          <small style="color: var(--text-dim); display: block; margin-bottom: 4px;">Descripción Personal:</small>
+          <small style="color: var(--text-dim); display: block; margin-bottom: 4px;" data-i18n="social.bioTitle">${window.i18n?.t ? window.i18n.t('social.bioTitle', 'Descripción Personal:') : 'Descripción Personal:'}</small>
           <p style="margin: 0; font-size: 12px; color: var(--text-primary); font-style: italic;">"${escapeHtml(user.bio)}"</p>
         </div>
       ` : ''}
@@ -10027,14 +10084,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         ${!isMe ? (isFriend ? `
           <button class="btn btn-secondary btn-small" id="btn-modal-chat-profile" style="display: flex; align-items: center; gap: 6px;">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-            <span>💬 Abrir Chat</span>
+            <span data-i18n="social.openChat">${window.i18n?.t ? window.i18n.t('social.openChat', '💬 Abrir Chat') : '💬 Abrir Chat'}</span>
           </button>
         ` : `
           <button class="btn btn-primary btn-small" id="btn-modal-add-profile">
-            <span>+ Agregar Amigo</span>
+            <span data-i18n="social.addFriend">${window.i18n?.t ? window.i18n.t('social.addFriend', '+ Agregar Amigo') : '+ Agregar Amigo'}</span>
           </button>
         `) : ''}
-        <button class="btn btn-secondary btn-small" id="btn-modal-close-profile">Cerrar</button>
+        <button class="btn btn-secondary btn-small" id="btn-modal-close-profile" data-i18n="common.close">${window.i18n?.t ? window.i18n.t('common.close', 'Cerrar') : 'Cerrar'}</button>
       </div>
     `;
 
@@ -10532,7 +10589,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       const profiles = await api.profiles.getAll();
       const currentVal = selectScreenshotsInstanceFilter.value || 'all';
-      selectScreenshotsInstanceFilter.innerHTML = '<option value="all">Todas las instancias</option>';
+      const allOpt = window.i18n?.t ? window.i18n.t('screenshots.allInstances', 'Todas las instancias') : 'Todas las instancias';
+      selectScreenshotsInstanceFilter.innerHTML = `<option value="all">${escapeHtml(allOpt)}</option>`;
       (profiles || []).forEach((p) => {
         const opt = document.createElement('option');
         opt.value = p.id;
@@ -10546,7 +10604,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function loadScreenshotsGallery() {
     if (!screenshotsGridContainer) return;
     const filterId = selectScreenshotsInstanceFilter?.value || 'all';
-    screenshotsGridContainer.innerHTML = '<div class="empty-state">Buscando capturas de pantalla...</div>';
+    const searchMsg = window.i18n?.t ? window.i18n.t('screenshots.searching', 'Buscando capturas de pantalla...') : 'Buscando capturas de pantalla...';
+    screenshotsGridContainer.innerHTML = `<div class="empty-state">${escapeHtml(searchMsg)}</div>`;
 
     try {
       const items = await api.screenshots.list({ instanceId: filterId, mediaType: 'photos' });
@@ -10558,8 +10617,8 @@ document.addEventListener('DOMContentLoaded', async () => {
               <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
               <circle cx="12" cy="13" r="4"/>
             </svg>
-            <p style="margin: 0; font-size: 14px; color: var(--text-primary); font-weight: 500;">No se encontraron capturas de pantalla</p>
-            <small style="color: var(--text-muted); margin-top: 4px; display: block;">Presiona F2 en el juego para tomar fotos de tus mundos y servidores.</small>
+            <p style="margin: 0; font-size: 14px; color: var(--text-primary); font-weight: 500;">${escapeHtml(window.i18n?.t ? window.i18n.t('screenshots.emptyTitle', 'No se encontraron capturas de pantalla') : 'No se encontraron capturas de pantalla')}</p>
+            <small style="color: var(--text-muted); margin-top: 4px; display: block;">${escapeHtml(window.i18n?.t ? window.i18n.t('screenshots.emptyDesc', 'Presiona F2 en el juego para tomar fotos de tus mundos y servidores.') : 'Presiona F2 en el juego para tomar fotos de tus mundos y servidores.')}</small>
           </div>
         `;
         return;
@@ -10818,7 +10877,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function updateHudStatusText(elem, isChecked) {
     if (!elem) return;
-    elem.textContent = isChecked ? 'Activado' : 'Desactivado';
+    elem.textContent = isChecked ? (window.i18n?.t ? window.i18n.t('common.enabled', 'Activado') : 'Activado') : (window.i18n?.t ? window.i18n.t('common.disabled', 'Desactivado') : 'Desactivado');
     elem.classList.toggle('active', !!isChecked);
   }
 
@@ -11231,13 +11290,13 @@ document.addEventListener('DOMContentLoaded', async () => {
               if (!badge.classList.contains('connected')) {
                 badge.className = 'badge-status-controller connected';
               }
-              const cleanId = (activePad.id || 'Mando Estándar').replace(/\(.*?\)/g, '').trim().slice(0, 32);
-              text.textContent = `🎮 ${cleanId} (Conectado)`;
+              const cleanId = (activePad.id || (window.i18n?.t ? window.i18n.t('controller.standardPad', 'Mando Estándar') : 'Mando Estándar')).replace(/\(.*?\)/g, '').trim().slice(0, 32);
+              text.textContent = `🎮 ${cleanId} (${window.i18n?.t ? window.i18n.t('controller.connectedStatus', 'Conectado') : 'Conectado'})`;
             } else {
               if (!badge.classList.contains('disconnected')) {
                 badge.className = 'badge-status-controller disconnected';
               }
-              text.textContent = '⚠️ Ningún mando conectado (Mueve un joystick o pulsa un botón)';
+              text.textContent = window.i18n?.t ? window.i18n.t('controller.disconnectedPrompt', '⚠️ Ningún mando conectado (Mueve un joystick o pulsa un botón)') : '⚠️ Ningún mando conectado (Mueve un joystick o pulsa un botón)';
             }
           }
         });
@@ -11486,7 +11545,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       const list = profilesCache || [];
       if (list.length === 0) {
         if (exportCodeInstancesList) {
-          exportCodeInstancesList.innerHTML = '<div class="empty-state" style="padding: 12px; font-size: 12px;">No hay instancias disponibles para compartir.</div>';
+          const noInstMsg = window.i18n?.t ? window.i18n.t('exportCode.noInstances', 'No hay instancias disponibles para compartir.') : 'No hay instancias disponibles para compartir.';
+          exportCodeInstancesList.innerHTML = `<div class="empty-state" style="padding: 12px; font-size: 12px;" data-i18n="exportCode.noInstances">${escapeHtml(noInstMsg)}</div>`;
         }
       } else {
         const initialSelectedId = preselectedProfileId || currentActiveProfile?.id || list[0].id;
@@ -11594,17 +11654,17 @@ document.addEventListener('DOMContentLoaded', async () => {
           if (exportCodeDetails) {
             exportCodeDetails.textContent = `Instancia "${res.profileName}" · MC ${res.mcVersion} (${res.loader}) · ${res.modsCount} mods listados.`;
           }
-          btnExecuteExportCode.innerHTML = '<span>✔ Generado</span>';
+          btnExecuteExportCode.innerHTML = `<span>${window.i18n?.t ? window.i18n.t('exportCode.generated', '✔ Generado') : '✔ Generado'}</span>`;
           appendLog(`[Compartir Código] Instancia exportada con éxito. Código corto: ${res.code}`, 'success');
         } else {
           alert(`Error al generar código: ${res?.error || 'Desconocido'}`);
           btnExecuteExportCode.disabled = false;
-          btnExecuteExportCode.innerHTML = '<span>🚀 Reintentar</span>';
+          btnExecuteExportCode.innerHTML = `<span>${window.i18n?.t ? window.i18n.t('exportCode.retry', '🚀 Reintentar') : '🚀 Reintentar'}</span>`;
         }
       } catch (err) {
         if (exportCodeLoading) exportCodeLoading.style.display = 'none';
         btnExecuteExportCode.disabled = false;
-        btnExecuteExportCode.innerHTML = '<span>🚀 Reintentar</span>';
+        btnExecuteExportCode.innerHTML = `<span>${window.i18n?.t ? window.i18n.t('exportCode.retry', '🚀 Reintentar') : '🚀 Reintentar'}</span>`;
         alert(`Error al compartir instancia: ${err.message}`);
       }
     });
@@ -11615,9 +11675,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       const code = displayGeneratedCode?.textContent;
       if (code && navigator.clipboard) {
         navigator.clipboard.writeText(code).then(() => {
-          btnCopyGeneratedCode.textContent = '¡Copiado!';
+          btnCopyGeneratedCode.textContent = window.i18n?.t ? window.i18n.t('exportCode.copiedBtn', '¡Copiado!') : '¡Copiado!';
           setTimeout(() => {
-            btnCopyGeneratedCode.textContent = '📋 Copiar';
+            btnCopyGeneratedCode.textContent = window.i18n?.t ? window.i18n.t('exportCode.copyBtn', '📋 Copiar') : '📋 Copiar';
           }, 2000);
         }).catch(() => {});
       }
@@ -11632,7 +11692,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (importCodeErrorBox) importCodeErrorBox.style.display = 'none';
     if (btnExecuteImportCode) {
       btnExecuteImportCode.disabled = false;
-      btnExecuteImportCode.innerHTML = '<span>⚡ Descargar e Instalar</span>';
+      const installBtnText = window.i18n?.t ? window.i18n.t('importCode.btnInstall', '⚡ Descargar e Instalar') : '⚡ Descargar e Instalar';
+      btnExecuteImportCode.innerHTML = `<span data-i18n="importCode.btnInstall">${escapeHtml(installBtnText)}</span>`;
     }
     modalImportCode.classList.add('active');
     modalImportCode.style.setProperty('display', 'flex', 'important');
@@ -11674,7 +11735,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (importCodeErrorBox) importCodeErrorBox.style.display = 'none';
       if (importCodeProgressFill) importCodeProgressFill.style.width = '5%';
       if (importCodeProgressPct) importCodeProgressPct.textContent = '5%';
-      if (importCodeProgressStatus) importCodeProgressStatus.textContent = 'Descargando manifiesto de la instancia...';
+      if (importCodeProgressStatus) importCodeProgressStatus.textContent = window.i18n?.t ? window.i18n.t('importCode.downloadingManifest', 'Descargando manifiesto de la instancia...') : 'Descargando manifiesto de la instancia...';
 
       // Listener de progreso
       const unsubProgress = api.events.on('sync:code-progress', (prog) => {
@@ -11769,10 +11830,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!newsFeedList) return;
     if (isNewsCollapsed) {
       newsFeedList.style.display = 'none';
-      if (newsCollapseText) newsCollapseText.textContent = '➕ Expandir';
+      if (newsCollapseText) newsCollapseText.textContent = window.i18n?.t ? window.i18n.t('news.expand', '➕ Expandir') : '➕ Expandir';
     } else {
       newsFeedList.style.display = 'grid';
-      if (newsCollapseText) newsCollapseText.textContent = '➖ Minimizar';
+      if (newsCollapseText) newsCollapseText.textContent = window.i18n?.t ? window.i18n.t('news.minimize', '➖ Minimizar') : '➖ Minimizar';
     }
   }
 
@@ -11862,7 +11923,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
       }
       if (newsFeedBanner) newsFeedBanner.style.display = 'block';
-      if (newsCounterBadge) newsCounterBadge.textContent = `${items.length} anuncios`;
+      if (newsCounterBadge) newsCounterBadge.textContent = (window.i18n?.getLanguage() === 'en') ? `${items.length} AVAILABLE` : `${items.length} disponibles`;
       newsFeedList.innerHTML = '';
       applyNewsCollapseState();
 
@@ -11879,7 +11940,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           <strong style="font-size: 13px; color: var(--text-primary); line-height: 1.3;">${escapeHtml(item.title || '')}</strong>
           <p style="font-size: 11.5px; color: var(--text-secondary); margin: 0; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${escapeHtml(item.summary || '')}</p>
           <button class="news-link-btn" data-news-idx="${index}" style="align-self: flex-start; background: none; border: none; padding: 2px 0; margin-top: 2px; font-size: 11.5px; font-weight: 600; color: var(--primary, #3b82f6); cursor: pointer; text-decoration: none;">
-            Leer detalles &rarr;
+            ${window.i18n?.t ? window.i18n.t('news.readDetails', 'Leer detalles →') : 'Leer detalles →'}
           </button>
         `;
 

@@ -50,7 +50,7 @@
       <button id="btn-maximize" class="ctrl-btn" title="Maximizar">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
       </button>
-      <button id="btn-close" class="ctrl-btn close-btn" title="Cerrar">
+      <button id="btn-close" class="ctrl-btn close-btn" title="Cerrar" data-i18n-title="common.close">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
@@ -225,11 +225,11 @@
             <p class="view-subtitle" data-i18n="instances.subtitle">Perfiles independientes con sus propios mods, configuraciones y mundos.</p>
           </div>
           <div class="toolbar-actions">
-            <button id="btn-export-profile-code" class="btn btn-secondary" title="Generar un código corto para compartir tu perfil en GitHub con amigos">
+            <button id="btn-export-profile-code" class="btn btn-secondary" title="Generar un código corto para compartir tu perfil en GitHub con amigos" data-i18n-title="modal.exportCodeTitle">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg>
               <span data-i18n="instances.shareCode">Compartir Código</span>
             </button>
-            <button id="btn-import-profile-code" class="btn btn-secondary" title="Descargar e instalar un perfil usando un código corto de un amigo">
+            <button id="btn-import-profile-code" class="btn btn-secondary" title="Descargar e instalar un perfil usando un código corto de un amigo" data-i18n-title="modal.importCodeTitle">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               <span data-i18n="instances.importCode">Importar Código</span>
             </button>
@@ -262,7 +262,7 @@
               <button id="btn-toggle-news-collapse" class="btn btn-secondary btn-compact" style="font-size: 11px; padding: 3px 8px;" title="Minimizar o expandir anuncios">
                 <span id="news-collapse-text" data-i18n="news.minimize">➖ Minimizar</span>
               </button>
-              <button id="btn-refresh-news" class="btn btn-secondary btn-compact" style="font-size: 11px; padding: 3px 8px;" title="Actualizar anuncios" data-i18n="news.refresh">🔄 Actualizar</button>
+              <button id="btn-refresh-news" class="btn btn-secondary btn-compact" style="font-size: 11px; padding: 3px 8px;" title="Actualizar anuncios" data-i18n-title="news.refreshTitle" data-i18n="news.refresh">🔄 Actualizar</button>
             </div>
           </div>
           <div id="news-feed-list" class="news-cards-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px; margin-top: 10px;">
@@ -289,9 +289,9 @@
               </div>
             </div>
           </div>
-          <button type="button" id="btn-close-catalog-context" class="btn btn-secondary btn-compact" title="Volver al Gestor de Instancia">
+          <button type="button" id="btn-close-catalog-context" class="btn btn-secondary btn-compact" title="Volver al Gestor de Instancia" data-i18n-title="header.backToInstance">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5"/><polyline points="12 19 5 12 12 5"/></svg>
-            <span>Volver a la Instancia</span>
+            <span data-i18n="header.backToInstance">Volver a la Instancia</span>
           </button>
         </div>
 
@@ -300,21 +300,21 @@
           <div class="catalog-search-primary-row">
             <div class="search-input-box catalog-search-box-large">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-              <input type="text" id="input-mod-search" placeholder="🔍 Busca mods, modpacks, shaders, texturas..." autocomplete="off">
-              <button id="btn-search-mods" class="btn btn-primary btn-compact">Buscar</button>
+              <input type="text" id="input-mod-search" placeholder="🔍 Busca mods, modpacks, shaders, texturas..." data-i18n-placeholder="catalog.searchPlaceholder" autocomplete="off">
+              <button id="btn-search-mods" class="btn btn-primary btn-compact" data-i18n="common.search">Buscar</button>
             </div>
             <div class="catalog-actions-group">
               <button id="btn-refresh-github-mods" class="btn btn-secondary btn-compact" title="Refrescar mods desde GitHub" style="display: none;">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
-                <span>Refrescar</span>
+                <span data-i18n="common.refresh">Refrescar</span>
               </button>
               <button id="btn-config-github-repo" class="btn btn-secondary btn-compact" title="Configurar repositorio de GitHub" style="display: none;">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-                <span>Configurar Repo</span>
+                <span data-i18n="catalog.configRepo">Configurar Repo</span>
               </button>
               <button id="btn-upload-github-mod" class="btn btn-primary btn-compact" title="Subir mod custom (.jar) a GitHub Releases sin límite de 25 MB" style="display: none;">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
-                <span>☁ Subir Mod (.jar)</span>
+                <span data-i18n="mods.uploadMod">☁ Subir Mod (.jar)</span>
               </button>
             </div>
           </div>
@@ -335,9 +335,9 @@
                 <option value="github">🔥 Mods Custom (GitHub) ▾</option>
               </select>
               <select id="select-catalog-platform" class="select-input select-catalog-type" title="Filtrar por plataforma (Modrinth o CurseForge)">
-                <option value="both" selected>🌐 Plataforma: Todas</option>
-                <option value="modrinth">🟢 Solo Modrinth</option>
-                <option value="curseforge">🔥 Solo CurseForge</option>
+                <option value="both" selected data-i18n="catalog.platformAll">🌐 Plataforma: Todas</option>
+                <option value="modrinth" data-i18n="catalog.platformModrinth">🟢 Solo Modrinth</option>
+                <option value="curseforge" data-i18n="catalog.platformCurseforge">🔥 Solo CurseForge</option>
               </select>
               <!-- Hidden compatibility category-pills for internal references -->
               <div class="category-pills" style="display: none;">
@@ -353,10 +353,10 @@
             </div>
             <div class="catalog-controls-right">
               <select id="select-mod-sort" class="select-input select-filter" title="Ordenar catálogo">
-                <option value="popular" selected>⇅ Ordenar: Destacado</option>
-                <option value="updated">⇅ Más Recientes</option>
-                <option value="downloads">⇅ Más Descargados</option>
-                <option value="name">⇅ Nombre (A-Z)</option>
+                <option value="popular" selected data-i18n="catalog.sortFeatured">⇅ Ordenar: Destacado</option>
+                <option value="updated" data-i18n="catalog.sortRecent">⇅ Más Recientes</option>
+                <option value="downloads" data-i18n="catalog.sortDownloads">⇅ Más Descargados</option>
+                <option value="name" data-i18n="catalog.sortName">⇅ Nombre (A-Z)</option>
               </select>
               <button type="button" id="btn-toggle-advanced-filters" class="btn btn-secondary btn-compact" title="Mostrar/Ocultar Filtros Avanzados">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -366,7 +366,7 @@
                 <button type="button" id="btn-catalog-view-list" class="btn-icon-toggle active" title="Vista de Filas Anchas (100% ancho)">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
                 </button>
-                <button type="button" id="btn-catalog-view-grid" class="btn-icon-toggle" title="Vista en Cuadrícula">
+                <button type="button" id="btn-catalog-view-grid" class="btn-icon-toggle" title="Vista en Cuadrícula" data-i18n-title="catalog.viewGrid">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
                 </button>
               </div>
@@ -376,42 +376,42 @@
           <!-- Panel Plegable de Filtros Avanzados -->
           <div id="catalog-advanced-filters-panel" class="catalog-advanced-filters-panel" style="display: none;">
             <div class="advanced-filter-item">
-              <label for="select-mod-category">Categoría:</label>
+              <label for="select-mod-category" data-i18n="catalog.categoryLabel">Categoría:</label>
               <select id="select-mod-category" class="select-input select-filter" title="Filtrar por categoría">
-                <option value="all" selected>Todas las categorías</option>
-                <option value="optimization">Rendimiento y Optimización</option>
-                <option value="adventure">Aventura y RPG</option>
-                <option value="technology">Tecnología y Magia</option>
-                <option value="worldgen">Mundo, Biomas y Estructuras</option>
-                <option value="utility">Utilidades e Interfaz (UI/Minimap)</option>
-                <option value="library">Librerías y APIs</option>
+                <option value="all" selected data-i18n="catalog.allCategories">Todas las categorías</option>
+                <option value="optimization" data-i18n="catalog.catOptimization">Rendimiento y Optimización</option>
+                <option value="adventure" data-i18n="catalog.catAdventure">Aventura y RPG</option>
+                <option value="technology" data-i18n="catalog.catTechnology">Tecnología y Magia</option>
+                <option value="worldgen" data-i18n="catalog.catWorldgen">Mundo, Biomas y Estructuras</option>
+                <option value="utility" data-i18n="catalog.catUtility">Utilidades e Interfaz (UI/Minimap)</option>
+                <option value="library" data-i18n="catalog.catLibrary">Librerías y APIs</option>
               </select>
             </div>
             <div class="advanced-filter-item">
-              <label for="select-mod-source">Plataforma:</label>
+              <label for="select-mod-source" data-i18n="manager.platformLabel">Plataforma:</label>
               <select id="select-mod-source" class="select-input select-source" title="Filtrar por plataforma">
                 <option value="both" selected>CurseForge + Modrinth</option>
-                <option value="modrinth">Solo Modrinth</option>
-                <option value="curseforge">Solo CurseForge</option>
+                <option value="modrinth" data-i18n="catalog.platformModrinth">Solo Modrinth</option>
+                <option value="curseforge" data-i18n="catalog.platformCurseforge">Solo CurseForge</option>
                 <option value="custom">🔥 Mods y Packs Custom (SHUBATECH)</option>
                 <option value="github">🔥 Mods Custom (GitHub)</option>
               </select>
             </div>
             <div class="advanced-filter-item">
-              <label for="select-catalog-loader">Modloader:</label>
+              <label for="select-catalog-loader" data-i18n="modal.modLoader">Modloader:</label>
               <select id="select-catalog-loader" class="select-input select-filter" title="Filtrar por Modloader">
-                <option value="active" selected>Seguir instancia activa</option>
+                <option value="active" selected data-i18n="catalog.followActive">Seguir instancia activa</option>
                 <option value="neoforge">NeoForge</option>
                 <option value="forge">Forge</option>
                 <option value="fabric">Fabric</option>
                 <option value="quilt">Quilt</option>
-                <option value="all">Cualquiera / Todos</option>
+                <option value="all" data-i18n="catalog.anyModloader">Cualquiera / Todos</option>
               </select>
             </div>
             <div class="advanced-filter-item">
-              <label for="select-catalog-mcversion">Versión Minecraft:</label>
+              <label for="select-catalog-mcversion" data-i18n="modal.mcVersion">Versión Minecraft:</label>
               <select id="select-catalog-mcversion" class="select-input select-filter" title="Filtrar por versión de Minecraft">
-                <option value="active" selected>Seguir instancia activa</option>
+                <option value="active" selected data-i18n="catalog.followActive">Seguir instancia activa</option>
                 <option value="1.21.4">1.21.4</option>
                 <option value="1.21.1">1.21.1</option>
                 <option value="1.20.1">1.20.1</option>
@@ -419,16 +419,16 @@
                 <option value="1.18.2">1.18.2</option>
                 <option value="1.16.5">1.16.5</option>
                 <option value="1.12.2">1.12.2</option>
-                <option value="all">Todas las versiones</option>
+                <option value="all" data-i18n="catalog.allVersions">Todas las versiones</option>
               </select>
             </div>
             <div class="advanced-filter-item">
-              <label for="select-catalog-environment">Entorno:</label>
+              <label for="select-catalog-environment" data-i18n="catalog.envLabel">Entorno:</label>
               <select id="select-catalog-environment" class="select-input select-filter" title="Filtrar por entorno (Cliente / Servidor)">
-                <option value="all" selected>Todos los entornos</option>
-                <option value="client">🖥️ Solo Cliente</option>
-                <option value="server">🗄️ Solo Servidor</option>
-                <option value="both">🔄 Cliente y Servidor</option>
+                <option value="all" selected data-i18n="catalog.allEnvironments">Todos los entornos</option>
+                <option value="client" data-i18n="catalog.clientOnly">🖥️ Solo Cliente</option>
+                <option value="server" data-i18n="catalog.serverOnly">🗄️ Solo Servidor</option>
+                <option value="both" data-i18n="catalog.clientAndServer">🔄 Cliente y Servidor</option>
               </select>
             </div>
           </div>
@@ -485,12 +485,12 @@
               </div>
             </div>
             <div class="instance-banner-actions">
-              <button id="btn-instance-header-launch" class="btn btn-launch-header" title="Jugar con esta instancia ahora">
+              <button id="btn-instance-header-launch" class="btn btn-launch-header" title="Jugar con esta instancia ahora" data-i18n-title="manager.launchInstance">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>
                 <span data-i18n="header.play">JUGAR</span>
               </button>
               <div class="instance-options-dropdown-container">
-                <button id="btn-instance-options-dropdown" class="btn btn-secondary" title="Más opciones de la instancia">
+                <button id="btn-instance-options-dropdown" class="btn btn-secondary" title="Más opciones de la instancia" data-i18n-title="manager.moreOptions">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
                   <span data-i18n="common.options">Opciones</span>
                 </button>
@@ -503,24 +503,24 @@
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
                     <span data-i18n="mods.fpsOptimization">Optimización FPS</span>
                   </button>
-                  <button id="btn-install-modpack" class="dropdown-item-btn" title="Importar Modpack CurseForge (.zip) o Modrinth (.mrpack) en esta instancia">
+                  <button id="btn-install-modpack" class="dropdown-item-btn" title="Importar Modpack CurseForge (.zip) o Modrinth (.mrpack) en esta instancia" data-i18n-title="manager.importModpack">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
                     <span data-i18n="instances.importModpack">Importar Modpack</span>
                   </button>
-                  <button id="btn-open-mods-folder" class="dropdown-item-btn" title="Abrir carpeta /mods en el explorador de archivos">
+                  <button id="btn-open-mods-folder" class="dropdown-item-btn" title="Abrir carpeta /mods en el explorador de archivos" data-i18n-title="manager.openModsFolder">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
                     <span data-i18n="mods.openModsFolder">Abrir Carpeta de Mods</span>
                   </button>
-                  <button id="btn-open-playit-tunnel-mods" class="dropdown-item-btn" title="Abrir Túnel LAN P2P con PlayIt.gg para invitar amigos a jugar">
+                  <button id="btn-open-playit-tunnel-mods" class="dropdown-item-btn" title="Abrir Túnel LAN P2P con PlayIt.gg para invitar amigos a jugar" data-i18n-title="manager.playitTunnelTitle">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                    <span>Túnel LAN PlayIt</span>
+                    <span data-i18n="manager.playitTunnel">Túnel LAN PlayIt</span>
                   </button>
                   <button id="btn-refresh-installed-mods" class="dropdown-item-btn" title="Refrescar lista de mods en disco">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
-                    <span>Sincronizar Mods</span>
+                    <span data-i18n="mods.syncMods">Sincronizar Mods</span>
                   </button>
                   <hr style="border: 0; border-top: 1px solid rgba(255, 255, 255, 0.08); margin: 4px 0;">
-                  <button id="btn-delete-current-instance" class="dropdown-item-btn text-danger" title="Eliminar permanentemente esta instancia y todos sus archivos">
+                  <button id="btn-delete-current-instance" class="dropdown-item-btn text-danger" title="Eliminar permanentemente esta instancia y todos sus archivos" data-i18n-title="manager.deleteInstanceTitle">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                     <span style="color: #ef4444; font-weight: 600;" data-i18n="card.delete">Eliminar Instancia</span>
                   </button>
@@ -548,11 +548,11 @@
             </div>
           </div>
           <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
-            <button id="btn-refresh-monitored-server" class="btn btn-secondary btn-compact" title="Refrescar estado del servidor ahora">
+            <button id="btn-refresh-monitored-server" class="btn btn-secondary btn-compact" title="Refrescar estado del servidor ahora" data-i18n-title="manager.refreshServerTitle">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
               <span>Ping</span>
             </button>
-            <button id="btn-edit-monitored-server" class="btn btn-secondary btn-compact" title="Cambiar la IP del servidor a monitorizar">
+            <button id="btn-edit-monitored-server" class="btn btn-secondary btn-compact" title="Cambiar la IP del servidor a monitorizar" data-i18n-title="manager.editServerTitle">
               <span>⚙ Cambiar IP</span>
             </button>
           </div>
@@ -563,38 +563,38 @@
           <div class="instance-subtabs-nav">
             <button id="subtab-instance-mods" class="instance-subtab-btn active" data-subtab="mods">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19.439 7.85c-.049-.955-.595-1.81-1.494-2.147-.946-.356-2.02.046-2.528.851A3.5 3.5 0 0 1 12 8a3.5 3.5 0 0 1-3.417-1.446c-.508-.805-1.582-1.207-2.528-.851-.899.337-1.445 1.192-1.494 2.147-.05 1.01.42 2.02 1.194 2.658A3.5 3.5 0 0 1 7 14c0 1.258-.655 2.364-1.637 2.992-.774.638-1.244 1.648-1.194 2.658.049.955.595 1.81 1.494 2.147.946.356 2.02-.046 2.528-.851A3.5 3.5 0 0 1 12 19.5a3.5 3.5 0 0 1 3.417 1.446c.508.805 1.582 1.207 2.528.851.899-.337 1.445-1.192 1.494-2.147.05-1.01-.42-2.02-1.194-2.658A3.5 3.5 0 0 1 17 14c0-1.258.655-2.364 1.637-2.992.774-.638 1.244-1.648 1.194-2.658Z"/></svg>
-            <span>Mods</span>
+            <span data-i18n="catalog.tabMods">Mods</span>
             <span id="badge-subtab-mods" class="badge-count">0</span>
             </button>
             <button id="subtab-instance-datapacks" class="instance-subtab-btn" data-subtab="datapacks">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-              <span>Data Packs</span>
+              <span data-i18n="manager.tabDataPacks">Data Packs</span>
               <span id="badge-subtab-datapacks" class="badge-count">0</span>
             </button>
           <button id="subtab-instance-shaders" class="instance-subtab-btn" data-subtab="shaders">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-            <span>Shaders</span>
+            <span data-i18n="catalog.tabShaders">Shaders</span>
             <span id="badge-subtab-shaders" class="badge-count">0</span>
           </button>
           <button id="subtab-instance-resourcepacks" class="instance-subtab-btn" data-subtab="resourcepacks">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m19 11-8-8-8.6 8.6a2 2 0 0 0 0 2.8l5.2 5.2c.8.8 2 .8 2.8 0L19 11Z"/><path d="m5 2 5 5"/><path d="M2 13h15"/><path d="M22 20a2 2 0 1 1-4 0c0-1.6 1.7-2.4 2-4 .3 1.6 2 2.4 2 4Z"/></svg>
-            <span>Resource Packs</span>
+            <span data-i18n="catalog.tabTextures">Resource Packs</span>
             <span id="badge-subtab-resourcepacks" class="badge-count">0</span>
           </button>
           <button id="subtab-instance-worlds" class="instance-subtab-btn" data-subtab="worlds">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-            <span>Mundos & Backups</span>
+            <span data-i18n="manager.tabWorlds">Mundos & Backups</span>
             <span id="badge-subtab-worlds" class="badge-count">0</span>
           </button>
           <button id="subtab-instance-hud" class="instance-subtab-btn" data-subtab="hud" title="Ajustes nativos de options.txt (Fullbright, Sprint, Nubes, Sombras, VSync)">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-            <span>Optimizaciones (options.txt)</span>
+            <span data-i18n="manager.tabOptions">Optimizaciones (options.txt)</span>
             </button>
           </div>
           <div class="instance-subtabs-actions">
-            <button id="btn-add-more-mods-header" class="btn btn-primary" title="Explorar y añadir contenido a esta instancia">
+            <button id="btn-add-more-mods-header" class="btn btn-primary" title="Explorar y añadir contenido a esta instancia" data-i18n-title="manager.addMoreModsTitle">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              <span>+ Añadir contenido</span>
+              <span data-i18n="manager.addContent">+ Añadir contenido</span>
             </button>
           </div>
         </div>
@@ -605,51 +605,51 @@
         <div class="installed-mods-control-bar">
           <div class="control-bar-search">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input type="text" id="input-search-installed-mods" placeholder="Buscar entre los mods instalados..." />
+            <input type="text" id="input-search-installed-mods" placeholder="Buscar entre los mods instalados..." data-i18n-placeholder="manager.searchPlaceholder" />
           </div>
 
           <div class="control-bar-filters">
             <div class="control-select-group">
-              <label for="select-installed-mods-platform">Plataforma:</label>
+              <label for="select-installed-mods-platform" data-i18n="manager.platformLabel">Plataforma:</label>
               <select id="select-installed-mods-platform" class="catalog-select" title="Filtrar por plataforma de origen">
-                <option value="all" selected>Todas las plataformas</option>
+                <option value="all" selected data-i18n="catalog.allPlatforms">Todas las plataformas</option>
                 <option value="modrinth">🟢 Modrinth</option>
                 <option value="curseforge">🔥 CurseForge</option>
                 <option value="custom">📁 Custom / Local</option>
               </select>
             </div>
             <div class="control-select-group">
-              <label for="select-installed-mods-env">Entorno (Env):</label>
+              <label for="select-installed-mods-env" data-i18n="manager.envLabel">Entorno (Env):</label>
               <select id="select-installed-mods-env" class="catalog-select">
-                <option value="all" selected>Todos los entornos</option>
-                <option value="client">Solo Cliente</option>
-                <option value="both">Cliente y Servidor</option>
-                <option value="server">Solo Servidor</option>
+                <option value="all" selected data-i18n="catalog.allEnvironments">Todos los entornos</option>
+                <option value="client" data-i18n="catalog.clientOnly">Solo Cliente</option>
+                <option value="both" data-i18n="catalog.clientAndServer">Cliente y Servidor</option>
+                <option value="server" data-i18n="catalog.serverOnly">Solo Servidor</option>
               </select>
             </div>
             <div class="control-select-group">
-              <label for="select-installed-mods-sort">Ordenar por:</label>
+              <label for="select-installed-mods-sort" data-i18n="manager.sortBy">Ordenar por:</label>
               <select id="select-installed-mods-sort" class="catalog-select">
-                <option value="name" selected>Nombre (A - Z)</option>
-                <option value="status">Estado (Habilitados primero)</option>
-                <option value="size">Tamaño de archivo</option>
-                <option value="platform">Plataforma (CF / Modrinth / Custom)</option>
+                <option value="name" selected data-i18n="manager.sortName">Nombre (A - Z)</option>
+                <option value="status" data-i18n="manager.sortStatus">Estado (Habilitados primero)</option>
+                <option value="size" data-i18n="manager.sortSize">Tamaño de archivo</option>
+                <option value="platform" data-i18n="manager.sortPlatform">Plataforma (CF / Modrinth / Custom)</option>
               </select>
             </div>
 
             <button id="btn-check-mod-updates" class="btn btn-secondary btn-small" title="Detectar actualizaciones de mods en CurseForge y Modrinth">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <span>Detectar Actualizaciones</span>
+              <span data-i18n="manager.checkUpdates">Detectar Actualizaciones</span>
             </button>
 
-            <button id="btn-update-all-mods" class="btn btn-primary btn-small btn-update-all" title="Actualizar todos los mods a la versión más reciente compatible">
+            <button id="btn-update-all-mods" class="btn btn-primary btn-small btn-update-all" title="Actualizar todos los mods a la versión más reciente compatible" data-i18n-title="manager.updateAllModsTitle">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-              <span>Actualizar Todos (<span id="updates-available-count">0</span>)</span>
+              <span><span data-i18n="manager.updateAll">Actualizar Todos</span> (<span id="updates-available-count">0</span>)</span>
             </button>
 
-            <button id="btn-add-more-mods" class="btn btn-emerald btn-small" title="Explorar y añadir contenido a esta instancia">
+            <button id="btn-add-more-mods" class="btn btn-emerald btn-small" title="Explorar y añadir contenido a esta instancia" data-i18n-title="manager.addMoreModsTitle">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              <span>+ Añadir contenido</span>
+              <span data-i18n="manager.addContent">+ Añadir contenido</span>
             </button>
 
             <!-- Hidden compatibility hooks -->
@@ -658,11 +658,11 @@
             <div class="view-mode-toggle" role="group" aria-label="Modo de visualización">
               <button id="btn-view-mode-list" class="view-mode-btn active" title="Vista Lista">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-                <span>Lista</span>
+                <span data-i18n="manager.viewList">Lista</span>
               </button>
-              <button id="btn-view-mode-grid" class="view-mode-btn" title="Vista Cuadrícula">
+              <button id="btn-view-mode-grid" class="view-mode-btn" title="Vista Cuadrícula" data-i18n-title="catalog.viewGrid">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-                <span>Cuadrícula</span>
+                <span data-i18n="manager.viewGrid">Cuadrícula</span>
               </button>
             </div>
           </div>
@@ -684,16 +684,16 @@
             <table class="instance-mods-table">
               <thead>
                 <tr>
-                  <th class="col-mod-name">Complemento</th>
-                  <th class="col-mod-action">Acción</th>
-                  <th class="col-mod-author">Autor</th>
-                  <th class="col-mod-env">Env</th>
-                  <th class="col-mod-toggle">Activo</th>
+                  <th class="col-mod-name" data-i18n="manager.colAddon">Complemento</th>
+                  <th class="col-mod-action" data-i18n="manager.colAction">Acción</th>
+                  <th class="col-mod-author" data-i18n="manager.colAuthor">Autor</th>
+                  <th class="col-mod-env" data-i18n="manager.colEnv">Env</th>
+                  <th class="col-mod-toggle" data-i18n="manager.colActive">Activo</th>
                 </tr>
               </thead>
               <tbody id="installed-mods-tbody"></tbody>
             </table>
-            <div id="installed-mods-empty-state" class="empty-state hidden">No hay mods instalados en esta instancia todavía.</div>
+            <div id="installed-mods-empty-state" class="empty-state hidden" data-i18n="manager.emptyMods">No hay mods instalados en esta instancia todavía.</div>
           </div>
           <div id="mods-installed-list" class="installed-mods-list view-list" style="display: none;"></div>
         </div>
@@ -703,22 +703,22 @@
         <div id="subpanel-instance-datapacks" class="instance-subpanel" style="display: none;">
           <div class="installed-mods-actions-bar" style="border: none; padding: 0; background: transparent;">
             <div style="display: flex; align-items: center; gap: 10px;">
-              <span style="font-weight: 600; color: var(--text-primary); font-size: 14px;">Data Packs Instalados</span>
+              <span style="font-weight: 600; color: var(--text-primary); font-size: 14px;" data-i18n="manager.installedDatapacksTitle">Data Packs Instalados</span>
               <span id="installed-datapacks-count-badge" class="badge badge-secondary">0 datapacks</span>
             </div>
             <div class="toolbar-actions">
-              <button id="btn-open-datapacks-folder" class="btn btn-secondary btn-small" title="Abrir carpeta datapacks en el explorador">
+              <button id="btn-open-datapacks-folder" class="btn btn-secondary btn-small" title="Abrir carpeta datapacks en el explorador" data-i18n-title="manager.openDatapacksFolder">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-                <span>Abrir Carpeta</span>
+                <span data-i18n="common.openFolder">Abrir Carpeta</span>
               </button>
               <button id="btn-refresh-datapacks" class="btn btn-secondary btn-small" title="Refrescar lista de datapacks">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
-                <span>Refrescar</span>
+                <span data-i18n="common.refresh">Refrescar</span>
               </button>
             </div>
           </div>
           <div id="datapacks-installed-list" class="installed-mods-list view-list">
-            <div class="empty-state">No hay datapacks instalados en esta instancia todavía.</div>
+            <div class="empty-state" data-i18n="manager.noDatapacks">No hay datapacks instalados en esta instancia todavía.</div>
           </div>
         </div>
 
@@ -726,26 +726,26 @@
         <div id="subpanel-instance-shaders" class="instance-subpanel" style="display: none;">
           <div class="installed-mods-actions-bar" style="border: none; padding: 0; background: transparent;">
             <div style="display: flex; align-items: center; gap: 10px;">
-              <span style="font-weight: 600; color: var(--text-primary); font-size: 14px;">Paquetes de Shaders Instalados</span>
+              <span style="font-weight: 600; color: var(--text-primary); font-size: 14px;" data-i18n="manager.installedShadersTitle">Paquetes de Shaders Instalados</span>
               <span id="installed-shaders-count-badge" class="badge badge-secondary">0 shaders</span>
             </div>
             <div class="toolbar-actions">
-              <button id="btn-add-shaders-catalog" class="btn btn-primary btn-small" title="Explorar shaders en el catálogo">
+              <button id="btn-add-shaders-catalog" class="btn btn-primary btn-small" title="Explorar shaders en el catálogo" data-i18n-title="manager.searchShaders">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                <span>➕ Buscar Shaders en Catálogo</span>
+                <span data-i18n="manager.searchShaders">➕ Buscar Shaders en Catálogo</span>
               </button>
-              <button id="btn-open-shaders-folder" class="btn btn-secondary btn-small" title="Abrir carpeta shaderpacks en el explorador">
+              <button id="btn-open-shaders-folder" class="btn btn-secondary btn-small" title="Abrir carpeta shaderpacks en el explorador" data-i18n-title="manager.openShadersFolder">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-                <span>Abrir Carpeta</span>
+                <span data-i18n="common.openFolder">Abrir Carpeta</span>
               </button>
               <button id="btn-refresh-shaders" class="btn btn-secondary btn-small" title="Refrescar lista de shaders">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
-                <span>Refrescar</span>
+                <span data-i18n="common.refresh">Refrescar</span>
               </button>
             </div>
           </div>
           <div id="shaders-installed-list" class="installed-mods-list view-list">
-            <div class="empty-state">No hay shaders instalados en esta instancia todavía.</div>
+            <div class="empty-state" data-i18n="manager.noShaders">No hay shaders instalados en esta instancia todavía.</div>
           </div>
         </div>
 
@@ -753,26 +753,26 @@
         <div id="subpanel-instance-resourcepacks" class="instance-subpanel" style="display: none;">
           <div class="installed-mods-actions-bar" style="border: none; padding: 0; background: transparent;">
             <div style="display: flex; align-items: center; gap: 10px;">
-              <span style="font-weight: 600; color: var(--text-primary); font-size: 14px;">Paquetes de Texturas Instalados</span>
+              <span style="font-weight: 600; color: var(--text-primary); font-size: 14px;" data-i18n="manager.installedResourcepacksTitle">Paquetes de Texturas Instalados</span>
               <span id="installed-resourcepacks-count-badge" class="badge badge-secondary">0 texturas</span>
             </div>
             <div class="toolbar-actions">
-              <button id="btn-add-resourcepacks-catalog" class="btn btn-primary btn-small" title="Explorar texturas en el catálogo">
+              <button id="btn-add-resourcepacks-catalog" class="btn btn-primary btn-small" title="Explorar texturas en el catálogo" data-i18n-title="manager.searchTextures">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                <span>➕ Buscar Texturas en Catálogo</span>
+                <span data-i18n="manager.searchTextures">➕ Buscar Texturas en Catálogo</span>
               </button>
-              <button id="btn-open-resourcepacks-folder" class="btn btn-secondary btn-small" title="Abrir carpeta resourcepacks en el explorador">
+              <button id="btn-open-resourcepacks-folder" class="btn btn-secondary btn-small" title="Abrir carpeta resourcepacks en el explorador" data-i18n-title="manager.openResourcepacksFolder">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-                <span>Abrir Carpeta</span>
+                <span data-i18n="common.openFolder">Abrir Carpeta</span>
               </button>
               <button id="btn-refresh-resourcepacks" class="btn btn-secondary btn-small" title="Refrescar lista de texturas">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
-                <span>Refrescar</span>
+                <span data-i18n="common.refresh">Refrescar</span>
               </button>
             </div>
           </div>
           <div id="resourcepacks-installed-list" class="installed-mods-list view-list">
-            <div class="empty-state">No hay resource packs instalados en esta instancia todavía.</div>
+            <div class="empty-state" data-i18n="manager.noResourcepacks">No hay resource packs instalados en esta instancia todavía.</div>
           </div>
         </div>
 
@@ -780,26 +780,26 @@
         <div id="subpanel-instance-worlds" class="instance-subpanel" style="display: none;">
           <div class="installed-mods-actions-bar" style="border: none; padding: 0; background: transparent;">
             <div style="display: flex; align-items: center; gap: 10px;">
-              <span style="font-weight: 600; color: var(--text-primary); font-size: 14px;">Partidas Guardadas (Saves)</span>
+              <span style="font-weight: 600; color: var(--text-primary); font-size: 14px;" data-i18n="manager.savesTitle">Partidas Guardadas (Saves)</span>
               <span id="installed-worlds-count-badge" class="badge badge-secondary">0 mundos</span>
             </div>
             <div class="toolbar-actions">
-              <button id="btn-backup-all-worlds-top" class="btn btn-secondary btn-small" title="Crea un backup .zip de todas las partidas de esta instancia">
+              <button id="btn-backup-all-worlds-top" class="btn btn-secondary btn-small" title="Crea un backup .zip de todas las partidas de esta instancia" data-i18n-title="manager.backupAllWorlds">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                <span>💾 Backup de Todos los Mundos</span>
+                <span data-i18n="manager.backupAllWorlds">💾 Backup de Todos los Mundos</span>
               </button>
-              <button id="btn-open-worlds-folder" class="btn btn-secondary btn-small" title="Abrir carpeta saves en el explorador">
+              <button id="btn-open-worlds-folder" class="btn btn-secondary btn-small" title="Abrir carpeta saves en el explorador" data-i18n-title="manager.openSavesFolder">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-                <span>Abrir Carpeta saves/</span>
+                <span data-i18n="manager.openSavesFolder">Abrir Carpeta saves/</span>
               </button>
               <button id="btn-refresh-worlds" class="btn btn-secondary btn-small" title="Refrescar lista de mundos">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
-                <span>Refrescar</span>
+                <span data-i18n="common.refresh">Refrescar</span>
               </button>
             </div>
           </div>
           <div id="worlds-installed-list" class="installed-mods-list view-list">
-            <div class="empty-state">No se encontraron mundos en esta instancia todavía.</div>
+            <div class="empty-state" data-i18n="manager.noWorlds">No se encontraron mundos en esta instancia todavía.</div>
           </div>
         </div>
 
@@ -807,21 +807,21 @@
         <div id="subpanel-instance-hud" class="instance-subpanel" style="display: none;">
           <div class="hud-top-bar" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
             <div>
-              <h3 style="margin: 0; font-size: 16px; color: var(--text-primary); font-weight: 700;">Optimizaciones Nativas (options.txt)</h3>
-              <p style="margin: 4px 0 0 0; color: var(--text-secondary); font-size: 13px;">Ajustes directos de rendimiento y comodidad visual aplicados nativamente en options.txt sin mods externos ni descargas automáticas.</p>
+              <h3 style="margin: 0; font-size: 16px; color: var(--text-primary); font-weight: 700;" data-i18n="manager.tabOptions">Optimizaciones Nativas (options.txt)</h3>
+              <p style="margin: 4px 0 0 0; color: var(--text-secondary); font-size: 13px;" data-i18n="manager.optionsSubtitle">Ajustes directos de rendimiento y comodidad visual aplicados nativamente en options.txt sin mods externos ni descargas automáticas.</p>
             </div>
             <div class="toolbar-actions" style="display: flex; gap: 8px;">
-              <button id="btn-clean-instance-garbage" class="btn btn-secondary btn-small" title="Limpia logs antiguos (.log.gz), crash-reports y caché de esta instancia">
+              <button id="btn-clean-instance-garbage" class="btn btn-secondary btn-small" title="Limpia logs antiguos (.log.gz), crash-reports y caché de esta instancia" data-i18n-title="manager.cleanGarbageDesc">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                <span>🧹 Limpiar Basura</span>
+                <span data-i18n="manager.cleanGarbage">🧹 Limpiar Basura</span>
               </button>
-              <button id="btn-auto-optimize-hardware" class="btn btn-primary btn-small" title="Auto-detecta CPU y RAM y aplica el perfil ideal en options.txt">
+              <button id="btn-auto-optimize-hardware" class="btn btn-primary btn-small" title="Auto-detecta CPU y RAM y aplica el perfil ideal en options.txt" data-i18n-title="manager.autoOptimizeDesc">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                <span>⚡ Auto-Optimizar para mi PC</span>
+                <span data-i18n="manager.autoOptimize">⚡ Auto-Optimizar para mi PC</span>
               </button>
               <button id="btn-refresh-hud-state" class="btn btn-secondary btn-small" title="Refrescar estado de opciones">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
-                <span>Refrescar</span>
+                <span data-i18n="common.refresh">Refrescar</span>
               </button>
             </div>
           </div>
@@ -831,7 +831,7 @@
             <div style="display: flex; align-items: center; justify-content: space-between;">
               <div style="display: flex; align-items: center; gap: 8px;">
                 <span style="font-size: 16px;">⚡</span>
-                <span id="hardware-opt-text" style="color: var(--text-primary); font-weight: 600;">Hardware detectado</span>
+                <span id="hardware-opt-text" style="color: var(--text-primary); font-weight: 600;" data-i18n="manager.hardwareDetected">Hardware detectado</span>
               </div>
               <span id="hardware-opt-badge" class="badge badge-primary">Mid-Range</span>
             </div>
@@ -847,11 +847,11 @@
               <div class="hud-card-header">
                 <div class="hud-card-icon">🔆</div>
                 <div class="hud-card-title-group">
-                  <h4 class="hud-card-title">Fullbright (Brillo Máximo)</h4>
+                  <h4 class="hud-card-title" data-i18n="manager.fullbrightTitle">Fullbright (Brillo Máximo)</h4>
                   <span class="hud-card-badge">OPTIONS.TXT</span>
                 </div>
               </div>
-              <p class="hud-card-desc">Ajusta el brillo interno de Minecraft (gamma: 100.0) para ver con claridad total en cuevas, minas y en el Nether sin colocar antorchas.</p>
+              <p class="hud-card-desc" data-i18n="manager.fullbrightDesc">Ajusta el brillo interno de Minecraft (gamma: 100.0) para ver con claridad total en cuevas, minas y en el Nether sin colocar antorchas.</p>
               <div class="hud-card-footer">
                 <span id="status-hud-fullbright" class="hud-card-status">Desactivado</span>
                 <label class="toggle-switch">
@@ -866,11 +866,11 @@
               <div class="hud-card-header">
                 <div class="hud-card-icon">🏃</div>
                 <div class="hud-card-title-group">
-                  <h4 class="hud-card-title">Auto-Sprint (Toggle Sprint)</h4>
+                  <h4 class="hud-card-title" data-i18n="manager.autosprintTitle">Auto-Sprint (Toggle Sprint)</h4>
                   <span class="hud-card-badge">OPTIONS.TXT</span>
                 </div>
               </div>
-              <p class="hud-card-desc">Mantiene el sprint activado automáticamente al caminar hacia adelante (toggleSprint: true) sin necesidad de mantener presionado Ctrl.</p>
+              <p class="hud-card-desc" data-i18n="manager.autosprintDesc">Mantiene el sprint activado automáticamente al caminar hacia adelante (toggleSprint: true) sin necesidad de mantener presionado Ctrl.</p>
               <div class="hud-card-footer">
                 <span id="status-hud-autosprint" class="hud-card-status">Desactivado</span>
                 <label class="toggle-switch">
@@ -885,11 +885,11 @@
               <div class="hud-card-header">
                 <div class="hud-card-icon">☁</div>
                 <div class="hud-card-title-group">
-                  <h4 class="hud-card-title">Ocultar Nubes</h4>
+                  <h4 class="hud-card-title" data-i18n="manager.nocloudsTitle">Ocultar Nubes</h4>
                   <span class="hud-card-badge">OPTIONS.TXT</span>
                 </div>
               </div>
-              <p class="hud-card-desc">Desactiva el renderizado de nubes en el cielo (renderClouds: "false") para aumentar los FPS y despejar la visión en alturas elevadas.</p>
+              <p class="hud-card-desc" data-i18n="manager.nocloudsDesc">Desactiva el renderizado de nubes en el cielo (renderClouds: "false") para aumentar los FPS y despejar la visión en alturas elevadas.</p>
               <div class="hud-card-footer">
                 <span id="status-hud-noclouds" class="hud-card-status">Desactivado</span>
                 <label class="toggle-switch">
@@ -904,11 +904,11 @@
               <div class="hud-card-header">
                 <div class="hud-card-icon">👤</div>
                 <div class="hud-card-title-group">
-                  <h4 class="hud-card-title">Desactivar Sombras de Entidades</h4>
+                  <h4 class="hud-card-title" data-i18n="manager.entityshadowsTitle">Desactivar Sombras de Entidades</h4>
                   <span class="hud-card-badge">OPTIONS.TXT</span>
                 </div>
               </div>
-              <p class="hud-card-desc">Desactiva las sombras circulares bajo mobs y jugadores (entityShadows: false) para maximizar los FPS en granjas masivas.</p>
+              <p class="hud-card-desc" data-i18n="manager.entityshadowsDesc">Desactiva las sombras circulares bajo mobs y jugadores (entityShadows: false) para maximizar los FPS en granjas masivas.</p>
               <div class="hud-card-footer">
                 <span id="status-hud-entityshadows" class="hud-card-status">Desactivado</span>
                 <label class="toggle-switch">
@@ -923,11 +923,11 @@
               <div class="hud-card-header">
                 <div class="hud-card-icon">⚡</div>
                 <div class="hud-card-title-group">
-                  <h4 class="hud-card-title">Desactivar VSync</h4>
+                  <h4 class="hud-card-title" data-i18n="manager.novsyncTitle">Desactivar VSync</h4>
                   <span class="hud-card-badge">OPTIONS.TXT</span>
                 </div>
               </div>
-              <p class="hud-card-desc">Desactiva la sincronización vertical (enableVsync: false) para eliminar el input lag del ratón y liberar la tasa de cuadros por segundo.</p>
+              <p class="hud-card-desc" data-i18n="manager.novsyncDesc">Desactiva la sincronización vertical (enableVsync: false) para eliminar el input lag del ratón y liberar la tasa de cuadros por segundo.</p>
               <div class="hud-card-footer">
                 <span id="status-hud-novsync" class="hud-card-status">Desactivado</span>
                 <label class="toggle-switch">
@@ -962,7 +962,7 @@
             </button>
             <button id="btn-refresh-servers-list" class="btn btn-secondary">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
-              <span>Refrescar</span>
+              <span data-i18n="common.refresh">Refrescar</span>
             </button>
           </div>
         </div>
@@ -975,7 +975,7 @@
               <span id="badge-total-servers" class="badge badge-secondary">0</span>
             </div>
             <div id="servers-list-container" class="servers-list-scroll">
-              <div class="empty-state" style="padding: 24px 12px; font-size: 13px;">No hay servidores creados aún. Haz clic en "➕ Crear Nuevo Servidor".</div>
+              <div class="empty-state" style="padding: 24px 12px; font-size: 13px;" data-i18n="servers.noServers">No hay servidores creados aún. Haz clic en "➕ Crear Nuevo Servidor".</div>
             </div>
           </div>
 
@@ -991,8 +991,8 @@
               <h3 style="margin: 0 0 6px 0; color: var(--text-primary); font-size: 16px;" data-i18n="servers.noSelectedTitle">Ningún servidor seleccionado</h3>
               <p style="margin: 0; color: var(--text-secondary); font-size: 13px;" data-i18n="servers.noSelectedDesc">Selecciona un servidor de la columna izquierda, crea uno nuevo o importa una carpeta existente.</p>
               <div style="display: flex; gap: 10px; margin-top: 14px;">
-                <button id="btn-empty-create-server" class="btn btn-primary">➕ Crear Nuevo Servidor</button>
-                <button id="btn-empty-import-server" class="btn btn-secondary">📂 Importar Servidor Existente</button>
+                <button id="btn-empty-create-server" class="btn btn-primary" data-i18n="servers.emptyCreate">➕ Crear Nuevo Servidor</button>
+                <button id="btn-empty-import-server" class="btn btn-secondary" data-i18n="servers.emptyImport">📂 Importar Servidor Existente</button>
               </div>
             </div>
 
@@ -1008,11 +1008,11 @@
                     <div class="server-detail-meta">
                       <span id="server-detail-loader-badge" class="badge badge-loader">NeoForge 1.21.1</span>
                       <span>·</span>
-                      <span>Puerto: <strong id="server-detail-port">25565</strong></span>
+                      <span><span data-i18n="servers.portPrefix">Puerto:</span> <strong id="server-detail-port">25565</strong></span>
                       <span>·</span>
                       <span>RAM: <strong id="server-detail-ram">6G</strong></span>
                       <span>·</span>
-                      <span><strong id="server-detail-mods-count">0</strong> mods</span>
+                      <span><strong id="server-detail-mods-count">0</strong> <span data-i18n="servers.modsCountSuffix">mods</span></span>
                     </div>
                   </div>
                 </div>
@@ -1020,29 +1020,29 @@
                 <div class="server-header-actions">
                   <button id="btn-start-server" class="btn btn-primary">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>
-                    <span id="btn-start-server-text">Iniciar Servidor</span>
+                    <span id="btn-start-server-text" data-i18n="servers.start">Iniciar Servidor</span>
                   </button>
                   <button id="btn-stop-server" class="btn btn-danger" style="display: none;">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
-                    <span>Detener (stop)</span>
+                    <span data-i18n="servers.stop">Detener (stop)</span>
                   </button>
-                  <button id="btn-play-join-server" class="btn btn-success" style="display: none; background: #059669; border-color: #10b981; color: white;" title="Lanza Minecraft con una instancia compatible y entra directo a localhost">
+                  <button id="btn-play-join-server" class="btn btn-success" style="display: none; background: #059669; border-color: #10b981; color: white;" title="Lanza Minecraft con una instancia compatible y entra directo a localhost" data-i18n-title="servers.playJoinTooltip">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                    <span>🎮 Jugar y Entrar Directo</span>
+                    <span data-i18n="servers.playJoin">🎮 Jugar y Entrar Directo</span>
                   </button>
-                  <button id="btn-sync-server-mods-top" class="btn btn-secondary" title="Sincronizar mods desde una instancia cliente con filtro anti-crash">
+                  <button id="btn-sync-server-mods-top" class="btn btn-secondary" title="Sincronizar mods desde una instancia cliente con filtro anti-crash" data-i18n-title="servers.syncModsTooltip">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-                    <span>🔄 Sincronizar Mods</span>
+                    <span data-i18n="servers.syncModsBtn">🔄 Sincronizar Mods</span>
                   </button>
-                  <button id="btn-export-server-pack" class="btn btn-secondary" title="Exportar paquete de servidor (.zip) listo para subir a un hosting/VPS">
+                  <button id="btn-export-server-pack" class="btn btn-secondary" title="Exportar paquete de servidor (.zip) listo para subir a un hosting/VPS" data-i18n-title="servers.exportPackTooltip">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-                    <span>📤 Exportar Pack</span>
+                    <span data-i18n="servers.exportPackBtn">📤 Exportar Pack</span>
                   </button>
-                  <button id="btn-open-server-folder" class="btn btn-secondary" title="Abrir carpeta del servidor en el Explorador de Windows">
+                  <button id="btn-open-server-folder" class="btn btn-secondary" title="Abrir carpeta del servidor en el Explorador de Windows" data-i18n-title="servers.openFolderTooltip">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-                    <span>Carpeta</span>
+                    <span data-i18n="servers.openFolder">Carpeta</span>
                   </button>
-                  <button id="btn-delete-server" class="btn btn-secondary btn-icon-square" title="Eliminar servidor">
+                  <button id="btn-delete-server" class="btn btn-secondary btn-icon-square" title="Eliminar servidor" data-i18n-title="servers.deleteServerTooltip">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                   </button>
                 </div>
@@ -1071,22 +1071,22 @@
                   <div class="server-metric-card">
                     <span class="metric-label" data-i18n="servers.ramUsage">Uso de RAM</span>
                     <strong id="server-stat-ram" class="metric-val">0 MB</strong>
-                    <span id="server-stat-ram-max" class="metric-sub">Límite: 6G</span>
+                    <span id="server-stat-ram-max" class="metric-sub" data-i18n="servers.limitDefault">Límite: 6G</span>
                   </div>
                   <div class="server-metric-card">
                     <span class="metric-label" data-i18n="servers.cpuUsage">Uso de CPU</span>
                     <strong id="server-stat-cpu" class="metric-val">0%</strong>
-                    <span class="metric-sub">Proceso Java</span>
+                    <span class="metric-sub" data-i18n="servers.javaProcess">Proceso Java</span>
                   </div>
                   <div class="server-metric-card">
                     <span class="metric-label" data-i18n="servers.players">Jugadores</span>
                     <strong id="server-stat-players-count" class="metric-val">0 / 20</strong>
-                    <span class="metric-sub">En línea</span>
+                    <span class="metric-sub" data-i18n="servers.onlineSub">En línea</span>
                   </div>
                   <div class="server-metric-card">
                     <span class="metric-label" data-i18n="servers.localAddress">Dirección Local</span>
                     <strong id="server-stat-ip" class="metric-val" style="font-size: 14px;">localhost:25565</strong>
-                    <button id="btn-copy-server-ip" class="btn-link-action">Copiar IP</button>
+                    <button id="btn-copy-server-ip" class="btn-link-action" data-i18n="servers.copyIp">Copiar IP</button>
                   </div>
                 </div>
 
@@ -1097,7 +1097,7 @@
                     <span id="server-players-header-count" class="badge badge-secondary">0 jugadores</span>
                   </div>
                   <div id="server-players-list" class="server-players-list">
-                    <div class="empty-state" style="padding: 12px; font-size: 12.5px;">Sin jugadores conectados en este momento.</div>
+                    <div class="empty-state" style="padding: 12px; font-size: 12.5px;" data-i18n="servers.noPlayersConnected">Sin jugadores conectados en este momento.</div>
                   </div>
                 </div>
 
@@ -1123,14 +1123,14 @@
                       <span style="font-size: 12px; font-weight: 600;" data-i18n="servers.serverConsole">Consola del Servidor</span>
                     </div>
                     <div class="server-quick-cmds">
-                      <button class="btn btn-small btn-secondary btn-quick-cmd" data-cmd="time set day">☀ Día</button>
-                      <button class="btn btn-small btn-secondary btn-quick-cmd" data-cmd="weather clear">🌧 Quitar Lluvia</button>
-                      <button class="btn btn-small btn-secondary btn-quick-cmd" data-cmd="save-all">💾 Guardar Mundo</button>
-                      <button class="btn btn-small btn-danger btn-quick-cmd" data-cmd="stop">⏹ Stop</button>
+                      <button class="btn btn-small btn-secondary btn-quick-cmd" data-cmd="time set day" data-i18n="servers.cmdDay">☀ Día</button>
+                      <button class="btn btn-small btn-secondary btn-quick-cmd" data-cmd="weather clear" data-i18n="servers.cmdClearWeather">🌧 Quitar Lluvia</button>
+                      <button class="btn btn-small btn-secondary btn-quick-cmd" data-cmd="save-all" data-i18n="servers.cmdSaveWorld">💾 Guardar Mundo</button>
+                      <button class="btn btn-small btn-danger btn-quick-cmd" data-cmd="stop" data-i18n="servers.cmdStop">⏹ Stop</button>
                     </div>
                   </div>
                   <div id="server-terminal-logs" class="server-terminal-screen">
-                    <div class="log-line log-info">[ShubaCore] Servidor listo. Haz clic en "Iniciar Servidor" para arrancar.</div>
+                    <div class="log-line log-info" data-i18n="servers.initialLog">[ShubaCore] Servidor listo. Haz clic en "Iniciar Servidor" para arrancar.</div>
                   </div>
                   <div class="server-terminal-input-bar">
                     <input type="text" id="input-server-cmd" class="text-input" placeholder="Escribe un comando de Minecraft (ej: op Notch, gamemode creative Notch, say Hola)..." data-i18n-placeholder="servers.sendCmdPlaceholder" />
@@ -1314,9 +1314,9 @@
             <p class="view-subtitle" data-i18n="social.subtitle">Conéctate con amigos de ShubaCore, revisa quién está jugando en tiempo real y únete a sus mundos.</p>
           </div>
           <div class="toolbar-actions" style="display: flex; align-items: center; gap: 8px;">
-            <button id="btn-refresh-friends" class="btn btn-secondary btn-small" title="Actualizar lista">
+            <button id="btn-refresh-friends" class="btn btn-secondary btn-small" title="Actualizar lista" data-i18n-title="social.refreshListTitle">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
-              <span>Actualizar</span>
+              <span data-i18n="social.refresh">Actualizar</span>
             </button>
           </div>
         </div>
@@ -1387,8 +1387,8 @@
             </div>
             <div id="friends-empty-state" class="empty-state" style="display: none;">
               <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--text-dim); margin-bottom: 8px;"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-              <p>Aún no tienes amigos agregados.</p>
-              <small>Usa el buscador arriba para enviar una solicitud con su nombre de usuario.</small>
+              <p data-i18n="social.emptyFriends">Aún no tienes amigos agregados.</p>
+              <small data-i18n="social.emptyFriendsHint">Usa el buscador arriba para enviar una solicitud con su nombre de usuario.</small>
             </div>
           </div>
 
@@ -1396,34 +1396,34 @@
           <div id="panel-social-community" style="display: none; flex-direction: column; gap: 14px; width: 100%;">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 8px;">
               <div>
-                <h4 style="font-size: 13px; color: var(--text-primary); margin: 0;">Directorio de Jugadores ShubaCore</h4>
-                <p style="font-size: 11px; color: var(--text-secondary); margin: 2px 0 0 0;">Jugadores registrados en la red oficial de ShubaCore.</p>
+                <h4 style="font-size: 13px; color: var(--text-primary); margin: 0;" data-i18n="social.directoryTitle">Directorio de Jugadores ShubaCore</h4>
+                <p style="font-size: 11px; color: var(--text-secondary); margin: 2px 0 0 0;" data-i18n="social.directorySubtitle">Jugadores registrados en la red oficial de ShubaCore.</p>
               </div>
               <button id="btn-refresh-community" class="btn btn-secondary btn-small" title="Actualizar directorio">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
-                <span>Actualizar</span>
+                <span data-i18n="social.refresh">Actualizar</span>
               </button>
             </div>
             <div id="community-users-container" class="friends-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; width: 100%;">
               <!-- Se llena dinámicamente -->
             </div>
             <div id="community-empty-state" class="empty-state" style="display: none; padding: 24px;">
-              <p>No se encontraron otros jugadores registrados aún.</p>
+              <p data-i18n="social.noPlayersFound">No se encontraron otros jugadores registrados aún.</p>
             </div>
           </div>
 
           <!-- Panel 2: Solicitudes Pendientes -->
           <div id="panel-social-pending" style="display: none; flex-direction: column; gap: 16px;">
             <div>
-              <h4 style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">Solicitudes Recibidas:</h4>
+              <h4 style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;" data-i18n="social.requestsReceived">Solicitudes Recibidas:</h4>
               <div id="incoming-requests-container" style="display: flex; flex-direction: column; gap: 8px;"></div>
-              <div id="incoming-empty" class="empty-state" style="display: none; padding: 16px;">No tienes solicitudes pendientes.</div>
+              <div id="incoming-empty" class="empty-state" style="display: none; padding: 16px;" data-i18n="social.noRequestsReceived">No tienes solicitudes pendientes.</div>
             </div>
 
             <div>
-              <h4 style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">Solicitudes Enviadas:</h4>
+              <h4 style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;" data-i18n="social.requestsSent">Solicitudes Enviadas:</h4>
               <div id="outgoing-requests-container" style="display: flex; flex-direction: column; gap: 8px;"></div>
-              <div id="outgoing-empty" class="empty-state" style="display: none; padding: 16px;">No hay solicitudes enviadas en espera.</div>
+              <div id="outgoing-empty" class="empty-state" style="display: none; padding: 16px;" data-i18n="social.noRequestsSent">No hay solicitudes enviadas en espera.</div>
             </div>
           </div>
 
@@ -1431,19 +1431,19 @@
           <div id="panel-social-invites" style="display: none; flex-direction: column; gap: 14px; max-width: 860px; width: 100%; margin: 0 auto;">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 8px;">
               <div>
-                <h4 style="font-size: 13px; color: var(--text-primary); margin: 0;">Invitaciones a Partidas ShubaHost</h4>
-                <p style="font-size: 11px; color: var(--text-secondary); margin: 2px 0 0 0;">Únete con un solo clic a los mundos compartidos por tus amigos.</p>
+                <h4 style="font-size: 13px; color: var(--text-primary); margin: 0;" data-i18n="social.invitesTitle">Invitaciones a Partidas ShubaHost</h4>
+                <p style="font-size: 11px; color: var(--text-secondary); margin: 2px 0 0 0;" data-i18n="social.invitesSubtitle">Únete con un solo clic a los mundos compartidos por tus amigos.</p>
               </div>
               <button id="btn-refresh-invites" class="btn btn-secondary btn-small" title="Actualizar invitaciones">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
-                <span>Actualizar</span>
+                <span data-i18n="social.refresh">Actualizar</span>
               </button>
             </div>
             <div id="game-invites-container" style="display: flex; flex-direction: column; gap: 10px;"></div>
             <div id="game-invites-empty" class="empty-state" style="display: none; padding: 24px;">
               <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--text-dim); margin-bottom: 8px;"><rect width="20" height="12" x="2" y="6" rx="6"/><circle cx="8" cy="12" r="2"/><path d="M15 9v6M12 12h6"/></svg>
-              <p>No tienes invitaciones de partida pendientes.</p>
-              <small>Cuando un amigo abra su partida con ShubaHost y te invite in-game o desde el launcher, aparecerá aquí.</small>
+              <p data-i18n="social.invitesEmpty">No tienes invitaciones de partida pendientes.</p>
+              <small data-i18n="social.invitesEmptyHint">Cuando un amigo abra su partida con ShubaHost y te invite in-game o desde el launcher, aparecerá aquí.</small>
             </div>
           </div>
 
@@ -1472,11 +1472,11 @@
                     <input type="file" id="input-profile-custom-avatar" accept="image/png,image/jpeg,image/webp,image/gif" style="display: none;">
                     <button id="btn-upload-custom-avatar" type="button" class="btn btn-secondary btn-small" style="font-size: 11.5px; padding: 4px 10px;">
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
-                      <span>Subir Foto Personalizada</span>
+                      <span data-i18n="social.uploadCustomAvatar">Subir Foto Personalizada</span>
                     </button>
                     <button id="btn-use-skin-avatar" type="button" class="btn btn-secondary btn-small" style="font-size: 11.5px; padding: 4px 10px;">
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"/></svg>
-                      <span>Usar Cara de mi Skin</span>
+                      <span data-i18n="social.useSkinAvatar">Usar Cara de mi Skin</span>
                     </button>
                   </div>
                 </div>
@@ -1484,37 +1484,37 @@
 
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
                 <div class="form-group">
-                  <label style="font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; display: block;">Nombre Visible / Display Name:</label>
-                  <input type="text" id="input-profile-display-name" class="text-input" placeholder="Tu nombre público en ShubaCore" maxlength="32" style="width: 100%;">
+                  <label style="font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; display: block;" data-i18n="social.displayNameLabel">Nombre Visible / Display Name:</label>
+                  <input type="text" id="input-profile-display-name" class="text-input" placeholder="Tu nombre público en ShubaCore" data-i18n-placeholder="social.displayNamePlaceholder" maxlength="32" style="width: 100%;">
                 </div>
                 <div class="form-group">
-                  <label style="font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; display: block;">Modloader Favorito:</label>
+                  <label style="font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; display: block;" data-i18n="social.modloaderFavLabel">Modloader Favorito:</label>
                   <select id="select-profile-modloader" class="text-input" style="width: 100%;">
-                    <option value="Fabric">Fabric (Recomendado / ShubaClient)</option>
-                    <option value="NeoForge">NeoForge</option>
-                    <option value="Forge">Forge</option>
-                    <option value="Quilt">Quilt</option>
-                    <option value="Vanilla">Vanilla (Sin mods)</option>
+                    <option value="Fabric" data-i18n="social.modloaderFabric">Fabric (Recomendado / ShubaClient)</option>
+                    <option value="NeoForge" data-i18n="social.modloaderNeoForge">NeoForge</option>
+                    <option value="Forge" data-i18n="social.modloaderForge">Forge</option>
+                    <option value="Quilt" data-i18n="social.modloaderQuilt">Quilt</option>
+                    <option value="Vanilla" data-i18n="social.modloaderVanilla">Vanilla (Sin mods)</option>
                   </select>
                 </div>
               </div>
 
               <div class="form-group" style="margin-bottom: 16px;">
-                <label style="font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; display: block;">Estilo de Juego Principal:</label>
+                <label style="font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; display: block;" data-i18n="social.playstyleLabel">Estilo de Juego Principal:</label>
                 <select id="select-profile-playstyle" class="text-input" style="width: 100%;">
-                  <option value="Modded">Modded (Con mods y shaders)</option>
-                  <option value="Vanilla">Vanilla (Puro)</option>
-                  <option value="PvP / Competitivo">PvP / Competitivo</option>
-                  <option value="Survival Técnico">Survival Técnico</option>
-                  <option value="Creativo & Construcción">Creativo & Construcción</option>
-                  <option value="Hardcore">Hardcore</option>
+                  <option value="Modded" data-i18n="social.playstyleModded">Modded (Con mods y shaders)</option>
+                  <option value="Vanilla" data-i18n="social.playstyleVanilla">Vanilla (Puro)</option>
+                  <option value="PvP / Competitivo" data-i18n="social.playstylePvp">PvP / Competitivo</option>
+                  <option value="Survival Técnico" data-i18n="social.playstyleTech">Survival Técnico</option>
+                  <option value="Creativo & Construcción" data-i18n="social.playstyleCreative">Creativo & Construcción</option>
+                  <option value="Hardcore" data-i18n="social.playstyleHardcore">Hardcore</option>
                 </select>
               </div>
 
               <div class="form-group" style="margin-bottom: 16px;">
-                <label style="font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; display: block;">Descripción Personal (Bio):</label>
-                <textarea id="input-profile-bio" class="text-input" rows="3" maxlength="300" placeholder="Escribe algo sobre ti (ej: ¡Fanático de los shaders, construcciones épicas y servidores técnicos!)..." style="width: 100%; box-sizing: border-box; resize: vertical;"></textarea>
-                <small style="font-size: 10.5px; color: var(--text-dim); display: block; margin-top: 4px;">Visible para todos los jugadores que busquen tu perfil o te tengan de amigo.</small>
+                <label style="font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; display: block;" data-i18n="social.bioLabel">Descripción Personal (Bio):</label>
+                <textarea id="input-profile-bio" class="text-input" rows="3" maxlength="300" placeholder="Escribe algo sobre ti (ej: ¡Fanático de los shaders, construcciones épicas y servidores técnicos!)..." data-i18n-placeholder="social.bioPlaceholder" style="width: 100%; box-sizing: border-box; resize: vertical;"></textarea>
+                <small style="font-size: 10.5px; color: var(--text-dim); display: block; margin-top: 4px;" data-i18n="social.bioNotice">Visible para todos los jugadores que busquen tu perfil o te tengan de amigo.</small>
               </div>
 
               <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 12px;">
@@ -1531,7 +1531,7 @@
             <!-- Header del Chat -->
             <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 18px; background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--border);">
               <div style="display: flex; align-items: center; gap: 12px;">
-                <button id="btn-chat-back" class="btn btn-secondary btn-small" title="Volver a la lista de amigos" style="padding: 6px 10px;">
+                <button id="btn-chat-back" class="btn btn-secondary btn-small" title="Volver a la lista de amigos" data-i18n-title="social.backToFriendsTitle" style="padding: 6px 10px;">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
                   <span data-i18n="social.back">Volver</span>
                 </button>
@@ -1544,15 +1544,15 @@
                     <strong id="chat-friend-name" style="font-size: 14px; color: var(--text-primary);">Amigo</strong>
                     <span id="chat-friend-type-badge" class="badge badge-shubacore">ShubaCore</span>
                   </div>
-                  <span id="chat-friend-status" style="font-size: 11.5px; color: var(--text-dim);">En línea</span>
+                  <span id="chat-friend-status" style="font-size: 11.5px; color: var(--text-dim);" data-i18n="social.online">En línea</span>
                 </div>
               </div>
 
               <div style="display: flex; align-items: center; gap: 8px;">
                 <button id="btn-chat-invite-game" class="btn btn-primary btn-small" style="display: none; font-size: 12px; padding: 5px 12px;">
-                  <span>🚀 Enviar IP de mi Partida</span>
+                  <span data-i18n="social.sendGameIp">🚀 Enviar IP de mi Partida</span>
                 </button>
-                <button id="btn-chat-close" class="btn btn-secondary btn-small" title="Cerrar chat" style="padding: 6px 10px;">✕</button>
+                <button id="btn-chat-close" class="btn btn-secondary btn-small" title="Cerrar chat" data-i18n-title="social.closeChatTitle" style="padding: 6px 10px;">✕</button>
               </div>
             </div>
 
@@ -1590,7 +1590,7 @@
             </button>
             <button id="btn-refresh-screenshots" class="btn btn-secondary">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
-              <span>Refrescar</span>
+              <span data-i18n="common.refresh">Refrescar</span>
             </button>
           </div>
         </div>
@@ -1626,11 +1626,11 @@
           <div class="skin-viewer-left-col">
             <div class="skin-canvas-3d-wrapper">
               <div class="skin-canvas-top-hints">
-                <span class="skin-hint-pill">🖱 Arrastra para rotar · 🖱 Scroll para zoom</span>
+                <span class="skin-hint-pill" data-i18n="wardrobe.hintRotate">🖱 Arrastra para rotar · 🖱 Scroll para zoom</span>
               </div>
               <div class="skin-face-inset">
                 <canvas id="vestidor-face-canvas" width="56" height="56" class="skin-face-canvas"></canvas>
-                <small>Cara</small>
+                <small data-i18n="wardrobe.face">Cara</small>
               </div>
 
               <canvas id="skinview-3d-canvas" width="340" height="460" class="skinview-3d-canvas"></canvas>
@@ -1642,16 +1642,16 @@
                     <span data-i18n="wardrobe.capes">🧥 Capas ▾</span>
                   </button>
                   <div id="skin-capes-dropdown" class="skin-capes-dropdown hidden">
-                    <div class="capes-dropdown-title">Seleccionar Capa</div>
+                    <div class="capes-dropdown-title" data-i18n="wardrobe.selectCape">Seleccionar Capa</div>
                     <div id="account-capes-list"></div>
                     <div class="capes-dropdown-divider"></div>
                     <button id="btn-upload-custom-cape" class="cape-dropdown-item">
                       <span class="cape-item-icon">➕</span>
-                      <span class="cape-item-label">Subir Capa (.png)</span>
+                      <span class="cape-item-label" data-i18n="wardrobe.uploadCape">Subir Capa (.png)</span>
                     </button>
                     <button class="cape-dropdown-item cape-item-none" data-cape="none">
                       <span class="cape-item-icon">❌</span>
-                      <span class="cape-item-label">Sin Capa</span>
+                      <span class="cape-item-label" data-i18n="wardrobe.noCape">Sin Capa</span>
                     </button>
                   </div>
                 </div>
@@ -1668,8 +1668,8 @@
             <!-- BARRA INFERIOR DEL VISOR 3D -->
             <div class="skin-bottom-action-bar">
               <div class="skin-bottom-profile-meta">
-                <span class="skin-active-user-badge">Perfil: <strong id="skin-modal-username">Jugador</strong></span>
-                <span id="skin-applied-status" class="hint">Skin por defecto</span>
+                <span class="skin-active-user-badge"><span data-i18n="wardrobe.profileLabel">Perfil:</span> <strong id="skin-modal-username">Jugador</strong></span>
+                <span id="skin-applied-status" class="hint" data-i18n="wardrobe.defaultSkinLabel">Skin por defecto</span>
               </div>
               <div class="skin-model-selector-group">
                 <button id="btn-model-classic" class="btn-model-toggle active" data-model="default" title="Brazos clásicos de 4px">
@@ -2539,9 +2539,9 @@
       <div class="modal-body" style="padding: 18px 20px;">
         <!-- SECCIÓN SUPERIOR: ICONO CON LÁPIZ FLOTANTE + NOMBRE DEL MODPACK -->
         <div class="profile-modal-top-section">
-          <div class="profile-modal-icon-container" title="Haz clic para elegir imagen de perfil">
+          <div class="profile-modal-icon-container" title="Haz clic para elegir imagen de perfil" data-i18n-title="chooseIcon.chooseTooltip">
             <img id="create-profile-icon-preview" src="assets/logo.png" class="profile-modal-icon-img" alt="Icono del Perfil">
-            <button type="button" id="btn-open-choose-icon-create" class="profile-modal-icon-edit-btn" title="Elegir imagen de perfil">
+            <button type="button" id="btn-open-choose-icon-create" class="profile-modal-icon-edit-btn" title="Elegir imagen de perfil" data-i18n-title="chooseIcon.editTooltip">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
             </button>
             <input type="hidden" id="input-create-profile-icon" value="">
@@ -2636,9 +2636,9 @@
 
         <!-- SECCIÓN SUPERIOR: ICONO CON LÁPIZ FLOTANTE + NOMBRE DEL MODPACK -->
         <div class="profile-modal-top-section">
-          <div class="profile-modal-icon-container" title="Haz clic para elegir imagen de perfil">
+          <div class="profile-modal-icon-container" title="Haz clic para elegir imagen de perfil" data-i18n-title="chooseIcon.chooseTooltip">
             <img id="edit-profile-icon-preview" src="assets/logo.png" class="profile-modal-icon-img" alt="Icono del Perfil">
-            <button type="button" id="btn-open-choose-icon-edit" class="profile-modal-icon-edit-btn" title="Elegir imagen de perfil">
+            <button type="button" id="btn-open-choose-icon-edit" class="profile-modal-icon-edit-btn" title="Elegir imagen de perfil" data-i18n-title="chooseIcon.editTooltip">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
             </button>
             <input type="hidden" id="input-edit-profile-icon" value="">
@@ -2738,14 +2738,14 @@
   <div id="modal-choose-profile-icon" class="modal-overlay">
     <div class="modal-content card choose-profile-icon-modal" style="max-width: 680px; width: 94%;">
       <div class="modal-header">
-        <h3 style="font-size: 16px; font-weight: 700;">Elegir imagen del perfil</h3>
-        <button id="btn-close-choose-icon-modal" class="btn btn-small close-btn">✕</button>
+        <h3 style="font-size: 16px; font-weight: 700;" data-i18n="chooseIcon.title">Elegir imagen del perfil</h3>
+        <button id="btn-close-choose-icon-modal" class="btn btn-small close-btn" title="Cerrar" data-i18n-title="common.close">✕</button>
       </div>
       <div class="modal-body" style="padding: 16px 20px;">
         <!-- PESTAÑAS: Galería Oficial | Mis Imágenes -->
         <div class="choose-icon-tabs-nav">
-          <button type="button" class="choose-icon-tab active" data-tab="official">Galería Oficial</button>
-          <button type="button" class="choose-icon-tab" data-tab="user">Mis Imágenes</button>
+          <button type="button" class="choose-icon-tab active" data-tab="official" data-i18n="chooseIcon.tabOfficial">Galería Oficial</button>
+          <button type="button" class="choose-icon-tab" data-tab="user" data-i18n="chooseIcon.tabUser">Mis Imágenes</button>
         </div>
 
         <!-- CONTENIDO TAB: GALERÍA OFICIAL -->
@@ -2759,21 +2759,21 @@
         <div id="tab-content-user-icons" class="choose-icon-tab-panel">
           <div class="choose-icon-grid" id="grid-user-custom-icons">
             <!-- Card de subida -->
-            <div class="choose-icon-upload-card" id="btn-upload-custom-icon" title="Haz clic o arrastra un archivo">
+            <div class="choose-icon-upload-card" id="btn-upload-custom-icon" title="Haz clic o arrastra un archivo" data-i18n-title="chooseIcon.uploadCardTooltip">
               <input type="file" id="input-file-custom-icon-upload" accept="image/png,image/jpeg,image/webp" style="display: none;">
               <div class="upload-card-icon">
                 <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
               </div>
-              <span class="upload-card-title">Sube o arrastra una imagen</span>
-              <span class="upload-card-hint">Mínimo 150x150 JPG o PNG</span>
+              <span class="upload-card-title" data-i18n="chooseIcon.uploadTitle">Sube o arrastra una imagen</span>
+              <span class="upload-card-hint" data-i18n="chooseIcon.uploadHint">Mínimo 150x150 JPG o PNG</span>
             </div>
             <!-- Historial de iconos usados previamente se inyectan aquí -->
           </div>
         </div>
       </div>
       <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; padding: 14px 20px;">
-        <button id="btn-cancel-choose-icon" class="btn btn-secondary">Cancelar</button>
-        <button id="btn-confirm-choose-icon" class="btn btn-primary" disabled>Elegir</button>
+        <button id="btn-cancel-choose-icon" class="btn btn-secondary" data-i18n="common.cancel">Cancelar</button>
+        <button id="btn-confirm-choose-icon" class="btn btn-primary" disabled data-i18n="chooseIcon.choose">Elegir</button>
       </div>
     </div>
   </div>
@@ -2877,7 +2877,7 @@
       </div>
 
       <div class="modal-footer mod-detail-footer">
-        <button type="button" id="btn-dismiss-mod-detail" class="btn btn-secondary">Cerrar</button>
+        <button type="button" id="btn-dismiss-mod-detail" class="btn btn-secondary" data-i18n="common.close">Cerrar</button>
       </div>
     </div>
   </div>
@@ -2911,8 +2911,8 @@
         </div>
       </div>
       <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
-        <button id="btn-cancel-gh-repo" class="btn btn-secondary">Cancelar</button>
-        <button id="btn-save-gh-repo" class="btn btn-primary">Guardar Configuración</button>
+        <button id="btn-cancel-gh-repo" class="btn btn-secondary" data-i18n="common.cancel">Cancelar</button>
+        <button id="btn-save-gh-repo" class="btn btn-primary" data-i18n="modal.saveConfig">Guardar Configuración</button>
       </div>
     </div>
   </div>
@@ -2970,7 +2970,7 @@
           <div style="display: flex; flex-direction: column; gap: 8px;">
             <div style="display: flex; gap: 8px;">
               <input type="text" id="input-publish-share-code" class="text-input" readonly style="font-family: var(--font-mono); font-weight: 700; color: #10b981; flex: 1;">
-              <button id="btn-copy-share-code" class="btn btn-secondary btn-compact">Copiar Código</button>
+              <button id="btn-copy-share-code" class="btn btn-secondary btn-compact" data-i18n="common.copyCode">Copiar Código</button>
             </div>
             <div style="display: flex; gap: 8px;">
               <input type="text" id="input-publish-share-link" class="text-input" readonly style="font-size: 11.5px; color: var(--text-secondary); flex: 1;" placeholder="Link directo de GitHub...">
@@ -2982,7 +2982,7 @@
         <div id="publish-status-text" style="font-size: 12px; color: var(--text-secondary); display: none;"></div>
       </div>
       <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
-        <button id="btn-cancel-publish-profile" class="btn btn-secondary">Cerrar</button>
+        <button id="btn-cancel-publish-profile" class="btn btn-secondary" data-i18n="common.close">Cerrar</button>
         <button id="btn-confirm-publish-profile" class="btn btn-primary">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/><polyline points="12 13 12 7 9 10"/><polyline points="12 7 15 10"/></svg>
           <span>☁ Publicar para Amigos</span>
@@ -3009,7 +3009,7 @@
           </div>
           <button id="btn-refresh-shared-list" class="btn btn-secondary btn-compact" title="Refrescar lista desde GitHub">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
-            <span>Refrescar</span>
+            <span data-i18n="common.refresh">Refrescar</span>
           </button>
         </div>
 
@@ -3033,7 +3033,7 @@
         </div>
       </div>
       <div class="modal-footer" style="display: flex; justify-content: flex-end;">
-        <button id="btn-dismiss-sync-modal" class="btn btn-secondary">Cerrar</button>
+        <button id="btn-dismiss-sync-modal" class="btn btn-secondary" data-i18n="common.close">Cerrar</button>
       </div>
     </div>
   </div>
@@ -3056,7 +3056,7 @@
           </div>
           <button id="btn-create-single-backup" class="btn btn-primary btn-compact">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            <span>Crear Backup Ahora</span>
+            <span data-i18n="modal.createBackupNow">Crear Backup Ahora</span>
           </button>
         </div>
         <div id="world-backups-list" style="display: flex; flex-direction: column; gap: 10px; max-height: 380px; overflow-y: auto;">
@@ -3064,7 +3064,7 @@
         </div>
       </div>
       <div class="modal-footer" style="display: flex; justify-content: flex-end;">
-        <button id="btn-dismiss-world-backups-modal" class="btn btn-secondary">Cerrar</button>
+        <button id="btn-dismiss-world-backups-modal" class="btn btn-secondary" data-i18n="common.close">Cerrar</button>
       </div>
     </div>
   </div>
@@ -3073,22 +3073,22 @@
   <div id="modal-create-server" class="modal-overlay" style="display: none;">
     <div class="modal-content card" style="max-width: 540px;">
       <div class="modal-header">
-        <h3 class="modal-title">🖥 Crear Servidor Dedicado Local</h3>
-        <button id="btn-close-create-server-modal" class="btn btn-small close-btn">✕</button>
+        <h3 class="modal-title" data-i18n="servers.createModalTitle">🖥 Crear Servidor Dedicado Local</h3>
+        <button id="btn-close-create-server-modal" class="btn btn-small close-btn" title="Cerrar" data-i18n-title="common.close">✕</button>
       </div>
       <div class="modal-body" style="display: flex; flex-direction: column; gap: 14px;">
         <div class="form-group">
-          <label for="input-server-create-name" style="font-weight: 600;">Nombre del Servidor:</label>
-          <input type="text" id="input-server-create-name" class="text-input" placeholder="ej. Mi Super Servidor" value="Mi Servidor" />
+          <label for="input-server-create-name" style="font-weight: 600;" data-i18n="servers.createNameLabel">Nombre del Servidor:</label>
+          <input type="text" id="input-server-create-name" class="text-input" placeholder="ej. Mi Super Servidor" data-i18n-placeholder="servers.createNamePlaceholder" value="Mi Servidor" />
         </div>
 
         <div class="form-row">
           <div class="form-group flex-1">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
-              <label for="select-server-create-mc" style="font-weight: 600; margin-bottom: 0;">Versión de Minecraft:</label>
-              <label style="display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-secondary); cursor: pointer;" title="Muestra versiones de prueba y snapshots de Mojang">
+              <label for="select-server-create-mc" style="font-weight: 600; margin-bottom: 0;" data-i18n="servers.createMcLabel">Versión de Minecraft:</label>
+              <label style="display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-secondary); cursor: pointer;" title="Muestra versiones de prueba y snapshots de Mojang" data-i18n-title="modal.snapshotsTooltip">
                 <input type="checkbox" id="check-include-snapshots-server" style="cursor: pointer;" />
-                <span>🧪 Incluir Snapshots</span>
+                <span data-i18n="modal.snapshots">🧪 Incluir Snapshots</span>
               </label>
             </div>
             <select id="select-server-create-mc" class="select-input">
@@ -3101,7 +3101,7 @@
             </select>
           </div>
           <div class="form-group flex-1">
-            <label for="select-server-create-loader" style="font-weight: 600;">Modloader:</label>
+            <label for="select-server-create-loader" style="font-weight: 600;" data-i18n="servers.createLoaderLabel">Modloader:</label>
             <select id="select-server-create-loader" class="select-input">
               <option value="neoforge" selected>NeoForge</option>
               <option value="forge">Forge</option>
@@ -3115,7 +3115,7 @@
 
         <div class="form-row">
           <div class="form-group flex-1">
-            <label for="select-server-create-ram" style="font-weight: 600;">Memoria RAM Asignada:</label>
+            <label for="select-server-create-ram" style="font-weight: 600;" data-i18n="servers.createRamLabel">Memoria RAM Asignada:</label>
             <select id="select-server-create-ram" class="select-input">
               <option value="4G">4 GB RAM (Básico)</option>
               <option value="6G" selected>6 GB RAM (Recomendado)</option>
@@ -3126,7 +3126,7 @@
               <option value="custom">Personalizado...</option>
             </select>
             <div id="box-server-custom-ram" style="display: none; margin-top: 8px;">
-              <label for="input-server-custom-ram" style="font-size: 11.5px; color: var(--text-secondary); display: block; margin-bottom: 4px;">Cantidad de RAM personalizada (GB):</label>
+              <label for="input-server-custom-ram" style="font-size: 11.5px; color: var(--text-secondary); display: block; margin-bottom: 4px;" data-i18n="servers.customRamLabel">Cantidad de RAM personalizada (GB):</label>
               <div style="display: flex; align-items: center; gap: 8px;">
                 <input type="number" id="input-server-custom-ram" class="text-input" min="1" max="64" step="0.5" value="7" style="width: 100px; padding: 4px 8px;" />
                 <span style="font-size: 13px; color: var(--text-muted); font-weight: 600;">GB</span>
@@ -3134,7 +3134,7 @@
             </div>
           </div>
           <div class="form-group flex-1">
-            <label for="input-server-create-port" style="font-weight: 600;">Puerto de Red:</label>
+            <label for="input-server-create-port" style="font-weight: 600;" data-i18n="servers.portLabel">Puerto de Red:</label>
             <input type="number" id="input-server-create-port" class="text-input" value="25565" />
           </div>
         </div>
@@ -3142,12 +3142,12 @@
         <div class="settings-card" style="margin-top: 4px; padding: 12px; background: rgba(255,255,255,0.02);">
           <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; font-weight: 600;">
             <input type="checkbox" id="check-server-sync-mods-on-create" checked style="accent-color: var(--accent-emerald);" />
-            <span>🔄 Sincronizar mods automáticamente desde mi instancia activa</span>
+            <span data-i18n="servers.syncModsLabel">🔄 Sincronizar mods automáticamente desde mi instancia activa</span>
           </label>
           <div id="box-server-sync-instance-selector" style="margin-top: 10px;">
-            <label for="select-server-sync-instance" style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 4px;">Instancia origen de los mods:</label>
+            <label for="select-server-sync-instance" style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 4px;" data-i18n="servers.syncSourceLabel">Instancia origen de los mods:</label>
             <select id="select-server-sync-instance" class="select-input" style="width: 100%;"></select>
-            <small style="color: var(--text-muted); display: block; margin-top: 4px;">Los mods exclusivos de cliente (gráficos, shaders, HUDs) serán omitidos automáticamente para evitar crasheos.</small>
+            <small style="color: var(--text-muted); display: block; margin-top: 4px;" data-i18n="servers.syncNotice">Los mods exclusivos de cliente (gráficos, shaders, HUDs) serán omitidos automáticamente para evitar crasheos.</small>
           </div>
         </div>
 
@@ -3156,15 +3156,15 @@
           <div class="install-progress-bar-bg">
             <div id="server-install-progress-fill" class="install-progress-fill" style="width: 0%;"></div>
           </div>
-          <span id="server-install-progress-text" class="install-status-text">Descargando e instalando componentes oficiales...</span>
+          <span id="server-install-progress-text" class="install-status-text" data-i18n="servers.installProgressText">Descargando e instalando componentes oficiales...</span>
         </div>
       </div>
 
       <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px;">
-        <button id="btn-cancel-create-server" class="btn btn-secondary">Cancelar</button>
+        <button id="btn-cancel-create-server" class="btn btn-secondary" data-i18n="common.cancel">Cancelar</button>
         <button id="btn-submit-create-server" class="btn btn-primary">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20"/><path d="m17 5-5-3-5 3"/><path d="m17 19-5 3-5-3"/></svg>
-          <span>Instalar y Crear Servidor</span>
+          <span data-i18n="modal.installCreateServer">Instalar y Crear Servidor</span>
         </button>
       </div>
     </div>
@@ -3174,24 +3174,24 @@
   <div id="modal-sync-server-mods" class="modal-overlay" style="display: none;">
     <div class="modal-content card" style="max-width: 520px;">
       <div class="modal-header">
-        <h3 class="modal-title">🔄 Sincronizador de Mods Cliente ➔ Servidor</h3>
-        <button id="btn-close-sync-server-modal" class="btn btn-small close-btn">✕</button>
+        <h3 class="modal-title" data-i18n="servers.syncModalTitle">🔄 Sincronizador de Mods Cliente ➔ Servidor</h3>
+        <button id="btn-close-sync-server-modal" class="btn btn-small close-btn" title="Cerrar" data-i18n-title="common.close">✕</button>
       </div>
       <div class="modal-body" style="display: flex; flex-direction: column; gap: 14px;">
         <div class="settings-card" style="padding: 12px; background: rgba(16, 185, 129, 0.08); border-color: rgba(16, 185, 129, 0.25);">
-          <div style="font-size: 12.5px; line-height: 1.45; color: #a7f3d0;">
+          <div style="font-size: 12.5px; line-height: 1.45; color: #a7f3d0;" data-i18n="servers.syncFilterDesc">
             🛡 <strong>Filtro Anti-Crash Inteligente:</strong> ShubaCore inspeccionará todos los mods de tu cliente y omitirá automáticamente los que sean solo de cliente (Sodium, Iris, EntityCulling, SoundPhysics, HUDs, etc.), copiando solo mods de contenido/servidor.
           </div>
         </div>
 
         <div class="form-group">
-          <label for="select-sync-source-instance" style="font-weight: 600;">Selecciona la Instancia Origen:</label>
+          <label for="select-sync-source-instance" style="font-weight: 600;" data-i18n="servers.syncSourceInstanceLabel">Selecciona la Instancia Origen:</label>
           <select id="select-sync-source-instance" class="select-input" style="width: 100%;"></select>
         </div>
 
         <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px;">
           <input type="checkbox" id="check-sync-copy-configs" checked style="accent-color: var(--accent-emerald);" />
-          <span>Sincronizar también configuraciones (carpetas <code>config/</code> y <code>defaultconfigs/</code>)</span>
+          <span data-i18n="servers.syncConfigsLabel">Sincronizar también configuraciones (carpetas config/ y defaultconfigs/)</span>
         </label>
 
         <div id="sync-server-result-box" style="display: none; padding: 10px 14px; border-radius: var(--radius-md); font-size: 12.5px; background: var(--bg-surface);">
@@ -3200,10 +3200,10 @@
       </div>
 
       <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px;">
-        <button id="btn-cancel-sync-server" class="btn btn-secondary">Cerrar</button>
+        <button id="btn-cancel-sync-server" class="btn btn-secondary" data-i18n="common.close">Cerrar</button>
         <button id="btn-execute-sync-server" class="btn btn-primary">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-          <span id="btn-execute-sync-server-text">Iniciar Sincronización</span>
+          <span id="btn-execute-sync-server-text" data-i18n="modal.startSync">Iniciar Sincronización</span>
         </button>
       </div>
     </div>
@@ -3213,16 +3213,16 @@
   <div id="modal-export-code" class="modal-overlay" style="display: none;">
     <div class="modal-content card" style="max-width: 480px;">
       <div class="modal-header" style="display: flex; align-items: center; justify-content: space-between;">
-        <h3 class="modal-title" style="margin: 0;">📤 Compartir Instancia por Código</h3>
-        <button id="btn-close-export-code-modal" class="btn btn-small close-btn">✕</button>
+        <h3 class="modal-title" style="margin: 0;" data-i18n="exportCode.title">📤 Compartir Instancia por Código</h3>
+        <button id="btn-close-export-code-modal" class="btn btn-small close-btn" title="Cerrar" data-i18n-title="common.close">✕</button>
       </div>
       <div class="modal-body" style="padding: 18px 20px; display: flex; flex-direction: column; gap: 14px;">
-        <p style="margin: 0; font-size: 13px; color: var(--text-secondary);">
+        <p style="margin: 0; font-size: 13px; color: var(--text-secondary);" data-i18n="exportCode.desc">
           Genera un código corto único para compartir tu modpack con tus amigos. Se subirán las referencias de mods de Modrinth, CurseForge y GitHub sin subir archivos pesados.
         </p>
 
         <div class="form-group">
-          <label style="font-size: 12.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px; display: block;">Elige la Instancia a Compartir:</label>
+          <label style="font-size: 12.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px; display: block;" data-i18n="exportCode.selectLabel">Elige la Instancia a Compartir:</label>
           <div id="export-code-instances-list" class="export-instances-list" style="max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 4px;">
             <div class="empty-state" style="padding: 12px; font-size: 12px;">Cargando instancias...</div>
           </div>
@@ -3230,22 +3230,22 @@
         </div>
 
         <div id="export-code-result-box" style="display: none; flex-direction: column; align-items: center; gap: 10px; padding: 18px; border-radius: var(--radius-md); background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25);">
-          <span style="font-size: 12px; color: var(--accent-success); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">¡Código Generado con Éxito!</span>
+          <span style="font-size: 12px; color: var(--accent-success); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;" data-i18n="exportCode.successTitle">¡Código Generado con Éxito!</span>
           <div style="display: flex; align-items: center; gap: 10px;">
             <span id="display-generated-code" style="font-size: 26px; font-weight: 900; letter-spacing: 2px; color: #10b981; font-family: monospace;">SHUBA-XXXX</span>
-            <button id="btn-copy-generated-code" class="btn btn-secondary btn-small" title="Copiar código">📋 Copiar</button>
+            <button id="btn-copy-generated-code" class="btn btn-secondary btn-small" title="Copiar código" data-i18n-title="exportCode.copyTitle" data-i18n="exportCode.copyBtn">📋 Copiar</button>
           </div>
           <span id="export-code-details" style="font-size: 12px; color: var(--text-secondary); text-align: center;"></span>
         </div>
 
-        <div id="export-code-loading" style="display: none; text-align: center; padding: 14px; font-size: 13px; color: var(--text-secondary);">
+        <div id="export-code-loading" style="display: none; text-align: center; padding: 14px; font-size: 13px; color: var(--text-secondary);" data-i18n="exportCode.loading">
           Generando manifiesto y subiendo a GitHub...
         </div>
       </div>
       <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; padding-top: 10px;">
-        <button id="btn-cancel-export-code" class="btn btn-secondary">Cerrar</button>
+        <button id="btn-cancel-export-code" class="btn btn-secondary" data-i18n="common.close">Cerrar</button>
         <button id="btn-execute-export-code" class="btn btn-primary">
-          <span>🚀 Generar Código</span>
+          <span data-i18n="modal.generateCode">🚀 Generar Código</span>
         </button>
       </div>
     </div>
@@ -3256,7 +3256,7 @@
     <div class="modal-content card" style="max-width: 500px;">
       <div class="modal-header" style="display: flex; align-items: center; justify-content: space-between;">
         <h3 class="modal-title" style="margin: 0;" data-i18n="importCode.title">📥 Importar Instancia por Código</h3>
-        <button id="btn-close-import-code-modal" class="btn btn-small close-btn">✕</button>
+        <button id="btn-close-import-code-modal" class="btn btn-small close-btn" title="Cerrar" data-i18n-title="common.close">✕</button>
       </div>
       <div class="modal-body" style="padding: 18px 20px; display: flex; flex-direction: column; gap: 14px;">
         <p style="margin: 0; font-size: 13px; color: var(--text-secondary);" data-i18n="importCode.desc">
@@ -3267,18 +3267,18 @@
           <label for="input-import-shortcode" style="font-size: 12.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px; display: block;" data-i18n="importCode.label">Código o Enlace del Modpack:</label>
           <div style="display: flex; gap: 8px;">
             <input type="text" id="input-import-shortcode" class="text-input" placeholder="Pega el código de CurseForge (UUID o 7 días), enlace o código de amigo..." data-i18n-placeholder="importCode.placeholder" style="font-size: 13.5px; font-weight: 600; font-family: monospace; flex: 1;" />
-            <button type="button" id="btn-browse-import-modpack-file" class="btn btn-secondary" title="Opcional: Si tienes un archivo .zip o .mrpack descargado, elígelo aquí" data-i18n="importCode.browse">📁 Archivo local...</button>
+            <button type="button" id="btn-browse-import-modpack-file" class="btn btn-secondary" title="Opcional: Si tienes un archivo .zip o .mrpack descargado, elígelo aquí" data-i18n="importCode.browse" data-i18n-title="importCode.browseTooltip">📁 Archivo local...</button>
           </div>
         </div>
 
         <div class="form-group">
           <label for="input-import-code-name" style="font-size: 12.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px; display: block;" data-i18n="importCode.customName">Nombre de la Nueva Instancia (Opcional):</label>
-          <input type="text" id="input-import-code-name" class="text-input" placeholder="Dejar en blanco para usar el nombre original" />
+          <input type="text" id="input-import-code-name" class="text-input" placeholder="Dejar en blanco para usar el nombre original" data-i18n-placeholder="importCode.customNamePlaceholder" />
         </div>
 
         <div id="import-code-progress-box" style="display: none; flex-direction: column; gap: 8px;">
           <div style="display: flex; justify-content: space-between; font-size: 12px;">
-            <span id="import-code-progress-status" style="color: var(--text-secondary);">Descargando mods...</span>
+            <span id="import-code-progress-status" style="color: var(--text-secondary);" data-i18n="importCode.downloadingMods">Descargando mods...</span>
             <span id="import-code-progress-pct" style="color: var(--primary); font-weight: 700;">0%</span>
           </div>
           <div class="install-progress-bar-bg" style="height: 6px; border-radius: 3px; background: rgba(255,255,255,0.08); overflow: hidden;">
@@ -3289,9 +3289,9 @@
         <div id="import-code-error-box" style="display: none; padding: 10px 14px; border-radius: var(--radius-md); background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; font-size: 12.5px;"></div>
       </div>
       <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; padding-top: 10px;">
-        <button id="btn-cancel-import-code" class="btn btn-secondary">Cancelar</button>
+        <button id="btn-cancel-import-code" class="btn btn-secondary" data-i18n="common.cancel">Cancelar</button>
         <button id="btn-execute-import-code" class="btn btn-primary">
-          <span>⚡ Descargar e Instalar</span>
+          <span data-i18n="importCode.btnInstall">⚡ Descargar e Instalar</span>
         </button>
       </div>
     </div>
@@ -3344,13 +3344,13 @@
         </div>
       </div>
       <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; gap: 10px; padding-top: 10px;">
-        <button id="btn-close-playit-bottom" class="btn btn-secondary">Cerrar</button>
+        <button id="btn-close-playit-bottom" class="btn btn-secondary" data-i18n="common.close">Cerrar</button>
         <div style="display: flex; gap: 8px;">
           <button id="btn-stop-playit-tunnel" class="btn btn-danger" style="display: none;">
-            <span>🛑 Detener Túnel</span>
+            <span data-i18n="modal.stopTunnel">🛑 Detener Túnel</span>
           </button>
           <button id="btn-start-playit-tunnel" class="btn btn-primary">
-            <span>🚀 Iniciar Túnel PlayIt</span>
+            <span data-i18n="modal.startTunnel">🚀 Iniciar Túnel PlayIt</span>
           </button>
         </div>
       </div>
@@ -3374,9 +3374,9 @@
         </div>
       </div>
       <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; padding-top: 10px;">
-        <button id="btn-cancel-target-server" class="btn btn-secondary">Cancelar</button>
+        <button id="btn-cancel-target-server" class="btn btn-secondary" data-i18n="common.cancel">Cancelar</button>
         <button id="btn-save-target-server" class="btn btn-primary">
-          <span>Guardar y Comprobar</span>
+          <span data-i18n="modal.saveAndCheck">Guardar y Comprobar</span>
         </button>
       </div>
     </div>
@@ -3407,9 +3407,9 @@
       <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 12px 20px; border-top: 1px solid rgba(255, 255, 255, 0.08);">
         <button id="btn-open-news-external" class="btn btn-secondary btn-small" style="display: none;">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-          <span id="btn-open-news-external-text">Abrir en el Navegador</span>
+          <span id="btn-open-news-external-text" data-i18n="news.openExternal">Abrir en el Navegador</span>
         </button>
-        <button id="btn-dismiss-news-detail" class="btn btn-primary btn-small">Cerrar</button>
+        <button id="btn-dismiss-news-detail" class="btn btn-primary btn-small" data-i18n="common.close">Cerrar</button>
       </div>
     </div>
   </div>
@@ -3448,7 +3448,7 @@
         </button>
         <button id="btn-lightbox-delete" class="btn btn-danger">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-          <span>🗑 Eliminar</span>
+          <span data-i18n="modal.deleteItem">🗑 Eliminar</span>
         </button>
       </div>
     </div>
@@ -3486,8 +3486,8 @@
   <div id="modal-user-profile" class="modal-overlay" style="display: none;">
     <div class="modal-content" style="max-width: 480px; width: 90%; max-height: 85vh; overflow-y: auto;">
       <div class="modal-header">
-        <h3 class="modal-title">Perfil de Jugador</h3>
-        <button id="btn-close-user-profile-modal" class="modal-close-btn" title="Cerrar">
+        <h3 class="modal-title" data-i18n="social.playerProfileModalTitle">Perfil de Jugador</h3>
+        <button id="btn-close-user-profile-modal" class="modal-close-btn" title="Cerrar" data-i18n-title="common.close">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
         </button>
       </div>
@@ -3516,7 +3516,7 @@
       <div class="update-banner-actions">
         <button id="btn-install-launcher-update" class="btn btn-install-update" style="display: none;">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-          <span>⚡ Reiniciar e Instalar Actualización</span>
+          <span data-i18n="modal.restartUpdate">⚡ Reiniciar e Instalar Actualización</span>
         </button>
         <button id="btn-dismiss-update-banner" class="btn btn-small close-btn" title="Descartar">✕</button>
       </div>
