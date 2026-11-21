@@ -36,7 +36,10 @@ const CF_CLASS_IDS = {
   mods: 6,
   modpacks: 4471,
   resourcepacks: 12,
-  shaders: 6552
+  shaders: 6552,
+  addons: 4559,
+  'bedrock-resourcepacks': 4559,
+  'bedrock-worlds': 4559
 };
 
 const MODRINTH_PROJECT_TYPES = {
@@ -207,8 +210,9 @@ class ModManager {
     logger.info(`Búsqueda de catálogo [${source.toUpperCase()}] Tipo: ${safeType} (Pág. ${safePage}, Tamaño: ${safePageSize}, Orden: ${sortBy}, Cat: ${category}, Env: ${environment}) ${isPopular ? '(Populares)' : `"${query}"`} (MC ${mcVersion}, Loader: ${loader})`);
 
     const normalizedLoader = (loader || 'neoforge').toLowerCase();
-    const shouldSearchModrinth = source === 'both' || source === 'modrinth';
-    const shouldSearchCurseForge = source === 'both' || source === 'curseforge';
+    const isBedrock = normalizedLoader.includes('bedrock') || safeType === 'addons' || safeType === 'bedrock-resourcepacks' || safeType === 'bedrock-worlds';
+    const shouldSearchModrinth = (source === 'both' || source === 'modrinth') && !isBedrock;
+    const shouldSearchCurseForge = source === 'both' || source === 'curseforge' || isBedrock;
 
     const tasks = [];
     if (shouldSearchModrinth) {
@@ -331,6 +335,7 @@ class ModManager {
     const classId = CF_CLASS_IDS[contentType] || CF_CLASS_IDS.mods;
 
     try {
+      const isBedrock = (loader || '').toLowerCase().includes('bedrock') || contentType === 'addons' || contentType === 'bedrock-resourcepacks' || contentType === 'bedrock-worlds';
       const cfLoader = CF_LOADER_TYPES[loader] !== undefined ? CF_LOADER_TYPES[loader] : CF_LOADER_TYPES.any;
       const url = new URL(`${CURSEFORGE_API_URL}/mods/search`);
       url.searchParams.append('gameId', String(CF_GAME_ID)); // 432
@@ -339,16 +344,20 @@ class ModManager {
       if (query && query.trim() !== '') {
         url.searchParams.append('searchFilter', query.trim());
       }
-      if (mcVersion) {
+      if (mcVersion && !isBedrock) {
         url.searchParams.append('gameVersion', mcVersion);
       }
-      // Para Texturas (resourcepacks) y Shaders NO enviar modLoaderType
-      if ((contentType === 'mods' || contentType === 'modpacks') && cfLoader > 0) {
+      // Para Texturas (resourcepacks), Shaders y Addons de Bedrock NO enviar modLoaderType
+      if (!isBedrock && (contentType === 'mods' || contentType === 'modpacks') && cfLoader > 0) {
         url.searchParams.append('modLoaderType', String(cfLoader));
       }
 
       // Filtro de categoría temática si aplica
-      if (category && category !== 'all' && CF_CATEGORY_IDS[category]) {
+      if (contentType === 'bedrock-resourcepacks') {
+        url.searchParams.append('categoryId', '4561');
+      } else if (contentType === 'bedrock-worlds') {
+        url.searchParams.append('categoryId', '4560');
+      } else if (category && category !== 'all' && CF_CATEGORY_IDS[category]) {
         url.searchParams.append('categoryId', String(CF_CATEGORY_IDS[category]));
       }
 
@@ -591,6 +600,36 @@ class ModManager {
   }) {
     const targetType = (contentType || 'mods').toLowerCase();
     const activeInstance = instancePath || this.configManager.getInstanceDirectory();
+
+    // 0. CONTENIDO BEDROCK (Addons, Bedrock Resource Packs, Mundos)
+    if (targetType === 'addons' || targetType === 'bedrock-resourcepacks' || targetType === 'bedrock-worlds' || (loader && String(loader).toLowerCase() === 'bedrock')) {
+      logger.info(`[BedrockCatalog] Descargando contenido Bedrock (${targetType}) para ${projectId} (${source})...`);
+      const fileInfo = await this._resolveCurseForgeFile(projectId, null, 'bedrock');
+      if (!fileInfo || !fileInfo.downloadUrl) {
+        throw new Error(`No se encontró un archivo descargable para el contenido Bedrock ${projectId}.`);
+      }
+      const tempCacheDir = path.join(activeInstance, 'cache', 'bedrock_downloads');
+      if (!fs.existsSync(tempCacheDir)) fs.mkdirSync(tempCacheDir, { recursive: true });
+      const destFile = path.join(tempCacheDir, fileInfo.fileName);
+
+      if (onProgress) onProgress({ type: targetType, percent: 0, fileName: fileInfo.fileName, message: `Descargando ${fileInfo.fileName}...` });
+      await this._downloadStream(fileInfo.downloadUrl, destFile, (pct) => {
+        if (onProgress) onProgress({ type: targetType, percent: pct, fileName: fileInfo.fileName, message: `Descargando ${fileInfo.fileName}... (${pct}%)` });
+      });
+
+      const BedrockManager = require('../bedrock/BedrockManager');
+      const bm = new BedrockManager();
+      const importResult = await bm.importAddonFile(destFile, activeInstance, true);
+
+      logger.info(`[BedrockCatalog] Contenido instalado y sincronizado con éxito: ${fileInfo.fileName}`);
+      return {
+        success: true,
+        contentType: targetType,
+        fileName: fileInfo.fileName,
+        path: destFile,
+        importResult
+      };
+    }
 
     // 1. MODS: destino <instanceDir>/mods con resolución de dependencias
     if (targetType === 'mods') {
@@ -961,7 +1000,7 @@ class ModManager {
     }
 
     // Filtrar estrictamente por loader para no instalar mods de loaders incompatibles
-    if (loader && loader !== 'vanilla' && files.length > 0) {
+    if (loader && loader !== 'vanilla' && loader !== 'bedrock' && files.length > 0) {
       const normLoader = String(loader).toLowerCase().trim();
       const loaderFiltered = files.filter((f) => {
         const gv = (f.gameVersions || []).map((v) => String(v).toLowerCase().trim());
@@ -1842,9 +1881,12 @@ class ModManager {
       }
 
       // 3. Archivos compatibles
+      const isBedrock = (loader || '').toLowerCase().includes('bedrock');
       let filesUrl = `${CURSEFORGE_API_URL}/mods/${projectId}/files?pageSize=50`;
-      if (mcVersion) filesUrl += `&gameVersion=${encodeURIComponent(mcVersion)}`;
-      if (cfLoader > 0) filesUrl += `&modLoaderType=${cfLoader}`;
+      if (!isBedrock) {
+        if (mcVersion) filesUrl += `&gameVersion=${encodeURIComponent(mcVersion)}`;
+        if (cfLoader > 0) filesUrl += `&modLoaderType=${cfLoader}`;
+      }
 
       let filesRes = await fetch(filesUrl, {
         headers: { 'x-api-key': apiKey, Accept: 'application/json', 'User-Agent': USER_AGENT }
@@ -2146,6 +2188,25 @@ class ModManager {
     await this._downloadStream(targetDownloadUrl, targetFilePath, (pct) => {
       if (onProgress) onProgress({ type: 'mod_version', fileName, percent: pct });
     });
+
+    // 3.5. Si la instancia destino es Bedrock o el archivo es un Add-on:
+    const isBedrockInst = customInstancePath && (
+      fs.existsSync(path.join(customInstancePath, 'behavior_packs')) ||
+      fs.existsSync(path.join(customInstancePath, 'resource_packs')) ||
+      fileName.endsWith('.mcpack') ||
+      fileName.endsWith('.mcaddon') ||
+      fileName.endsWith('.mcworld')
+    );
+
+    if (isBedrockInst) {
+      try {
+        const { getBedrockManager } = require('../bedrock/BedrockManager');
+        const importRes = await getBedrockManager().importAddonFile(targetFilePath, customInstancePath, true);
+        logger.info(`[BedrockCatalog] Add-on importado exitosamente a instancia Bedrock: ${fileName} (${importRes.type})`);
+      } catch (bErr) {
+        logger.warn(`[BedrockCatalog] Aviso al importar Add-on a instancia: ${bErr.message}`);
+      }
+    }
 
     // 4. Registrar en mods-lock.json
     const cleanName = this._cleanJarName(fileName);

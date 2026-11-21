@@ -101,7 +101,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (official) return official;
     }
     if (norm.includes('bedrock')) {
-      return `<svg width="${size}" height="${size}" viewBox="0 0 32 32" fill="none" class="loader-svg loader-svg-bedrock" xmlns="http://www.w3.org/2000/svg"><polygon points="16,3 29,10.5 16,18 3,10.5" fill="#4B5563"/><polygon points="16,5 26,10.5 16,16 6,10.5" fill="#6B7280"/><polygon points="3,10.5 16,18 16,29 3,21.5" fill="#374151"/><polygon points="16,18 29,10.5 29,21.5 16,29" fill="#1F2937"/><circle cx="12" cy="11" r="1.5" fill="#9CA3AF"/><circle cx="21" cy="13" r="1.5" fill="#9CA3AF"/><circle cx="8" cy="19" r="1.5" fill="#111827"/><circle cx="13" cy="24" r="1.5" fill="#111827"/><circle cx="23" cy="20" r="1.5" fill="#111827"/></svg>`;
+      return `<img src="assets/block_bedrock.webp" width="${size}" height="${size}" class="loader-svg loader-svg-bedrock" alt="Bedrock" style="vertical-align: middle; image-rendering: pixelated; object-fit: contain;">`;
     }
     if (norm.includes('neoforge')) {
       return `<svg width="${size}" height="${size}" viewBox="0 0 32 32" fill="none" class="loader-svg loader-svg-neoforge" xmlns="http://www.w3.org/2000/svg"><path d="M4 6L11 11L16 6L21 11L28 6L26 21L16 28L6 21L4 6Z" fill="#EA580C"/><path d="M11 11L16 17L21 11L25 19L16 26L7 19L11 11Z" fill="#F97316"/><path d="M13 14L16 18L19 14L22 20L16 25L10 20L13 14Z" fill="#FFFFFF"/><path d="M16 22L14 19H18L16 22Z" fill="#1E293B"/><circle cx="12.5" cy="16.5" r="1.5" fill="#1E293B"/><circle cx="19.5" cy="16.5" r="1.5" fill="#1E293B"/></svg>`;
@@ -115,7 +115,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (norm.includes('quilt')) {
       return `<svg width="${size}" height="${size}" viewBox="0 0 32 32" fill="none" class="loader-svg loader-svg-quilt" xmlns="http://www.w3.org/2000/svg"><rect x="16" y="3" width="9" height="9" transform="rotate(45 16 3)" fill="#A855F7"/><rect x="7" y="12" width="9" height="9" transform="rotate(45 7 12)" fill="#EC4899"/><rect x="25" y="12" width="9" height="9" transform="rotate(45 25 12)" fill="#D946EF"/><rect x="16" y="21" width="9" height="9" transform="rotate(45 16 21)" fill="#8B5CF6"/><circle cx="16" cy="16" r="3.5" fill="#FFFFFF"/></svg>`;
     }
-    return `<svg width="${size}" height="${size}" viewBox="0 0 32 32" fill="none" class="loader-svg loader-svg-vanilla" xmlns="http://www.w3.org/2000/svg"><polygon points="16,3 29,10.5 16,18 3,10.5" fill="#5BA736"/><polygon points="16,5 26,10.5 16,16 6,10.5" fill="#72C442"/><polygon points="3,10.5 16,18 16,29 3,21.5" fill="#866043"/><polygon points="16,18 29,10.5 29,21.5 16,29" fill="#5C3F28"/><path d="M3 10.5L16 18L29 10.5L29 14L26 15L24 13L21 16L18 14L16 19L14 15L11 17L9 14L6 16L3 13.5V10.5Z" fill="#4C8A2C"/></svg>`;
+    return `<img src="assets/block_grass.webp" width="${size}" height="${size}" class="loader-svg loader-svg-vanilla" alt="Vanilla" style="vertical-align: middle; image-rendering: pixelated; object-fit: contain;">`;
   }
 
   function getLoaderBadge(loader, size = 14) {
@@ -905,6 +905,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             modsSearchResults.className = (catalogViewMode === 'grid') ? 'catalog-grid' : 'catalog-list-view';
           }
           const activeProf = catalogContextProfile || currentActiveProfile;
+          if (typeof syncCatalogUIForProfile === 'function') syncCatalogUIForProfile(activeProf);
+          if (typeof updateCatalogContextBar === 'function') updateCatalogContextBar();
           const hasProfileChanged = lastCatalogActiveProfileRef && activeProf && (lastCatalogActiveProfileRef.id !== activeProf.id);
           if (hasProfileChanged || (!inputModSearch.value.trim() && (!modsSearchResults || modsSearchResults.children.length <= 1))) {
             performModSearch();
@@ -2860,7 +2862,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           await loadProfiles();
           const activeProf = profiles.find((p) => p.id === id);
           if (activeProf && (activeProf.edition === 'bedrock' || (activeProf.loader || '').toLowerCase() === 'bedrock')) {
-            openBedrockAddonsModal(activeProf);
+            openCatalogForInstance(activeProf);
           } else {
             switchMainView('mods');
           }
@@ -4538,9 +4540,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         catalogContextTitle.textContent = catalogContextProfile.name || 'Mi Instancia';
       }
       if (catalogContextBadge) {
-        const mc = catalogContextProfile.mcVersion || '1.21.1';
-        const ldr = catalogContextProfile.loader || 'Vanilla';
-        catalogContextBadge.textContent = `Minecraft ${mc} · ${ldr.toUpperCase()}`;
+        const isBedrock = catalogContextProfile.edition === 'bedrock' || String(catalogContextProfile.loader).toLowerCase() === 'bedrock';
+        if (isBedrock) {
+          catalogContextBadge.textContent = 'Minecraft Bedrock Edition';
+        } else {
+          const mc = catalogContextProfile.mcVersion || '1.21.1';
+          const ldr = catalogContextProfile.loader || 'Vanilla';
+          catalogContextBadge.textContent = `Minecraft ${mc} · ${ldr.toUpperCase()}`;
+        }
       }
     } else {
       catalogInstanceContextBar.style.display = 'none';
@@ -4554,13 +4561,81 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  function syncCatalogUIForProfile(profile) {
+    const prof = profile || catalogContextProfile || currentActiveProfile;
+    const isBedrock = prof && (prof.edition === 'bedrock' || String(prof.loader).toLowerCase() === 'bedrock');
+
+    if (selectCatalogContentType) {
+      if (isBedrock) {
+        selectCatalogContentType.innerHTML = `
+          <option value="addons" ${currentContentType === 'addons' ? 'selected' : ''}>🧱 Add-ons (Comportamiento) ▾</option>
+          <option value="bedrock-resourcepacks" ${currentContentType === 'bedrock-resourcepacks' ? 'selected' : ''}>🎨 Texturas / Resource Packs (Bedrock) ▾</option>
+          <option value="bedrock-worlds" ${currentContentType === 'bedrock-worlds' ? 'selected' : ''}>🌍 Mundos / Mapas (Bedrock) ▾</option>
+        `;
+        if (currentContentType !== 'addons' && currentContentType !== 'bedrock-resourcepacks' && currentContentType !== 'bedrock-worlds') {
+          currentContentType = 'addons';
+          selectCatalogContentType.value = 'addons';
+        }
+      } else {
+        selectCatalogContentType.innerHTML = `
+          <option value="mods" ${currentContentType === 'mods' ? 'selected' : ''}>Mods ▾</option>
+          <option value="resourcepacks" ${currentContentType === 'resourcepacks' ? 'selected' : ''}>Resource Packs ▾</option>
+          <option value="shaders" ${currentContentType === 'shaders' ? 'selected' : ''}>Shaders ▾</option>
+          <option value="modpacks" ${currentContentType === 'modpacks' ? 'selected' : ''}>Modpacks ▾</option>
+          <option value="github" ${currentContentType === 'github' ? 'selected' : ''}>🔥 Mods Custom (GitHub) ▾</option>
+        `;
+        if (currentContentType === 'addons' || currentContentType === 'bedrock-resourcepacks' || currentContentType === 'bedrock-worlds') {
+          currentContentType = 'mods';
+          selectCatalogContentType.value = 'mods';
+        }
+      }
+    }
+
+    if (selectCatalogPlatform) {
+      if (isBedrock) {
+        selectCatalogPlatform.innerHTML = `
+          <option value="curseforge" selected>🔥 Solo CurseForge (Add-ons)</option>
+        `;
+        selectCatalogPlatform.value = 'curseforge';
+        selectCatalogPlatform.disabled = true;
+      } else {
+        selectCatalogPlatform.disabled = false;
+        selectCatalogPlatform.innerHTML = `
+          <option value="both" selected data-i18n="catalog.platformAll">🌐 Plataforma: Todas</option>
+          <option value="modrinth" data-i18n="catalog.platformModrinth">🟢 Solo Modrinth</option>
+          <option value="curseforge" data-i18n="catalog.platformCurseforge">🔥 Solo CurseForge</option>
+        `;
+      }
+    }
+
+    if (selectModSource) {
+      if (isBedrock) {
+        selectModSource.value = 'curseforge';
+        selectModSource.disabled = true;
+      } else {
+        selectModSource.disabled = false;
+      }
+    }
+
+    if (selectCatalogLoader) {
+      if (isBedrock) {
+        selectCatalogLoader.disabled = true;
+        selectCatalogLoader.innerHTML = `<option value="bedrock" selected>Bedrock Edition</option>`;
+      } else {
+        selectCatalogLoader.disabled = false;
+      }
+    }
+  }
+
   function openCatalogForInstance(profile) {
     catalogContextProfile = profile || currentActiveProfile;
-    if (currentContentType === 'modpacks') {
+    const isBedrock = catalogContextProfile && (catalogContextProfile.edition === 'bedrock' || String(catalogContextProfile.loader).toLowerCase() === 'bedrock');
+    if (isBedrock) {
+      currentContentType = 'addons';
+    } else if (currentContentType === 'modpacks' || currentContentType === 'addons' || currentContentType === 'bedrock-resourcepacks' || currentContentType === 'bedrock-worlds') {
       currentContentType = 'mods';
-      if (selectCatalogContentType) selectCatalogContentType.value = 'mods';
-      catPills.forEach((b) => b.classList.toggle('active', b.getAttribute('data-cat') === 'mods'));
     }
+    syncCatalogUIForProfile(catalogContextProfile);
     updateCatalogContextBar();
     switchMainView('catalog');
     if (typeof performModSearch === 'function') {
@@ -6236,16 +6311,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     const category = selectModCategory ? selectModCategory.value : 'all';
 
     const activeProfileRef = catalogContextProfile || currentActiveProfile;
+    const isBedrock = activeProfileRef && (activeProfileRef.edition === 'bedrock' || String(activeProfileRef.loader).toLowerCase() === 'bedrock');
+
     let mcVersion = selectCatalogMcVersion?.value && selectCatalogMcVersion.value !== 'active'
       ? selectCatalogMcVersion.value
       : (activeProfileRef?.mcVersion || '1.21.1');
-    if (mcVersion === 'all') mcVersion = '';
+    if (mcVersion === 'all' || isBedrock) mcVersion = '';
 
     const isVanillaInstance = (activeProfileRef?.loader || '').toLowerCase() === 'vanilla';
     let loader = selectCatalogLoader?.value && selectCatalogLoader.value !== 'active'
       ? selectCatalogLoader.value
       : (activeProfileRef?.loader || 'neoforge').toLowerCase();
     if (loader === 'all') loader = '';
+    if (isBedrock) loader = 'bedrock';
+
+    let source = selectModSource ? selectModSource.value : 'both';
+    if (isBedrock) source = 'curseforge';
 
     // Si la instancia es Vanilla y se exploran mods, no filtrar por 'vanilla' para no romper resultados
     if (isVanillaInstance && (currentContentType === 'mods' || currentContentType === 'github')) {
@@ -6505,7 +6586,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       mods: 'Mods',
       modpacks: 'Modpacks',
       resourcepacks: 'Resource Packs',
-      shaders: 'Shaders'
+      shaders: 'Shaders',
+      addons: 'Add-ons',
+      'bedrock-resourcepacks': 'Texturas (Bedrock)',
+      'bedrock-worlds': 'Mundos (Bedrock)'
     };
     const catLabel = catLabels[currentContentType] || 'Proyectos';
 
@@ -6515,7 +6599,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       resultsSubhint.textContent = (window.i18n?.getLanguage() === 'en') ? `Page ${currentContentPage} of ~${totalContentPages}` : `Página ${currentContentPage} de ~${totalContentPages}`;
     } else {
       resultsHeadline.textContent = (window.i18n?.getLanguage() === 'en') ? `Most Popular ${catLabel}` : `${catLabel} Más Populares`;
-      resultsSubhint.textContent = (window.i18n?.getLanguage() === 'en') ? `Compatible with Minecraft ${mcVersion || 'all'}` : `Compatibles con Minecraft ${mcVersion || 'todas'}`;
+      resultsSubhint.textContent = isBedrock
+        ? 'Contenido y Add-ons oficiales para Minecraft Bedrock Edition'
+        : ((window.i18n?.getLanguage() === 'en') ? `Compatible with Minecraft ${mcVersion || 'all'}` : `Compatibles con Minecraft ${mcVersion || 'todas'}`);
     }
 
     modsSearchResults.innerHTML = '<div class="empty-state">Consultando catálogo en tiempo real...</div>';
@@ -6768,14 +6854,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     switchDetailTab('summary');
 
     const activeProfileRef = catalogContextProfile || currentActiveProfile;
-    const mcVersion = activeProfileRef?.mcVersion || '1.21.1';
-    const loader = (activeProfileRef?.loader || 'neoforge').toLowerCase();
+    const isBedrock = activeProfileRef && (activeProfileRef.edition === 'bedrock' || String(activeProfileRef.loader).toLowerCase() === 'bedrock');
+    const mcVersion = isBedrock ? '' : (activeProfileRef?.mcVersion || '1.21.1');
+    const loader = isBedrock ? 'bedrock' : (activeProfileRef?.loader || 'neoforge').toLowerCase();
 
     if (detailModIcon) detailModIcon.src = item.iconUrl || 'assets/logo.png';
     if (detailModTitle) detailModTitle.textContent = item.title || 'Detalle del Proyecto';
     if (detailModBadge) {
       if (item.source === 'curseforge') {
-        detailModBadge.textContent = 'CURSEFORGE';
+        detailModBadge.textContent = isBedrock ? 'BEDROCK ADD-ON' : 'CURSEFORGE';
         detailModBadge.className = 'badge badge-curseforge';
       } else if (item.source === 'github') {
         detailModBadge.textContent = 'GITHUB';
@@ -6799,7 +6886,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (detailGalleryCount) detailGalleryCount.textContent = '0';
     if (detailVersionsList) detailVersionsList.innerHTML = '<div class="empty-state">Consultando versiones disponibles...</div>';
     if (detailVersionsCount) detailVersionsCount.textContent = '...';
-    if (detailCompatBadge) detailCompatBadge.textContent = `Minecraft ${mcVersion} (${loader.toUpperCase()})`;
+    if (detailCompatBadge) {
+      detailCompatBadge.textContent = isBedrock ? 'Minecraft Bedrock Edition' : `Minecraft ${mcVersion} (${loader.toUpperCase()})`;
+    }
 
     // Estado del botón Instalar superior
     const targetInstance = activeProfileRef?.instancePath || null;
@@ -7059,8 +7148,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (detailVersionsCount) detailVersionsCount.textContent = filteredFiles.length;
 
         if (filteredFiles.length === 0) {
-          detailVersionsList.innerHTML = `<div class="empty-state">No hay versiones en el canal "${cLow.toUpperCase()}" para Minecraft ${mcVersion} (${loader.toUpperCase()}).</div>`;
-          return;
+          if (allFiles.length > 0) {
+            filteredFiles = allFiles;
+            if (detailVersionsCount) detailVersionsCount.textContent = filteredFiles.length;
+          } else {
+            detailVersionsList.innerHTML = `<div class="empty-state">No hay versiones en el canal "${cLow.toUpperCase()}" para ${isBedrock ? 'Minecraft Bedrock Edition' : `Minecraft ${mcVersion} (${loader.toUpperCase()})`}.</div>`;
+            return;
+          }
         }
 
         detailVersionsList.innerHTML = '';
@@ -7235,6 +7329,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       if (!launchRes.success) {
         if (launchRes.notInstalled) {
+          if (dockLaunchProgress) dockLaunchProgress.style.display = 'none';
+          btnLaunch.disabled = false;
+          launchBadge.textContent = window.i18n?.t ? window.i18n.t('launch.ready', 'Listo') : 'Listo';
+          launchBadge.className = 'badge badge-idle';
+          updateLaunchUIState(activeSessionsCount);
           openBedrockNotInstalledModal();
           return;
         }
@@ -12675,10 +12774,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (bedrockInstallStatusBox) {
         bedrockInstallStatusBox.style.display = 'block';
         if (bedrockInstallStatusText) {
-          bedrockInstallStatusText.textContent = window.i18n?.t ? window.i18n.t('bedrock.statusSending') : 'Enviando orden a Microsoft Store...';
+          bedrockInstallStatusText.textContent = window.i18n?.t ? window.i18n.t('bedrock.statusSending') : 'Abriendo Minecraft for Windows en Microsoft Store...';
         }
         if (bedrockInstallStatusSub) {
-          bedrockInstallStatusSub.textContent = 'Iniciando diálogo de descarga oficial en Windows...';
+          bedrockInstallStatusSub.textContent = 'Pulsa el botón azul [Instalar] en la ventana de la tienda. ShubaCore monitoreará la instalación en segundo plano.';
         }
       }
       if (btnViewStoreDownloads) btnViewStoreDownloads.style.display = 'inline-flex';
