@@ -127,9 +127,18 @@ try {
   if (fs.existsSync(HTML_PATH)) {
     execSync('git add src/renderer/index.html', { cwd: ROOT_DIR, stdio: 'inherit' });
   }
-  execSync(`git commit -m "chore(release): v${nextVersion}"`, { cwd: ROOT_DIR, stdio: 'inherit' });
-  execSync(`git tag -a "v${nextVersion}" -m "Release v${nextVersion}"`, { cwd: ROOT_DIR, stdio: 'inherit' });
-  console.log(`✔ Tag v${nextVersion} creado localmente.`);
+  try {
+    execSync(`git commit -m "chore(release): v${nextVersion}"`, { cwd: ROOT_DIR, stdio: 'inherit' });
+  } catch (_) {
+    // Si ya se realizó el commit previamente, continuar
+  }
+  const existingTags = execSync('git tag -l', { cwd: ROOT_DIR, encoding: 'utf8' });
+  if (!existingTags.includes(`v${nextVersion}`)) {
+    execSync(`git tag -a "v${nextVersion}" -m "Release v${nextVersion}"`, { cwd: ROOT_DIR, stdio: 'inherit' });
+    console.log(`✔ Tag v${nextVersion} creado localmente.`);
+  } else {
+    console.log(`✔ Tag v${nextVersion} ya existe localmente.`);
+  }
 
   // Push al repositorio remoto
   console.log(`▶ Subiendo cambios y tags a https://github.com/${REPO_OWNER}/${REPO_NAME}.git...`);
