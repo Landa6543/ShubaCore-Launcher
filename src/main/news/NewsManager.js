@@ -18,13 +18,13 @@ const NEWS_SOURCES = [
 
 const DEFAULT_ANNOUNCEMENTS = [
   {
-    id: 'shuba-111-release',
+    id: 'shuba-120-release',
     tag: 'LANZAMIENTO',
     badgeClass: 'badge-primary',
-    title: '¡ShubaCore Pro v1.1.1 ya está disponible!',
-    date: '15 Nov 2026',
+    title: '¡ShubaCore Pro v1.2.0 ya está disponible!',
+    date: '21 Nov 2026',
     author: 'SHUBATECH Core Team',
-    summary: 'Actualización v1.1.1: Filtro de Solo Servidor 100% operativo, selector de plataformas Modrinth/CurseForge, modal interno de anuncios, eliminación total de clips y optimizaciones nativas.',
+    summary: 'Actualización v1.2.0: Soporte bilingüe completo (Español/Inglés), nuevo gestor de servidores dedicados locales, correcciones en importación/exportación de modpacks e interfaz responsiva optimizada.',
     link: 'https://github.com/Landa6543/ShubaCore-Launcher'
   },
   {
