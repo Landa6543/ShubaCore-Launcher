@@ -4002,6 +4002,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     return val;
   }
 
+  let currentInstalledRenderSessionId = 0;
+
   function renderFilteredInstalledMods() {
     if (!modsInstalledList && !installedModsTbody) return;
 
@@ -4078,6 +4080,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // RENDERIZADO EN TABLA DE 5 COLUMNAS AL 100% DE ANCHO
+    currentInstalledRenderSessionId++;
+    const sessionId = currentInstalledRenderSessionId;
+
     if (installedModsTbody) {
       installedModsTbody.innerHTML = '';
       if (filtered.length === 0) {
@@ -4088,89 +4093,92 @@ document.addEventListener('DOMContentLoaded', async () => {
       } else {
         if (installedModsEmptyState) installedModsEmptyState.classList.add('hidden');
 
-        const frag = document.createDocumentFragment();
+        // Renderizado progresivo por lotes (Chunking) para fluidez absoluta a 60 FPS sin congelamientos
+        const CHUNK_SIZE = 40;
+        let currentIndex = 0;
 
-        filtered.forEach((mod) => {
-          const rawFileName = mod.fileName ?? 'mod.jar';
-          const modTitle = resolveModTitle(mod, rawFileName);
-          const authorText = mod.author || '—';
-          const isChecked = mod.enabled !== false;
-          const modEnv = resolveModEnvironment(mod);
-          const modUpdate = activeAvailableUpdates.find((u) => u.currentFileName === rawFileName || (u.projectId && String(u.projectId) === String(mod.projectId)));
+        function renderNextChunk() {
+          if (sessionId !== currentInstalledRenderSessionId) return;
 
-          let envBadgeHtml = '';
-          if (modEnv === 'client') {
-            envBadgeHtml = `<span class="env-badge-tag env-client" title="Solo Cliente">🖥️ Cliente</span>`;
-          } else if (modEnv === 'server') {
-            envBadgeHtml = `<span class="env-badge-tag env-server" title="Solo Servidor">🗄️ Servidor</span>`;
-          } else {
-            envBadgeHtml = `<span class="env-badge-tag env-both" title="Cliente y Servidor">🔄 Ambos</span>`;
-          }
+          const end = Math.min(currentIndex + CHUNK_SIZE, filtered.length);
+          const frag = document.createDocumentFragment();
 
-          let actionHtml = '';
-          if (modUpdate) {
-            const rawNew = (modUpdate.latestFile.versionNumber || modUpdate.latestFile.displayName || '').trim();
-            const cleanNewV = rawNew.replace(/^v+/i, '').trim();
-            actionHtml = `<button class="btn btn-small btn-primary btn-update-mod" data-filename="${escapeHtml(rawFileName)}" title="Actualizar a la versión más reciente">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
-              <span>Actualizar${cleanNewV ? ' v' + escapeHtml(cleanNewV) : ''}</span>
-            </button>`;
-          } else {
-            actionHtml = `<span class="badge-uptodate">✓ Al día</span>`;
-          }
+          for (let i = currentIndex; i < end; i++) {
+            const mod = filtered[i];
+            const rawFileName = mod.fileName ?? 'mod.jar';
+            const modTitle = resolveModTitle(mod, rawFileName);
+            const authorText = mod.author || '—';
+            const isChecked = mod.enabled !== false;
+            const modEnv = resolveModEnvironment(mod);
+            const modUpdate = activeAvailableUpdates.find((u) => u.currentFileName === rawFileName || (u.projectId && String(u.projectId) === String(mod.projectId)));
 
-          const iconHtml = mod.iconUrl
-            ? `<img src="${escapeHtml(mod.iconUrl)}" alt="${escapeHtml(modTitle)}" class="mod-table-avatar" onerror="this.onerror=null; this.style.display='none'; if (this.nextElementSibling) this.nextElementSibling.style.display='block';" /><svg class="mod-table-avatar-fallback" style="display:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>`
-            : `<svg class="mod-table-avatar-fallback" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>`;
-
-          const tr = document.createElement('tr');
-          if (!isChecked) tr.classList.add('mod-disabled');
-          tr.innerHTML = `
-            <td class="col-mod-name">
-              <div class="mod-cell-primary">
-                ${iconHtml}
-                <div class="mod-cell-info">
-                  <span class="mod-cell-title" title="${escapeHtml(modTitle)}">${escapeHtml(modTitle)}</span>
-                  <span class="mod-cell-file" title="${escapeHtml(rawFileName)}">${escapeHtml(rawFileName)}${mod.sizeFormatted ? ' · ' + escapeHtml(mod.sizeFormatted) : ''}</span>
-                </div>
-              </div>
-            </td>
-            <td class="col-mod-action">${actionHtml}</td>
-            <td class="col-mod-author"><span class="mod-cell-author-text" title="${escapeHtml(authorText)}">${escapeHtml(authorText)}</span></td>
-            <td class="col-mod-env">${envBadgeHtml}</td>
-            <td class="col-mod-toggle">
-              <div class="mod-cell-controls">
-                <label class="switch-toggle-orange" title="Habilitar / Deshabilitar mod">
-                  <input type="checkbox" class="mod-toggle-check" data-filename="${escapeHtml(rawFileName)}" ${isChecked ? 'checked' : ''}>
-                  <span class="switch-slider-orange"></span>
-                </label>
-                <button class="btn btn-small btn-danger btn-delete-mod" data-filename="${escapeHtml(rawFileName)}" title="Eliminar mod">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                </button>
-              </div>
-            </td>
-          `;
-
-          tr.addEventListener('click', (e) => {
-            if (e.target.closest('.switch-toggle-orange') || e.target.closest('.btn-update-mod') || e.target.closest('.btn-delete-mod')) {
-              return;
+            let envBadgeHtml = '';
+            if (modEnv === 'client') {
+              envBadgeHtml = `<span class="env-badge-tag env-client" title="Solo Cliente">🖥️ Cliente</span>`;
+            } else if (modEnv === 'server') {
+              envBadgeHtml = `<span class="env-badge-tag env-server" title="Solo Servidor">🗄️ Servidor</span>`;
+            } else {
+              envBadgeHtml = `<span class="env-badge-tag env-both" title="Cliente y Servidor">🔄 Ambos</span>`;
             }
-            openModDetailModal({
-              id: mod.projectId,
-              source: mod.source || 'custom',
-              title: modTitle,
-              iconUrl: mod.iconUrl,
-              author: mod.author,
-              summary: mod.summary || mod.description || '',
-              fileName: rawFileName,
-              sizeFormatted: mod.sizeFormatted
-            });
-          });
 
-          frag.appendChild(tr);
-        });
+            let actionHtml = '';
+            if (modUpdate) {
+              const rawNew = (modUpdate.latestFile.versionNumber || modUpdate.latestFile.displayName || '').trim();
+              const cleanNewV = rawNew.replace(/^v+/i, '').trim();
+              actionHtml = `<button class="btn btn-small btn-primary btn-update-mod" data-filename="${escapeHtml(rawFileName)}" title="Actualizar a la versión más reciente">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+                <span>Actualizar${cleanNewV ? ' v' + escapeHtml(cleanNewV) : ''}</span>
+              </button>`;
+            } else {
+              actionHtml = `<span class="badge-uptodate">✓ Al día</span>`;
+            }
 
-        installedModsTbody.appendChild(frag);
+            const iconHtml = mod.iconUrl
+              ? `<img src="${escapeHtml(mod.iconUrl)}" alt="${escapeHtml(modTitle)}" class="mod-table-avatar" onerror="this.onerror=null; this.style.display='none'; if (this.nextElementSibling) this.nextElementSibling.style.display='block';" /><svg class="mod-table-avatar-fallback" style="display:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>`
+              : `<svg class="mod-table-avatar-fallback" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>`;
+
+            const tr = document.createElement('tr');
+            tr.setAttribute('data-filename', rawFileName);
+            if (!isChecked) tr.classList.add('mod-disabled');
+            tr.innerHTML = `
+              <td class="col-mod-name">
+                <div class="mod-cell-primary">
+                  ${iconHtml}
+                  <div class="mod-cell-info">
+                    <span class="mod-cell-title" title="${escapeHtml(modTitle)}">${escapeHtml(modTitle)}</span>
+                    <span class="mod-cell-file" title="${escapeHtml(rawFileName)}">${escapeHtml(rawFileName)}${mod.sizeFormatted ? ' · ' + escapeHtml(mod.sizeFormatted) : ''}</span>
+                  </div>
+                </div>
+              </td>
+              <td class="col-mod-action">${actionHtml}</td>
+              <td class="col-mod-author"><span class="mod-cell-author-text" title="${escapeHtml(authorText)}">${escapeHtml(authorText)}</span></td>
+              <td class="col-mod-env">${envBadgeHtml}</td>
+              <td class="col-mod-toggle">
+                <div class="mod-cell-controls">
+                  <label class="switch-toggle-orange" title="Habilitar / Deshabilitar mod">
+                    <input type="checkbox" class="mod-toggle-check" data-filename="${escapeHtml(rawFileName)}" ${isChecked ? 'checked' : ''}>
+                    <span class="switch-slider-orange"></span>
+                  </label>
+                  <button class="btn btn-small btn-danger btn-delete-mod" data-filename="${escapeHtml(rawFileName)}" title="Eliminar mod">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                  </button>
+                </div>
+              </td>
+            `;
+
+            frag.appendChild(tr);
+          }
+
+          installedModsTbody.appendChild(frag);
+          currentIndex = end;
+
+          if (currentIndex < filtered.length) {
+            requestAnimationFrame(renderNextChunk);
+          }
+        }
+
+        // Renderizar el primer lote inmediatamente en el frame actual (0ms delay)
+        renderNextChunk();
       }
     }
 
@@ -4182,117 +4190,137 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     }
 
-    // Eventos de botones
-    document.querySelectorAll('.btn-update-mod').forEach((btn) => {
-      btn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const fn = e.currentTarget.getAttribute('data-filename');
-        const modUp = activeAvailableUpdates.find((u) => u.currentFileName === fn);
-        if (!modUp) return;
+    // Delegación unificada permanente de eventos en installedModsTbody (O(1) listeners para toda la tabla)
+    if (installedModsTbody && !installedModsTbody._delegatedEventsAttached) {
+      installedModsTbody._delegatedEventsAttached = true;
 
-        e.currentTarget.disabled = true;
-        e.currentTarget.innerHTML = '<span>Actualizando...</span>';
-        appendLog(`[Mods] Actualizando "${modUp.name}" a ${modUp.latestFile.versionNumber || modUp.latestFile.displayName}...`, 'info');
-
-        try {
-          await api.mods.installVersion({
-            projectId: modUp.projectId,
-            source: modUp.source,
-            fileId: modUp.latestFile.fileId,
-            downloadUrl: modUp.latestFile.downloadUrl,
-            fileName: modUp.latestFile.fileName,
-            displayName: modUp.latestFile.displayName,
-            versionNumber: modUp.latestFile.versionNumber,
-            instancePath: targetInstance,
-            mcVersion: currentActiveProfile?.mcVersion,
-            loader: currentActiveProfile?.loader,
-            oldFileName: modUp.currentFileName || fn
-          });
-
-          appendLog(`[Mods] ¡"${modUp.name}" actualizado con éxito!`, 'success');
-          activeAvailableUpdates = activeAvailableUpdates.filter((u) => u.currentFileName !== fn && u.currentFileName !== modUp.currentFileName);
-          if (updatesAvailableCount) updatesAvailableCount.textContent = activeAvailableUpdates.length;
-          if (btnUpdateAllMods) {
-            if (activeAvailableUpdates.length > 0) {
-              btnUpdateAllMods.classList.add('has-updates');
-            } else {
-              btnUpdateAllMods.classList.remove('has-updates');
+      // 1. Clics en la tabla (Eliminar, Actualizar, o Detalle del mod)
+      installedModsTbody.addEventListener('click', async (e) => {
+        // A) Botón Eliminar
+        const delBtn = e.target.closest('.btn-delete-mod');
+        if (delBtn) {
+          e.preventDefault();
+          e.stopPropagation();
+          const fn = delBtn.getAttribute('data-filename');
+          if (!fn) return;
+          const confirmed = await showConfirmDialog(`¿Eliminar el mod "${fn}" de la instancia?`, 'Eliminar Mod');
+          if (confirmed) {
+            try {
+              const currentInst = currentActiveProfile?.instancePath || null;
+              const res = await api.mods.delete(fn, currentInst);
+              if (res && res.success === false) {
+                alert(`No se pudo eliminar el mod: ${res.error || 'Error desconocido'}`);
+                return;
+              }
+              appendLog(`[Mods] Mod "${fn}" eliminado con éxito.`, 'info');
+              await loadInstalledMods();
+              await syncCatalogInstalledStatus();
+            } catch (err) {
+              console.error('Error al eliminar mod:', err);
+              alert(`Error al eliminar mod: ${err.message}`);
             }
           }
-          await loadInstalledMods();
-        } catch (err) {
-          appendLog(`[Mods Error] No se pudo actualizar ${modUp.name}: ${err.message}`, 'error');
-          alert(`Error al actualizar mod: ${err.message}`);
+          return;
+        }
+
+        // B) Botón Actualizar
+        const updateBtn = e.target.closest('.btn-update-mod');
+        if (updateBtn) {
+          e.preventDefault();
+          e.stopPropagation();
+          const fn = updateBtn.getAttribute('data-filename');
+          const modUp = activeAvailableUpdates.find((u) => u.currentFileName === fn);
+          if (!modUp) return;
+
+          updateBtn.disabled = true;
+          updateBtn.innerHTML = '<span>Actualizando...</span>';
+          appendLog(`[Mods] Actualizando "${modUp.name}" a ${modUp.latestFile.versionNumber || modUp.latestFile.displayName}...`, 'info');
+
+          try {
+            const currentInst = currentActiveProfile?.instancePath || null;
+            await api.mods.installVersion({
+              projectId: modUp.projectId,
+              source: modUp.source,
+              fileId: modUp.latestFile.fileId,
+              downloadUrl: modUp.latestFile.downloadUrl,
+              fileName: modUp.latestFile.fileName,
+              displayName: modUp.latestFile.displayName,
+              versionNumber: modUp.latestFile.versionNumber,
+              instancePath: currentInst,
+              mcVersion: currentActiveProfile?.mcVersion,
+              loader: currentActiveProfile?.loader,
+              oldFileName: modUp.currentFileName || fn
+            });
+
+            appendLog(`[Mods] ¡"${modUp.name}" actualizado con éxito!`, 'success');
+            activeAvailableUpdates = activeAvailableUpdates.filter((u) => u.currentFileName !== fn && u.currentFileName !== modUp.currentFileName);
+            if (updatesAvailableCount) updatesAvailableCount.textContent = activeAvailableUpdates.length;
+            if (btnUpdateAllMods) {
+              if (activeAvailableUpdates.length > 0) {
+                btnUpdateAllMods.classList.add('has-updates');
+              } else {
+                btnUpdateAllMods.classList.remove('has-updates');
+              }
+            }
+            await loadInstalledMods();
+          } catch (err) {
+            appendLog(`[Mods Error] No se pudo actualizar ${modUp.name}: ${err.message}`, 'error');
+            alert(`Error al actualizar mod: ${err.message}`);
+          }
+          return;
+        }
+
+        // C) Ignorar clics dentro del switch de alternado
+        if (e.target.closest('.switch-toggle-orange')) {
+          return;
+        }
+
+        // D) Clic en la fila: Abrir modal de detalles
+        const tr = e.target.closest('tr');
+        if (tr) {
+          const fn = tr.getAttribute('data-filename');
+          const mod = currentInstalledModsList.find((m) => m.fileName === fn);
+          if (mod) {
+            const rawFileName = mod.fileName ?? 'mod.jar';
+            const modTitle = resolveModTitle(mod, rawFileName);
+            openModDetailModal({
+              id: mod.projectId,
+              source: mod.source || 'custom',
+              title: modTitle,
+              iconUrl: mod.iconUrl,
+              author: mod.author,
+              summary: mod.summary || mod.description || '',
+              fileName: rawFileName,
+              sizeFormatted: mod.sizeFormatted
+            });
+          }
         }
       });
-    });
 
-    modsInstalledList.querySelectorAll('.switch-container').forEach((sw) => {
-      sw.addEventListener('click', (e) => e.stopPropagation());
-    });
-
-    document.querySelectorAll('.mod-toggle-check').forEach((chk) => {
-      chk.addEventListener('click', (e) => e.stopPropagation());
-      chk.addEventListener('change', async (e) => {
-        const fn = e.target.getAttribute('data-filename');
-        const enabled = e.target.checked;
+      // 2. Evento change para alternar Habilitar / Deshabilitar mod
+      installedModsTbody.addEventListener('change', async (e) => {
+        const chk = e.target.closest('.mod-toggle-check');
+        if (!chk) return;
+        const fn = chk.getAttribute('data-filename');
+        const enabled = chk.checked;
+        const currentInst = currentActiveProfile?.instancePath || null;
         try {
-          await api.mods.toggle(fn, enabled, targetInstance);
+          await api.mods.toggle(fn, enabled, currentInst);
           const item = currentInstalledModsList.find((m) => m.fileName === fn);
           if (item) item.enabled = enabled;
+          const row = chk.closest('tr');
+          if (row) {
+            if (enabled) row.classList.remove('mod-disabled');
+            else row.classList.add('mod-disabled');
+          }
           appendLog(`[Mods] Mod "${fn}": ${enabled ? 'Habilitado' : 'Deshabilitado'}`, 'info');
         } catch (err) {
           console.error('Error al alternar mod:', err);
-          e.target.checked = !enabled;
-        }
-      });
-    });
-
-    modsInstalledList.querySelectorAll('.btn-inspect-mod').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const b = e.currentTarget;
-        openModDetailModal({
-          id: b.getAttribute('data-projectid'),
-          source: b.getAttribute('data-source'),
-          title: b.getAttribute('data-title'),
-          iconUrl: b.getAttribute('data-icon'),
-          author: b.getAttribute('data-author'),
-          summary: b.getAttribute('data-summary')
-        });
-      });
-    });
-
-    // Delegación permanente en la tabla para asegurar que los clics en SVG/icono nunca fallen ni se dupliquen
-    if (installedModsTbody && !installedModsTbody._deleteListenerAttached) {
-      installedModsTbody._deleteListenerAttached = true;
-      installedModsTbody.addEventListener('click', async (e) => {
-        const btn = e.target.closest('.btn-delete-mod');
-        if (!btn) return;
-        e.preventDefault();
-        e.stopPropagation();
-        const fn = btn.getAttribute('data-filename');
-        if (!fn) return;
-        const confirmed = await showConfirmDialog(`¿Eliminar el mod "${fn}" de la instancia?`, 'Eliminar Mod');
-        if (confirmed) {
-          try {
-            const currentInst = currentActiveProfile?.instancePath || null;
-            const res = await api.mods.delete(fn, currentInst);
-            if (res && res.success === false) {
-              alert(`No se pudo eliminar el mod: ${res.error || 'Error desconocido'}`);
-              return;
-            }
-            appendLog(`[Mods] Mod "${fn}" eliminado con éxito.`, 'info');
-            await loadInstalledMods();
-            await syncCatalogInstalledStatus();
-          } catch (err) {
-            console.error('Error al eliminar mod:', err);
-            alert(`Error al eliminar mod: ${err.message}`);
-          }
+          chk.checked = !enabled;
         }
       });
     }
-  }
+    }
 
   async function loadInstalledMods() {
     try {
@@ -4343,6 +4371,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         const bannerBackdrop = document.getElementById('instance-banner-backdrop');
         if (bannerBackdrop) {
           bannerBackdrop.style.backgroundImage = `url("${pIcon}")`;
+        }
+      }
+
+      if (!currentInstalledModsList || currentInstalledModsList.length === 0) {
+        if (installedModsTbody) installedModsTbody.innerHTML = '';
+        if (installedModsEmptyState) {
+          installedModsEmptyState.classList.remove('hidden');
+          installedModsEmptyState.textContent = 'Cargando mods de la instancia...';
         }
       }
 
@@ -5209,9 +5245,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  let searchInstalledModsDebounceTimer = null;
   if (inputSearchInstalledMods) {
     inputSearchInstalledMods.addEventListener('input', () => {
-      renderFilteredInstalledMods();
+      clearTimeout(searchInstalledModsDebounceTimer);
+      searchInstalledModsDebounceTimer = setTimeout(() => {
+        renderFilteredInstalledMods();
+      }, 120);
     });
   }
 

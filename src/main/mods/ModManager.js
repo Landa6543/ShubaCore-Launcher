@@ -1193,6 +1193,12 @@ class ModManager {
     const modsDir = path.join(instancePath, 'mods');
     let changed = false;
     for (const [fileName, entry] of Object.entries(lockData.mods || {})) {
+      // FILTRO ULTRA-RÁPIDO: Solo los archivos de ShubaCore necesitan esta verificación
+      const isShubaCandidate = entry.source === 'shubacore' ||
+                               /shubaclient|shubaconfig|shubadium|shubahost|polyplus|oneconfig|polydium/i.test(fileName) ||
+                               (entry.projectId && /shuba|polyplus|oneconfig|polydium/i.test(String(entry.projectId)));
+      if (!isShubaCandidate) continue;
+
       const realName = entry.fileName || fileName;
       let jarPath = path.join(modsDir, realName);
       if (!fs.existsSync(jarPath) && fs.existsSync(jarPath + '.disabled')) jarPath += '.disabled';
@@ -1401,7 +1407,6 @@ class ModManager {
     if (!jarPath || !fs.existsSync(jarPath)) return null;
     try {
       const zip = new AdmZip(jarPath);
-      const entries = zip.getEntries();
 
       let meta = {
         name: null,
@@ -1479,19 +1484,17 @@ class ModManager {
 
       meta.environment = this._resolveModEnvironment(meta, path.basename(jarPath));
 
+      // Búsqueda directa del icono sin iterar miles de archivos
       let iconEntry = null;
       if (logoFileName) {
         const cleanLogo = logoFileName.replace(/^[/\\]+/, '');
         iconEntry = zip.getEntry(cleanLogo) ||
                     zip.getEntry(logoFileName) ||
-                    (meta.modId ? zip.getEntry('assets/' + meta.modId + '/' + cleanLogo) : null);
-        if (!iconEntry) {
-          iconEntry = entries.find((e) => e.entryName.toLowerCase().endsWith(cleanLogo.toLowerCase()) && !e.isDirectory);
-        }
+                    (meta.modId ? (zip.getEntry('assets/' + meta.modId + '/' + cleanLogo) || zip.getEntry('assets/' + meta.modId + '/textures/gui/' + cleanLogo)) : null);
       }
 
       if (!iconEntry) {
-        const commonNames = ['logo.png', 'icon.png', 'pack.png'];
+        const commonNames = ['icon.png', 'logo.png', 'pack.png'];
         for (const cn of commonNames) {
           iconEntry = zip.getEntry(cn);
           if (iconEntry) break;
@@ -1500,12 +1503,6 @@ class ModManager {
                         zip.getEntry('assets/' + meta.modId + '/textures/gui/' + cn);
             if (iconEntry) break;
           }
-        }
-        if (!iconEntry) {
-          iconEntry = entries.find((e) => {
-            const l = e.entryName.toLowerCase();
-            return l.endsWith('.png') && (l.includes('icon') || l.includes('logo')) && !e.isDirectory;
-          });
         }
       }
 
@@ -1532,8 +1529,17 @@ class ModManager {
     }
 
     const lockData = this._readLockFile(activeInstance);
+    if (!lockData.mods) lockData.mods = {};
     const filesOnDisk = fs.readdirSync(modsDir);
     const validFiles = new Set(filesOnDisk.filter((f) => f.endsWith('.jar') || f.endsWith('.jar.disabled')));
+
+    // Mapeo O(1) de claves existentes en mods-lock.json
+    const lockMap = new Map();
+    for (const k of Object.keys(lockData.mods)) {
+      lockMap.set(k, k);
+      lockMap.set(k.replace(/\.disabled$/i, ''), k);
+      lockMap.set(`${k}.disabled`, k);
+    }
 
     // Caché rápida persistente en disco (.shubacore-mods-cache.json)
     const cacheFile = path.join(activeInstance, '.shubacore-mods-cache.json');
@@ -1545,10 +1551,11 @@ class ModManager {
         diskCache = {};
       }
     }
+    let cacheDirty = false;
+    let lockModified = false;
 
     const getJarMetaWithCache = (filePath, file, stats) => {
-      // Acierto de caché: también cuando el análisis anterior falló o no encontró datos (checked),
-      // para no volver a abrir el .jar completo en cada visita al Gestor de Instancia.
+      // Acierto de caché: si ya fue analizado antes y el mtime y tamaño coinciden, retornar sin tocar el disco
       if (stats && diskCache[file] && diskCache[file].mtimeMs === stats.mtimeMs && diskCache[file].size === stats.size && (diskCache[file].metadata || diskCache[file].checked)) {
         return diskCache[file].metadata || null;
       }
@@ -1560,12 +1567,13 @@ class ModManager {
           checked: true,
           metadata: extracted
         };
+        cacheDirty = true;
       }
       return extracted;
     };
 
-    // 1. Detectar archivos introducidos manualmente o ya existentes (source: "custom", etc.)
-    validFiles.forEach((file) => {
+    // 1. Detectar archivos introducidos manualmente o ya existentes
+    for (const file of validFiles) {
       const isEnabled = !file.endsWith('.disabled');
       const baseName = file.replace(/\.disabled$/i, '');
       const filePath = path.join(modsDir, file);
@@ -1586,10 +1594,7 @@ class ModManager {
         }
       } catch (e) {}
 
-      const existingKey = Object.keys(lockData.mods).find(
-        (k) => k === file || k === baseName || `${k}.disabled` === file
-      );
-
+      const existingKey = lockMap.get(file) || lockMap.get(baseName);
       const cleanTitle = this._cleanJarName(file);
 
       if (!existingKey) {
@@ -1600,7 +1605,6 @@ class ModManager {
         const resolvedVersion = (jarMeta && jarMeta.version) ? jarMeta.version : 'custom';
         const resolvedSummary = (jarMeta && jarMeta.description) ? jarMeta.description : null;
         const resolvedIcon = (jarMeta && jarMeta.iconBase64) ? jarMeta.iconBase64 : null;
-
         const resolvedEnv = (jarMeta && jarMeta.environment) ? jarMeta.environment : this._resolveModEnvironment(jarMeta, file);
 
         lockData.mods[file] = {
@@ -1624,74 +1628,97 @@ class ModManager {
           clientSide: resolvedEnv === 'server' ? 'unsupported' : (resolvedEnv === 'client' ? 'required' : 'optional'),
           serverSide: resolvedEnv === 'client' ? 'unsupported' : (resolvedEnv === 'server' ? 'required' : 'optional')
         };
+        lockMap.set(file, file);
+        lockMap.set(baseName, file);
+        lockModified = true;
       } else {
         const modEntry = lockData.mods[existingKey];
         if (existingKey !== file) {
           delete lockData.mods[existingKey];
           modEntry.fileName = file;
           lockData.mods[file] = modEntry;
+          lockModified = true;
         }
-        modEntry.enabled = isEnabled;
-        modEntry.sizeFormatted = sizeFormatted || modEntry.sizeFormatted || '';
+        if (modEntry.enabled !== isEnabled) {
+          modEntry.enabled = isEnabled;
+          lockModified = true;
+        }
+        if (sizeFormatted && modEntry.sizeFormatted !== sizeFormatted) {
+          modEntry.sizeFormatted = sizeFormatted;
+          lockModified = true;
+        }
 
         // Sincronizar o actualizar entorno de ejecución (Solo Servidor, Solo Cliente o Ambos)
         const resolvedEnv = this._resolveModEnvironment(modEntry, file);
-        modEntry.environment = resolvedEnv;
-        modEntry.clientSide = resolvedEnv === 'server' ? 'unsupported' : (resolvedEnv === 'client' ? 'required' : 'optional');
-        modEntry.serverSide = resolvedEnv === 'client' ? 'unsupported' : (resolvedEnv === 'server' ? 'required' : 'optional');
+        if (modEntry.environment !== resolvedEnv) {
+          modEntry.environment = resolvedEnv;
+          modEntry.clientSide = resolvedEnv === 'server' ? 'unsupported' : (resolvedEnv === 'client' ? 'required' : 'optional');
+          modEntry.serverSide = resolvedEnv === 'client' ? 'unsupported' : (resolvedEnv === 'server' ? 'required' : 'optional');
+          lockModified = true;
+        }
 
         // Corregir valores nulos, vacíos o "undefined"
         if (!modEntry.displayName || modEntry.displayName === 'undefined' || modEntry.displayName.trim() === '') {
           modEntry.displayName = cleanTitle;
+          lockModified = true;
         }
         if (!modEntry.name || modEntry.name === 'undefined' || modEntry.name.trim() === '') {
           modEntry.name = modEntry.displayName || cleanTitle;
+          lockModified = true;
         }
         if (!modEntry.source || modEntry.source === 'undefined' || modEntry.source.trim() === '') {
           modEntry.source = 'custom';
+          lockModified = true;
         }
 
-        // Si le falta icono o autor, intentar extraerlo localmente del .jar con caché
-        if (!modEntry.iconUrl || !modEntry.author) {
+        // Si le falta icono o autor y NO se ha verificado aún en caché, consultar sin repetir
+        if ((!modEntry.iconUrl || !modEntry.author) && (!diskCache[file] || (!diskCache[file].checked && !diskCache[file].metadata))) {
           const jarMeta = getJarMetaWithCache(filePath, file, fileStats);
           if (jarMeta) {
-            if (jarMeta.iconBase64 && !modEntry.iconUrl) modEntry.iconUrl = jarMeta.iconBase64;
-            if (jarMeta.author && !modEntry.author) modEntry.author = jarMeta.author;
-            if (jarMeta.description && !modEntry.summary) modEntry.summary = jarMeta.description;
+            if (jarMeta.iconBase64 && !modEntry.iconUrl) { modEntry.iconUrl = jarMeta.iconBase64; lockModified = true; }
+            if (jarMeta.author && !modEntry.author) { modEntry.author = jarMeta.author; lockModified = true; }
+            if (jarMeta.description && !modEntry.summary) { modEntry.summary = jarMeta.description; lockModified = true; }
             if (jarMeta.name && (!modEntry.displayName || modEntry.displayName === 'undefined' || modEntry.displayName === cleanTitle)) {
               modEntry.displayName = jarMeta.name;
               modEntry.name = jarMeta.name;
+              lockModified = true;
             }
             if (jarMeta.version && (!modEntry.versionNumber || modEntry.versionNumber === 'custom')) {
               modEntry.versionNumber = jarMeta.version;
               modEntry.version = jarMeta.version;
+              lockModified = true;
             }
           }
         }
       }
-    });
+    }
 
-    // Guardar caché de metadatos en disco
-    Object.keys(diskCache).forEach((k) => {
-      if (!validFiles.has(k)) delete diskCache[k];
-    });
-    try {
-      fs.writeFileSync(cacheFile, JSON.stringify(diskCache), 'utf8');
-    } catch (_) {}
+    // Guardar caché de metadatos en disco sólo si hubo novedades
+    if (cacheDirty) {
+      Object.keys(diskCache).forEach((k) => {
+        if (!validFiles.has(k)) delete diskCache[k];
+      });
+      try {
+        fs.writeFileSync(cacheFile, JSON.stringify(diskCache), 'utf8');
+      } catch (_) {}
+    }
 
     // 2. Limpiar del lockfile los mods eliminados físicamente
     Object.keys(lockData.mods).forEach((key) => {
       if (!validFiles.has(key) && !validFiles.has(`${key}.disabled`)) {
         logger.debug(`Mod ${key} eliminado del disco. Removiendo de mods-lock.json.`);
         delete lockData.mods[key];
+        lockModified = true;
       }
     });
 
     // 3. Garantizar identidad oficial de ShubaCore (logo y autor SHUBATECH)
     this._applyShubaCoreIdentity(activeInstance, lockData);
 
-    lockData.lastUpdated = new Date().toISOString();
-    fs.writeFileSync(this._getLockFilePath(activeInstance), JSON.stringify(lockData, null, 2), 'utf8');
+    if (lockModified) {
+      lockData.lastUpdated = new Date().toISOString();
+      fs.writeFileSync(this._getLockFilePath(activeInstance), JSON.stringify(lockData, null, 2), 'utf8');
+    }
 
     return Object.values(lockData.mods).map((m) => {
       const clean = this._cleanJarName(m.fileName);
