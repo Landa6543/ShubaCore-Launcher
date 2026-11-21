@@ -1,0 +1,28 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Top Face: Minecraft Grass Block -->
+  <polygon points="16,2 30,9.5 16,17 2,9.5" fill="#5da638"/>
+  <polygon points="16,3.5 28,9.5 16,15.5 4,9.5" fill="#6fbc42"/>
+  <polygon points="13,5 17,7 15,9 11,7" fill="#7ecd4d"/>
+  <polygon points="20,7 24,9 22,11 18,9" fill="#549432"/>
+  <polygon points="10,9 14,11 12,13 8,11" fill="#549432"/>
+  <!-- Left Face: Dirt Base -->
+  <polygon points="2,9.5 16,17 16,30 2,22.5" fill="#866043"/>
+  <rect x="5" y="16" width="3" height="2.5" fill="#6b4931"/>
+  <rect x="9" y="21" width="3" height="2" fill="#573b26"/>
+  <rect x="4" y="23" width="2.5" height="2" fill="#9c7353"/>
+  <rect x="11" y="18" width="2.5" height="2" fill="#9c7353"/>
+  <!-- Left Face: Grass Fringe Overhang -->
+  <polygon points="2,9.5 16,17 16,21 14,20 13,22 11,20 9,23 7,19 5,21 3,18 2,19" fill="#4c892d"/>
+  <polygon points="2,9.5 16,17 16,19 14,18 13,20 11,18 9,21 7,17 5,19 3,16 2,17" fill="#5da638"/>
+  <!-- Right Face: Shadowed Dirt Base -->
+  <polygon points="16,17 30,9.5 30,22.5 16,30" fill="#61432c"/>
+  <rect x="18" y="19" width="3" height="2" fill="#483120"/>
+  <rect x="24" y="17" width="3" height="2.5" fill="#7a563a"/>
+  <rect x="22" y="23" width="3" height="2" fill="#483120"/>
+  <rect x="26" y="21" width="2.5" height="2" fill="#7a563a"/>
+  <!-- Right Face: Grass Fringe Overhang -->
+  <polygon points="16,17 30,9.5 30,18 28,17 27,20 25,18 23,22 21,19 19,21 18,19 16,20" fill="#396621"/>
+  <polygon points="16,17 30,9.5 30,16 28,15 27,18 25,16 23,20 21,17 19,19 18,17 16,18" fill="#4c892d"/>
+  <!-- 3D Outer Outline -->
+  <polygon points="16,2 30,9.5 30,22.5 16,30 2,22.5 2,9.5" stroke="#2e1a0d" stroke-width="0.8" fill="none"/>
+</svg>

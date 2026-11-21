@@ -2751,6 +2751,18 @@ function registerIpcHandlers(mainWindow) {
     return await bedrockManager.openStore();
   });
 
+  ipcMain.handle('bedrock:open-store-install', async () => {
+    return await bedrockManager.openStoreInstall();
+  });
+
+  ipcMain.handle('bedrock:open-store-downloads', async () => {
+    return await bedrockManager.openStoreDownloads();
+  });
+
+  ipcMain.handle('bedrock:check-install-status', async () => {
+    return await bedrockManager.checkInstallStatus();
+  });
+
   ipcMain.handle('bedrock:get-addons', async (event, instancePath) => {
     return bedrockManager.getInstalledAddons(instancePath);
   });

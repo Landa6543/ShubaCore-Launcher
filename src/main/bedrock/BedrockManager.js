@@ -20,6 +20,8 @@ class BedrockManager {
     this.previewPackageFamily = 'Microsoft.MinecraftWindowsBeta_8wekyb3d8bbwe';
     this.storeProductId = '9NBLGGH2JHXJ';
     this.storeUrl = `ms-windows-store://pdp/?ProductId=${this.storeProductId}`;
+    this.storeInstallUrl = `ms-windows-store://install/?ProductId=${this.storeProductId}`;
+    this.storeDownloadsUrl = 'ms-windows-store://downloadandupdates';
     this.webStoreUrl = 'https://www.xbox.com/games/store/minecraft-for-windows/9nblggh2jhxj';
   }
 
@@ -133,6 +135,63 @@ class BedrockManager {
       await shell.openExternal(this.webStoreUrl);
       return { success: true, url: this.webStoreUrl };
     }
+  }
+
+  /**
+   * Envía la orden directa a la Microsoft Store para instalar/descargar Minecraft Bedrock
+   */
+  async openStoreInstall() {
+    try {
+      await shell.openExternal(this.storeInstallUrl);
+      return { success: true, url: this.storeInstallUrl, action: 'install' };
+    } catch (err) {
+      logger.warn('[BedrockManager] No se pudo invocar direct install, recurriendo a PDP:', err.message);
+      return this.openStore();
+    }
+  }
+
+  /**
+   * Abre la cola de descargas activas en la Microsoft Store
+   */
+  async openStoreDownloads() {
+    try {
+      await shell.openExternal(this.storeDownloadsUrl);
+      return { success: true, url: this.storeDownloadsUrl };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * Comprueba en tiempo real si Minecraft Bedrock ya se ha instalado o si se está descargando
+   */
+  async checkInstallStatus() {
+    const installed = this.isInstalled();
+    if (installed) {
+      return {
+        installed: true,
+        status: 'installed',
+        detail: 'Minecraft Bedrock Edition está instalado en el sistema.'
+      };
+    }
+
+    let downloading = false;
+    if (process.env.LOCALAPPDATA) {
+      const pkgOfficial = path.join(process.env.LOCALAPPDATA, 'Packages', this.packageFamily);
+      const pkgPreview = path.join(process.env.LOCALAPPDATA, 'Packages', this.previewPackageFamily);
+      if (fs.existsSync(pkgOfficial) || fs.existsSync(pkgPreview)) {
+        downloading = true;
+      }
+    }
+
+    return {
+      installed: false,
+      status: downloading ? 'downloading' : 'not_installed',
+      downloading,
+      detail: downloading
+        ? 'Paquetes de Minecraft Bedrock detectados en preparación o descarga.'
+        : 'Minecraft Bedrock aún no se encuentra instalado en este equipo.'
+    };
   }
 
   /**

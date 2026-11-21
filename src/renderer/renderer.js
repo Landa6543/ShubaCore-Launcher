@@ -2787,7 +2787,7 @@ document.addEventListener('DOMContentLoaded', async () => {
               <div class="instance-card-info">
                 <h3 class="instance-card-title" title="${escapeHtml(p.name || 'Sin Nombre')}">${escapeHtml(p.name || 'Sin Nombre')}</h3>
                 <div class="instance-card-meta" title="${isBedrock ? 'Minecraft Bedrock Edition' : `MC ${escapeHtml(p.mcVersion || '1.21.1')} · ${escapeHtml(p.loader || 'NeoForge')} ${escapeHtml(pCleanVer)}`}">
-                  
+                  ${metaHtml}
                 </div>
               </div>
             </div>
@@ -7390,10 +7390,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     const simpleImg = document.getElementById('simple-lightbox-image');
     if (simpleImg) {
+      simpleImg.onerror = null;
+      simpleImg.onload = null;
       simpleImg.src = '';
       simpleImg.style.display = 'none';
     }
     if (lightboxImage) {
+      lightboxImage.onerror = null;
+      lightboxImage.onload = null;
       lightboxImage.src = '';
       lightboxImage.style.display = 'none';
     }
@@ -7406,6 +7410,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       simpleImg.style.display = 'block';
       simpleImg.src = imgUrl;
       simpleImg.onerror = () => {
+        simpleImg.onerror = null;
         closeActiveImageLightbox();
         if (typeof showToast === 'function') {
           showToast('No se pudo cargar la imagen en resolución completa.', 'warning');
@@ -10561,8 +10566,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     return container;
   }
 
+  let lastToastMsg = '';
+  let lastToastTime = 0;
+
   function showToast(message, type = 'info', durationMs = 3800) {
+    const now = Date.now();
+    if (message === lastToastMsg && now - lastToastTime < 2500) {
+      return;
+    }
+    lastToastMsg = message;
+    lastToastTime = now;
+
     const container = ensureToastContainer();
+    while (container.children.length >= 5) {
+      container.removeChild(container.firstChild);
+    }
     const toast = document.createElement('div');
     toast.className = 'shuba-toast';
     const bg = type === 'success' ? '#065f46' : (type === 'error' ? '#991b1b' : '#1e293b');
@@ -12608,29 +12626,107 @@ document.addEventListener('DOMContentLoaded', async () => {
   const modalBedrockNotInstalled = document.getElementById('modal-bedrock-not-installed');
   const btnCloseBedrockNotInstalled = document.getElementById('btn-close-bedrock-not-installed');
   const btnOpenStoreBedrockNotInstalled = document.getElementById('btn-open-store-bedrock-not-installed');
+  const btnViewStoreDownloads = document.getElementById('btn-view-store-downloads');
+  const btnLaunchBedrockInstalled = document.getElementById('btn-launch-bedrock-installed');
+  const bedrockInstallStatusBox = document.getElementById('bedrock-install-status-box');
+  const bedrockInstallStatusText = document.getElementById('bedrock-install-status-text');
+  const bedrockInstallStatusSub = document.getElementById('bedrock-install-status-sub');
+  const bedrockInstallSuccessBox = document.getElementById('bedrock-install-success-box');
   const btnCloseBedrockAddons = document.getElementById('btn-close-bedrock-addons');
   const btnCloseBedrockAddonsFooter = document.getElementById('btn-close-bedrock-addons-footer');
   const btnImportBedrockAddon = document.getElementById('btn-import-bedrock-addon');
   const btnOpenMojangFolder = document.getElementById('btn-open-mojang-folder');
   const bedrockAddonsList = document.getElementById('bedrock-addons-list');
 
+  let bedrockInstallPollTimer = null;
+
+  function stopBedrockInstallPolling() {
+    if (bedrockInstallPollTimer) {
+      clearInterval(bedrockInstallPollTimer);
+      bedrockInstallPollTimer = null;
+    }
+  }
+
   function openBedrockNotInstalledModal() {
     if (!modalBedrockNotInstalled) return;
     modalBedrockNotInstalled.classList.add('active');
     modalBedrockNotInstalled.style.setProperty('display', 'flex', 'important');
+
+    // Resetear estados del modal
+    if (bedrockInstallStatusBox) bedrockInstallStatusBox.style.display = 'none';
+    if (bedrockInstallSuccessBox) bedrockInstallSuccessBox.style.display = 'none';
+    if (btnViewStoreDownloads) btnViewStoreDownloads.style.display = 'none';
+    if (btnLaunchBedrockInstalled) btnLaunchBedrockInstalled.style.display = 'none';
+    if (btnOpenStoreBedrockNotInstalled) btnOpenStoreBedrockNotInstalled.style.display = 'inline-flex';
   }
 
   function closeBedrockNotInstalledModal() {
+    stopBedrockInstallPolling();
     if (!modalBedrockNotInstalled) return;
     modalBedrockNotInstalled.classList.remove('active');
     modalBedrockNotInstalled.style.setProperty('display', 'none', 'important');
   }
 
   if (btnCloseBedrockNotInstalled) btnCloseBedrockNotInstalled.addEventListener('click', closeBedrockNotInstalledModal);
+
   if (btnOpenStoreBedrockNotInstalled) {
-    btnOpenStoreBedrockNotInstalled.addEventListener('click', () => {
+    btnOpenStoreBedrockNotInstalled.addEventListener('click', async () => {
+      // 1. Mostrar estado de orden enviada
+      if (bedrockInstallStatusBox) {
+        bedrockInstallStatusBox.style.display = 'block';
+        if (bedrockInstallStatusText) {
+          bedrockInstallStatusText.textContent = window.i18n?.t ? window.i18n.t('bedrock.statusSending') : 'Enviando orden a Microsoft Store...';
+        }
+        if (bedrockInstallStatusSub) {
+          bedrockInstallStatusSub.textContent = 'Iniciando diálogo de descarga oficial en Windows...';
+        }
+      }
+      if (btnViewStoreDownloads) btnViewStoreDownloads.style.display = 'inline-flex';
+
+      // 2. Mandar la orden directa de instalación a Windows Store
+      try {
+        await api.bedrock.openStoreInstall();
+      } catch (_) {
+        await api.bedrock.openStore().catch(() => {});
+      }
+
+      // 3. Iniciar sondeo continuo cada 2.5s para detectar si se está descargando o si ya terminó
+      stopBedrockInstallPolling();
+      bedrockInstallPollTimer = setInterval(async () => {
+        try {
+          const res = await api.bedrock.checkInstallStatus();
+          if (res.installed) {
+            stopBedrockInstallPolling();
+            if (bedrockInstallStatusBox) bedrockInstallStatusBox.style.display = 'none';
+            if (bedrockInstallSuccessBox) bedrockInstallSuccessBox.style.display = 'block';
+            if (btnOpenStoreBedrockNotInstalled) btnOpenStoreBedrockNotInstalled.style.display = 'none';
+            if (btnLaunchBedrockInstalled) btnLaunchBedrockInstalled.style.display = 'inline-flex';
+            if (typeof showToast === 'function') {
+              showToast(window.i18n?.t ? window.i18n.t('bedrock.statusInstalledSuccess') : '¡Minecraft Bedrock se ha detectado e instalado con éxito!', 'success');
+            }
+          } else if (res.downloading) {
+            if (bedrockInstallStatusText) {
+              bedrockInstallStatusText.textContent = window.i18n?.t ? window.i18n.t('bedrock.statusDownloading') : 'Descargando paquetes de Minecraft Bedrock en tu equipo...';
+            }
+            if (bedrockInstallStatusSub) {
+              bedrockInstallStatusSub.textContent = 'La Microsoft Store está procesando o descargando los archivos.';
+            }
+          }
+        } catch (_) {}
+      }, 2500);
+    });
+  }
+
+  if (btnViewStoreDownloads) {
+    btnViewStoreDownloads.addEventListener('click', () => {
+      api.bedrock.openStoreDownloads().catch(() => {});
+    });
+  }
+
+  if (btnLaunchBedrockInstalled) {
+    btnLaunchBedrockInstalled.addEventListener('click', async () => {
       closeBedrockNotInstalledModal();
-      api.bedrock.openStore().catch(() => {});
+      await launchCurrentProfile();
     });
   }
   if (modalBedrockNotInstalled) {
