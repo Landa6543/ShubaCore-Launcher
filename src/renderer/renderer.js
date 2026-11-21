@@ -100,6 +100,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       const official = officialLoaderSvg(officialKey, size);
       if (official) return official;
     }
+    if (norm.includes('bedrock')) {
+      return `<svg width="${size}" height="${size}" viewBox="0 0 32 32" fill="none" class="loader-svg loader-svg-bedrock" xmlns="http://www.w3.org/2000/svg"><polygon points="16,3 29,10.5 16,18 3,10.5" fill="#4B5563"/><polygon points="16,5 26,10.5 16,16 6,10.5" fill="#6B7280"/><polygon points="3,10.5 16,18 16,29 3,21.5" fill="#374151"/><polygon points="16,18 29,10.5 29,21.5 16,29" fill="#1F2937"/><circle cx="12" cy="11" r="1.5" fill="#9CA3AF"/><circle cx="21" cy="13" r="1.5" fill="#9CA3AF"/><circle cx="8" cy="19" r="1.5" fill="#111827"/><circle cx="13" cy="24" r="1.5" fill="#111827"/><circle cx="23" cy="20" r="1.5" fill="#111827"/></svg>`;
+    }
     if (norm.includes('neoforge')) {
       return `<svg width="${size}" height="${size}" viewBox="0 0 32 32" fill="none" class="loader-svg loader-svg-neoforge" xmlns="http://www.w3.org/2000/svg"><path d="M4 6L11 11L16 6L21 11L28 6L26 21L16 28L6 21L4 6Z" fill="#EA580C"/><path d="M11 11L16 17L21 11L25 19L16 26L7 19L11 11Z" fill="#F97316"/><path d="M13 14L16 18L19 14L22 20L16 25L10 20L13 14Z" fill="#FFFFFF"/><path d="M16 22L14 19H18L16 22Z" fill="#1E293B"/><circle cx="12.5" cy="16.5" r="1.5" fill="#1E293B"/><circle cx="19.5" cy="16.5" r="1.5" fill="#1E293B"/></svg>`;
     }
@@ -119,7 +122,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const norm = String(loader || 'vanilla').toLowerCase().trim();
     let key = 'vanilla';
     let label = 'Vanilla';
-    if (norm.includes('neoforge')) { key = 'neoforge'; label = 'NeoForge'; }
+    if (norm.includes('bedrock')) { key = 'bedrock'; label = 'Bedrock'; }
+    else if (norm.includes('neoforge')) { key = 'neoforge'; label = 'NeoForge'; }
     else if (norm.includes('forge')) { key = 'forge'; label = 'Forge'; }
     else if (norm.includes('fabric')) { key = 'fabric'; label = 'Fabric'; }
     else if (norm.includes('quilt')) { key = 'quilt'; label = 'Quilt'; }
@@ -2764,6 +2768,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         const pRamMin = p.ramMin || p.memoryMin || '2G';
         const pRamMax = p.ramMax || p.memoryMax || '8G';
         const pIcon = resolveInstanceIcon(p.icon, p.iconUrl);
+        const isBedrock = p.edition === 'bedrock' || pLoaderLower === 'bedrock';
+        const metaHtml = isBedrock
+          ? `<span>Bedrock Edition</span><span>·</span><span>Windows Store</span><span>·</span><span>${p.modsCount || 0} Add-on(s)</span>`
+          : `<span>MC ${escapeHtml(p.mcVersion || '1.21.1')}</span><span>·</span><span>${escapeHtml(p.loader || 'NeoForge')} ${escapeHtml(pCleanVer)}</span><span>·</span><span>${escapeHtml(pRamMin)}-${escapeHtml(pRamMax)}</span>`;
+        const modsBtnLabel = isBedrock
+          ? (window.i18n?.t ? window.i18n.t('card.addons', 'Add-ons') : 'Add-ons')
+          : (window.i18n?.t ? window.i18n.t('card.mods', 'Mods') : 'Mods');
 
         const card = document.createElement('div');
         card.className = `instance-card ${isActive ? 'active' : ''}`;
@@ -2775,12 +2786,8 @@ document.addEventListener('DOMContentLoaded', async () => {
               <img src="${pIcon}" class="instance-card-avatar" alt="Icono" onerror="this.onerror=null; this.src='assets/logo.png';">
               <div class="instance-card-info">
                 <h3 class="instance-card-title" title="${escapeHtml(p.name || 'Sin Nombre')}">${escapeHtml(p.name || 'Sin Nombre')}</h3>
-                <div class="instance-card-meta" title="MC ${escapeHtml(p.mcVersion || '1.21.1')} · ${escapeHtml(p.loader || 'NeoForge')} ${escapeHtml(pCleanVer)} · ${escapeHtml(pRamMin)}-${escapeHtml(pRamMax)}">
-                  <span>MC ${escapeHtml(p.mcVersion || '1.21.1')}</span>
-                  <span>·</span>
-                  <span>${escapeHtml(p.loader || 'NeoForge')} ${escapeHtml(pCleanVer)}</span>
-                  <span>·</span>
-                  <span>${escapeHtml(pRamMin)}-${escapeHtml(pRamMax)}</span>
+                <div class="instance-card-meta" title="${isBedrock ? 'Minecraft Bedrock Edition' : `MC ${escapeHtml(p.mcVersion || '1.21.1')} · ${escapeHtml(p.loader || 'NeoForge')} ${escapeHtml(pCleanVer)}`}">
+                  
                 </div>
               </div>
             </div>
@@ -2793,8 +2800,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>
                 <span>${window.i18n?.t ? window.i18n.t('card.play', 'Jugar') : 'Jugar'}</span>
               </button>
-              <button class="btn btn-small btn-secondary btn-manage-mods" data-id="${p.id}" title="${window.i18n?.t ? window.i18n.t('card.mods', 'Mods') : 'Mods'}">
-                <span>${window.i18n?.t ? window.i18n.t('card.mods', 'Mods') : 'Mods'}</span>
+              <button class="btn btn-small btn-secondary btn-manage-mods" data-id="${p.id}" title="${modsBtnLabel}">
+                <span>${modsBtnLabel}</span>
               </button>
             </div>
             <div class="instance-card-actions-right">
@@ -2851,7 +2858,12 @@ document.addEventListener('DOMContentLoaded', async () => {
           const id = e.currentTarget.getAttribute('data-id');
           await api.profiles.setActive(id);
           await loadProfiles();
-          switchMainView('mods');
+          const activeProf = profiles.find((p) => p.id === id);
+          if (activeProf && (activeProf.edition === 'bedrock' || (activeProf.loader || '').toLowerCase() === 'bedrock')) {
+            openBedrockAddonsModal(activeProf);
+          } else {
+            switchMainView('mods');
+          }
         });
       });
 
@@ -3070,6 +3082,54 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupLoaderRadioPills('create-loader-radio-pills', 'select-profile-loader', () => updateLoaderVersionsInModal());
   setupLoaderRadioPills('edit-loader-radio-pills', 'select-edit-profile-loader', () => updateEditLoaderVersions());
 
+  // Selector de Edición (Java vs Bedrock)
+  const createEditionPills = document.querySelectorAll('#create-edition-radio-pills .loader-radio-pill');
+  createEditionPills.forEach((pill) => {
+    pill.addEventListener('click', async () => {
+      const edition = pill.getAttribute('data-edition') || 'java';
+      createEditionPills.forEach((p) => p.classList.toggle('active', p === pill));
+      const inputEdition = document.getElementById('input-create-profile-edition');
+      if (inputEdition) inputEdition.value = edition;
+
+      const javaFields = document.getElementById('create-profile-java-fields');
+      const bedrockFields = document.getElementById('create-profile-bedrock-fields');
+
+      if (edition === 'bedrock') {
+        if (javaFields) javaFields.style.display = 'none';
+        if (bedrockFields) bedrockFields.style.display = 'block';
+
+        const statusDot = document.getElementById('bedrock-status-dot');
+        const statusText = document.getElementById('bedrock-status-text');
+        const btnStore = document.getElementById('btn-bedrock-open-store-modal');
+
+        if (statusText) statusText.textContent = window.i18n?.t ? window.i18n.t('bedrock.detecting') : 'Comprobando instalación de Windows...';
+
+        try {
+          const info = await api.bedrock.getInfo();
+          if (info && info.installed) {
+            if (statusDot) statusDot.style.background = '#10b981';
+            if (statusText) statusText.textContent = window.i18n?.t ? window.i18n.t('bedrock.installed') : '✔ Instalación oficial de Bedrock detectada en Windows.';
+            if (btnStore) btnStore.style.display = 'none';
+          } else {
+            if (statusDot) statusDot.style.background = '#f59e0b';
+            if (statusText) statusText.textContent = window.i18n?.t ? window.i18n.t('bedrock.notInstalled') : '⚠ No detectado en este equipo. Requiere instalación desde Microsoft Store.';
+            if (btnStore) btnStore.style.display = 'inline-block';
+          }
+        } catch (_) {}
+      } else {
+        if (javaFields) javaFields.style.display = 'block';
+        if (bedrockFields) bedrockFields.style.display = 'none';
+      }
+    });
+  });
+
+  const btnBedrockStoreModal = document.getElementById('btn-bedrock-open-store-modal');
+  if (btnBedrockStoreModal) {
+    btnBedrockStoreModal.addEventListener('click', () => {
+      api.bedrock.openStore().catch(() => {});
+    });
+  }
+
   function openCreateProfileModal() {
     if (!modalCreateProfile) return;
     modalCreateProfile.classList.add('active');
@@ -3081,6 +3141,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Sincronizar radio pills con el loader inicial
     const currentLoader = selectProfileLoader ? selectProfileLoader.value || 'vanilla' : 'vanilla';
     syncLoaderRadioPills('create-loader-radio-pills', currentLoader);
+
+    // Restablecer selección de edición a Java por defecto
+    const editionPills = document.querySelectorAll('#create-edition-radio-pills .loader-radio-pill');
+    const javaFields = document.getElementById('create-profile-java-fields');
+    const bedrockFields = document.getElementById('create-profile-bedrock-fields');
+    const inputEdition = document.getElementById('input-create-profile-edition');
+
+    if (inputEdition) inputEdition.value = 'java';
+    editionPills.forEach((p) => {
+      if (p.getAttribute('data-edition') === 'java') p.classList.add('active');
+      else p.classList.remove('active');
+    });
+    if (javaFields) javaFields.style.display = 'block';
+    if (bedrockFields) bedrockFields.style.display = 'none';
 
     if (selectProfileMc) {
       if (!selectProfileMc.options || selectProfileMc.options.length === 0) {
@@ -3202,21 +3276,38 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnConfirmCreateProfile.textContent = 'Creando Instancia...';
 
     try {
-      const cleanLoaderVer = (selectProfileLoaderVersion.value || '').split(' ')[0].trim();
-      const ramMin = (inputProfileRamMin.value || '2G').trim();
-      const ramMax = (inputProfileRamMax.value || '8G').trim();
+      const edition = document.getElementById('input-create-profile-edition')?.value || 'java';
+      let profilePayload;
 
-      const profilePayload = {
-        name,
-        mcVersion: selectProfileMc.value || '26.3',
-        loader: selectProfileLoader.value || 'vanilla',
-        loaderVersion: cleanLoaderVer,
-        icon: (inputCreateProfileIcon ? inputCreateProfileIcon.value.trim() : '') || 'assets/logo.png',
-        ramMin,
-        ramMax,
-        memoryMin: ramMin,
-        memoryMax: ramMax
-      };
+      if (edition === 'bedrock') {
+        profilePayload = {
+          name,
+          edition: 'bedrock',
+          loader: 'Bedrock',
+          loaderVersion: 'Official',
+          mcVersion: 'Bedrock Latest',
+          icon: (inputCreateProfileIcon ? inputCreateProfileIcon.value.trim() : '') || 'assets/logo.png',
+          ramMin: '0',
+          ramMax: '0'
+        };
+      } else {
+        const cleanLoaderVer = (selectProfileLoaderVersion.value || '').split(' ')[0].trim();
+        const ramMin = (inputProfileRamMin.value || '2G').trim();
+        const ramMax = (inputProfileRamMax.value || '8G').trim();
+
+        profilePayload = {
+          name,
+          edition: 'java',
+          mcVersion: selectProfileMc.value || '26.3',
+          loader: selectProfileLoader.value || 'vanilla',
+          loaderVersion: cleanLoaderVer,
+          icon: (inputCreateProfileIcon ? inputCreateProfileIcon.value.trim() : '') || 'assets/logo.png',
+          ramMin,
+          ramMax,
+          memoryMin: ramMin,
+          memoryMax: ramMax
+        };
+      }
 
       const res = await api.profiles.create(profilePayload);
       if (res && res.success === false) {
@@ -7143,6 +7234,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
 
       if (!launchRes.success) {
+        if (launchRes.notInstalled) {
+          openBedrockNotInstalledModal();
+          return;
+        }
         throw new Error(launchRes.error || 'Fallo desconocido en el motor de lanzamiento.');
       }
     } catch (err) {
@@ -12501,4 +12596,170 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.addEventListener('keydown', dismissSplash, { once: true });
     setTimeout(dismissSplash, 1200);
   }
+
+
+  // =======================================================
+  // MÓDULO MINECRAFT BEDROCK: MODALES Y GESTOR DE ADD-ONS
+  // =======================================================
+  let currentBedrockProfile = null;
+  let activeBedrockTab = 'behavior';
+
+  const modalBedrockAddons = document.getElementById('modal-bedrock-addons');
+  const modalBedrockNotInstalled = document.getElementById('modal-bedrock-not-installed');
+  const btnCloseBedrockNotInstalled = document.getElementById('btn-close-bedrock-not-installed');
+  const btnOpenStoreBedrockNotInstalled = document.getElementById('btn-open-store-bedrock-not-installed');
+  const btnCloseBedrockAddons = document.getElementById('btn-close-bedrock-addons');
+  const btnCloseBedrockAddonsFooter = document.getElementById('btn-close-bedrock-addons-footer');
+  const btnImportBedrockAddon = document.getElementById('btn-import-bedrock-addon');
+  const btnOpenMojangFolder = document.getElementById('btn-open-mojang-folder');
+  const bedrockAddonsList = document.getElementById('bedrock-addons-list');
+
+  function openBedrockNotInstalledModal() {
+    if (!modalBedrockNotInstalled) return;
+    modalBedrockNotInstalled.classList.add('active');
+    modalBedrockNotInstalled.style.setProperty('display', 'flex', 'important');
+  }
+
+  function closeBedrockNotInstalledModal() {
+    if (!modalBedrockNotInstalled) return;
+    modalBedrockNotInstalled.classList.remove('active');
+    modalBedrockNotInstalled.style.setProperty('display', 'none', 'important');
+  }
+
+  if (btnCloseBedrockNotInstalled) btnCloseBedrockNotInstalled.addEventListener('click', closeBedrockNotInstalledModal);
+  if (btnOpenStoreBedrockNotInstalled) {
+    btnOpenStoreBedrockNotInstalled.addEventListener('click', () => {
+      closeBedrockNotInstalledModal();
+      api.bedrock.openStore().catch(() => {});
+    });
+  }
+  if (modalBedrockNotInstalled) {
+    modalBedrockNotInstalled.addEventListener('click', (e) => {
+      if (e.target === modalBedrockNotInstalled) closeBedrockNotInstalledModal();
+    });
+  }
+
+  async function openBedrockAddonsModal(profile) {
+    if (!modalBedrockAddons) return;
+    currentBedrockProfile = profile;
+    modalBedrockAddons.classList.add('active');
+    modalBedrockAddons.style.setProperty('display', 'flex', 'important');
+    await loadBedrockAddonsList();
+  }
+
+  function closeBedrockAddonsModal() {
+    if (!modalBedrockAddons) return;
+    modalBedrockAddons.classList.remove('active');
+    modalBedrockAddons.style.setProperty('display', 'none', 'important');
+  }
+
+  if (btnCloseBedrockAddons) btnCloseBedrockAddons.addEventListener('click', closeBedrockAddonsModal);
+  if (btnCloseBedrockAddonsFooter) btnCloseBedrockAddonsFooter.addEventListener('click', closeBedrockAddonsModal);
+  if (modalBedrockAddons) {
+    modalBedrockAddons.addEventListener('click', (e) => {
+      if (e.target === modalBedrockAddons) closeBedrockAddonsModal();
+    });
+  }
+
+  document.querySelectorAll('.bedrock-tab-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.bedrock-tab-btn').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      activeBedrockTab = btn.getAttribute('data-bedrock-tab') || 'behavior';
+      loadBedrockAddonsList();
+    });
+  });
+
+  if (btnOpenMojangFolder) {
+    btnOpenMojangFolder.addEventListener('click', async () => {
+      const res = await api.bedrock.openComMojang();
+      if (!res.success) {
+        alert(res.error || 'No se encontró la carpeta com.mojang oficial de Bedrock.');
+      }
+    });
+  }
+
+  if (btnImportBedrockAddon) {
+    btnImportBedrockAddon.addEventListener('click', async () => {
+      if (!currentBedrockProfile) return;
+      const dlg = await api.bedrock.selectAddonDialog();
+      if (dlg.canceled || !dlg.filePath) return;
+
+      btnImportBedrockAddon.disabled = true;
+      btnImportBedrockAddon.textContent = 'Importando...';
+
+      try {
+        const res = await api.bedrock.importAddon(dlg.filePath, currentBedrockProfile.instancePath, true);
+        if (res.success) {
+          appendLog(`[Bedrock Add-ons] "${res.file}" importado exitosamente como ${res.type}.`, 'success');
+          await loadBedrockAddonsList();
+          await loadProfiles();
+        } else {
+          alert('Error al importar Add-on: ' + (res.error || 'Error desconocido'));
+        }
+      } catch (err) {
+        alert('Error al importar Add-on: ' + err.message);
+      } finally {
+        btnImportBedrockAddon.disabled = false;
+        btnImportBedrockAddon.textContent = window.i18n?.t ? window.i18n.t('bedrock.importBtn') : '+ Importar Add-on (.mcpack / .mcaddon)';
+      }
+    });
+  }
+
+  async function loadBedrockAddonsList() {
+    if (!bedrockAddonsList || !currentBedrockProfile) return;
+    bedrockAddonsList.innerHTML = '<div class="empty-state" style="padding: 20px; text-align: center; color: var(--text-muted);">Cargando packs...</div>';
+
+    try {
+      const data = await api.bedrock.getAddons(currentBedrockProfile.instancePath);
+      let items = [];
+      if (activeBedrockTab === 'behavior') items = data.behaviorPacks || [];
+      else if (activeBedrockTab === 'resource') items = data.resourcePacks || [];
+      else if (activeBedrockTab === 'worlds') items = data.worlds || [];
+
+      if (items.length === 0) {
+        const emptyMsg = window.i18n?.t ? window.i18n.t('bedrock.noAddons') : 'No hay packs instalados en esta categoría.';
+        bedrockAddonsList.innerHTML = `
+          <div class="empty-state" style="padding: 30px; text-align: center; color: var(--text-muted);">
+            <div style="font-size: 28px; margin-bottom: 8px;">📦</div>
+            <p style="font-size: 13px; margin: 0;">${emptyMsg}</p>
+          </div>
+        `;
+        return;
+      }
+
+      bedrockAddonsList.innerHTML = '';
+      items.forEach((item) => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: var(--radius-sm);';
+
+        const iconSrc = item.iconPath ? `file:///${item.iconPath.replace(/\\/g, '/')}` : 'assets/logo.png';
+
+        row.innerHTML = `
+          <div style="display: flex; align-items: center; gap: 10px; overflow: hidden;">
+            <img src="${iconSrc}" style="width: 32px; height: 32px; border-radius: 4px; object-fit: cover;" onerror="this.src='assets/logo.png';">
+            <div style="overflow: hidden;">
+              <strong style="display: block; font-size: 13px; color: var(--text-primary); text-overflow: ellipsis; white-space: nowrap; overflow: hidden;">${escapeHtml(item.name || item.folderName)}</strong>
+              <small style="font-size: 11px; color: var(--text-muted); display: block; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;">${escapeHtml(item.description || item.folderName)}</small>
+            </div>
+          </div>
+          <div style="display: flex; gap: 6px; flex-shrink: 0;">
+            <button class="btn btn-secondary btn-compact btn-open-addon-item" style="font-size: 11px; padding: 3px 8px;" title="Abrir carpeta de instancia">📂</button>
+          </div>
+        `;
+
+        const btnOpen = row.querySelector('.btn-open-addon-item');
+        if (btnOpen) {
+          btnOpen.addEventListener('click', () => {
+            api.profiles.openFolder(currentBedrockProfile.id);
+          });
+        }
+
+        bedrockAddonsList.appendChild(row);
+      });
+    } catch (err) {
+      bedrockAddonsList.innerHTML = `<div class="empty-state" style="padding: 20px; color: #ef4444;">Error al cargar: ${err.message}</div>`;
+    }
+  }
+
 });

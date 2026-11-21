@@ -256,13 +256,17 @@ class ProfileManager {
     const rawObj = (raw && typeof raw === 'object') ? raw : {};
     const name = (rawObj.name || folderId || 'Mi Aventura').toString().trim() || 'Mi Aventura';
     const id = rawObj.id || folderId || this.generateUniqueFolderName(name);
-    const mcVersion = (rawObj.mcVersion || '1.21.1').toString().trim();
+    const rawEdition = (rawObj.edition || '').toString().toLowerCase().trim();
+    let edition = rawEdition === 'bedrock' ? 'bedrock' : 'java';
 
     // Normalizar nombre de Loader respetando mayúsculas/minúsculas estándar
     let loader = rawObj.loader || rawObj.modLoader || 'NeoForge';
     if (typeof loader === 'string') {
       const lower = loader.toLowerCase().trim();
-      if (lower === 'neoforge') loader = 'NeoForge';
+      if (lower === 'bedrock') {
+        loader = 'Bedrock';
+        edition = 'bedrock';
+      } else if (lower === 'neoforge') loader = 'NeoForge';
       else if (lower === 'forge') loader = 'Forge';
       else if (lower === 'fabric') loader = 'Fabric';
       else if (lower === 'quilt') loader = 'Quilt';
@@ -272,10 +276,23 @@ class ProfileManager {
       loader = 'NeoForge';
     }
 
+    if (edition === 'bedrock') {
+      loader = 'Bedrock';
+    }
+
+    // Versión de Minecraft adaptada a la edición
+    let mcVersion = (rawObj.mcVersion || '').toString().trim();
+    if (!mcVersion) {
+      mcVersion = edition === 'bedrock' ? 'Bedrock Latest' : '1.21.1';
+    }
+
     // Limpiar versión del loader para aislar sólo el número de versión (ej: "21.1.265")
     const isVanilla = loader.toLowerCase() === 'vanilla';
-    const rawVer = rawObj.loaderVersion !== undefined && rawObj.loaderVersion !== null ? rawObj.loaderVersion : (isVanilla ? '' : '21.1.265');
-    const loaderVersion = isVanilla ? '' : (String(rawVer).split(' ')[0].trim() || 'latest');
+    const isBedrock = edition === 'bedrock' || loader.toLowerCase() === 'bedrock';
+    const rawVer = rawObj.loaderVersion !== undefined && rawObj.loaderVersion !== null
+      ? rawObj.loaderVersion
+      : (isVanilla ? '' : (isBedrock ? 'Official' : '21.1.265'));
+    const loaderVersion = isVanilla ? '' : (String(rawVer).split(' ')[0].trim() || (isBedrock ? 'Official' : 'latest'));
 
     // Memoria RAM estandarizada
     const ramMin = (rawObj.ramMin || rawObj.memoryMin || '2G').toString().trim() || '2G';
@@ -322,15 +339,26 @@ class ProfileManager {
     let modsCount = 0;
     const instPath = this.getInstancePath(id);
     try {
-      const modsDir = path.join(instPath, 'mods');
-      if (fs.existsSync(modsDir)) {
-        modsCount = fs.readdirSync(modsDir).filter((f) => f.toLowerCase().endsWith('.jar')).length;
+      if (edition === 'bedrock') {
+        const bpDir = path.join(instPath, 'behavior_packs');
+        const rpDir = path.join(instPath, 'resource_packs');
+        let count = 0;
+        if (fs.existsSync(bpDir)) count += fs.readdirSync(bpDir).length;
+        if (fs.existsSync(rpDir)) count += fs.readdirSync(rpDir).length;
+        modsCount = count;
+      } else {
+        const modsDir = path.join(instPath, 'mods');
+        if (fs.existsSync(modsDir)) {
+          modsCount = fs.readdirSync(modsDir).filter((f) => f.toLowerCase().endsWith('.jar')).length;
+        }
       }
     } catch (_) {}
 
     return {
       id,
       name,
+      edition,
+      isBedrock: edition === 'bedrock',
       mcVersion,
       loader,
       loaderVersion,
@@ -727,6 +755,14 @@ class ProfileManager {
 
     if (!fs.existsSync(modsDir)) fs.mkdirSync(modsDir, { recursive: true });
     if (!fs.existsSync(configDir)) fs.mkdirSync(configDir, { recursive: true });
+
+    // Si es perfil Bedrock, inicializar carpetas para Add-ons y mundos
+    if (profileData.edition === 'bedrock' || profileData.loader === 'Bedrock') {
+      try {
+        const { getBedrockManager } = require('../bedrock/BedrockManager');
+        getBedrockManager().setupInstanceFolders(instanceDir);
+      } catch (_) {}
+    }
 
     if (!fs.existsSync(lockFile)) {
       fs.writeFileSync(lockFile, JSON.stringify({ version: 1, lastUpdated: new Date().toISOString(), mods: {} }, null, 2), 'utf8');

@@ -2729,7 +2729,74 @@ function registerIpcHandlers(mainWindow) {
     } catch (_) {}
   }, 40000);
 
-  logger.info('Canales IPC registrados con éxito (incluyendo Perfiles y Versiones de Loaders).');
+  // ==========================================
+  // MÓDULO MINECRAFT BEDROCK EDITION (WINDOWS)
+  // ==========================================
+  const { getBedrockManager } = require('../bedrock/BedrockManager');
+  const bedrockManager = getBedrockManager();
+
+  ipcMain.handle('bedrock:get-info', async () => {
+    return bedrockManager.getBedrockInfo();
+  });
+
+  ipcMain.handle('bedrock:is-installed', async () => {
+    return { installed: bedrockManager.isInstalled() };
+  });
+
+  ipcMain.handle('bedrock:launch', async (event, options) => {
+    return await bedrockManager.launch(options || {});
+  });
+
+  ipcMain.handle('bedrock:open-store', async () => {
+    return await bedrockManager.openStore();
+  });
+
+  ipcMain.handle('bedrock:get-addons', async (event, instancePath) => {
+    return bedrockManager.getInstalledAddons(instancePath);
+  });
+
+  ipcMain.handle('bedrock:import-addon', async (event, payload = {}) => {
+    try {
+      const { sourceFilePath, instancePath, syncToMojang } = payload;
+      const res = await bedrockManager.importAddonFile(sourceFilePath, instancePath, syncToMojang);
+      return { success: true, ...res };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('bedrock:open-com-mojang', async () => {
+    const mojangPath = bedrockManager.getComMojangPath();
+    if (mojangPath && fs.existsSync(mojangPath)) {
+      await shell.openPath(mojangPath);
+      return { success: true, path: mojangPath };
+    }
+    return { success: false, error: 'No se encontró la carpeta com.mojang oficial de Bedrock.' };
+  });
+
+  ipcMain.handle('bedrock:open-native', async (event, filePath) => {
+    try {
+      await bedrockManager.openWithNativeBedrock(filePath);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('bedrock:select-addon-dialog', async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: 'Seleccionar Add-on de Minecraft Bedrock',
+      filters: [
+        { name: 'Bedrock Add-ons y Packs (*.mcpack, *.mcaddon, *.mcworld)', extensions: ['mcpack', 'mcaddon', 'mcworld', 'zip'] },
+        { name: 'Todos los archivos', extensions: ['*'] }
+      ],
+      properties: ['openFile']
+    });
+    if (result.canceled || !result.filePaths.length) return { canceled: true };
+    return { canceled: false, filePath: result.filePaths[0] };
+  });
+
+  logger.info('Canales IPC registrados con éxito (incluyendo Perfiles, Bedrock y Versiones de Loaders).');
 }
 
 module.exports = { registerIpcHandlers };

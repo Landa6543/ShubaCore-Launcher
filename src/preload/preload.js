@@ -487,6 +487,21 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
   },
 
   // ==========================================
+  // MÓDULO MINECRAFT BEDROCK EDITION (WINDOWS)
+  // ==========================================
+  bedrock: {
+    getInfo: () => ipcRenderer.invoke('bedrock:get-info'),
+    isInstalled: () => ipcRenderer.invoke('bedrock:is-installed'),
+    launch: (options) => ipcRenderer.invoke('bedrock:launch', options),
+    openStore: () => ipcRenderer.invoke('bedrock:open-store'),
+    getAddons: (instancePath) => ipcRenderer.invoke('bedrock:get-addons', instancePath),
+    importAddon: (sourceFilePath, instancePath, syncToMojang) => ipcRenderer.invoke('bedrock:import-addon', { sourceFilePath, instancePath, syncToMojang }),
+    openComMojang: () => ipcRenderer.invoke('bedrock:open-com-mojang'),
+    openNative: (filePath) => ipcRenderer.invoke('bedrock:open-native', filePath),
+    selectAddonDialog: () => ipcRenderer.invoke('bedrock:select-addon-dialog')
+  },
+
+  // ==========================================
   // EVENTOS Y REGISTROS EN TIEMPO REAL
   // ==========================================
   events: {

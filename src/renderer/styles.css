@@ -6003,6 +6003,12 @@ body.has-custom-bg .titlebar {
   color: #4ade80;
 }
 
+.badge-loader-bedrock {
+  background: rgba(99, 102, 241, 0.18);
+  border: 1px solid rgba(99, 102, 241, 0.5);
+  color: #a5b4fc;
+}
+
 /* 2. Banner difuminado de Cabecera en Gestor de Instancia */
 .instance-banner-header {
   position: relative;

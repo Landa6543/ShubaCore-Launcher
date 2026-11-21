@@ -2552,68 +2552,108 @@
           </div>
         </div>
 
-        <!-- FILA: VERSIÓN DE MINECRAFT -->
+        <!-- FILA: SELECTOR DE EDICIÓN (JAVA vs BEDROCK) -->
         <div class="form-group" style="margin-bottom: 14px;">
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
-            <label for="select-profile-mc" style="margin-bottom: 0; font-size: 12.5px; font-weight: 600; color: var(--text-primary);" data-i18n="modal.mcVersion">Versión de Minecraft</label>
-            <label style="display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-secondary); cursor: pointer;" title="Muestra versiones de prueba y snapshots de Mojang">
-              <input type="checkbox" id="check-include-snapshots-profile" style="cursor: pointer;" />
-              <span data-i18n="modal.snapshots">🧪 Incluir Snapshots</span>
+          <label style="display: block; font-size: 12.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">
+            <span data-i18n="modal.edition">Edición de Minecraft</span>
+          </label>
+          <div id="create-edition-radio-pills" class="loader-radio-pills-row">
+            <div class="loader-radio-pill active" data-edition="java"><span class="radio-indicator"></span><span data-i18n="modal.editionJava">☕ Java Edition</span></div>
+            <div class="loader-radio-pill" data-edition="bedrock"><span class="radio-indicator"></span><span data-i18n="modal.editionBedrock">🧱 Bedrock Edition</span></div>
+          </div>
+          <input type="hidden" id="input-create-profile-edition" value="java">
+        </div>
+
+        <!-- CONTENEDOR DE CAMPOS EXCLUSIVOS DE JAVA EDITION -->
+        <div id="create-profile-java-fields">
+          <!-- FILA: VERSIÓN DE MINECRAFT -->
+          <div class="form-group" style="margin-bottom: 14px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+              <label for="select-profile-mc" style="margin-bottom: 0; font-size: 12.5px; font-weight: 600; color: var(--text-primary);" data-i18n="modal.mcVersion">Versión de Minecraft</label>
+              <label style="display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-secondary); cursor: pointer;" title="Muestra versiones de prueba y snapshots de Mojang">
+                <input type="checkbox" id="check-include-snapshots-profile" style="cursor: pointer;" />
+                <span data-i18n="modal.snapshots">🧪 Incluir Snapshots</span>
+              </label>
+            </div>
+            <select id="select-profile-mc" class="select-input">
+              <option value="26.3" selected>26.3</option>
+              <option value="1.21.4">1.21.4</option>
+              <option value="1.21.1">1.21.1</option>
+              <option value="1.20.4">1.20.4</option>
+              <option value="1.20.1">1.20.1</option>
+              <option value="1.19.2">1.19.2</option>
+              <option value="1.18.2">1.18.2</option>
+              <option value="1.16.5">1.16.5</option>
+            </select>
+          </div>
+
+          <!-- FILA: CARGADOR DE MODS (RADIO-PILLS) -->
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label style="display: block; font-size: 12.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 2px;">
+              <span data-i18n="modal.modLoader">Cargador de mods</span> <span style="font-size: 11px; color: var(--text-muted); cursor: help;" title="Selecciona qué cargador de mods ejecutará tu instancia">ⓘ</span>
             </label>
+            <div id="create-loader-radio-pills" class="loader-radio-pills-row">
+              <div class="loader-radio-pill" data-loader="forge"><span class="radio-indicator"></span><span>Forge</span></div>
+              <div class="loader-radio-pill active" data-loader="fabric"><span class="radio-indicator"></span><span>Fabric</span></div>
+              <div class="loader-radio-pill" data-loader="quilt"><span class="radio-indicator"></span><span>Quilt</span></div>
+              <div class="loader-radio-pill" data-loader="neoforge"><span class="radio-indicator"></span><span>NeoForge</span></div>
+              <div class="loader-radio-pill" data-loader="vanilla"><span class="radio-indicator"></span><span>Vanilla</span></div>
+            </div>
+            <!-- Selector nativo sincronizado en segundo plano -->
+            <select id="select-profile-loader" class="select-input" style="display: none;">
+              <option value="fabric" selected>Fabric</option>
+              <option value="forge">Forge</option>
+              <option value="neoforge">NeoForge</option>
+              <option value="quilt">Quilt</option>
+              <option value="vanilla">Vanilla</option>
+            </select>
           </div>
-          <select id="select-profile-mc" class="select-input">
-            <option value="26.3" selected>26.3</option>
-            <option value="1.21.4">1.21.4</option>
-            <option value="1.21.1">1.21.1</option>
-            <option value="1.20.4">1.20.4</option>
-            <option value="1.20.1">1.20.1</option>
-            <option value="1.19.2">1.19.2</option>
-            <option value="1.18.2">1.18.2</option>
-            <option value="1.16.5">1.16.5</option>
-          </select>
+
+          <!-- FILA: VERSIÓN DEL CARGADOR DE MODS -->
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label for="select-profile-loader-version" style="display: block; font-size: 12.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">
+              <span data-i18n="modal.loaderVersion">Versión del cargador de mods</span>
+              <span id="loader-fetching-indicator" class="hint-inline" style="display: none;">Consultando API...</span>
+            </label>
+            <select id="select-profile-loader-version" class="select-input">
+              <option value="0.16.10">0.16.10 (Recomendada)</option>
+            </select>
+          </div>
+
+          <div class="form-row" style="margin-top: 10px;">
+            <div class="form-group flex-1">
+              <label for="input-profile-ram-min" style="font-size: 11.5px; color: var(--text-muted);" data-i18n="modal.ramMin">RAM Mínima:</label>
+              <input type="text" id="input-profile-ram-min" class="text-input" value="2G">
+            </div>
+            <div class="form-group flex-1">
+              <label for="input-profile-ram-max" style="font-size: 11.5px; color: var(--text-muted);" data-i18n="modal.ramMax">RAM Máxima:</label>
+              <input type="text" id="input-profile-ram-max" class="text-input" value="8G">
+            </div>
+          </div>
         </div>
 
-        <!-- FILA: CARGADOR DE MODS (RADIO-PILLS) -->
-        <div class="form-group" style="margin-bottom: 14px;">
-          <label style="display: block; font-size: 12.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 2px;">
-            <span data-i18n="modal.modLoader">Cargador de mods</span> <span style="font-size: 11px; color: var(--text-muted); cursor: help;" title="Selecciona qué cargador de mods ejecutará tu instancia">ⓘ</span>
-          </label>
-          <div id="create-loader-radio-pills" class="loader-radio-pills-row">
-            <div class="loader-radio-pill" data-loader="forge"><span class="radio-indicator"></span><span>Forge</span></div>
-            <div class="loader-radio-pill active" data-loader="fabric"><span class="radio-indicator"></span><span>Fabric</span></div>
-            <div class="loader-radio-pill" data-loader="quilt"><span class="radio-indicator"></span><span>Quilt</span></div>
-            <div class="loader-radio-pill" data-loader="neoforge"><span class="radio-indicator"></span><span>NeoForge</span></div>
-            <div class="loader-radio-pill" data-loader="vanilla"><span class="radio-indicator"></span><span>Vanilla</span></div>
+        <!-- CONTENEDOR DE CAMPOS EXCLUSIVOS DE BEDROCK EDITION -->
+        <div id="create-profile-bedrock-fields" style="display: none;">
+          <div style="padding: 14px; background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.25); border-radius: var(--radius-md); margin-bottom: 14px;">
+            <div style="display: flex; align-items: flex-start; gap: 10px;">
+              <span style="font-size: 24px; line-height: 1;">🧱</span>
+              <div>
+                <strong style="display: block; font-size: 13px; color: #a5b4fc; margin-bottom: 4px;" data-i18n="bedrock.officialBadge">Minecraft Bedrock Edition (Windows)</strong>
+                <p style="font-size: 12px; color: var(--text-secondary); line-height: 1.4; margin: 0;" data-i18n="bedrock.infoDesc">
+                  Se ejecuta nativamente con tu instalación oficial de la Microsoft Store / app de Xbox. Permite importar y gestionar Add-ons (.mcpack, .mcaddon y .mcworld).
+                </p>
+              </div>
+            </div>
           </div>
-          <!-- Selector nativo sincronizado en segundo plano -->
-          <select id="select-profile-loader" class="select-input" style="display: none;">
-            <option value="fabric" selected>Fabric</option>
-            <option value="forge">Forge</option>
-            <option value="neoforge">NeoForge</option>
-            <option value="quilt">Quilt</option>
-            <option value="vanilla">Vanilla</option>
-          </select>
-        </div>
 
-        <!-- FILA: VERSIÓN DEL CARGADOR DE MODS -->
-        <div class="form-group" style="margin-bottom: 14px;">
-          <label for="select-profile-loader-version" style="display: block; font-size: 12.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">
-            <span data-i18n="modal.loaderVersion">Versión del cargador de mods</span>
-            <span id="loader-fetching-indicator" class="hint-inline" style="display: none;">Consultando API...</span>
-          </label>
-          <select id="select-profile-loader-version" class="select-input">
-            <option value="0.16.10">0.16.10 (Recomendada)</option>
-          </select>
-        </div>
-
-        <div class="form-row" style="margin-top: 10px;">
-          <div class="form-group flex-1">
-            <label for="input-profile-ram-min" style="font-size: 11.5px; color: var(--text-muted);" data-i18n="modal.ramMin">RAM Mínima:</label>
-            <input type="text" id="input-profile-ram-min" class="text-input" value="2G">
-          </div>
-          <div class="form-group flex-1">
-            <label for="input-profile-ram-max" style="font-size: 11.5px; color: var(--text-muted);" data-i18n="modal.ramMax">RAM Máxima:</label>
-            <input type="text" id="input-profile-ram-max" class="text-input" value="8G">
+          <div id="bedrock-install-status-box" style="margin-bottom: 14px; padding: 10px 12px; border-radius: var(--radius-sm); font-size: 12px; display: flex; align-items: center; justify-content: space-between; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08);">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span id="bedrock-status-dot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #10b981;"></span>
+              <span id="bedrock-status-text" data-i18n="bedrock.detecting">Comprobando instalación de Windows...</span>
+            </div>
+            <button type="button" id="btn-bedrock-open-store-modal" class="btn btn-secondary btn-compact" style="font-size: 11px; padding: 3px 8px; display: none;">
+              <span data-i18n="bedrock.getInStore">Obtener en Microsoft Store</span>
+            </button>
           </div>
         </div>
       </div>
@@ -3547,6 +3587,66 @@
         <button id="btn-confirm-welcome-lang" class="btn btn-primary" style="min-width: 180px; padding: 10px 24px; font-size: 14px;">
           <span data-i18n="welcomeLang.btnConfirm">Continuar / Continue</span>
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: MINECRAFT BEDROCK NO INSTALADO -->
+  <div id="modal-bedrock-not-installed" class="modal-overlay" style="display: none;">
+    <div class="modal-content card" style="max-width: 480px; text-align: center; padding: 24px;">
+      <div style="font-size: 40px; margin-bottom: 10px;">🧱</div>
+      <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 8px;" data-i18n="bedrock.notInstalledTitle">Minecraft Bedrock no detectado</h3>
+      <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 20px;" data-i18n="bedrock.notInstalledDesc">
+        Para jugar con este perfil se requiere tener instalado Minecraft for Windows (Bedrock Edition) en este equipo a través de la Microsoft Store o la app de Xbox.
+      </p>
+      <div style="display: flex; justify-content: center; gap: 12px;">
+        <button id="btn-close-bedrock-not-installed" class="btn btn-secondary" data-i18n="modal.cancel">Cancelar</button>
+        <button id="btn-open-store-bedrock-not-installed" class="btn btn-primary" style="background: #4f46e5;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><line x1="3" x2="21" y1="6" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+          <span data-i18n="bedrock.openStoreBtn">Abrir Microsoft Store</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: GESTOR DE ADD-ONS DE BEDROCK -->
+  <div id="modal-bedrock-addons" class="modal-overlay" style="display: none;">
+    <div class="modal-content card" style="max-width: 680px; width: 92%; max-height: 85vh; display: flex; flex-direction: column;">
+      <div class="modal-header">
+        <div>
+          <h3 style="font-size: 16px; font-weight: 700;" data-i18n="bedrock.addonsTitle">Gestor de Add-ons de Bedrock</h3>
+          <p style="font-size: 12px; color: var(--text-muted); margin: 0;" data-i18n="bedrock.addonsSubtitle">Packs de comportamiento, texturas y mundos para Bedrock Edition</p>
+        </div>
+        <button id="btn-close-bedrock-addons" class="btn btn-small close-btn">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 16px 20px; overflow-y: auto; flex: 1;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; gap: 10px; flex-wrap: wrap;">
+          <div style="display: flex; gap: 8px;">
+            <button id="btn-import-bedrock-addon" class="btn btn-primary btn-small">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              <span data-i18n="bedrock.importBtn">+ Importar Add-on (.mcpack / .mcaddon)</span>
+            </button>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button id="btn-open-mojang-folder" class="btn btn-secondary btn-small" title="Abrir carpeta oficial com.mojang">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+              <span data-i18n="bedrock.openMojangBtn">📂 Abrir com.mojang</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="bedrock-tabs-row" style="display: flex; gap: 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 8px; margin-bottom: 14px;">
+          <button type="button" class="btn btn-secondary btn-small active bedrock-tab-btn" data-bedrock-tab="behavior" data-i18n="bedrock.tabBehavior">Behavior Packs</button>
+          <button type="button" class="btn btn-secondary btn-small bedrock-tab-btn" data-bedrock-tab="resource" data-i18n="bedrock.tabResource">Resource Packs</button>
+          <button type="button" class="btn btn-secondary btn-small bedrock-tab-btn" data-bedrock-tab="worlds" data-i18n="bedrock.tabWorlds">Mundos</button>
+        </div>
+
+        <div id="bedrock-addons-list" style="display: flex; flex-direction: column; gap: 8px; min-height: 120px;">
+          <div class="empty-state" style="padding: 20px; text-align: center; color: var(--text-muted);">Cargando packs...</div>
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; padding: 12px 20px; border-top: 1px solid rgba(255, 255, 255, 0.08);">
+        <button id="btn-close-bedrock-addons-footer" class="btn btn-secondary" data-i18n="modal.cancel">Cerrar</button>
       </div>
     </div>
   </div>

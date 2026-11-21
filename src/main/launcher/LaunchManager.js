@@ -297,6 +297,50 @@ class LaunchManager {
         throw new Error('No se encontró ningún perfil configurado para lanzar.');
       }
 
+      const isBedrock = (activeProfile.edition === 'bedrock') ||
+                        (activeProfile.loader && activeProfile.loader.toLowerCase() === 'bedrock') ||
+                        (overrideOptions.edition === 'bedrock') ||
+                        (overrideOptions.loader && overrideOptions.loader.toLowerCase() === 'bedrock');
+
+      if (isBedrock) {
+        logger.info(`[LaunchManager] Perfil Bedrock detectado: "${activeProfile.name}". Desviando a BedrockManager...`);
+        const { getBedrockManager } = require('../bedrock/BedrockManager');
+        const bedrockManager = getBedrockManager();
+
+        this._emit('launch:status', { state: 'launching', message: 'Iniciando Minecraft Bedrock en Windows...' });
+        const launchResult = await bedrockManager.launch({
+          serverAddress: overrideOptions.serverAddress,
+          serverName: overrideOptions.serverName || activeProfile.name
+        });
+
+        this.isLaunching = false;
+
+        if (!launchResult.success) {
+          this._emit('launch:error', { error: launchResult.error, notInstalled: launchResult.notInstalled, storeUrl: launchResult.storeUrl });
+          return launchResult;
+        }
+
+        this.hasGameStarted = true;
+        this.activeSessions.set(activeProfile.id, {
+          profileId: activeProfile.id,
+          startTime: Date.now(),
+          isBedrock: true
+        });
+
+        if (this.discordManager && typeof this.discordManager.setPlaying === 'function') {
+          this.discordManager.setPlaying({
+            profileName: activeProfile.name,
+            mcVersion: activeProfile.mcVersion || 'Bedrock Edition',
+            loader: 'Bedrock',
+            activeModsCount: activeProfile.modsCount || 0
+          });
+        }
+
+        this._emit('launch:started', { isBedrock: true, profile: activeProfile });
+        this._emit('launch:game-ready', { isBedrock: true, profile: activeProfile });
+        return { success: true, isBedrock: true };
+      }
+
       const mcVersion = overrideOptions.mcVersion || activeProfile.mcVersion || '1.21.1';
       const loader = (overrideOptions.loader || activeProfile.loader || 'neoforge').toLowerCase();
       const loaderVersion = overrideOptions.loaderVersion || activeProfile.loaderVersion || '';
