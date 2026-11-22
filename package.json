@@ -27,14 +27,12 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
     },
-    "publish": [
-      {
-        "provider": "github",
-        "owner": "Landa6543",
-        "repo": "ShubaCore-Launcher",
-        "releaseType": "release"
-      }
-    ]
+    "publish": {
+      "provider": "github",
+      "owner": "Landa6543",
+      "repo": "ShubaCore-Launcher",
+      "releaseType": "release"
+    }
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.0",
