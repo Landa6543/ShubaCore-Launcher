@@ -321,11 +321,22 @@ class LaunchManager {
         }
 
         this.hasGameStarted = true;
-        this.activeSessions.set(activeProfile.id, {
-          profileId: activeProfile.id,
-          startTime: Date.now(),
-          isBedrock: true
-        });
+        const sessionId = `bedrock_${activeProfile.id}_${Date.now()}`;
+        const sessionInfo = {
+          sessionId,
+          pid: 'UWP',
+          instanceId: activeProfile.id,
+          instanceName: activeProfile.name,
+          username: 'BedrockUser',
+          accountMode: 'microsoft',
+          isBedrock: true,
+          startTime: Date.now()
+        };
+        this.runningProcesses.set(sessionId, sessionInfo);
+
+        try {
+          this.profileManager.updateProfile(activeProfile.id, { lastPlayed: new Date().toISOString() });
+        } catch (_) {}
 
         if (this.discordManager && typeof this.discordManager.setPlaying === 'function') {
           this.discordManager.setPlaying({
@@ -336,9 +347,28 @@ class LaunchManager {
           });
         }
 
-        this._emit('launch:started', { isBedrock: true, profile: activeProfile.name, username: 'Bedrock', pid: 'UWP' });
-        this._emit('launch:game-ready', { isBedrock: true, profile: activeProfile.name, runningCount: this.activeSessions.size });
-        return { success: true, isBedrock: true };
+        this._emit('launch:started', {
+          sessionId,
+          isBedrock: true,
+          profile: activeProfile.name,
+          username: 'BedrockUser',
+          pid: 'UWP',
+          runningCount: this.runningProcesses.size
+        });
+        this._emit('launch:game-ready', {
+          sessionId,
+          isBedrock: true,
+          profile: activeProfile.name,
+          runningCount: this.runningProcesses.size
+        });
+        this._emit('game:sessions-changed', {
+          runningCount: this.runningProcesses.size,
+          sessions: this.getRunningProcesses()
+        });
+
+        this._monitorBedrockProcess(sessionId, activeProfile.name);
+
+        return { success: true, isBedrock: true, sessionId };
       }
 
       const mcVersion = overrideOptions.mcVersion || activeProfile.mcVersion || '1.21.1';
@@ -1162,6 +1192,52 @@ class LaunchManager {
     clientLauncher.on('close', (code) => handleSessionClose(code));
   }
 
+  _monitorBedrockProcess(sessionId, profileName) {
+    if (this._bedrockPollTimer) {
+      clearInterval(this._bedrockPollTimer);
+      this._bedrockPollTimer = null;
+    }
+
+    this._bedrockPollTimer = setInterval(() => {
+      try {
+        const { exec } = require('child_process');
+        exec('tasklist /FI "IMAGENAME eq Minecraft.Windows.exe" /NH', (err, stdout) => {
+          if (err || !stdout || !stdout.includes('Minecraft.Windows.exe')) {
+            if (this._bedrockPollTimer) {
+              clearInterval(this._bedrockPollTimer);
+              this._bedrockPollTimer = null;
+            }
+            if (this.runningProcesses.has(sessionId)) {
+              this.runningProcesses.delete(sessionId);
+              if (this.runningProcesses.size === 0) {
+                this.hasGameStarted = false;
+              }
+              logger.info(`[LaunchManager] Minecraft Bedrock ("${profileName}") ha finalizado.`);
+              this._emit('launch:close', {
+                sessionId,
+                pid: 'UWP',
+                code: 0,
+                runningCount: this.runningProcesses.size
+              });
+              this._emit('game:sessions-changed', {
+                runningCount: this.runningProcesses.size,
+                sessions: this.getRunningProcesses()
+              });
+              if (this.discordManager && typeof this.discordManager.clearPlaying === 'function' && this.runningProcesses.size === 0) {
+                this.discordManager.clearPlaying();
+              }
+            }
+          }
+        });
+      } catch (_) {
+        if (this._bedrockPollTimer) {
+          clearInterval(this._bedrockPollTimer);
+          this._bedrockPollTimer = null;
+        }
+      }
+    }, 2500);
+  }
+
   killSession(sessionId) {
     if (this.controllerBridgeTimer) {
       clearTimeout(this.controllerBridgeTimer);
@@ -1172,7 +1248,10 @@ class LaunchManager {
 
     logger.warn(`[LaunchManager] Interrumpiendo sesión ${sessionId} (PID: ${session.pid})...`);
     try {
-      if (process.platform === 'win32' && session.pid) {
+      if (session.isBedrock) {
+        const { exec } = require('child_process');
+        exec('taskkill /im Minecraft.Windows.exe /f');
+      } else if (process.platform === 'win32' && session.pid) {
         const { exec } = require('child_process');
         exec(`taskkill /pid ${session.pid} /f /t`);
       } else if (session.child) {
@@ -1204,7 +1283,10 @@ class LaunchManager {
     logger.warn(`[LaunchManager] Cerrando todas las sesiones de Minecraft activas (${this.runningProcesses.size})...`);
     for (const [sessionId, session] of this.runningProcesses.entries()) {
       try {
-        if (process.platform === 'win32' && session.pid) {
+        if (session.isBedrock) {
+          const { exec } = require('child_process');
+          exec('taskkill /im Minecraft.Windows.exe /f');
+        } else if (process.platform === 'win32' && session.pid) {
           const { exec } = require('child_process');
           exec(`taskkill /pid ${session.pid} /f /t`);
         } else if (session.child) {

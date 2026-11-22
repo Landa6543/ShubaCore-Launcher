@@ -19,8 +19,8 @@ class BedrockManager {
     this.packageFamily = 'Microsoft.MinecraftUWP_8wekyb3d8bbwe';
     this.previewPackageFamily = 'Microsoft.MinecraftWindowsBeta_8wekyb3d8bbwe';
     this.storeProductId = '9NBLGGH2JHXJ';
-    this.storeUrl = `ms-windows-store://pdp/?PFN=${this.packageFamily}&ProductId=${this.storeProductId}`;
-    this.storeInstallUrl = `ms-windows-store://install/?ProductId=${this.storeProductId}&PFN=${this.packageFamily}`;
+    this.storeUrl = `ms-windows-store://pdp/?ProductId=${this.storeProductId}`;
+    this.storeInstallUrl = `ms-windows-store://pdp/?ProductId=${this.storeProductId}`;
     this.storeDownloadsUrl = 'ms-windows-store://downloadsandupdates';
     this.webStoreUrl = 'https://www.xbox.com/games/store/minecraft-for-windows/9nblggh2jhxj';
   }
@@ -85,7 +85,19 @@ class BedrockManager {
       }
     } catch (_) {}
 
-    // C. Comprobación rápida vía PowerShell Get-AppxPackage (con timeout de 2.5s)
+    // C. Comprobar si el proceso de Minecraft Bedrock está activo en Windows
+    try {
+      if (process.platform === 'win32') {
+        const procCheck = execSync('tasklist /FI "IMAGENAME eq Minecraft.Windows.exe" /NH', {
+          encoding: 'utf8',
+          stdio: ['pipe', 'pipe', 'ignore'],
+          timeout: 2000
+        });
+        if (procCheck && procCheck.includes('Minecraft.Windows.exe')) return true;
+      }
+    } catch (_) {}
+
+    // D. Comprobación rápida vía PowerShell Get-AppxPackage (con timeout de 2.5s)
     try {
       if (process.platform === 'win32') {
         const stdout = execSync(
@@ -124,15 +136,30 @@ class BedrockManager {
   }
 
   /**
+   * Helper para abrir URLs tanto dentro de Electron como en entornos externos
+   */
+  async _openUrl(targetUrl) {
+    if (shell && typeof shell.openExternal === 'function') {
+      try {
+        await shell.openExternal(targetUrl);
+        return true;
+      } catch (_) {}
+    }
+    return new Promise((resolve) => {
+      exec(`cmd /c start "" "${targetUrl}"`, () => resolve(true));
+    });
+  }
+
+  /**
    * Abre la ficha de Minecraft en la Microsoft Store de Windows
    */
   async openStore() {
     try {
-      await shell.openExternal(this.storeUrl);
+      await this._openUrl(this.storeUrl);
       return { success: true, url: this.storeUrl };
     } catch (err) {
       logger.warn('[BedrockManager] No se pudo abrir Store URI, intentando URL web:', err.message);
-      await shell.openExternal(this.webStoreUrl);
+      await this._openUrl(this.webStoreUrl);
       return { success: true, url: this.webStoreUrl };
     }
   }
@@ -142,7 +169,7 @@ class BedrockManager {
    */
   async openStoreInstall() {
     try {
-      await shell.openExternal(this.storeInstallUrl);
+      await this._openUrl(this.storeInstallUrl);
       return { success: true, url: this.storeInstallUrl, action: 'install' };
     } catch (err) {
       logger.warn('[BedrockManager] No se pudo invocar direct install, recurriendo a PDP:', err.message);
@@ -155,7 +182,7 @@ class BedrockManager {
    */
   async openStoreDownloads() {
     try {
-      await shell.openExternal(this.storeDownloadsUrl);
+      await this._openUrl(this.storeDownloadsUrl);
       return { success: true, url: this.storeDownloadsUrl };
     } catch (err) {
       return { success: false, error: err.message };
@@ -222,23 +249,31 @@ class BedrockManager {
     logger.info(`[BedrockManager] Lanzando Minecraft Bedrock mediante: ${protocolUrl}`);
 
     try {
-      await shell.openExternal(protocolUrl);
-      return {
-        success: true,
-        isBedrock: true,
-        method: 'protocol',
-        url: protocolUrl
-      };
+      if (shell && typeof shell.openExternal === 'function') {
+        await shell.openExternal(protocolUrl);
+        return {
+          success: true,
+          isBedrock: true,
+          method: 'protocol',
+          url: protocolUrl
+        };
+      }
+      return new Promise((resolve) => {
+        exec(`cmd /c start "" "${protocolUrl}"`, (cmdErr) => {
+          if (!cmdErr) {
+            resolve({ success: true, isBedrock: true, method: 'cmd-start' });
+          } else {
+            exec(`explorer.exe shell:AppsFolder\\${this.packageFamily}!App`, () => {
+              resolve({ success: true, isBedrock: true, method: 'uwp-shell' });
+            });
+          }
+        });
+      });
     } catch (err) {
       logger.warn(`[BedrockManager] Falló shell.openExternal('${protocolUrl}'), probando UWP shell execution:`, err.message);
       return new Promise((resolve) => {
-        exec(`explorer.exe shell:AppsFolder\\${this.packageFamily}!App`, (uwpErr) => {
-          if (uwpErr) {
-            logger.error('[BedrockManager] Error al lanzar UWP:', uwpErr.message);
-            resolve({ success: false, error: uwpErr.message });
-          } else {
-            resolve({ success: true, isBedrock: true, method: 'uwp-shell' });
-          }
+        exec(`explorer.exe shell:AppsFolder\\${this.packageFamily}!App`, () => {
+          resolve({ success: true, isBedrock: true, method: 'uwp-shell' });
         });
       });
     }
