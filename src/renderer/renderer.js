@@ -4815,6 +4815,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else if (tabName === 'hud') {
       loadHudState();
     }
+
+    if (api.discord && api.discord.updateView) {
+      try { api.discord.updateView(tabName); } catch (_) {}
+    }
   }
 
   document.querySelectorAll('.instance-subtab-btn').forEach((btn) => {
@@ -9333,6 +9337,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     [tabSocialFriends, tabSocialCommunity, tabSocialPending, tabSocialInvites, tabSocialProfile].forEach(t => t?.classList?.remove('active'));
     [panelSocialFriends, panelSocialCommunity, panelSocialPending, panelSocialInvites, panelSocialProfile].forEach(p => { if (p) p.style.display = 'none'; });
 
+    if (api.discord && api.discord.updateView) {
+      try { api.discord.updateView(tab === 'community' ? 'community' : 'social'); } catch (_) {}
+    }
+
     if (tab === 'community') {
       if (tabSocialCommunity) tabSocialCommunity.classList.add('active');
       if (panelSocialCommunity) panelSocialCommunity.style.display = 'flex';
@@ -9695,20 +9703,52 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  async function loadCommunityUsers() {
+  let cachedCommunityUsers = [];
+  let cachedPendingRequests = { incoming: [], outgoing: [] };
+  const inputSearchCommunity = document.getElementById('input-search-community');
+
+  async function loadCommunityUsers(isSilent = false) {
     if (!communityUsersContainer) return;
-    communityUsersContainer.innerHTML = '<div style="padding: 24px; color: var(--text-dim); text-align: center; grid-column: 1 / -1;">Cargando jugadores registrados...</div>';
+    if (!isSilent) {
+      communityUsersContainer.innerHTML = '<div style="padding: 24px; color: var(--text-dim); text-align: center; grid-column: 1 / -1;">Cargando jugadores registrados...</div>';
+    }
     if (communityEmptyState) communityEmptyState.style.display = 'none';
 
     try {
-      const users = await api.friends.getCommunityUsers();
+      const [users, pending] = await Promise.all([
+        api.friends.getCommunityUsers().catch(() => []),
+        api.friends.getPending().catch(() => ({ incoming: [], outgoing: [] }))
+      ]);
+      cachedCommunityUsers = Array.isArray(users) ? users : [];
+      cachedPendingRequests = pending || { incoming: [], outgoing: [] };
+
       if (communityCountPill) {
-        communityCountPill.textContent = String(users?.length || 0);
+        communityCountPill.textContent = String(cachedCommunityUsers.length);
       }
-      renderCommunityUsers(users);
+      filterAndRenderCommunityUsers();
     } catch (err) {
-      communityUsersContainer.innerHTML = `<div style="padding: 24px; color: #ef4444; text-align: center; grid-column: 1 / -1;">Error al cargar comunidad: ${escapeHtml(err.message)}</div>`;
+      if (!isSilent) {
+        communityUsersContainer.innerHTML = `<div style="padding: 24px; color: #ef4444; text-align: center; grid-column: 1 / -1;">Error al cargar comunidad: ${escapeHtml(err.message)}</div>`;
+      }
     }
+  }
+
+  function filterAndRenderCommunityUsers() {
+    const query = inputSearchCommunity?.value?.trim().toLowerCase() || '';
+    const filtered = query
+      ? cachedCommunityUsers.filter(u =>
+          (u.username && u.username.toLowerCase().includes(query)) ||
+          (u.displayName && u.displayName.toLowerCase().includes(query))
+        )
+      : cachedCommunityUsers;
+
+    renderCommunityUsers(filtered);
+  }
+
+  if (inputSearchCommunity) {
+    inputSearchCommunity.addEventListener('input', () => {
+      filterAndRenderCommunityUsers();
+    });
   }
 
   function renderCommunityUsers(users) {
@@ -9720,12 +9760,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     if (communityEmptyState) communityEmptyState.style.display = 'none';
 
+    const outgoingUsernames = new Set((cachedPendingRequests?.outgoing || []).map(r => r.receiver?.username?.toLowerCase()).filter(Boolean));
+
     users.forEach((user) => {
       const card = document.createElement('div');
       card.className = 'friend-card';
       const skinUrl = user.skinUrl || `https://mc-heads.net/skin/${encodeURIComponent(user.username)}`;
       const isPrem = user.accountType === 'premium' || Boolean(user.msGamertag);
       const isFriend = (cachedFriendsList || []).some(f => f.friendId === user.id || f.username?.toLowerCase() === user.username?.toLowerCase());
+      const isPendingSent = outgoingUsernames.has(user.username?.toLowerCase());
 
       card.innerHTML = `
         <div class="friend-card-main">
@@ -9754,6 +9797,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             <button class="btn btn-secondary btn-small" disabled style="opacity: 0.8; font-size: 11.5px; padding: 4px 10px;">
               <span>${window.i18n?.t ? window.i18n.t('social.friendsBadge', '✔ Amigos') : '✔ Amigos'}</span>
             </button>
+          ` : isPendingSent ? `
+            <button class="btn btn-secondary btn-small" disabled style="opacity: 0.8; font-size: 11.5px; padding: 4px 10px;">
+              <span>✔ Solicitado</span>
+            </button>
           ` : `
             <button class="btn btn-primary btn-small btn-add-community-friend" data-username="${escapeHtml(user.username)}" style="font-size: 11.5px; padding: 4px 12px;">
               <span>${window.i18n?.t ? window.i18n.t('social.addFriend', '+ Agregar Amigo') : '+ Agregar Amigo'}</span>
@@ -9780,6 +9827,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (res && res.success) {
               btnAdd.textContent = '✔ Solicitado';
               appendLog(`[ShubaCore Social] ¡Solicitud enviada a @${user.username}!`, 'success');
+              showToast(`✉ Solicitud de amistad enviada a @${user.username}`, 'success');
+              if (cachedPendingRequests?.outgoing) {
+                cachedPendingRequests.outgoing.push({ receiver: { username: user.username } });
+              }
               await loadFriendsView();
             } else {
               alert(res?.error || 'Error al enviar solicitud.');
@@ -10729,21 +10780,124 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
 
-    // Fallback de sondeo automático cada 10s cuando la vista social esté abierta
-    setInterval(() => {
+    // Sincronización activa en tiempo real (Sondeo + Notificaciones en vivo)
+    let lastKnownIncomingIds = new Set();
+    let hasInitializedIncomingIds = false;
+    let lastKnownInvitesIds = new Set();
+    let hasInitializedInvitesIds = false;
+    let isSocialSyncing = false;
+    let communityAutoRefreshCounter = 0;
+
+    async function syncSocialPresenceAndRequests() {
+      if (isSocialSyncing) return;
+      isSocialSyncing = true;
       try {
+        const sess = await api.auth.getSavedSession().catch(() => null);
+        const shubaAcc = sess?.shubacoreAccount || await api.auth.getShubaCoreAccount().catch(() => null);
+        if (!shubaAcc || !shubaAcc.id) return;
+
+        // Asegurar que el canal realtime de Supabase permanezca vivo
+        api.friends.startRealtime().catch(() => {});
+
+        // 1. Consultar solicitudes pendientes
+        const pending = await api.friends.getPending().catch(() => ({ incoming: [], outgoing: [] }));
+        const incoming = pending?.incoming || [];
+        const outgoing = pending?.outgoing || [];
+        const incomingIds = incoming.map(r => r.id);
+
+        cachedPendingRequests = pending || { incoming: [], outgoing: [] };
+
+        if (!hasInitializedIncomingIds) {
+          lastKnownIncomingIds = new Set(incomingIds);
+          hasInitializedIncomingIds = true;
+        } else {
+          // Detectar solicitudes entrantes nuevas que no se habían notificado
+          const newIncoming = incoming.filter(r => !lastKnownIncomingIds.has(r.id));
+          if (newIncoming.length > 0) {
+            newIncoming.forEach(req => {
+              lastKnownIncomingIds.add(req.id);
+              const senderName = req.sender?.displayName || req.sender?.username || 'Un jugador';
+              api.system.showNotification({
+                title: '👥 Solicitud de amistad recibida',
+                body: `¡@${senderName} te ha enviado una solicitud de amistad en ShubaCore!`,
+                action: 'open-pending',
+                payload: {}
+              }).catch(() => {});
+              showToast(`👥 ¡Nueva solicitud de amistad de @${senderName}!`, 'info', 5000);
+              appendLog(`[ShubaCore Social] ¡Nueva solicitud de amistad recibida de @${req.sender?.username || senderName}!`, 'success');
+            });
+          }
+          lastKnownIncomingIds = new Set(incomingIds);
+        }
+
+        const incomingCount = incoming.length;
+        const totalPending = incomingCount + outgoing.length;
+        if (pendingCountPill) pendingCountPill.textContent = String(totalPending);
+
+        // 2. Consultar invitaciones a partida activa
+        const invites = await api.friends.getGameInvites().catch(() => []);
+        const invitesList = Array.isArray(invites) ? invites : [];
+        const inviteIds = invitesList.map(i => i.id);
+
+        if (!hasInitializedInvitesIds) {
+          lastKnownInvitesIds = new Set(inviteIds);
+          hasInitializedInvitesIds = true;
+        } else {
+          const newInvites = invitesList.filter(i => !lastKnownInvitesIds.has(i.id));
+          if (newInvites.length > 0) {
+            newInvites.forEach(inv => {
+              lastKnownInvitesIds.add(inv.id);
+              const hostName = inv.host?.displayName || inv.host?.username || 'Un amigo';
+              api.system.showNotification({
+                title: `🎮 ¡${hostName} te invitó a su partida!`,
+                body: `Mundo "${inv.worldName || 'LAN'}" en MC ${inv.mcVersion || '26.3'}. Haz clic para unirte.`,
+                action: 'open-invites',
+                payload: inv
+              }).catch(() => {});
+              showToast(`🎮 ¡${hostName} te invitó a su partida!`, 'success', 6000);
+              showGameInvitePopup(inv);
+            });
+          }
+          lastKnownInvitesIds = new Set(inviteIds);
+        }
+
+        if (invitesCountPill) {
+          invitesCountPill.textContent = String(invitesList.length);
+          invitesCountPill.style.display = invitesList.length > 0 ? 'inline-block' : 'none';
+        }
+
+        updateChatBadges(incomingCount + invitesList.length);
+
+        // Si la pestaña social está abierta, refrescar vista correspondiente
         const isSocialOpen = viewFriends && !viewFriends.classList.contains('hidden') && viewFriends.style.display !== 'none';
         if (isSocialOpen && !activeChatFriend) {
           if (currentSocialSubtab === 'pending') {
-            api.friends.getPending().then(renderPendingRequests).catch(() => {});
+            renderPendingRequests(pending);
           } else if (currentSocialSubtab === 'invites') {
-            api.friends.getGameInvites().then(renderGameInvites).catch(() => {});
+            renderGameInvites(invitesList);
           } else if (currentSocialSubtab === 'friends') {
-            loadFriendsView();
+            const friends = await api.friends.getList().catch(() => []);
+            cachedFriendsList = Array.isArray(friends) ? friends : [];
+            if (friendsCountPill) friendsCountPill.textContent = String(cachedFriendsList.length);
+            renderFriendsList(cachedFriendsList);
+          } else if (currentSocialSubtab === 'community') {
+            communityAutoRefreshCounter++;
+            if (communityAutoRefreshCounter >= 3) {
+              communityAutoRefreshCounter = 0;
+              loadCommunityUsers(true);
+            }
           }
         }
       } catch (_) {}
-    }, 10000);
+      finally {
+        isSocialSyncing = false;
+      }
+    }
+
+    // Sondeo de sincronización activa cada 3.5 segundos en primer o segundo plano
+    setInterval(() => {
+      syncSocialPresenceAndRequests();
+    }, 3500);
   } catch (realtimeErr) {
     console.warn('[Social Realtime Init] Aviso:', realtimeErr);
   }

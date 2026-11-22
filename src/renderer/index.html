@@ -1399,10 +1399,13 @@
                 <h4 style="font-size: 13px; color: var(--text-primary); margin: 0;" data-i18n="social.directoryTitle">Directorio de Jugadores ShubaCore</h4>
                 <p style="font-size: 11px; color: var(--text-secondary); margin: 2px 0 0 0;" data-i18n="social.directorySubtitle">Jugadores registrados en la red oficial de ShubaCore.</p>
               </div>
-              <button id="btn-refresh-community" class="btn btn-secondary btn-small" title="Actualizar directorio">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
-                <span data-i18n="social.refresh">Actualizar</span>
-              </button>
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <input type="text" id="input-search-community" class="input input-small" placeholder="Buscar jugador por nombre o @usuario..." style="width: 250px; font-size: 12px; padding: 5px 10px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 6px; color: var(--text-primary);">
+                <button id="btn-refresh-community" class="btn btn-secondary btn-small" title="Actualizar directorio">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+                  <span data-i18n="social.refresh">Actualizar</span>
+                </button>
+              </div>
             </div>
             <div id="community-users-container" class="friends-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; width: 100%;">
               <!-- Se llena dinámicamente -->

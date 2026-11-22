@@ -18,7 +18,7 @@ console.log('====================================================');
 (async () => {
   try {
     const sb = new SupabaseManager();
-    const suffix = Math.floor(1000 + Math.random() * 9000);
+    const suffix = Date.now().toString(36);
 
     const userA_Name = `chat_a_${suffix}`;
     const userB_Name = `chat_b_${suffix}`;

@@ -540,11 +540,14 @@ class SupabaseManager {
           .not('username', 'ilike', 'shuba_%')
           .not('username', 'ilike', 'chat_%')
           .not('username', 'ilike', 'test_%')
+          .not('username', 'ilike', 'testuser_%')
           .not('username', 'ilike', 'guest_%')
           .not('username', 'ilike', 'host_%')
           .not('username', 'ilike', 'shubadev_%')
           .not('username', 'ilike', 'user_test_%')
           .not('username', 'ilike', 'dbg_%')
+          .not('username', 'ilike', 'bench_%')
+          .not('username', 'ilike', 'perf_%')
           .not('username', 'ilike', 'user_%');
       }
 
@@ -555,7 +558,7 @@ class SupabaseManager {
         logger.warn('[Supabase] Error en getCommunityUsers:', error.message);
         return [];
       }
-      const testRegex = /^(guest_|host_|chat_|player_|shubadev_|shubaplayer_|shubahost_|shuba_a_|shuba_b_|user_test_|dbg_|test_|user_)/i;
+      const testRegex = /^(guest_|host_|chat_|player_|shubadev_|shubaplayer_|shubahost_|shuba_a_|shuba_b_|user_test_|dbg_|test_|testuser_|user_|bench_|perf_)/i;
       return (data || []).filter(p => p.username && (isTestEnv || !testRegex.test(p.username))).map(p => ({
         id: p.id,
         username: p.username,

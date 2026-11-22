@@ -20,7 +20,7 @@ console.log('====================================================');
     const sb = new SupabaseManager();
 
     console.log('\n▶ [1/4] Probando registro en Supabase sin correo real...');
-    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+    const randomSuffix = Date.now().toString(36);
     const testUsername = `shubadev_${randomSuffix}`;
     const testPassword = 'ShubaPassword123!';
 

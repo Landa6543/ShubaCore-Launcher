@@ -164,28 +164,56 @@ class DiscordManager {
   }
 
   _handleGameStarted(data) {
+    const isBedrock = Boolean(
+      data?.isBedrock ||
+      data?.edition === 'bedrock' ||
+      (data?.loader && data.loader.toLowerCase() === 'bedrock')
+    );
+
     const activeProfile = this.profileManager.getActive();
-    const mcVer = activeProfile?.mcVersion || '1.21.1';
-    const loaderRaw = activeProfile?.loader || 'neoforge';
-    const loaderCap = loaderRaw.charAt(0).toUpperCase() + loaderRaw.slice(1);
+    const profileIsBedrock = (activeProfile?.edition === 'bedrock') ||
+                             (activeProfile?.loader && activeProfile.loader.toLowerCase() === 'bedrock');
+
+    const effectiveIsBedrock = isBedrock || profileIsBedrock;
+
+    const mcVer = effectiveIsBedrock
+      ? (activeProfile?.mcVersion || data?.mcVersion || 'Bedrock Edition')
+      : (activeProfile?.mcVersion || data?.mcVersion || '1.21.1');
+
+    const loaderRaw = effectiveIsBedrock
+      ? 'bedrock'
+      : (activeProfile?.loader || data?.loader || 'neoforge').toLowerCase();
+
+    const loaderCap = loaderRaw === 'bedrock'
+      ? 'Bedrock'
+      : (loaderRaw.charAt(0).toUpperCase() + loaderRaw.slice(1));
 
     let activeModsCount = 0;
-    try {
-      const instancePath = this.profileManager.getActiveInstancePath();
-      const { getModManager } = require('../mods/ModManager');
-      const mods = getModManager().scanAndSyncMods(instancePath);
-      activeModsCount = (Array.isArray(mods) ? mods : []).filter((m) => m.enabled !== false).length;
-    } catch (_) {}
+    if (!effectiveIsBedrock) {
+      try {
+        const instancePath = this.profileManager.getActiveInstancePath();
+        const { getModManager } = require('../mods/ModManager');
+        const mods = getModManager().scanAndSyncMods(instancePath);
+        activeModsCount = (Array.isArray(mods) ? mods : []).filter((m) => m.enabled !== false).length;
+      } catch (_) {}
+    }
+
+    const hostServer = this.launchManager.activeHostServer;
+    const quickPlayServer = data?.quickPlayMultiplayer || data?.serverAddress || null;
 
     this.isPlaying = true;
     if (!this.gameStartTime) {
       this.gameStartTime = Math.floor(Date.now() / 1000);
     }
     this.activeGameInfo = {
-      profileName: activeProfile?.name || data?.profile || 'Mi Instancia',
+      isBedrock: effectiveIsBedrock,
+      profileName: activeProfile?.name || data?.profile || (effectiveIsBedrock ? 'Minecraft Bedrock' : 'Mi Instancia'),
       mcVersion: mcVer,
       loader: loaderCap,
-      activeModsCount
+      loaderRaw,
+      activeModsCount,
+      hostServer,
+      quickPlayServer
     };
 
     const count = this.launchManager.getRunningCount();
@@ -213,59 +241,157 @@ class DiscordManager {
 
     try {
       let activity = null;
+      const downloadButton = {
+        label: 'Descargar ShubaCore',
+        url: 'https://github.com/Landa6543/ShubaCore-Launcher'
+      };
 
       if (this.isPlaying && this.activeGameInfo) {
         // Estado: Jugando Minecraft
         const runningCount = this.launchManager.getRunningCount();
-        const modsPart = this.activeGameInfo.activeModsCount > 0
-          ? ` · ${this.activeGameInfo.activeModsCount} mods activos`
-          : '';
+        const info = this.activeGameInfo;
 
-        const detailsText = runningCount > 1
-          ? `Jugando: ${this.activeGameInfo.profileName} (${runningCount} sesiones activas)`
-          : `Jugando: ${this.activeGameInfo.profileName}`;
+        let detailsText = '';
+        let stateText = '';
+        let smallImageKey = 'shubacore_logo';
+        let smallImageText = 'ShubaCore Launcher';
+
+        if (info.isBedrock) {
+          detailsText = 'Jugando Minecraft Bedrock';
+          stateText = runningCount > 1
+            ? `Windows 10/11 Edition (${runningCount} sesiones)`
+            : 'Windows 10/11 Edition';
+          smallImageKey = 'bedrock';
+          smallImageText = 'Minecraft Bedrock';
+        } else if (info.hostServer || this.launchManager.activeHostServer) {
+          detailsText = 'Hospedando mundo LAN (ShubaHost)';
+          stateText = `Mundo: ${info.profileName} · MC ${info.mcVersion} (${info.loader})`;
+          smallImageKey = info.loaderRaw || 'fabric';
+          smallImageText = `${info.loader} · MC ${info.mcVersion}`;
+        } else if (info.quickPlayServer) {
+          detailsText = 'Jugando en servidor multijugador';
+          stateText = `Conectado a: ${info.quickPlayServer}`;
+          smallImageKey = info.loaderRaw || 'fabric';
+          smallImageText = `${info.loader} · MC ${info.mcVersion}`;
+        } else {
+          detailsText = runningCount > 1
+            ? `Jugando: ${info.profileName} (${runningCount} sesiones)`
+            : `Jugando: ${info.profileName}`;
+
+          const modsPart = info.activeModsCount > 0
+            ? ` · ${info.activeModsCount} mods`
+            : '';
+          stateText = `Minecraft ${info.mcVersion} (${info.loader})${modsPart}`;
+          smallImageKey = info.loaderRaw || 'neoforge';
+          smallImageText = `${info.loader} · MC ${info.mcVersion}`;
+        }
 
         activity = {
           details: detailsText,
-          state: `Minecraft ${this.activeGameInfo.mcVersion} (${this.activeGameInfo.loader})${modsPart}`,
+          state: stateText,
           startTimestamp: this.gameStartTime || Math.floor(Date.now() / 1000),
           largeImageKey: 'shubacore_logo',
-          largeImageText: 'ShubaCore Launcher — SHUBATECH'
+          largeImageText: 'ShubaCore Launcher — SHUBATECH',
+          smallImageKey,
+          smallImageText,
+          buttons: [downloadButton]
         };
       } else {
         // Estado: En menús del Launcher
         let detailsText = 'En el menú principal';
-        switch (this.currentView) {
-          case 'catalog':
-            detailsText = 'Explorando el Catálogo de Mods';
-            break;
-          case 'mods':
-            detailsText = 'Gestionando Mods de Instancia';
-            break;
-          case 'skins':
-            detailsText = 'En el Vestidor de Skins';
-            break;
-          case 'settings':
-            detailsText = 'Configurando Java y Ajustes';
-            break;
-          case 'console':
-            detailsText = 'Viendo Consola & Logs';
-            break;
-          case 'profiles':
-          default:
-            detailsText = 'En el menú principal';
-            break;
-        }
+        let stateText = '';
 
         const active = this.profileManager.getActive();
         const profileName = active ? active.name : 'Mi Aventura';
+        const mcVer = active?.mcVersion ? ` (MC ${active.mcVersion})` : '';
+
+        switch (this.currentView) {
+          case 'catalog':
+            detailsText = 'Explorando el Catálogo de Mods';
+            stateText = 'CurseForge & Modrinth (Mods, Shaders, Packs)';
+            break;
+          case 'mods':
+            detailsText = `Gestionando Perfil: ${profileName}`;
+            stateText = 'Configurando mods y complementos';
+            break;
+          case 'datapacks':
+            detailsText = 'Configurando Datapacks';
+            stateText = `Instancia: ${profileName}`;
+            break;
+          case 'shaders':
+            detailsText = 'Configurando Shaders';
+            stateText = 'Ajustando gráficos hiperrealistas';
+            break;
+          case 'resourcepacks':
+            detailsText = 'Personalizando Texturas';
+            stateText = `Packs de recursos: ${profileName}`;
+            break;
+          case 'worlds':
+            detailsText = 'Gestionando Mundos & Partidas';
+            stateText = 'Respaldos y exportación de mapas';
+            break;
+          case 'hud':
+            detailsText = 'Personalizando HUD & ShubaClient';
+            stateText = 'Ajustando interfaz in-game';
+            break;
+          case 'presets':
+          case 'opti':
+            detailsText = 'Optimizando Rendimiento FPS';
+            stateText = 'ShubaOpti & Presets Extremos';
+            break;
+          case 'social':
+          case 'friends':
+            detailsText = 'En la Red Social de ShubaCore';
+            stateText = 'Conectado con amigos & comunidad';
+            break;
+          case 'community':
+            detailsText = 'Explorando la Comunidad ShubaCore';
+            stateText = 'Directorio oficial de jugadores';
+            break;
+          case 'servers':
+            detailsText = 'Explorando Servidores Multijugador';
+            stateText = 'Directorio de servidores comunitarios';
+            break;
+          case 'screenshots':
+          case 'gallery':
+            detailsText = 'Viendo Galería de Capturas';
+            stateText = 'Revisando recuerdos in-game';
+            break;
+          case 'skins':
+            detailsText = 'En el Probador de Skins 3D';
+            stateText = 'Personalizando apariencia';
+            break;
+          case 'controller':
+            detailsText = 'Configurando Gamepad / Mando';
+            stateText = 'Mapeo de controles & sensibilidad';
+            break;
+          case 'settings':
+            detailsText = 'Configuración de ShubaCore';
+            stateText = 'Ajustes globales, Java y RAM';
+            break;
+          case 'console':
+            detailsText = 'Consola de Diagnóstico & Logs';
+            stateText = 'Supervisando salida en tiempo real';
+            break;
+          case 'import':
+          case 'modpack-import':
+            detailsText = 'Importando Modpack o Instancia';
+            stateText = 'CurseForge / Modrinth / Zip';
+            break;
+          case 'profiles':
+          default:
+            detailsText = 'En el Menú de Instancias';
+            stateText = `Instancia activa: ${profileName}${mcVer}`;
+            break;
+        }
 
         activity = {
           details: detailsText,
-          state: `Perfil activo: ${profileName}`,
+          state: stateText,
           startTimestamp: this.launcherStartTime,
           largeImageKey: 'shubacore_logo',
-          largeImageText: 'ShubaCore Launcher — SHUBATECH'
+          largeImageText: 'ShubaCore Launcher — SHUBATECH',
+          buttons: [downloadButton]
         };
       }
 
