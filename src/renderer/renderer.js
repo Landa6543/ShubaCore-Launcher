@@ -2732,6 +2732,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const res = await api.profiles.getAll();
       const profiles = res.profiles || [];
       const activeId = res.activeProfileId;
+      profilesCache = profiles;
 
       currentActiveProfile = profiles.find((p) => p.id === activeId) || profiles[0] || null;
 
@@ -7832,7 +7833,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   // =======================================================
   async function openPublishProfileModal(profileId) {
     if (!modalPublishProfile) return;
-    const allProfiles = await api.profiles.getAll();
+    const allProfilesRes = await api.profiles.getAll();
+    const allProfiles = Array.isArray(allProfilesRes) ? allProfilesRes : (allProfilesRes?.profiles || []);
     const targetId = profileId || currentActiveProfile?.id;
     const targetProfile = targetId ? allProfiles.find(p => p.id === targetId) : currentActiveProfile;
     if (!targetProfile) {
@@ -7862,8 +7864,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (btnConfirmPublishProfile) {
       btnConfirmPublishProfile.disabled = false;
       btnConfirmPublishProfile.innerHTML = `
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/><polyline points="12 13 12 7 9 10"/><polyline points="12 7 15 10"/></svg>
-        <span>☁ Publicar para Amigos</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <span>Publicar para Amigos</span>
       `;
     }
 
@@ -7977,7 +7979,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   // =======================================================
   async function openSyncProfileModal(targetProfileId) {
     if (!modalSyncProfile) return;
-    const allProfiles = await api.profiles.getAll();
+    const allProfilesRes = await api.profiles.getAll();
+    const allProfiles = Array.isArray(allProfilesRes) ? allProfilesRes : (allProfilesRes?.profiles || []);
     const targetId = targetProfileId || currentActiveProfile?.id;
     const targetProfile = targetId ? allProfiles.find(p => p.id === targetId) : currentActiveProfile;
     if (!targetProfile) {
@@ -10853,7 +10856,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function loadScreenshotsInstancesFilter() {
     if (!selectScreenshotsInstanceFilter) return;
     try {
-      const profiles = await api.profiles.getAll();
+      const pRes = await api.profiles.getAll();
+      const profiles = Array.isArray(pRes) ? pRes : (pRes?.profiles || []);
       const currentVal = selectScreenshotsInstanceFilter.value || 'all';
       const allOpt = window.i18n?.t ? window.i18n.t('screenshots.allInstances', 'Todas las instancias') : 'Todas las instancias';
       selectScreenshotsInstanceFilter.innerHTML = `<option value="all">${escapeHtml(allOpt)}</option>`;
@@ -11798,18 +11802,35 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const exportCodeInstancesList = document.getElementById('export-code-instances-list');
 
-  function openExportCodeModal(preselectedProfileId) {
+  async function openExportCodeModal(preselectedProfileId) {
     if (!modalExportCode) return;
     try {
       if (selectExportCodeProfile) {
         selectExportCodeProfile.innerHTML = '';
       }
       if (exportCodeInstancesList) {
-        exportCodeInstancesList.innerHTML = '';
+        exportCodeInstancesList.innerHTML = '<div class="empty-state" style="padding: 12px; font-size: 12px;">Cargando instancias...</div>';
       }
 
-      const list = profilesCache || [];
-      if (list.length === 0) {
+      modalExportCode.classList.add('active');
+      modalExportCode.style.setProperty('display', 'flex', 'important');
+      if (exportCodeResultBox) exportCodeResultBox.style.display = 'none';
+      if (exportCodeLoading) exportCodeLoading.style.display = 'none';
+      if (btnExecuteExportCode) {
+        btnExecuteExportCode.disabled = false;
+        btnExecuteExportCode.innerHTML = '<span>🚀 Generar Código</span>';
+      }
+
+      // Obtener perfiles frescos
+      let list = profilesCache;
+      if (!list || list.length === 0) {
+        const res = await api.profiles.getAll();
+        profilesCache = Array.isArray(res) ? res : (res?.profiles || []);
+        list = profilesCache;
+      }
+      if (exportCodeInstancesList) exportCodeInstancesList.innerHTML = '';
+
+      if (!list || list.length === 0) {
         if (exportCodeInstancesList) {
           const noInstMsg = window.i18n?.t ? window.i18n.t('exportCode.noInstances', 'No hay instancias disponibles para compartir.') : 'No hay instancias disponibles para compartir.';
           exportCodeInstancesList.innerHTML = `<div class="empty-state" style="padding: 12px; font-size: 12px;" data-i18n="exportCode.noInstances">${escapeHtml(noInstMsg)}</div>`;
@@ -11829,7 +11850,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const item = document.createElement('div');
             item.className = `export-instance-item ${p.id === initialSelectedId ? 'selected' : ''}`;
             item.setAttribute('data-profile-id', p.id);
-            const iconSrc = p.iconPath && p.iconPath.trim() ? p.iconPath : 'assets/logo.png';
+            const iconSrc = p.iconPath && p.iconPath.trim() ? p.iconPath : resolveInstanceIcon(p.icon, p.iconUrl, p);
             const modsCount = p.modsCount ?? (Array.isArray(p.mods) ? p.mods.length : 0);
             item.innerHTML = `
               <img src="${escapeHtml(iconSrc)}" class="export-instance-icon" onerror="this.onerror=null; this.src='assets/logo.png';" alt="Icono" />
@@ -11865,14 +11886,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         if (selectExportCodeProfile) selectExportCodeProfile.value = initialSelectedId;
       }
-      if (exportCodeResultBox) exportCodeResultBox.style.display = 'none';
-      if (exportCodeLoading) exportCodeLoading.style.display = 'none';
-      if (btnExecuteExportCode) {
-        btnExecuteExportCode.disabled = false;
-        btnExecuteExportCode.innerHTML = '<span>🚀 Generar Código</span>';
-      }
-      modalExportCode.classList.add('active');
-      modalExportCode.style.setProperty('display', 'flex', 'important');
     } catch (err) {
       console.warn('[ExportCode] Error abriendo modal:', err);
     }
@@ -11902,7 +11915,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (btnExecuteExportCode) {
     btnExecuteExportCode.addEventListener('click', async () => {
-      const selectedId = selectExportCodeProfile?.value || currentActiveProfile?.id;
+      const selectedId = selectExportCodeProfile?.value || currentActiveProfile?.id || (profilesCache && profilesCache[0]?.id);
       if (!selectedId) {
         alert('Por favor selecciona una instancia.');
         return;
@@ -11918,7 +11931,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           if (exportCodeResultBox) exportCodeResultBox.style.display = 'flex';
           if (displayGeneratedCode) displayGeneratedCode.textContent = res.code;
           if (exportCodeDetails) {
-            exportCodeDetails.textContent = `Instancia "${res.profileName}" · MC ${res.mcVersion} (${res.loader}) · ${res.modsCount} mods listados.`;
+            exportCodeDetails.textContent = `Instancia "${res.profileName}" · MC ${res.mcVersion} (${res.loader}) · ${res.modsCount} mods listados.${res.uploadedToGitHub ? ' · Sincronizado a GitHub' : ''}`;
           }
           btnExecuteExportCode.innerHTML = `<span>${window.i18n?.t ? window.i18n.t('exportCode.generated', '✔ Generado') : '✔ Generado'}</span>`;
           appendLog(`[Compartir Código] Instancia exportada con éxito. Código corto: ${res.code}`, 'success');
