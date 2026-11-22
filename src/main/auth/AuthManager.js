@@ -510,6 +510,19 @@ class AuthManager {
         skinUrl: mcData.skinUrl,
         expiresAt: Date.now() + (tokens.expiresIn * 1000)
       };
+
+      // Si el usuario ya tiene cuenta ShubaCore iniciada, auto-vincular Microsoft inmediatamente
+      if (session.shubacoreAccount && session.shubacoreAccount.id) {
+        try {
+          await this.supabaseManager.linkMicrosoft(session.shubacoreAccount.id, session.microsoftAccount);
+          session.shubacoreAccount.accountType = 'premium';
+          session.shubacoreAccount.msGamertag = mcData.name;
+          session.shubacoreAccount.msUuid = mcData.uuid;
+        } catch (linkErr) {
+          logger.warn('[Auth] No se pudo auto-vincular Microsoft con ShubaCore en nube:', linkErr.message);
+        }
+      }
+
       this._writeSessionFile(session);
 
       // 5. Descargar y registrar skin automáticamente para el vestidor y el canvas
@@ -791,6 +804,18 @@ class AuthManager {
     session.shubacoreAccount = res.user;
     session.activeMode = 'shubacore';
 
+    // Si ya hay una cuenta oficial de Microsoft iniciada, auto-vincular de inmediato
+    if (session.microsoftAccount && session.microsoftAccount.uuid) {
+      try {
+        await this.supabaseManager.linkMicrosoft(res.user.id, session.microsoftAccount);
+        session.shubacoreAccount.accountType = 'premium';
+        session.shubacoreAccount.msGamertag = session.microsoftAccount.username;
+        session.shubacoreAccount.msUuid = session.microsoftAccount.uuid;
+      } catch (linkErr) {
+        logger.warn('[Auth] No se pudo auto-vincular Microsoft con ShubaCore en registro:', linkErr.message);
+      }
+    }
+
     this._writeSessionFile(session);
     await this.supabaseManager.ensureSession(res.user.id);
     return { success: true, user: session.shubacoreAccount };
@@ -806,6 +831,18 @@ class AuthManager {
     const session = this._readSessionFile();
     session.shubacoreAccount = res.user;
     session.activeMode = 'shubacore';
+
+    // Si ya hay una cuenta oficial de Microsoft iniciada, auto-vincular de inmediato
+    if (session.microsoftAccount && session.microsoftAccount.uuid) {
+      try {
+        await this.supabaseManager.linkMicrosoft(res.user.id, session.microsoftAccount);
+        session.shubacoreAccount.accountType = 'premium';
+        session.shubacoreAccount.msGamertag = session.microsoftAccount.username;
+        session.shubacoreAccount.msUuid = session.microsoftAccount.uuid;
+      } catch (linkErr) {
+        logger.warn('[Auth] No se pudo auto-vincular Microsoft con ShubaCore en login:', linkErr.message);
+      }
+    }
 
     this._writeSessionFile(session);
     await this.supabaseManager.ensureSession(res.user.id);

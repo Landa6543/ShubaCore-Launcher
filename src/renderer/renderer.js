@@ -676,6 +676,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Estado en Memoria
   let currentActiveProfile = null;
+  let profilesCache = [];
   let currentJavaVersion = 21;
   let currentContentType = 'mods';
   let currentContentPage = 1;
@@ -1557,8 +1558,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     const session = explicitSession || await api.auth.getSavedSession().catch(() => null);
 
     const isShubaCore = Boolean(session && session.activeMode === 'shubacore' && session.shubacoreAccount);
-    const isShubaMsLinked = Boolean(isShubaCore && (session.shubacoreAccount.accountType === 'premium' || session.shubacoreAccount.msGamertag));
+    const hasMsAccount = Boolean(session?.microsoftAccount?.uuid || session?.microsoftAccount?.username);
+    const isShubaMsLinked = Boolean(isShubaCore && (session.shubacoreAccount.accountType === 'premium' || session.shubacoreAccount.msGamertag || hasMsAccount));
     const shubaLaunchMode = session.shubacoreAccount?.activeLaunchMode || (isShubaMsLinked ? 'premium' : 'offline');
+
+    // Auto-vincular en nube si hay cuenta Microsoft conectada y ShubaCore no está registrado como premium aún
+    if (isShubaCore && hasMsAccount && session.shubacoreAccount.accountType !== 'premium') {
+      api.auth.linkShubaCoreMs().catch(() => {});
+    }
 
     const isPremium = Boolean(
       (session &&
@@ -1567,7 +1574,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         session.microsoftAccount.mcAccessToken &&
         !String(session.microsoftAccount.mcAccessToken).startsWith('offline_') &&
         session.microsoftAccount.uuid) ||
-      (isShubaCore && isShubaMsLinked && shubaLaunchMode === 'premium')
+      (isShubaCore && isShubaMsLinked)
     );
 
     let accName = 'Jugador';
@@ -1625,14 +1632,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (badge) {
       badge.id = 'account-status-badge';
       if (isShubaCore) {
-        if (isPremium) {
+        if (isPremium || isShubaMsLinked) {
           badge.textContent = 'SHUBACORE ★ PREMIUM';
           badge.className = 'badge badge-premium';
           badge.style.setProperty('background', 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(139, 92, 246, 0.25))', 'important');
           badge.style.setProperty('color', '#a78bfa', 'important');
           badge.style.setProperty('border', '1px solid rgba(139, 92, 246, 0.45)', 'important');
         } else {
-          badge.textContent = isShubaMsLinked ? 'SHUBACORE (NO-PREMIUM)' : 'SHUBACORE';
+          badge.textContent = 'SHUBACORE';
           badge.className = 'badge badge-success';
           badge.style.setProperty('background', 'rgba(16, 185, 129, 0.15)', 'important');
           badge.style.setProperty('color', '#10b981', 'important');
@@ -1640,7 +1647,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         badge.style.display = 'inline-block';
       } else if (isPremium) {
-        badge.textContent = 'PREMIUM';
+        badge.textContent = session?.shubacoreAccount ? 'SHUBACORE ★ PREMIUM' : 'PREMIUM';
         badge.className = 'badge badge-premium badge-microsoft';
         badge.style.setProperty('background', 'rgba(16, 185, 129, 0.15)', 'important');
         badge.style.setProperty('color', '#10b981', 'important');
@@ -6786,12 +6793,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     } finally {
       if (btnUploadGithubMod) {
         btnUploadGithubMod.disabled = false;
-        btnUploadGithubMod.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg><span>☁ Subir Mod (.jar)</span>`;
+        btnUploadGithubMod.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg><span>Subir Mod (.jar)</span>`;
       }
       const emptyBtn = document.getElementById('btn-empty-upload-gh');
       if (emptyBtn) {
         emptyBtn.disabled = false;
-        emptyBtn.textContent = '☁ Subir Mod (.jar)';
+        emptyBtn.textContent = 'Subir Mod (.jar)';
       }
     }
   }
@@ -9290,6 +9297,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else if (tab === 'pending') {
       if (tabSocialPending) tabSocialPending.classList.add('active');
       if (panelSocialPending) panelSocialPending.style.display = 'flex';
+      api.friends.getPending().then(renderPendingRequests).catch(() => {});
     } else if (tab === 'invites') {
       if (tabSocialInvites) tabSocialInvites.classList.add('active');
       if (panelSocialInvites) panelSocialInvites.style.display = 'flex';
@@ -9301,6 +9309,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else {
       if (tabSocialFriends) tabSocialFriends.classList.add('active');
       if (panelSocialFriends) panelSocialFriends.style.display = 'flex';
+      loadFriendsView();
     }
   }
 
@@ -9352,6 +9361,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       if (friendsGuestBanner) friendsGuestBanner.style.display = 'none';
       if (friendsLoggedContainer) friendsLoggedContainer.style.display = 'flex';
+
+      // Garantizar que la suscripción a eventos en tiempo real esté activa para este usuario
+      api.friends.startRealtime().catch(() => {});
 
       const [friends, pending, unread, invites] = await Promise.all([
         api.friends.getList().catch(() => []),
@@ -10673,6 +10685,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         switchSocialSubtab('invites');
       }
     });
+
+    // Fallback de sondeo automático cada 10s cuando la vista social esté abierta
+    setInterval(() => {
+      try {
+        const isSocialOpen = viewFriends && !viewFriends.classList.contains('hidden') && viewFriends.style.display !== 'none';
+        if (isSocialOpen && !activeChatFriend) {
+          if (currentSocialSubtab === 'pending') {
+            api.friends.getPending().then(renderPendingRequests).catch(() => {});
+          } else if (currentSocialSubtab === 'invites') {
+            api.friends.getGameInvites().then(renderGameInvites).catch(() => {});
+          } else if (currentSocialSubtab === 'friends') {
+            loadFriendsView();
+          }
+        }
+      } catch (_) {}
+    }, 10000);
   } catch (realtimeErr) {
     console.warn('[Social Realtime Init] Aviso:', realtimeErr);
   }

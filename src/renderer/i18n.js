@@ -44,7 +44,7 @@ const translations = {
     'mods.purgeDuplicates': 'Purgar Duplicados',
     'mods.fpsOptimization': 'Optimización FPS',
     'mods.openModsFolder': 'Abrir Carpeta de Mods',
-    'mods.uploadMod': '☁ Subir Mod (.jar)',
+    'mods.uploadMod': 'Subir Mod (.jar)',
     'mods.syncMods': 'Sincronizar Mods',
 
     // Vistas: Instancias
@@ -765,7 +765,7 @@ const translations = {
     'mods.purgeDuplicates': 'Purge Duplicates',
     'mods.fpsOptimization': 'FPS Optimization',
     'mods.openModsFolder': 'Open Mods Folder',
-    'mods.uploadMod': '☁ Upload Mod (.jar)',
+    'mods.uploadMod': 'Upload Mod (.jar)',
     'mods.syncMods': 'Sync Mods',
 
     // Views: Instances

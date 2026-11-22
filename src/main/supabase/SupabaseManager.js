@@ -526,19 +526,35 @@ class SupabaseManager {
       let req = this.client
         .from('profiles')
         .select('id, username, display_name, account_type, ms_gamertag, skin_url, status, last_seen, created_at, bio, play_time_seconds, favorite_modloader, play_style')
-        .order('created_at', { ascending: false })
-        .limit(limit);
+        .order('created_at', { ascending: false });
 
       if (excludeUserId) {
         req = req.neq('id', excludeUserId);
       }
+
+      // Filtrar usuarios de prueba directamente a nivel de base de datos para no agotar el límite
+      const isTestEnv = process.env.NODE_ENV === 'test' || process.argv.some(a => a.includes('test'));
+      if (!isTestEnv) {
+        req = req
+          .not('username', 'ilike', 'player_%')
+          .not('username', 'ilike', 'shuba_%')
+          .not('username', 'ilike', 'chat_%')
+          .not('username', 'ilike', 'test_%')
+          .not('username', 'ilike', 'guest_%')
+          .not('username', 'ilike', 'host_%')
+          .not('username', 'ilike', 'shubadev_%')
+          .not('username', 'ilike', 'user_test_%')
+          .not('username', 'ilike', 'dbg_%')
+          .not('username', 'ilike', 'user_%');
+      }
+
+      req = req.limit(limit);
 
       const { data, error } = await req;
       if (error) {
         logger.warn('[Supabase] Error en getCommunityUsers:', error.message);
         return [];
       }
-      const isTestEnv = process.env.NODE_ENV === 'test' || process.argv.some(a => a.includes('test'));
       const testRegex = /^(guest_|host_|chat_|player_|shubadev_|shubaplayer_|shubahost_|shuba_a_|shuba_b_|user_test_|dbg_|test_|user_)/i;
       return (data || []).filter(p => p.username && (isTestEnv || !testRegex.test(p.username))).map(p => ({
         id: p.id,
