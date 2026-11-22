@@ -1939,9 +1939,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
   // Icono de instancia: normaliza el MIME de data URLs (JPEG/WEBP guardados como image/png) y rutas locales
-  function resolveInstanceIcon(icon, iconUrl) {
+  function resolveInstanceIcon(icon, iconUrl, profile = null) {
+    const isBedrock = profile && (profile.edition === 'bedrock' || String(profile.loader).toLowerCase() === 'bedrock');
+    const isVanilla = profile && String(profile.loader).toLowerCase() === 'vanilla';
+    const defaultIcon = isBedrock ? 'assets/block_bedrock.webp' : (isVanilla ? 'assets/block_grass.webp' : 'assets/logo.png');
+
     const raw = String(icon || iconUrl || '').trim();
-    if (!raw) return 'assets/logo.png';
+    if (!raw || raw === 'assets/logo.png') return defaultIcon;
     if (raw.startsWith('data:image')) {
       const b64 = raw.slice(raw.indexOf(',') + 1);
       let mime = null;
@@ -1953,7 +1957,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     if (/^https?:\/\//i.test(raw) || raw.startsWith('assets/')) return raw;
     if (/^[a-zA-Z]:[\\/]/.test(raw)) return `file:///${raw.replace(/\\/g, '/')}`;
-    return 'assets/logo.png';
+    return defaultIcon;
   }
 
   // Skins por defecto: se cargan desde el client.jar vía el proceso principal (texturas oficiales).
@@ -2728,7 +2732,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         activeProfileName.textContent = currentActiveProfile.name;
         const activeDockIcon = document.getElementById('active-profile-dock-icon');
         if (activeDockIcon) {
-          activeDockIcon.src = resolveInstanceIcon(currentActiveProfile.icon, currentActiveProfile.iconUrl);
+          activeDockIcon.src = resolveInstanceIcon(currentActiveProfile.icon, currentActiveProfile.iconUrl, currentActiveProfile);
         }
         const loaderUpper = (currentActiveProfile.loader || 'NeoForge').toUpperCase();
         activeProfileBadge.textContent = loaderUpper;
@@ -2769,7 +2773,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const pCleanVer = (p.loaderVersion || '').split(' ')[0].trim();
         const pRamMin = p.ramMin || p.memoryMin || '2G';
         const pRamMax = p.ramMax || p.memoryMax || '8G';
-        const pIcon = resolveInstanceIcon(p.icon, p.iconUrl);
+        const pIcon = resolveInstanceIcon(p.icon, p.iconUrl, p);
         const isBedrock = p.edition === 'bedrock' || pLoaderLower === 'bedrock';
         const metaHtml = isBedrock
           ? `<span>Bedrock Edition</span><span>·</span><span>Windows Store</span><span>·</span><span>${p.modsCount || 0} Add-on(s)</span>`
@@ -3099,6 +3103,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (edition === 'bedrock') {
         if (javaFields) javaFields.style.display = 'none';
         if (bedrockFields) bedrockFields.style.display = 'block';
+        if (!inputCreateProfileIcon?.value && createProfileIconPreview) {
+          createProfileIconPreview.src = 'assets/block_bedrock.webp';
+        }
 
         const statusDot = document.getElementById('bedrock-status-dot');
         const statusText = document.getElementById('bedrock-status-text');
@@ -3121,6 +3128,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       } else {
         if (javaFields) javaFields.style.display = 'block';
         if (bedrockFields) bedrockFields.style.display = 'none';
+        if (!inputCreateProfileIcon?.value && createProfileIconPreview) {
+          const ldr = selectProfileLoader?.value || 'vanilla';
+          createProfileIconPreview.src = (ldr === 'vanilla') ? 'assets/block_grass.webp' : 'assets/logo.png';
+        }
       }
     });
   });
@@ -3138,7 +3149,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     modalCreateProfile.style.setProperty('display', 'flex', 'important');
     if (inputProfileName) inputProfileName.value = '';
     if (inputCreateProfileIcon) inputCreateProfileIcon.value = '';
-    if (createProfileIconPreview) createProfileIconPreview.src = 'assets/logo.png';
+    if (createProfileIconPreview) createProfileIconPreview.src = 'assets/block_grass.webp';
     
     // Sincronizar radio pills con el loader inicial
     const currentLoader = selectProfileLoader ? selectProfileLoader.value || 'vanilla' : 'vanilla';
@@ -3211,7 +3222,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (btnResetCreateIcon) {
     btnResetCreateIcon.addEventListener('click', () => {
       if (inputCreateProfileIcon) inputCreateProfileIcon.value = '';
-      if (createProfileIconPreview) createProfileIconPreview.src = 'assets/logo.png';
+      const inputEdition = document.getElementById('input-create-profile-edition');
+      const isBedrock = inputEdition && inputEdition.value === 'bedrock';
+      const ldr = selectProfileLoader?.value || 'vanilla';
+      const defaultIcon = isBedrock ? 'assets/block_bedrock.webp' : ((ldr === 'vanilla') ? 'assets/block_grass.webp' : 'assets/logo.png');
+      if (createProfileIconPreview) createProfileIconPreview.src = defaultIcon;
     });
   }
 
@@ -3288,7 +3303,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           loader: 'Bedrock',
           loaderVersion: 'Official',
           mcVersion: 'Bedrock Latest',
-          icon: (inputCreateProfileIcon ? inputCreateProfileIcon.value.trim() : '') || 'assets/logo.png',
+          icon: (inputCreateProfileIcon ? inputCreateProfileIcon.value.trim() : '') || 'assets/block_bedrock.webp',
           ramMin: '0',
           ramMax: '0'
         };
@@ -3296,14 +3311,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         const cleanLoaderVer = (selectProfileLoaderVersion.value || '').split(' ')[0].trim();
         const ramMin = (inputProfileRamMin.value || '2G').trim();
         const ramMax = (inputProfileRamMax.value || '8G').trim();
+        const ldr = selectProfileLoader.value || 'vanilla';
+        const defaultIcon = (ldr === 'vanilla') ? 'assets/block_grass.webp' : 'assets/logo.png';
 
         profilePayload = {
           name,
           edition: 'java',
           mcVersion: selectProfileMc.value || '26.3',
-          loader: selectProfileLoader.value || 'vanilla',
+          loader: ldr,
           loaderVersion: cleanLoaderVer,
-          icon: (inputCreateProfileIcon ? inputCreateProfileIcon.value.trim() : '') || 'assets/logo.png',
+          icon: (inputCreateProfileIcon ? inputCreateProfileIcon.value.trim() : '') || defaultIcon,
           ramMin,
           ramMax,
           memoryMin: ramMin,
@@ -4004,6 +4021,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   async function detectJava() {
+    const isBedrock = currentActiveProfile && (currentActiveProfile.edition === 'bedrock' || String(currentActiveProfile.loader).toLowerCase() === 'bedrock');
+    if (isBedrock) {
+      if (jvmVersionDisplay) jvmVersionDisplay.textContent = 'Nativo (C++/UWP)';
+      if (jvmGcDisplay) jvmGcDisplay.textContent = 'Sin JVM';
+      if (jvmArchDisplay) jvmArchDisplay.textContent = 'x64 Nativo';
+      return;
+    }
+
     jvmVersionDisplay.textContent = 'Detectando...';
     jvmGcDisplay.textContent = 'Analizando...';
 
@@ -4452,7 +4477,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           ctxPlaytime.textContent = currentActiveProfile.totalPlayTime ? `${formatPlaytime(currentActiveProfile.totalPlayTime)} jugados` : '0 min jugados';
         }
 
-        const pIcon = resolveInstanceIcon(currentActiveProfile.icon);
+        const pIcon = resolveInstanceIcon(currentActiveProfile.icon, currentActiveProfile.iconUrl, currentActiveProfile);
         if (instanceContextIcon) {
           instanceContextIcon.onerror = () => {
             instanceContextIcon.onerror = null;
@@ -4534,7 +4559,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (b.getAttribute('data-cat') === 'modpacks') b.style.display = 'none';
       });
       if (catalogContextIcon) {
-        catalogContextIcon.src = resolveInstanceIcon(catalogContextProfile.icon);
+        catalogContextIcon.src = resolveInstanceIcon(catalogContextProfile.icon, catalogContextProfile.iconUrl, catalogContextProfile);
       }
       if (catalogContextTitle) {
         catalogContextTitle.textContent = catalogContextProfile.name || 'Mi Instancia';
@@ -6306,7 +6331,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (isPerformingCatalogSearch) return;
     isPerformingCatalogSearch = true;
     const query = inputModSearch.value.trim();
-    const source = selectModSource ? selectModSource.value : 'both';
+    let source = selectModSource ? selectModSource.value : 'both';
     const sortBy = selectModSort ? selectModSort.value : 'popular';
     const category = selectModCategory ? selectModCategory.value : 'all';
 
@@ -6325,7 +6350,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (loader === 'all') loader = '';
     if (isBedrock) loader = 'bedrock';
 
-    let source = selectModSource ? selectModSource.value : 'both';
     if (isBedrock) source = 'curseforge';
 
     // Si la instancia es Vanilla y se exploran mods, no filtrar por 'vanilla' para no romper resultados
@@ -7506,6 +7530,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!imageLightbox || !imgUrl) return;
     const simpleImg = document.getElementById('simple-lightbox-image');
     if (simpleImg) {
+      simpleImg.onerror = null;
+      simpleImg.onload = null;
       simpleImg.style.display = 'block';
       simpleImg.src = imgUrl;
       simpleImg.onerror = () => {
@@ -10670,14 +10696,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function showToast(message, type = 'info', durationMs = 3800) {
     const now = Date.now();
-    if (message === lastToastMsg && now - lastToastTime < 2500) {
+    if (message === lastToastMsg && now - lastToastTime < 5000) {
       return;
     }
     lastToastMsg = message;
     lastToastTime = now;
 
     const container = ensureToastContainer();
-    while (container.children.length >= 5) {
+    while (container.children.length >= 3) {
       container.removeChild(container.firstChild);
     }
     const toast = document.createElement('div');
@@ -12670,48 +12696,55 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // Inicialización
-  await initLauncherUpdater();
-  await loadConfig();
-  await detectJava();
-  await initCustomBackground();
-  try {
-    loadNewsFeed().catch(() => {});
-  } catch (_) {}
-  try {
-    if (api.serverMonitor) {
-      const fav = currentActiveProfile?.favoriteServerIp || '127.0.0.1:25565';
-      currentMonitoredAddress = fav;
-      api.serverMonitor.setTarget({ host: fav }).catch(() => {});
-    }
-  } catch (_) {}
-  try {
-    const running = await api.launcher.getRunning();
-    updateLaunchUIState(running ? running.length : 0);
-  } catch (_) {}
-
   // ==========================================
   // DISMISS SPLASH SCREEN (SHUBATECH)
   // ==========================================
   const splashScreen = document.getElementById('shubacore-splash-screen');
   const splashStatusText = document.getElementById('splash-status-text');
 
-  if (splashScreen) {
-    if (splashStatusText) splashStatusText.textContent = 'Subsistemas listos';
-
-    let splashDismissed = false;
-    const dismissSplash = () => {
-      if (splashDismissed) return;
-      splashDismissed = true;
+  let splashDismissed = false;
+  const dismissSplash = () => {
+    if (splashDismissed) return;
+    splashDismissed = true;
+    if (splashScreen) {
       splashScreen.classList.add('splash-fading');
       setTimeout(() => {
         splashScreen.style.display = 'none';
       }, 500);
-    };
+    }
+  };
 
+  if (splashScreen) {
+    if (splashStatusText) splashStatusText.textContent = 'Subsistemas listos';
     splashScreen.addEventListener('click', dismissSplash);
     window.addEventListener('keydown', dismissSplash, { once: true });
-    setTimeout(dismissSplash, 1200);
+    setTimeout(dismissSplash, 2500);
+  }
+
+  // Inicialización protegida contra caídas
+  try {
+    await initLauncherUpdater().catch(() => {});
+    await loadConfig().catch(() => {});
+    await detectJava().catch(() => {});
+    await initCustomBackground().catch(() => {});
+    try {
+      loadNewsFeed().catch(() => {});
+    } catch (_) {}
+    try {
+      if (api.serverMonitor) {
+        const fav = currentActiveProfile?.favoriteServerIp || '127.0.0.1:25565';
+        currentMonitoredAddress = fav;
+        api.serverMonitor.setTarget({ host: fav }).catch(() => {});
+      }
+    } catch (_) {}
+    try {
+      const running = await api.launcher.getRunning();
+      updateLaunchUIState(running ? running.length : 0);
+    } catch (_) {}
+  } catch (initErr) {
+    console.error('[Startup Shield] Error en inicialización de ShubaCore:', initErr);
+  } finally {
+    setTimeout(dismissSplash, 600);
   }
 
 

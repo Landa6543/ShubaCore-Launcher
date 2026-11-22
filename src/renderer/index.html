@@ -3688,5 +3688,15 @@
   <script src="libs/skinview3d.bundle.js"></script>
   <script src="i18n.js"></script>
   <script src="renderer.js"></script>
+  <script>
+    // Fail-safe global de seguridad para la pantalla de inicio (SHUBATECH)
+    setTimeout(function() {
+      var splash = document.getElementById('shubacore-splash-screen');
+      if (splash && splash.style.display !== 'none') {
+        splash.classList.add('splash-fading');
+        setTimeout(function() { splash.style.display = 'none'; }, 600);
+      }
+    }, 3500);
+  </script>
 </body>
 </html>

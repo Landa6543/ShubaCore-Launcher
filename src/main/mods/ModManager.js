@@ -617,8 +617,8 @@ class ModManager {
         if (onProgress) onProgress({ type: targetType, percent: pct, fileName: fileInfo.fileName, message: `Descargando ${fileInfo.fileName}... (${pct}%)` });
       });
 
-      const BedrockManager = require('../bedrock/BedrockManager');
-      const bm = new BedrockManager();
+      const { getBedrockManager } = require('../bedrock/BedrockManager');
+      const bm = getBedrockManager();
       const importResult = await bm.importAddonFile(destFile, activeInstance, true);
 
       logger.info(`[BedrockCatalog] Contenido instalado y sincronizado con éxito: ${fileInfo.fileName}`);

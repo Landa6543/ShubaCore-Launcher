@@ -19,9 +19,9 @@ class BedrockManager {
     this.packageFamily = 'Microsoft.MinecraftUWP_8wekyb3d8bbwe';
     this.previewPackageFamily = 'Microsoft.MinecraftWindowsBeta_8wekyb3d8bbwe';
     this.storeProductId = '9NBLGGH2JHXJ';
-    this.storeUrl = `ms-windows-store://pdp/?ProductId=${this.storeProductId}`;
-    this.storeInstallUrl = `ms-windows-store://install/?ProductId=${this.storeProductId}`;
-    this.storeDownloadsUrl = 'ms-windows-store://downloadandupdates';
+    this.storeUrl = `ms-windows-store://pdp/?PFN=${this.packageFamily}&ProductId=${this.storeProductId}`;
+    this.storeInstallUrl = `ms-windows-store://install/?ProductId=${this.storeProductId}&PFN=${this.packageFamily}`;
+    this.storeDownloadsUrl = 'ms-windows-store://downloadsandupdates';
     this.webStoreUrl = 'https://www.xbox.com/games/store/minecraft-for-windows/9nblggh2jhxj';
   }
 

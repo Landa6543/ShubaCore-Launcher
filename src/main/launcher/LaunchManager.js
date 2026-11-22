@@ -336,8 +336,8 @@ class LaunchManager {
           });
         }
 
-        this._emit('launch:started', { isBedrock: true, profile: activeProfile });
-        this._emit('launch:game-ready', { isBedrock: true, profile: activeProfile });
+        this._emit('launch:started', { isBedrock: true, profile: activeProfile.name, username: 'Bedrock', pid: 'UWP' });
+        this._emit('launch:game-ready', { isBedrock: true, profile: activeProfile.name, runningCount: this.activeSessions.size });
         return { success: true, isBedrock: true };
       }
 
