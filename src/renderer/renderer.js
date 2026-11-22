@@ -5773,27 +5773,40 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!catalogActiveFilterChips) return;
     catalogActiveFilterChips.innerHTML = '';
 
+    const isModpack = (currentContentType === 'modpacks');
     const isModContent = (currentContentType === 'mods' || currentContentType === 'github');
-    if (effectiveLoader && effectiveLoader !== 'all') {
-      const isVanilla = String(effectiveLoader).toLowerCase() === 'vanilla';
+
+    // Para modpacks, solo mostrar chips si el usuario los seleccionó explícitamente en los desplegables avanzados
+    const explicitLoader = (selectCatalogLoader && selectCatalogLoader.value !== 'active' && selectCatalogLoader.value !== 'all')
+      ? selectCatalogLoader.value
+      : null;
+    const explicitMcVersion = (selectCatalogMcVersion && selectCatalogMcVersion.value !== 'active' && selectCatalogMcVersion.value !== 'all')
+      ? selectCatalogMcVersion.value
+      : null;
+
+    const displayLoader = isModpack ? explicitLoader : effectiveLoader;
+    const displayMcVersion = isModpack ? explicitMcVersion : effectiveMcVersion;
+
+    if (displayLoader && displayLoader !== 'all') {
+      const isVanilla = String(displayLoader).toLowerCase() === 'vanilla';
       if (!(isModContent && isVanilla)) {
         const chip = document.createElement('div');
         chip.className = 'catalog-filter-chip';
-        chip.innerHTML = `<span>⚙ ${escapeHtml(effectiveLoader.toUpperCase())}</span><button type="button" class="chip-remove-btn" title="Quitar filtro de Modloader">✕</button>`;
+        chip.innerHTML = `<span>⚙ ${escapeHtml(displayLoader.toUpperCase())}</span><button type="button" class="chip-remove-btn" title="Quitar filtro de Modloader">✕</button>`;
         chip.querySelector('.chip-remove-btn').addEventListener('click', () => {
-          if (selectCatalogLoader) selectCatalogLoader.value = 'all';
+          if (selectCatalogLoader) selectCatalogLoader.value = isModpack ? 'active' : 'all';
           performModSearch();
         });
         catalogActiveFilterChips.appendChild(chip);
       }
     }
 
-    if (effectiveMcVersion && effectiveMcVersion !== 'all') {
+    if (displayMcVersion && displayMcVersion !== 'all') {
       const chip = document.createElement('div');
       chip.className = 'catalog-filter-chip';
-      chip.innerHTML = `<span>🎮 ${escapeHtml(effectiveMcVersion)}</span><button type="button" class="chip-remove-btn" title="Quitar filtro de versión">✕</button>`;
+      chip.innerHTML = `<span>🎮 ${escapeHtml(displayMcVersion)}</span><button type="button" class="chip-remove-btn" title="Quitar filtro de versión">✕</button>`;
       chip.querySelector('.chip-remove-btn').addEventListener('click', () => {
-        if (selectCatalogMcVersion) selectCatalogMcVersion.value = 'all';
+        if (selectCatalogMcVersion) selectCatalogMcVersion.value = isModpack ? 'active' : 'all';
         performModSearch();
       });
       catalogActiveFilterChips.appendChild(chip);
@@ -6310,10 +6323,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       btn.classList.add('active');
       currentContentType = btn.getAttribute('data-cat') || 'mods';
       if (selectCatalogContentType) selectCatalogContentType.value = currentContentType;
+      if (currentContentType === 'modpacks') {
+        catalogContextProfile = null;
+      }
+      updateCatalogContextBar();
       if (currentContentType === 'github') {
         if (selectModSource) selectModSource.value = 'github';
-      } else if (selectModSource && selectModSource.value === 'github') {
-        selectModSource.value = 'both';
+        if (selectCatalogPlatform) selectCatalogPlatform.disabled = true;
+      } else {
+        if (selectCatalogPlatform) selectCatalogPlatform.disabled = false;
+        if (selectModSource && selectModSource.value === 'github') {
+          selectModSource.value = (selectCatalogPlatform ? selectCatalogPlatform.value : 'both');
+        }
       }
       currentContentPage = 1;
       performModSearch();
@@ -6345,27 +6366,40 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const activeProfileRef = catalogContextProfile || currentActiveProfile;
     const isBedrock = activeProfileRef && (activeProfileRef.edition === 'bedrock' || String(activeProfileRef.loader).toLowerCase() === 'bedrock');
+    const isModpack = (currentContentType === 'modpacks');
 
-    let mcVersion = selectCatalogMcVersion?.value && selectCatalogMcVersion.value !== 'active'
-      ? selectCatalogMcVersion.value
-      : (activeProfileRef?.mcVersion || '1.21.1');
-    if (mcVersion === 'all' || isBedrock) mcVersion = '';
+    let mcVersion = '';
+    let loader = '';
 
-    const isVanillaInstance = (activeProfileRef?.loader || '').toLowerCase() === 'vanilla';
-    let loader = selectCatalogLoader?.value && selectCatalogLoader.value !== 'active'
-      ? selectCatalogLoader.value
-      : (activeProfileRef?.loader || 'neoforge').toLowerCase();
-    if (loader === 'all') loader = '';
-    if (isBedrock) loader = 'bedrock';
+    if (isModpack) {
+      mcVersion = (selectCatalogMcVersion?.value && selectCatalogMcVersion.value !== 'active' && selectCatalogMcVersion.value !== 'all')
+        ? selectCatalogMcVersion.value
+        : '';
+      loader = (selectCatalogLoader?.value && selectCatalogLoader.value !== 'active' && selectCatalogLoader.value !== 'all')
+        ? selectCatalogLoader.value
+        : '';
+    } else {
+      mcVersion = selectCatalogMcVersion?.value && selectCatalogMcVersion.value !== 'active'
+        ? selectCatalogMcVersion.value
+        : (activeProfileRef?.mcVersion || '1.21.1');
+      if (mcVersion === 'all' || isBedrock) mcVersion = '';
 
-    if (isBedrock) source = 'curseforge';
+      const isVanillaInstance = (activeProfileRef?.loader || '').toLowerCase() === 'vanilla';
+      loader = selectCatalogLoader?.value && selectCatalogLoader.value !== 'active'
+        ? selectCatalogLoader.value
+        : (activeProfileRef?.loader || 'neoforge').toLowerCase();
+      if (loader === 'all') loader = '';
+      if (isBedrock) loader = 'bedrock';
 
-    // Si la instancia es Vanilla y se exploran mods, no filtrar por 'vanilla' para no romper resultados
-    if (isVanillaInstance && (currentContentType === 'mods' || currentContentType === 'github')) {
-      if (!selectCatalogLoader || selectCatalogLoader.value === 'active' || selectCatalogLoader.value === 'vanilla') {
-        loader = '';
+      // Si la instancia es Vanilla y se exploran mods, no filtrar por 'vanilla' para no romper resultados
+      if (isVanillaInstance && (currentContentType === 'mods' || currentContentType === 'github')) {
+        if (!selectCatalogLoader || selectCatalogLoader.value === 'active' || selectCatalogLoader.value === 'vanilla') {
+          loader = '';
+        }
       }
     }
+
+    if (isBedrock && !isModpack) source = 'curseforge';
 
     renderActiveFilterChips(loader, mcVersion, query, category, source);
 
@@ -6631,9 +6665,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       resultsSubhint.textContent = (window.i18n?.getLanguage() === 'en') ? `Page ${currentContentPage} of ~${totalContentPages}` : `Página ${currentContentPage} de ~${totalContentPages}`;
     } else {
       resultsHeadline.textContent = (window.i18n?.getLanguage() === 'en') ? `Most Popular ${catLabel}` : `${catLabel} Más Populares`;
-      resultsSubhint.textContent = isBedrock
-        ? 'Contenido y Add-ons oficiales para Minecraft Bedrock Edition'
-        : ((window.i18n?.getLanguage() === 'en') ? `Compatible with Minecraft ${mcVersion || 'all'}` : `Compatibles con Minecraft ${mcVersion || 'todas'}`);
+      if (isModpack) {
+        resultsSubhint.textContent = (window.i18n?.getLanguage() === 'en')
+          ? (mcVersion ? `Modpacks for Minecraft ${mcVersion}` : 'Explore and install full modpacks as new instances')
+          : (mcVersion ? `Modpacks para Minecraft ${mcVersion}` : 'Explora e instala modpacks completos como nuevas instancias');
+      } else {
+        resultsSubhint.textContent = isBedrock
+          ? 'Contenido y Add-ons oficiales para Minecraft Bedrock Edition'
+          : ((window.i18n?.getLanguage() === 'en') ? `Compatible with Minecraft ${mcVersion || 'all'}` : `Compatibles con Minecraft ${mcVersion || 'todas'}`);
+      }
     }
 
     modsSearchResults.innerHTML = '<div class="empty-state">Consultando catálogo en tiempo real...</div>';
