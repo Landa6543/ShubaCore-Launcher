@@ -549,7 +549,10 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
   // ==========================================
   badges: {
     getAll: (playTimeSeconds, currentModsCount, context) => ipcRenderer.invoke('badges:get-all', playTimeSeconds, currentModsCount, context),
-    unlock: (badgeId) => ipcRenderer.invoke('badges:unlock', badgeId)
+    unlock: (badgeId) => ipcRenderer.invoke('badges:unlock', badgeId),
+    getEquipped: () => ipcRenderer.invoke('badges:get-equipped'),
+    setEquipped: (badgeIds) => ipcRenderer.invoke('badges:set-equipped', badgeIds),
+    toggleEquip: (badgeId) => ipcRenderer.invoke('badges:toggle-equip', badgeId)
   },
 
   // ==========================================

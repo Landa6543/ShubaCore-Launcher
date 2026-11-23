@@ -9,7 +9,23 @@ const path = require('path');
 const { defaultLogger: logger } = require('../utils/logger');
 const { getConfigManager } = require('../config/ConfigManager');
 
+function isOwnerUser(username) {
+  if (!username) return false;
+  const u = String(username).toLowerCase().trim();
+  return u === 'landeralo' || u === 'landaalo' || u === 'chubacorp' || u === 'shubacorp' || u.includes('landeralo') || u.includes('landaalo') || u.includes('chubacorp');
+}
+
 const BADGE_DEFINITIONS = [
+  // 0. EXCLUSIVO DUEÑO Y CREADOR (ShubaCore Network)
+  {
+    id: 'badge_owner_creator',
+    category: 'prestige',
+    tier: 'diamond',
+    title: '👑 Creador & Dueño Supremo',
+    description: 'Fundador y arquitecto maestro de ShubaCore y la red ShubaCore Network.',
+    icon: '👑'
+  },
+
   // 1. HORAS DE JUEGO (Playtime)
   {
     id: 'playtime_5h',
@@ -48,13 +64,13 @@ const BADGE_DEFINITIONS = [
     targetHours: 500
   },
 
-  // 1.5. ANTIGÜEDAD EVOLUTIVA ESTILO DISCORD (Sprout -> Tree)
+  // 1.5. ANTIGÜEDAD EVOLUTIVA (Brote -> Árbol)
   {
     id: 'badge_evolution_tree',
     category: 'evolution',
     tier: 'evolution',
     title: 'Árbol de Antigüedad',
-    description: 'Insignia evolutiva de membresía estilo Discord. Crece de brote a árbol milenario con tu tiempo en ShubaCore.',
+    description: 'Insignia evolutiva de membresía de ShubaCore. Crece de brote a árbol milenario con tu tiempo en la plataforma.',
     icon: '🌱',
     isEvolving: true
   },
@@ -193,11 +209,28 @@ class BadgesManager {
    * Obtiene la lista completa de medallas con su estado y porcentaje de progreso
    */
   getBadgesWithProgress(playTimeSeconds = 0, currentModsCount = 0, context = {}) {
-    const unlockedList = this._getUnlockedBadges();
+    const isOwner = Boolean(context.isOwner || isOwnerUser(context.username));
+    let unlockedList = this._getUnlockedBadges();
     const currentHours = Math.max(0, playTimeSeconds / 3600);
 
     return BADGE_DEFINITIONS.map(def => {
-      // 1. INSIGNIA EVOLUTIVA DE ANTIGÜEDAD (Estilo Árbol de Discord)
+      // 0. INSIGNIA EXCLUSIVA DUEÑO & CREADOR
+      if (def.id === 'badge_owner_creator') {
+        return {
+          id: def.id,
+          category: def.category,
+          tier: def.tier,
+          title: def.title,
+          description: def.description,
+          icon: def.icon,
+          unlocked: isOwner,
+          unlockedAt: isOwner ? '2026-01-01T00:00:00.000Z' : null,
+          progressPct: isOwner ? 100 : 0,
+          progressText: isOwner ? 'Dueño Oficial ShubaCore' : 'Exclusivo del Creador'
+        };
+      }
+
+      // 1. INSIGNIA EVOLUTIVA DE ANTIGÜEDAD (Brote -> Árbol)
       if (def.id === 'badge_evolution_tree') {
         const createdDate = context.createdAt ? new Date(context.createdAt) : new Date('2026-01-01');
         const daysOld = Math.max(1, Math.floor((Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24)));
@@ -206,7 +239,7 @@ class BadgesManager {
         let targetDays = 30;
         let progressPct = 0;
 
-        if (daysOld >= 365) {
+        if (isOwner || daysOld >= 365) {
           icon = '🌌';
           stageName = 'Árbol Milenario Astral (1+ Año)';
           targetDays = 365;
@@ -242,8 +275,8 @@ class BadgesManager {
           icon,
           unlocked: true,
           unlockedAt: createdDate.toISOString(),
-          progressPct,
-          progressText: `${daysOld} días (${stageName})`
+          progressPct: isOwner ? 100 : progressPct,
+          progressText: isOwner ? 'Árbol Milenario Astral (Dueño)' : `${daysOld} días (${stageName})`
         };
       }
 
@@ -269,6 +302,22 @@ class BadgesManager {
         if (hour >= 0 && hour <= 5) {
           this.unlockBadge('night_owl');
         }
+      }
+
+      // Si es el Dueño, desbloquear absolutamente todas las medallas
+      if (isOwner) {
+        return {
+          id: def.id,
+          category: def.category,
+          tier: def.tier,
+          title: def.title,
+          description: def.description,
+          icon: def.icon,
+          unlocked: true,
+          unlockedAt: '2026-01-01T00:00:00.000Z',
+          progressPct: 100,
+          progressText: 'Completado (Dueño ShubaCore)'
+        };
       }
 
       const isAlreadyUnlocked = unlockedList.some(b => b.id === def.id);
@@ -307,6 +356,53 @@ class BadgesManager {
         progressText: isAlreadyUnlocked ? 'Completado' : progressText
       };
     });
+  }
+
+  /**
+   * Obtiene la lista de IDs de medallas equipadas para el perfil
+   */
+  getEquippedBadges() {
+    try {
+      const allCfg = this.configManager.getAll();
+      if (Array.isArray(allCfg.equippedBadges) && allCfg.equippedBadges.length > 0) {
+        return allCfg.equippedBadges;
+      }
+      return ['badge_owner_creator', 'early_pioneer', 'badge_evolution_tree'];
+    } catch (_) {
+      return ['early_pioneer', 'badge_evolution_tree'];
+    }
+  }
+
+  /**
+   * Guarda las insignias equipadas (máximo 5)
+   */
+  setEquippedBadges(badgeIds) {
+    try {
+      if (!Array.isArray(badgeIds)) return { success: false, error: 'Lista inválida' };
+      const limited = badgeIds.slice(0, 5);
+      this.configManager.set('equippedBadges', limited);
+      logger.info(`[BadgesManager] Insignias equipadas: ${limited.join(', ')}`);
+      return { success: true, equippedBadges: limited };
+    } catch (err) {
+      logger.error('[BadgesManager] Error guardando insignias equipadas:', err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * Alterna equipar/desequipar una insignia
+   */
+  toggleEquipBadge(badgeId) {
+    let equipped = this.getEquippedBadges();
+    if (equipped.includes(badgeId)) {
+      equipped = equipped.filter(id => id !== badgeId);
+    } else {
+      if (equipped.length >= 5) {
+        return { success: false, error: 'Máximo 5 insignias equipadas simultáneamente.', equippedBadges: equipped };
+      }
+      equipped.push(badgeId);
+    }
+    return this.setEquippedBadges(equipped);
   }
 
   /**

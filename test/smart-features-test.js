@@ -181,6 +181,21 @@ java.lang.NullPointerException: Registry Object not present
   assert.strictEqual(b75m.unlocked, true, '75 mods debe estar desbloqueado');
   console.log(`   ✔ Progresión calculada: 50h desbloqueada (${b50h.title}), 500h al ${b500h.progressPct}% (${b500h.progressText}).`);
 
+  // Test Owner Creator Unlock
+  const ownerBadges = badgesMgr.getBadgesWithProgress(0, 0, { username: 'LanderAlo' });
+  const ownerBadge = ownerBadges.find(b => b.id === 'badge_owner_creator');
+  assert.strictEqual(ownerBadge.unlocked, true, 'Insignia de Creador & Dueño Supremo debe estar desbloqueada para LanderAlo');
+  assert(ownerBadges.every(b => b.unlocked), 'Todas las medallas deben estar desbloqueadas para el Dueño (LanderAlo)');
+  console.log('   ✔ Desbloqueo total para el Dueño/Creador (LanderAlo) validado.');
+
+  // Test Equipped Badges
+  const equipRes = badgesMgr.setEquippedBadges(['badge_owner_creator', 'playtime_500h']);
+  assert.strictEqual(equipRes.success, true);
+  const equipped = badgesMgr.getEquippedBadges();
+  assert.strictEqual(equipped.length, 2);
+  assert(equipped.includes('badge_owner_creator'));
+  console.log('   ✔ Sistema de equipar medallas de perfil validado.');
+
   // Cleanup
   fs.rmSync(testDir, { recursive: true, force: true });
   console.log('\n====================================================');

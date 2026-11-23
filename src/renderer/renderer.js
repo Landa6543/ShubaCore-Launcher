@@ -10168,6 +10168,110 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  async function renderMyProfileEquippedBadges() {
+    const previewContainer = document.getElementById('my-profile-equipped-badges-preview');
+    const availableContainer = document.getElementById('my-profile-available-badges-list');
+    const countBadge = document.getElementById('equipped-badges-count-badge');
+    if (!previewContainer || !availableContainer) return;
+
+    try {
+      const badges = await api.badges.getAll();
+      const equippedIds = (await api.badges.getEquipped()) || [];
+
+      if (countBadge) {
+        countBadge.textContent = `${equippedIds.length} / 5 Equipadas`;
+      }
+
+      // 1. Renderizar Vista Previa de Equipadas
+      previewContainer.innerHTML = '';
+      const equippedBadgesList = badges.filter(b => equippedIds.includes(b.id));
+
+      if (equippedBadgesList.length === 0) {
+        previewContainer.innerHTML = '<span style="font-size: 11px; color: var(--text-dim); font-style: italic;">No tienes insignias equipadas. Haz clic en las medallas abajo para colocártelas.</span>';
+      } else {
+        equippedBadgesList.forEach(b => {
+          const pill = document.createElement('div');
+          const tierColor = b.tier === 'diamond' ? '#38bdf8' : (b.tier === 'gold' ? '#f59e0b' : (b.tier === 'evolution' ? '#a78bfa' : '#10b981'));
+          pill.style.cssText = `
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 8px;
+            background: ${tierColor}15;
+            border: 1px solid ${tierColor}40;
+            font-size: 12px;
+            box-shadow: 0 0 8px ${tierColor}20;
+          `;
+          pill.innerHTML = `
+            <span style="font-size: 15px;">${b.icon || '🏆'}</span>
+            <span style="font-weight: 700; color: ${tierColor};">${escapeHtml(b.title)}</span>
+            <button type="button" class="btn-unequip-badge" title="Desequipar" style="background: none; border: none; color: var(--text-dim); cursor: pointer; padding: 0 0 0 4px; font-size: 11px; font-weight: bold;">✕</button>
+          `;
+
+          pill.querySelector('.btn-unequip-badge').onclick = async (e) => {
+            e.stopPropagation();
+            await api.badges.toggleEquip(b.id);
+            renderMyProfileEquippedBadges();
+          };
+
+          previewContainer.appendChild(pill);
+        });
+      }
+
+      // 2. Renderizar Lista de Medallas Disponibles (Desbloqueadas)
+      availableContainer.innerHTML = '';
+      const unlockedBadges = badges.filter(b => b.unlocked);
+
+      if (unlockedBadges.length === 0) {
+        availableContainer.innerHTML = '<span style="font-size: 11px; color: var(--text-dim);">Aún no tienes medallas desbloqueadas. ¡Juega y completa logros para equipártelas!</span>';
+      } else {
+        unlockedBadges.forEach(b => {
+          const isEquipped = equippedIds.includes(b.id);
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          const tierColor = b.tier === 'diamond' ? '#38bdf8' : (b.tier === 'gold' ? '#f59e0b' : (b.tier === 'evolution' ? '#a78bfa' : '#10b981'));
+
+          btn.style.cssText = `
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 10px;
+            border-radius: 6px;
+            border: 1px solid ${isEquipped ? tierColor : 'var(--border)'};
+            background: ${isEquipped ? `${tierColor}20` : 'var(--bg-surface)'};
+            color: ${isEquipped ? tierColor : 'var(--text-secondary)'};
+            cursor: pointer;
+            font-size: 11.5px;
+            font-weight: 600;
+            transition: all 0.15s ease;
+          `;
+
+          btn.title = b.description;
+          btn.innerHTML = `
+            <span style="font-size: 14px;">${b.icon || '🏆'}</span>
+            <span>${escapeHtml(b.title)}</span>
+            <span style="font-size: 10px; padding: 1px 4px; border-radius: 4px; background: ${isEquipped ? tierColor : 'rgba(255,255,255,0.06)'}; color: ${isEquipped ? '#000' : 'var(--text-dim)'}; font-weight: 700;">
+              ${isEquipped ? '✓ EQUIPADA' : '+ EQUIPAR'}
+            </span>
+          `;
+
+          btn.onclick = async () => {
+            const res = await api.badges.toggleEquip(b.id);
+            if (res && res.error) {
+              alert(res.error);
+            }
+            renderMyProfileEquippedBadges();
+          };
+
+          availableContainer.appendChild(btn);
+        });
+      }
+    } catch (err) {
+      console.warn('[renderMyProfileEquippedBadges] Error:', err);
+    }
+  }
+
   async function loadMySocialProfile() {
     try {
       const sess = await api.auth.getSavedSession().catch(() => null);
@@ -10196,6 +10300,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       const skinUrl = prof.skinUrl || `https://mc-heads.net/skin/${encodeURIComponent(prof.username)}`;
       if (myProfileAvatarCanvas) renderSkinFaceToCanvas(skinUrl, myProfileAvatarCanvas);
+
+      await renderMyProfileEquippedBadges();
     } catch (err) {
       console.warn('[loadMySocialProfile] Error:', err);
     }
@@ -10393,6 +10499,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       (f.username && user.username && f.username.toLowerCase() === user.username.toLowerCase())
     );
 
+    const userLower = (user.username || '').toLowerCase();
+    const isOwner = userLower === 'landeralo' || userLower === 'landaalo' || userLower.includes('landeralo') || userLower.includes('landaalo') || userLower.includes('chubacorp') || userLower.includes('shubacorp') || (isMe && (sess?.shubacoreAccount?.username?.toLowerCase() === 'landeralo' || sess?.shubacoreAccount?.username?.toLowerCase() === 'landaalo' || sess?.microsoftAccount?.username?.toLowerCase() === 'landeralo'));
+
+    let equippedBadges = [];
+    try {
+      const allBadges = await api.badges.getAll();
+      const equippedIds = (await api.badges.getEquipped()) || [];
+      equippedBadges = allBadges.filter(b => equippedIds.includes(b.id));
+    } catch (_) {}
+
     userProfileModalBody.innerHTML = `
       <div style="display: flex; gap: 14px; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 14px;">
         <div class="friend-avatar-wrap" style="width: 58px; height: 58px; flex-shrink: 0;">
@@ -10402,6 +10518,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           <div style="display: flex; align-items: center; gap: 8px;">
             <strong style="font-size: 16px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(user.displayName || user.username)}</strong>
             <span class="badge ${isPrem ? 'badge-success' : 'badge-offline'}">${isPrem ? 'PREMIUM' : 'SHUBA'}</span>
+            ${isOwner ? '<span class="badge badge-warning" style="background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.45); font-size: 9.5px; font-weight: 800;">👑 DUEÑO</span>' : ''}
           </div>
           <span style="font-size: 12px; color: var(--text-dim);">@${escapeHtml(user.username)}</span>
         </div>
@@ -10426,50 +10543,67 @@ document.addEventListener('DOMContentLoaded', async () => {
         </div>
       </div>
 
-      <!-- INSIGNIAS Y MEDALLAS DE PERFIL ESTILO DISCORD -->
+      <!-- INSIGNIAS Y MEDALLAS DE PERFIL -->
       <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;">
         <small style="color: var(--text-dim); display: block; margin-bottom: 6px; font-weight: 600; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.5px;">
-          🏆 Insignias de Perfil
+          🏆 Insignias de Perfil ShubaCore
         </small>
         <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
-          <!-- Insignia Evolutiva de Antigüedad (Sprout -> Tree) -->
-          ${(() => {
-            const userDate = user.createdAt || user.since || '2026-01-01';
-            const daysSince = Math.max(1, Math.floor((Date.now() - new Date(userDate).getTime()) / (1000 * 60 * 60 * 24)));
-            let treeIcon = '🌱';
-            let treeLabel = 'Brote Recién Nacido (<1 mes)';
-            if (daysSince >= 365) { treeIcon = '🌌'; treeLabel = 'Árbol Milenario Astral (1+ Año)'; }
-            else if (daysSince >= 180) { treeIcon = '🌲'; treeLabel = 'Roble Guardián (6+ Meses)'; }
-            else if (daysSince >= 90) { treeIcon = '🌳'; treeLabel = 'Árbol Maduro (3+ Meses)'; }
-            else if (daysSince >= 30) { treeIcon = '🌿'; treeLabel = 'Brote Joven (1+ Mes)'; }
+          ${isOwner ? `
+            <div class="profile-badge-pill" title="Fundador y Dueño Supremo de ShubaCore Network" style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 6px; background: linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(239, 68, 68, 0.2)); border: 1px solid rgba(245, 158, 11, 0.6); font-size: 11.5px; box-shadow: 0 0 10px rgba(245, 158, 11, 0.3);">
+              <span style="font-size: 14px;">👑</span>
+              <span style="font-weight: 800; font-size: 11.5px; color: #f59e0b; text-transform: uppercase; letter-spacing: 0.5px;">Creador Supremo</span>
+            </div>
+          ` : ''}
+
+          ${isMe && equippedBadges.length > 0 ? equippedBadges.map(b => {
+            const tierColor = b.tier === 'diamond' ? '#38bdf8' : (b.tier === 'gold' ? '#f59e0b' : (b.tier === 'evolution' ? '#a78bfa' : '#10b981'));
             return `
-              <div class="profile-badge-pill" title="Antigüedad: ${treeLabel} (${daysSince} días activa)" style="display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 6px; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.35); font-size: 11.5px; cursor: help;">
-                <span style="font-size: 14px;">${treeIcon}</span>
-                <span style="font-weight: 600; font-size: 11px; color: #10b981;">${treeLabel}</span>
+              <div class="profile-badge-pill" title="${escapeHtml(b.description || b.title)}" style="display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 6px; background: ${tierColor}15; border: 1px solid ${tierColor}35; font-size: 11.5px; cursor: help;">
+                <span style="font-size: 13px;">${b.icon || '🏆'}</span>
+                <span style="font-weight: 600; font-size: 11px; color: ${tierColor};">${escapeHtml(b.title)}</span>
               </div>
             `;
-          })()}
+          }).join('') : `
+            <!-- Insignia Evolutiva de Antigüedad (Brote -> Árbol) -->
+            ${(() => {
+              const userDate = user.createdAt || user.since || '2026-01-01';
+              const daysSince = Math.max(1, Math.floor((Date.now() - new Date(userDate).getTime()) / (1000 * 60 * 60 * 24)));
+              let treeIcon = '🌱';
+              let treeLabel = 'Brote Recién Nacido (<1 mes)';
+              if (isOwner || daysSince >= 365) { treeIcon = '🌌'; treeLabel = 'Árbol Milenario Astral (1+ Año)'; }
+              else if (daysSince >= 180) { treeIcon = '🌲'; treeLabel = 'Roble Guardián (6+ Meses)'; }
+              else if (daysSince >= 90) { treeIcon = '🌳'; treeLabel = 'Árbol Maduro (3+ Meses)'; }
+              else if (daysSince >= 30) { treeIcon = '🌿'; treeLabel = 'Brote Joven (1+ Mes)'; }
+              return `
+                <div class="profile-badge-pill" title="Antigüedad ShubaCore: ${treeLabel} (${daysSince} días activa)" style="display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 6px; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.35); font-size: 11.5px; cursor: help;">
+                  <span style="font-size: 14px;">${treeIcon}</span>
+                  <span style="font-weight: 600; font-size: 11px; color: #10b981;">${treeLabel}</span>
+                </div>
+              `;
+            })()}
 
-          <!-- Insignia Pionero Fundador -->
-          <div class="profile-badge-pill" title="Pionero Fundador de la era temprana de ShubaCore" style="display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 6px; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.35); font-size: 11.5px; cursor: help;">
-            <span style="font-size: 13px;">👑</span>
-            <span style="font-weight: 600; font-size: 11px; color: #f59e0b;">Pionero Alfa</span>
-          </div>
+            <!-- Insignia Pionero Fundador -->
+            <div class="profile-badge-pill" title="Pionero Fundador de ShubaCore Network" style="display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 6px; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.35); font-size: 11.5px; cursor: help;">
+              <span style="font-size: 13px;">👑</span>
+              <span style="font-weight: 600; font-size: 11px; color: #f59e0b;">Pionero Alfa</span>
+            </div>
 
-          <!-- Insignia Horas Jugadas -->
-          ${(() => {
-            const h = (Number(user.playTimeSeconds) || 0) / 3600;
-            if (h >= 500) {
-              return `<div class="profile-badge-pill" title="Titán legendario de Minecraft (+500 Horas)" style="display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 6px; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.4); font-size: 11.5px; cursor: help;"><span style="font-size: 13px;">💎</span><span style="font-weight: 600; font-size: 11px; color: #38bdf8;">Leyenda (500h+)</span></div>`;
-            } else if (h >= 100) {
-              return `<div class="profile-badge-pill" title="Maestro de la supervivencia (+100 Horas)" style="display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 6px; background: rgba(234, 179, 8, 0.15); border: 1px solid rgba(234, 179, 8, 0.4); font-size: 11.5px; cursor: help;"><span style="font-size: 13px;">🥇</span><span style="font-weight: 600; font-size: 11px; color: #eab308;">Maestro (100h+)</span></div>`;
-            } else if (h >= 50) {
-              return `<div class="profile-badge-pill" title="Explorador veterano (+50 Horas)" style="display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 6px; background: rgba(148, 163, 184, 0.15); border: 1px solid rgba(148, 163, 184, 0.4); font-size: 11.5px; cursor: help;"><span style="font-size: 13px;">🥈</span><span style="font-weight: 600; font-size: 11px; color: #cbd5e1;">Veterano (50h+)</span></div>`;
-            } else if (h >= 5) {
-              return `<div class="profile-badge-pill" title="Iniciado Shuba (+5 Horas)" style="display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 6px; background: rgba(249, 115, 22, 0.15); border: 1px solid rgba(249, 115, 22, 0.4); font-size: 11.5px; cursor: help;"><span style="font-size: 13px;">🥉</span><span style="font-weight: 600; font-size: 11px; color: #f97316;">Iniciado (5h+)</span></div>`;
-            }
-            return '';
-          })()}
+            <!-- Insignia Horas Jugadas -->
+            ${(() => {
+              const h = (Number(user.playTimeSeconds) || 0) / 3600;
+              if (isOwner || h >= 500) {
+                return '<div class="profile-badge-pill" title="Titán legendario de Minecraft (+500 Horas)" style="display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 6px; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.4); font-size: 11.5px; cursor: help;"><span style="font-size: 13px;">💎</span><span style="font-weight: 600; font-size: 11px; color: #38bdf8;">Leyenda (500h+)</span></div>';
+              } else if (h >= 100) {
+                return '<div class="profile-badge-pill" title="Maestro de la supervivencia (+100 Horas)" style="display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 6px; background: rgba(234, 179, 8, 0.15); border: 1px solid rgba(234, 179, 8, 0.4); font-size: 11.5px; cursor: help;"><span style="font-size: 13px;">🥇</span><span style="font-weight: 600; font-size: 11px; color: #eab308;">Maestro (100h+)</span></div>';
+              } else if (h >= 50) {
+                return '<div class="profile-badge-pill" title="Explorador veterano (+50 Horas)" style="display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 6px; background: rgba(148, 163, 184, 0.15); border: 1px solid rgba(148, 163, 184, 0.4); font-size: 11.5px; cursor: help;"><span style="font-size: 13px;">🥈</span><span style="font-weight: 600; font-size: 11px; color: #cbd5e1;">Veterano (50h+)</span></div>';
+              } else if (h >= 5) {
+                return '<div class="profile-badge-pill" title="Iniciado Shuba (+5 Horas)" style="display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 6px; background: rgba(249, 115, 22, 0.15); border: 1px solid rgba(249, 115, 22, 0.4); font-size: 11.5px; cursor: help;"><span style="font-size: 13px;">🥉</span><span style="font-weight: 600; font-size: 11px; color: #f97316;">Iniciado (5h+)</span></div>';
+              }
+              return '';
+            })()}
+          `}
         </div>
       </div>
 

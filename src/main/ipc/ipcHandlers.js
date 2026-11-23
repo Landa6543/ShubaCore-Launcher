@@ -2960,8 +2960,22 @@ function registerIpcHandlers(mainWindow) {
     try {
       let sec = playTimeSeconds;
       let createdAt = context?.createdAt || null;
+      const shubaAcc = authManager.getShubaCoreAccount();
+      const msAcc = authManager.getMicrosoftAccount();
+      const activeNick = authManager.getActivePlayerName();
+
+      const combinedUsernames = [
+        context?.username,
+        shubaAcc?.username,
+        msAcc?.username,
+        activeNick
+      ].filter(Boolean).map(u => String(u).toLowerCase());
+
+      const isOwner = combinedUsernames.some(u => 
+        u === 'landeralo' || u === 'landaalo' || u.includes('landeralo') || u.includes('landaalo') || u.includes('chubacorp') || u.includes('shubacorp')
+      );
+
       if (sec === undefined || sec === null) {
-        const shubaAcc = authManager.getShubaCoreAccount();
         if (shubaAcc?.id) {
           const profileRes = await supabaseManager.getProfile(shubaAcc.id);
           sec = profileRes.profile?.play_time_seconds || 0;
@@ -2970,7 +2984,12 @@ function registerIpcHandlers(mainWindow) {
           sec = 0;
         }
       }
-      return badgesManager.getBadgesWithProgress(sec, currentModsCount || 0, { createdAt, ...(context || {}) });
+      return badgesManager.getBadgesWithProgress(sec, currentModsCount || 0, {
+        createdAt,
+        username: shubaAcc?.username || msAcc?.username || activeNick,
+        isOwner,
+        ...(context || {})
+      });
     } catch (err) {
       return [];
     }
@@ -2979,6 +2998,30 @@ function registerIpcHandlers(mainWindow) {
   ipcMain.handle('badges:unlock', async (event, badgeId) => {
     try {
       return badgesManager.unlockBadge(badgeId);
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('badges:get-equipped', async () => {
+    try {
+      return badgesManager.getEquippedBadges();
+    } catch (err) {
+      return [];
+    }
+  });
+
+  ipcMain.handle('badges:set-equipped', async (event, badgeIds) => {
+    try {
+      return badgesManager.setEquippedBadges(badgeIds);
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('badges:toggle-equip', async (event, badgeId) => {
+    try {
+      return badgesManager.toggleEquipBadge(badgeId);
     } catch (err) {
       return { success: false, error: err.message };
     }
