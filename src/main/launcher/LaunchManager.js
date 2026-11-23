@@ -187,11 +187,14 @@ class LaunchManager {
   }
 
   get activeProcess() {
-    if (this.runningProcesses.size === 0) return null;
+    if (!this.runningProcesses || !(this.runningProcesses instanceof Map) || this.runningProcesses.size === 0) return null;
     return Array.from(this.runningProcesses.values())[0]?.child || null;
   }
 
   getRunningProcesses() {
+    if (!this.runningProcesses || !(this.runningProcesses instanceof Map)) {
+      this.runningProcesses = new Map();
+    }
     return Array.from(this.runningProcesses.values()).map((s) => ({
       sessionId: s.sessionId,
       pid: s.pid,
@@ -204,6 +207,9 @@ class LaunchManager {
   }
 
   getRunningCount() {
+    if (!this.runningProcesses || !(this.runningProcesses instanceof Map)) {
+      return 0;
+    }
     return this.runningProcesses.size;
   }
 
@@ -332,20 +338,25 @@ class LaunchManager {
           isBedrock: true,
           startTime: Date.now()
         };
+        if (!this.runningProcesses || !(this.runningProcesses instanceof Map)) {
+          this.runningProcesses = new Map();
+        }
         this.runningProcesses.set(sessionId, sessionInfo);
 
         try {
           this.profileManager.updateProfile(activeProfile.id, { lastPlayed: new Date().toISOString() });
         } catch (_) {}
 
-        if (this.discordManager && typeof this.discordManager.setPlaying === 'function') {
-          this.discordManager.setPlaying({
-            profileName: activeProfile.name,
-            mcVersion: activeProfile.mcVersion || 'Bedrock Edition',
-            loader: 'Bedrock',
-            activeModsCount: activeProfile.modsCount || 0
-          });
-        }
+        try {
+          if (this.discordManager && typeof this.discordManager.setPlaying === 'function') {
+            this.discordManager.setPlaying({
+              profileName: activeProfile.name,
+              mcVersion: activeProfile.mcVersion || 'Bedrock Edition',
+              loader: 'Bedrock',
+              activeModsCount: activeProfile.modsCount || 0
+            });
+          }
+        } catch (_) {}
 
         this._emit('launch:started', {
           sessionId,
@@ -905,6 +916,9 @@ class LaunchManager {
         accountMode: currentAccount?.type || (this.authManager?.isPremium?.() ? 'microsoft' : 'offline'),
         startTime: Date.now()
       };
+      if (!this.runningProcesses || !(this.runningProcesses instanceof Map)) {
+        this.runningProcesses = new Map();
+      }
       this.runningProcesses.set(sessionId, sessionInfo);
       this.isLaunching = false;
 
@@ -1206,6 +1220,9 @@ class LaunchManager {
             if (this._bedrockPollTimer) {
               clearInterval(this._bedrockPollTimer);
               this._bedrockPollTimer = null;
+            }
+            if (!this.runningProcesses || !(this.runningProcesses instanceof Map)) {
+              this.runningProcesses = new Map();
             }
             if (this.runningProcesses.has(sessionId)) {
               this.runningProcesses.delete(sessionId);

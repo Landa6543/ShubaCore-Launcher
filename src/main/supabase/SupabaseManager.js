@@ -520,7 +520,7 @@ class SupabaseManager {
   /**
    * Obtener lista de todos los jugadores registrados en la comunidad ShubaCore
    */
-  async getCommunityUsers(excludeUserId = null, limit = 500) {
+  async getCommunityUsers(excludeUserId = null, limit = 1000) {
     if (!this.client) return [];
     try {
       let req = this.client

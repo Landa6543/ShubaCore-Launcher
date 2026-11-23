@@ -7578,6 +7578,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   };
 
+  let lastLightboxErrorToast = 0;
   const openActiveImageLightbox = (imgUrl) => {
     if (!imageLightbox || !imgUrl) return;
     const simpleImg = document.getElementById('simple-lightbox-image');
@@ -7589,12 +7590,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       simpleImg.onerror = () => {
         simpleImg.onerror = null;
         closeActiveImageLightbox();
-        if (typeof showToast === 'function') {
-          showToast('No se pudo cargar la imagen en resolución completa.', 'warning');
+        const now = Date.now();
+        if (now - lastLightboxErrorToast > 6000) {
+          lastLightboxErrorToast = now;
+          if (typeof showToast === 'function') {
+            showToast('No se pudo cargar la imagen en resolución completa.', 'warning');
+          }
         }
       };
     }
     if (lightboxImage) {
+      lightboxImage.onerror = null;
+      lightboxImage.onload = null;
       lightboxImage.style.display = 'block';
       lightboxImage.src = imgUrl;
     }

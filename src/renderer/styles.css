@@ -424,7 +424,8 @@ body {
 .player-name-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
+  flex-wrap: wrap;
 }
 
 .player-name {
@@ -434,6 +435,8 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 100%;
+  flex-shrink: 0;
 }
 
 .player-action-hint {

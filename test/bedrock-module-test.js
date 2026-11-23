@@ -169,4 +169,5 @@ worldZip.writeZip(worldFilePath);
   console.log('\n====================================================');
   console.log('🎉 ¡TODAS LAS PRUEBAS DEL MÓDULO BEDROCK PASARON AL 100%!');
   console.log('====================================================\n');
+  process.exit(0);
 })();
