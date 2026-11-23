@@ -831,8 +831,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     { btn: tabViewMods, view: viewMods, name: 'mods', id: 'view-mods' },
     { btn: tabViewServers, view: viewServers, name: 'servers', id: 'view-servers' },
     { btn: document.getElementById('tab-view-friends'), view: document.getElementById('view-friends'), name: 'friends', id: 'view-friends' },
+    { btn: document.getElementById('tab-view-badges'), view: document.getElementById('view-badges'), name: 'badges', id: 'view-badges' },
     { btn: tabViewScreenshots, view: viewScreenshots, name: 'screenshots', id: 'view-screenshots' },
     { btn: tabViewSkins, view: viewSkins, name: 'skins', id: 'view-skins' },
+    { btn: document.getElementById('tab-view-controller'), view: document.getElementById('view-controller'), name: 'controller', id: 'view-controller' },
     { btn: tabViewSettings, view: viewSettings, name: 'settings', id: 'view-settings' },
     { btn: tabViewConsole, view: viewConsole, name: 'console', id: 'view-console' }
   ];
@@ -876,10 +878,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     const allNavBtns = document.querySelectorAll('.sidebar-nav .nav-item');
     allNavBtns.forEach((btn) => btn.classList.remove('active'));
 
-    // 2. Identificar el contenedor destino en el DOM. Si no existe, console.error y salir sin arrojar excepción
+    // 2. Identificar el contenedor destino en el DOM. Si no existe, advertir y restaurar vista principal
     const destContainer = document.getElementById(targetId);
     if (!destContainer) {
-      console.error(`[switchTab] El contenedor destino "#${targetId}" no existe en el DOM.`);
+      console.warn(`[switchTab] El contenedor destino "#${targetId}" no existe en el DOM. Restaurando vista principal.`);
+      const fallback = document.getElementById('view-profiles');
+      if (fallback) {
+        fallback.classList.remove('hidden');
+        fallback.classList.add('active');
+        fallback.style.setProperty('display', 'flex', 'important');
+        const fallbackBtn = document.getElementById('tab-view-profiles');
+        if (fallbackBtn) fallbackBtn.classList.add('active');
+      }
       return;
     }
 
@@ -926,6 +936,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         try { loadDedicatedServers(); } catch (e) { console.warn('[switchTab] Error en loadDedicatedServers:', e); }
       } else if (viewName === 'friends') {
         try { loadFriendsView(); } catch (e) { console.warn('[switchTab] Error en loadFriendsView:', e); }
+      } else if (viewName === 'badges') {
+        try { loadBadgesView(); } catch (e) { console.warn('[switchTab] Error en loadBadgesView:', e); }
       } else if (viewName === 'screenshots') {
         try { loadScreenshotsInstancesFilter(); } catch (e) { console.warn('[switchTab] Error en filtro capturas:', e); }
         try { loadScreenshotsGallery(); } catch (e) { console.warn('[switchTab] Error en loadScreenshotsGallery:', e); }
@@ -13759,77 +13771,129 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ==========================================
   // SHUBABADGES (MEDALLAS Y HITOS REALES)
   // ==========================================
-  function initShubaBadges() {
-    const modalBadges = document.getElementById('modal-shuba-badges');
-    const tabBadges = document.getElementById('tab-view-badges');
-    const btnCloseBadges = document.getElementById('btn-close-shuba-badges');
-    const btnCloseBadgesFooter = document.getElementById('btn-close-shuba-badges-footer');
-    const badgesGrid = document.getElementById('shuba-badges-grid');
+  async function loadBadgesView() {
+    const viewGrid = document.getElementById('shuba-badges-view-grid');
+    const modalGrid = document.getElementById('shuba-badges-grid');
+    const unlockedCounter = document.getElementById('badges-unlocked-count');
+    const playtimeCounter = document.getElementById('badges-total-playtime');
+    const seniorityIcon = document.getElementById('badges-seniority-icon');
+    const seniorityTitle = document.getElementById('badges-seniority-title');
 
-    async function loadBadges() {
-      if (!badgesGrid) return;
-      badgesGrid.innerHTML = '<div style="color: var(--text-dim); padding: 16px; text-align: center;">Cargando logros e hitos...</div>';
-      try {
-        const badges = await api.badges.getAll();
-        badgesGrid.innerHTML = '';
+    if (viewGrid) {
+      viewGrid.innerHTML = '<div style="color: var(--text-dim); padding: 24px; text-align: center; grid-column: 1 / -1;">Cargando logros e hitos...</div>';
+    }
+
+    try {
+      const badges = await api.badges.getAll();
+      const unlockedCount = badges.filter(b => b.unlocked).length;
+
+      if (unlockedCounter) {
+        unlockedCounter.textContent = `${unlockedCount} / ${badges.length}`;
+      }
+
+      // Buscar árbol de antigüedad
+      const treeBadge = badges.find(b => b.id === 'badge_evolution_tree');
+      if (treeBadge) {
+        if (seniorityIcon) seniorityIcon.textContent = treeBadge.icon || '🌱';
+        if (seniorityTitle) seniorityTitle.textContent = treeBadge.title ? treeBadge.title.replace('Antigüedad: ', '') : 'Brote Recién Nacido';
+      }
+
+      // Extraer tiempo de juego de los badges de tiempo
+      const play500 = badges.find(b => b.id === 'play_500h');
+      if (playtimeCounter) {
+        if (play500 && play500.progressText) {
+          const match = play500.progressText.match(/([\d\.]+)\s*\/\s*500/);
+          if (match) {
+            playtimeCounter.textContent = `${match[1]} hrs`;
+          } else {
+            playtimeCounter.textContent = 'Activo';
+          }
+        }
+      }
+
+      function renderCardsInto(targetEl) {
+        if (!targetEl) return;
+        targetEl.innerHTML = '';
 
         badges.forEach(b => {
           const card = document.createElement('div');
           const isUnlocked = b.unlocked;
-          const tierColor = b.tier === 'diamond' ? '#38bdf8' : (b.tier === 'gold' ? '#f59e0b' : (b.tier === 'silver' ? '#cbd5e1' : '#f97316'));
+          const tierColor = b.tier === 'diamond' ? '#38bdf8' : (b.tier === 'gold' ? '#f59e0b' : (b.tier === 'silver' ? '#cbd5e1' : (b.tier === 'evolution' ? '#a78bfa' : '#f97316')));
 
           card.style.cssText = `
             background: var(--bg-surface);
             border: 1px solid ${isUnlocked ? tierColor : 'rgba(255,255,255,0.06)'};
-            border-radius: 8px;
-            padding: 12px 14px;
+            border-radius: 10px;
+            padding: 14px 16px;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
             position: relative;
-            box-shadow: ${isUnlocked ? `0 0 10px ${tierColor}20` : 'none'};
-            opacity: ${isUnlocked ? '1' : '0.75'};
+            box-shadow: ${isUnlocked ? `0 0 14px ${tierColor}25` : 'none'};
+            opacity: ${isUnlocked ? '1' : '0.7'};
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
           `;
+
+          card.addEventListener('mouseenter', () => {
+            card.style.transform = 'translateY(-2px)';
+            card.style.boxShadow = isUnlocked ? `0 4px 18px ${tierColor}35` : '0 4px 12px rgba(0,0,0,0.3)';
+          });
+          card.addEventListener('mouseleave', () => {
+            card.style.transform = 'translateY(0)';
+            card.style.boxShadow = isUnlocked ? `0 0 14px ${tierColor}25` : 'none';
+          });
 
           card.innerHTML = `
             <div>
-              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-                <span style="font-size: 26px;">${b.icon || '🏆'}</span>
-                <span style="font-size: 9.5px; font-weight: 700; text-transform: uppercase; color: ${tierColor}; padding: 2px 6px; border-radius: 4px; background: ${tierColor}15;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                <span style="font-size: 28px; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; background: ${tierColor}15; border-radius: 8px; border: 1px solid ${tierColor}30;">${b.icon || '🏆'}</span>
+                <span style="font-size: 9.5px; font-weight: 700; text-transform: uppercase; color: ${tierColor}; padding: 3px 7px; border-radius: 4px; background: ${tierColor}15; border: 1px solid ${tierColor}35; letter-spacing: 0.3px;">
                   ${isUnlocked ? '✓ DESBLOQUEADO' : 'BLOQUEADO'}
                 </span>
               </div>
-              <div style="font-weight: 700; font-size: 13.5px; color: ${isUnlocked ? 'var(--text-primary)' : 'var(--text-secondary)'}; margin-bottom: 4px;">
+              <div style="font-weight: 700; font-size: 14px; color: ${isUnlocked ? 'var(--text-primary)' : 'var(--text-secondary)'}; margin-bottom: 4px;">
                 ${escapeHtml(b.title)}
               </div>
-              <div style="font-size: 11px; color: var(--text-dim); line-height: 1.4; margin-bottom: 8px;">
+              <div style="font-size: 11.5px; color: var(--text-dim); line-height: 1.45; margin-bottom: 12px;">
                 ${escapeHtml(b.description)}
               </div>
             </div>
             <div>
-              <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--text-muted); margin-bottom: 3px;">
-                <span>Progreso:</span>
-                <span>${b.progressText || (isUnlocked ? '100%' : '0%')}</span>
+              <div style="display: flex; justify-content: space-between; font-size: 10.5px; color: var(--text-muted); margin-bottom: 4px;">
+                <span>Progreso</span>
+                <span style="font-weight: 600; color: ${isUnlocked ? '#10b981' : 'var(--text-primary)'};">${b.progressText || (isUnlocked ? '100%' : '0%')}</span>
               </div>
-              <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden;">
-                <div style="width: ${b.progressPct || (isUnlocked ? 100 : 0)}%; height: 100%; background: ${isUnlocked ? '#10b981' : tierColor}; border-radius: 3px;"></div>
+              <div style="width: 100%; height: 7px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden;">
+                <div style="width: ${b.progressPct || (isUnlocked ? 100 : 0)}%; height: 100%; background: ${isUnlocked ? '#10b981' : tierColor}; border-radius: 4px; transition: width 0.3s ease;"></div>
               </div>
             </div>
           `;
 
-          badgesGrid.appendChild(card);
+          targetEl.appendChild(card);
         });
-      } catch (err) {
-        badgesGrid.innerHTML = `<div style="color: #ef4444; padding: 12px;">Error: ${err.message}</div>`;
       }
+
+      if (viewGrid) renderCardsInto(viewGrid);
+      if (modalGrid) renderCardsInto(modalGrid);
+
+    } catch (err) {
+      if (viewGrid) viewGrid.innerHTML = `<div style="color: #ef4444; padding: 20px; grid-column: 1 / -1;">Error al cargar logros: ${err.message}</div>`;
+      if (modalGrid) modalGrid.innerHTML = `<div style="color: #ef4444; padding: 12px;">Error: ${err.message}</div>`;
+    }
+  }
+
+  function initShubaBadges() {
+    const modalBadges = document.getElementById('modal-shuba-badges');
+    const btnCloseBadges = document.getElementById('btn-close-shuba-badges');
+    const btnCloseBadgesFooter = document.getElementById('btn-close-shuba-badges-footer');
+    const btnRefreshBadges = document.getElementById('btn-refresh-badges');
+
+    if (btnRefreshBadges) {
+      btnRefreshBadges.addEventListener('click', () => {
+        loadBadgesView();
+      });
     }
 
-    if (tabBadges) {
-      tabBadges.onclick = () => {
-        modalBadges.style.display = 'flex';
-        loadBadges();
-      };
-    }
     if (btnCloseBadges) btnCloseBadges.onclick = () => modalBadges.style.display = 'none';
     if (btnCloseBadgesFooter) btnCloseBadgesFooter.onclick = () => modalBadges.style.display = 'none';
   }

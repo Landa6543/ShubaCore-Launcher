@@ -1619,6 +1619,57 @@
         </div>
       </section>
 
+      <!-- VISTA: SHUBABADGES (MEDALLAS, LOGROS E HITOS REALES) -->
+      <section id="view-badges" class="view-panel view-container hidden" style="display: none !important;">
+        <div class="view-toolbar">
+          <div>
+            <h2 class="view-title" style="display: flex; align-items: center; gap: 8px;">
+              <span>🏆</span>
+              <span>ShubaBadges · Logros y Medallas de Progreso</span>
+            </h2>
+            <p class="view-subtitle">Hitos reales por horas jugadas (5h, 50h, 500h), modpacks titánicos, cooperación comunitaria y antigüedad estilo Discord.</p>
+          </div>
+          <div class="toolbar-actions" style="display: flex; align-items: center; gap: 8px;">
+            <button id="btn-refresh-badges" class="btn btn-secondary btn-small" title="Actualizar progreso y medallas">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+              <span>Refrescar</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- RESUMEN DE PROGRESO DE JUGADOR -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 20px;">
+          <div style="background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; display: flex; align-items: center; gap: 14px;">
+            <div style="font-size: 26px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: rgba(245, 158, 11, 0.12); border-radius: 10px; border: 1px solid rgba(245, 158, 11, 0.3);">🏆</div>
+            <div>
+              <div style="font-size: 11px; color: var(--text-dim); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Logros Desbloqueados</div>
+              <div id="badges-unlocked-count" style="font-size: 20px; font-weight: 800; color: #f59e0b;">0 / 0</div>
+            </div>
+          </div>
+          <div style="background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; display: flex; align-items: center; gap: 14px;">
+            <div style="font-size: 26px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: rgba(16, 185, 129, 0.12); border-radius: 10px; border: 1px solid rgba(16, 185, 129, 0.3);">⏱️</div>
+            <div>
+              <div style="font-size: 11px; color: var(--text-dim); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Tiempo Total Jugado</div>
+              <div id="badges-total-playtime" style="font-size: 20px; font-weight: 800; color: #10b981;">0 hrs</div>
+            </div>
+          </div>
+          <div style="background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; display: flex; align-items: center; gap: 14px;">
+            <div id="badges-seniority-icon" style="font-size: 26px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: rgba(139, 92, 246, 0.12); border-radius: 10px; border: 1px solid rgba(139, 92, 246, 0.3);">🌱</div>
+            <div>
+              <div style="font-size: 11px; color: var(--text-dim); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Antigüedad (Discord Style)</div>
+              <div id="badges-seniority-title" style="font-size: 13.5px; font-weight: 700; color: #a78bfa;">Brote Recién Nacido</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CUADRÍCULA DE MEDALLAS -->
+        <div style="flex: 1; overflow-y: auto; padding-right: 4px;">
+          <div id="shuba-badges-view-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 12px; padding-bottom: 24px;">
+            <!-- Renderizado dinámicamente -->
+          </div>
+        </div>
+      </section>
+
       <!-- VISTA: GALERÍA DE CAPTURAS DE PANTALLA -->
       <section id="view-screenshots" class="view-panel view-container hidden" style="display: none !important;">
         <div class="view-toolbar">
