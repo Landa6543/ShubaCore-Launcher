@@ -2956,19 +2956,21 @@ function registerIpcHandlers(mainWindow) {
   // ==========================================
   // SHUBABADGES (MEDALLAS Y HITOS REALES)
   // ==========================================
-  ipcMain.handle('badges:get-all', async (event, playTimeSeconds, currentModsCount) => {
+  ipcMain.handle('badges:get-all', async (event, playTimeSeconds, currentModsCount, context) => {
     try {
       let sec = playTimeSeconds;
+      let createdAt = context?.createdAt || null;
       if (sec === undefined || sec === null) {
         const shubaAcc = authManager.getShubaCoreAccount();
         if (shubaAcc?.id) {
           const profileRes = await supabaseManager.getProfile(shubaAcc.id);
           sec = profileRes.profile?.play_time_seconds || 0;
+          createdAt = profileRes.profile?.created_at || null;
         } else {
           sec = 0;
         }
       }
-      return badgesManager.getBadgesWithProgress(sec, currentModsCount || 0);
+      return badgesManager.getBadgesWithProgress(sec, currentModsCount || 0, { createdAt, ...(context || {}) });
     } catch (err) {
       return [];
     }

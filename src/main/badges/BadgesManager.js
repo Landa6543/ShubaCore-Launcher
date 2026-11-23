@@ -48,6 +48,41 @@ const BADGE_DEFINITIONS = [
     targetHours: 500
   },
 
+  // 1.5. ANTIGÜEDAD EVOLUTIVA ESTILO DISCORD (Sprout -> Tree)
+  {
+    id: 'badge_evolution_tree',
+    category: 'evolution',
+    tier: 'evolution',
+    title: 'Árbol de Antigüedad',
+    description: 'Insignia evolutiva de membresía estilo Discord. Crece de brote a árbol milenario con tu tiempo en ShubaCore.',
+    icon: '🌱',
+    isEvolving: true
+  },
+  {
+    id: 'early_pioneer',
+    category: 'prestige',
+    tier: 'diamond',
+    title: 'Pionero Fundador',
+    description: 'Miembro de la era fundadora de ShubaCore antes del lanzamiento masivo.',
+    icon: '👑'
+  },
+  {
+    id: 'night_owl',
+    category: 'fun',
+    tier: 'bronze',
+    title: 'Búho Nocturno',
+    description: 'Disfruta de sesiones de juego de madrugada entre medianoche y las 5:00 AM.',
+    icon: '🦉'
+  },
+  {
+    id: 'streak_flame',
+    category: 'social',
+    tier: 'gold',
+    title: 'Llama Ardiente',
+    description: 'Racha de días activos jugando y conectando con amigos.',
+    icon: '🔥'
+  },
+
   // 2. MODS E INSTANCIAS (Modder)
   {
     id: 'mods_25',
@@ -157,11 +192,85 @@ class BadgesManager {
   /**
    * Obtiene la lista completa de medallas con su estado y porcentaje de progreso
    */
-  getBadgesWithProgress(playTimeSeconds = 0, currentModsCount = 0) {
+  getBadgesWithProgress(playTimeSeconds = 0, currentModsCount = 0, context = {}) {
     const unlockedList = this._getUnlockedBadges();
     const currentHours = Math.max(0, playTimeSeconds / 3600);
 
     return BADGE_DEFINITIONS.map(def => {
+      // 1. INSIGNIA EVOLUTIVA DE ANTIGÜEDAD (Estilo Árbol de Discord)
+      if (def.id === 'badge_evolution_tree') {
+        const createdDate = context.createdAt ? new Date(context.createdAt) : new Date('2026-01-01');
+        const daysOld = Math.max(1, Math.floor((Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24)));
+        let icon = '🌱';
+        let stageName = 'Brote Recién Nacido';
+        let targetDays = 30;
+        let progressPct = 0;
+
+        if (daysOld >= 365) {
+          icon = '🌌';
+          stageName = 'Árbol Milenario Astral (1+ Año)';
+          targetDays = 365;
+          progressPct = 100;
+        } else if (daysOld >= 180) {
+          icon = '🌲';
+          stageName = 'Roble Guardián (6+ Meses)';
+          targetDays = 365;
+          progressPct = Math.min(100, Math.round((daysOld / targetDays) * 100));
+        } else if (daysOld >= 90) {
+          icon = '🌳';
+          stageName = 'Árbol Maduro (3+ Meses)';
+          targetDays = 180;
+          progressPct = Math.min(100, Math.round((daysOld / targetDays) * 100));
+        } else if (daysOld >= 30) {
+          icon = '🌿';
+          stageName = 'Brote Joven (1+ Mes)';
+          targetDays = 90;
+          progressPct = Math.min(100, Math.round((daysOld / targetDays) * 100));
+        } else {
+          icon = '🌱';
+          stageName = 'Semilla / Brote Recién Nacido';
+          targetDays = 30;
+          progressPct = Math.min(100, Math.round((daysOld / targetDays) * 100));
+        }
+
+        return {
+          id: def.id,
+          category: def.category,
+          tier: 'evolution',
+          title: `Antigüedad: ${stageName}`,
+          description: `Tu cuenta tiene ${daysOld} días activa en ShubaCore. Evoluciona a medida que pasa el tiempo.`,
+          icon,
+          unlocked: true,
+          unlockedAt: createdDate.toISOString(),
+          progressPct,
+          progressText: `${daysOld} días (${stageName})`
+        };
+      }
+
+      // 2. INSIGNIA PIONERO FUNDADOR
+      if (def.id === 'early_pioneer') {
+        return {
+          id: def.id,
+          category: def.category,
+          tier: def.tier,
+          title: def.title,
+          description: def.description,
+          icon: def.icon,
+          unlocked: true,
+          unlockedAt: '2026-01-01T00:00:00.000Z',
+          progressPct: 100,
+          progressText: 'Pionero Alfa ShubaCore'
+        };
+      }
+
+      // 3. INSIGNIA BÚHO NOCTURNO (Medianoche a 5 AM)
+      if (def.id === 'night_owl') {
+        const hour = new Date().getHours();
+        if (hour >= 0 && hour <= 5) {
+          this.unlockBadge('night_owl');
+        }
+      }
+
       const isAlreadyUnlocked = unlockedList.some(b => b.id === def.id);
       let progressPct = 0;
       let progressText = '';

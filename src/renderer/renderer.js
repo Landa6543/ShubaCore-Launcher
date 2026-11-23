@@ -10411,6 +10411,53 @@ document.addEventListener('DOMContentLoaded', async () => {
         </div>
       </div>
 
+      <!-- INSIGNIAS Y MEDALLAS DE PERFIL ESTILO DISCORD -->
+      <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;">
+        <small style="color: var(--text-dim); display: block; margin-bottom: 6px; font-weight: 600; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.5px;">
+          🏆 Insignias de Perfil
+        </small>
+        <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+          <!-- Insignia Evolutiva de Antigüedad (Sprout -> Tree) -->
+          ${(() => {
+            const userDate = user.createdAt || user.since || '2026-01-01';
+            const daysSince = Math.max(1, Math.floor((Date.now() - new Date(userDate).getTime()) / (1000 * 60 * 60 * 24)));
+            let treeIcon = '🌱';
+            let treeLabel = 'Brote Recién Nacido (<1 mes)';
+            if (daysSince >= 365) { treeIcon = '🌌'; treeLabel = 'Árbol Milenario Astral (1+ Año)'; }
+            else if (daysSince >= 180) { treeIcon = '🌲'; treeLabel = 'Roble Guardián (6+ Meses)'; }
+            else if (daysSince >= 90) { treeIcon = '🌳'; treeLabel = 'Árbol Maduro (3+ Meses)'; }
+            else if (daysSince >= 30) { treeIcon = '🌿'; treeLabel = 'Brote Joven (1+ Mes)'; }
+            return `
+              <div class="profile-badge-pill" title="Antigüedad: ${treeLabel} (${daysSince} días activa)" style="display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 6px; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.35); font-size: 11.5px; cursor: help;">
+                <span style="font-size: 14px;">${treeIcon}</span>
+                <span style="font-weight: 600; font-size: 11px; color: #10b981;">${treeLabel}</span>
+              </div>
+            `;
+          })()}
+
+          <!-- Insignia Pionero Fundador -->
+          <div class="profile-badge-pill" title="Pionero Fundador de la era temprana de ShubaCore" style="display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 6px; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.35); font-size: 11.5px; cursor: help;">
+            <span style="font-size: 13px;">👑</span>
+            <span style="font-weight: 600; font-size: 11px; color: #f59e0b;">Pionero Alfa</span>
+          </div>
+
+          <!-- Insignia Horas Jugadas -->
+          ${(() => {
+            const h = (Number(user.playTimeSeconds) || 0) / 3600;
+            if (h >= 500) {
+              return `<div class="profile-badge-pill" title="Titán legendario de Minecraft (+500 Horas)" style="display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 6px; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.4); font-size: 11.5px; cursor: help;"><span style="font-size: 13px;">💎</span><span style="font-weight: 600; font-size: 11px; color: #38bdf8;">Leyenda (500h+)</span></div>`;
+            } else if (h >= 100) {
+              return `<div class="profile-badge-pill" title="Maestro de la supervivencia (+100 Horas)" style="display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 6px; background: rgba(234, 179, 8, 0.15); border: 1px solid rgba(234, 179, 8, 0.4); font-size: 11.5px; cursor: help;"><span style="font-size: 13px;">🥇</span><span style="font-weight: 600; font-size: 11px; color: #eab308;">Maestro (100h+)</span></div>`;
+            } else if (h >= 50) {
+              return `<div class="profile-badge-pill" title="Explorador veterano (+50 Horas)" style="display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 6px; background: rgba(148, 163, 184, 0.15); border: 1px solid rgba(148, 163, 184, 0.4); font-size: 11.5px; cursor: help;"><span style="font-size: 13px;">🥈</span><span style="font-weight: 600; font-size: 11px; color: #cbd5e1;">Veterano (50h+)</span></div>`;
+            } else if (h >= 5) {
+              return `<div class="profile-badge-pill" title="Iniciado Shuba (+5 Horas)" style="display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 6px; background: rgba(249, 115, 22, 0.15); border: 1px solid rgba(249, 115, 22, 0.4); font-size: 11.5px; cursor: help;"><span style="font-size: 13px;">🥉</span><span style="font-weight: 600; font-size: 11px; color: #f97316;">Iniciado (5h+)</span></div>`;
+            }
+            return '';
+          })()}
+        </div>
+      </div>
+
       ${user.bio ? `
         <div style="background: rgba(0,0,0,0.25); border-left: 3px solid #10b981; padding: 10px 12px; border-radius: 4px;">
           <small style="color: var(--text-dim); display: block; margin-bottom: 4px;" data-i18n="social.bioTitle">${window.i18n?.t ? window.i18n.t('social.bioTitle', 'Descripción Personal:') : 'Descripción Personal:'}</small>

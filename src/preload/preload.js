@@ -548,7 +548,7 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
   // SHUBABADGES (MEDALLAS Y HITOS)
   // ==========================================
   badges: {
-    getAll: (playTimeSeconds, currentModsCount) => ipcRenderer.invoke('badges:get-all', playTimeSeconds, currentModsCount),
+    getAll: (playTimeSeconds, currentModsCount, context) => ipcRenderer.invoke('badges:get-all', playTimeSeconds, currentModsCount, context),
     unlock: (badgeId) => ipcRenderer.invoke('badges:unlock', badgeId)
   },
 
