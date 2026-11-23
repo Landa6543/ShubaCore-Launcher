@@ -246,6 +246,23 @@ class DiscordManager {
         url: 'https://github.com/Landa6543/ShubaCore-Launcher'
       };
 
+      // Obtener datos del jugador autenticado para inyectar su skin en Discord RPC
+      let playerUsername = 'Steve';
+      let playerUuid = null;
+      let playerSkinAvatarUrl = null;
+
+      try {
+        const { getAuthManager } = require('../auth/AuthManager');
+        const authMgr = getAuthManager();
+        const currentAcc = authMgr.getCurrentAccount ? authMgr.getCurrentAccount() : null;
+        if (currentAcc) {
+          playerUsername = currentAcc.name || currentAcc.username || currentAcc.offlineUsername || 'Steve';
+          playerUuid = currentAcc.uuid || null;
+          // mc-heads entrega la cabeza 3D con capa de casco/overlay del jugador
+          playerSkinAvatarUrl = `https://mc-heads.net/avatar/${playerUuid || playerUsername}/128`;
+        }
+      } catch (_) {}
+
       if (this.isPlaying && this.activeGameInfo) {
         // Estado: Jugando Minecraft
         const runningCount = this.launchManager.getRunningCount();
@@ -253,26 +270,26 @@ class DiscordManager {
 
         let detailsText = '';
         let stateText = '';
-        let smallImageKey = 'shubacore_logo';
-        let smallImageText = 'ShubaCore Launcher';
+        let smallImageKey = playerSkinAvatarUrl || 'shubacore_logo';
+        let smallImageText = `Jugador: ${playerUsername}`;
 
         if (info.isBedrock) {
           detailsText = 'Jugando Minecraft Bedrock';
           stateText = runningCount > 1
             ? `Windows 10/11 Edition (${runningCount} sesiones)`
             : 'Windows 10/11 Edition';
-          smallImageKey = 'bedrock';
-          smallImageText = 'Minecraft Bedrock';
+          smallImageKey = playerSkinAvatarUrl || 'bedrock';
+          smallImageText = `Jugador: ${playerUsername} (Bedrock)`;
         } else if (info.hostServer || this.launchManager.activeHostServer) {
           detailsText = 'Hospedando mundo LAN (ShubaHost)';
           stateText = `Mundo: ${info.profileName} · MC ${info.mcVersion} (${info.loader})`;
-          smallImageKey = info.loaderRaw || 'fabric';
-          smallImageText = `${info.loader} · MC ${info.mcVersion}`;
+          smallImageKey = playerSkinAvatarUrl || info.loaderRaw || 'fabric';
+          smallImageText = `Jugador: ${playerUsername} · ${info.loader} MC ${info.mcVersion}`;
         } else if (info.quickPlayServer) {
           detailsText = 'Jugando en servidor multijugador';
           stateText = `Conectado a: ${info.quickPlayServer}`;
-          smallImageKey = info.loaderRaw || 'fabric';
-          smallImageText = `${info.loader} · MC ${info.mcVersion}`;
+          smallImageKey = playerSkinAvatarUrl || info.loaderRaw || 'fabric';
+          smallImageText = `Jugador: ${playerUsername} · ${info.loader} MC ${info.mcVersion}`;
         } else {
           detailsText = runningCount > 1
             ? `Jugando: ${info.profileName} (${runningCount} sesiones)`
@@ -282,8 +299,8 @@ class DiscordManager {
             ? ` · ${info.activeModsCount} mods`
             : '';
           stateText = `Minecraft ${info.mcVersion} (${info.loader})${modsPart}`;
-          smallImageKey = info.loaderRaw || 'neoforge';
-          smallImageText = `${info.loader} · MC ${info.mcVersion}`;
+          smallImageKey = playerSkinAvatarUrl || info.loaderRaw || 'neoforge';
+          smallImageText = `Jugador: ${playerUsername} (${info.loader} ${info.mcVersion})`;
         }
 
         activity = {
@@ -291,7 +308,7 @@ class DiscordManager {
           state: stateText,
           startTimestamp: this.gameStartTime || Math.floor(Date.now() / 1000),
           largeImageKey: 'shubacore_logo',
-          largeImageText: 'ShubaCore Launcher — SHUBATECH',
+          largeImageText: `ShubaCore Launcher · ${info.profileName}`,
           smallImageKey,
           smallImageText,
           buttons: [downloadButton]
@@ -391,6 +408,8 @@ class DiscordManager {
           startTimestamp: this.launcherStartTime,
           largeImageKey: 'shubacore_logo',
           largeImageText: 'ShubaCore Launcher — SHUBATECH',
+          smallImageKey: playerSkinAvatarUrl || 'shubacore_logo',
+          smallImageText: `Conectado como ${playerUsername}`,
           buttons: [downloadButton]
         };
       }

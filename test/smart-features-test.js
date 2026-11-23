@@ -73,6 +73,26 @@ java.lang.NullPointerException: Registry Object not present
   assert(fs.existsSync(path.join(mockInstance, 'mods', 'alexsmobs-1.22.8.jar')), 'Archivo debe quedar restaurado como .jar');
   console.log('   ✔ Desactivación y reactivación de mod en 1 clic validada.');
 
+  // Test 1.4: Mixin Critical Injection Failure con cascada de Sodium/Connector
+  fs.mkdirSync(path.join(mockInstance, 'logs'), { recursive: true });
+  fs.writeFileSync(path.join(mockInstance, 'mods', 'godwand-neoforge-1.21.1-1.5.1.jar'), 'dummy');
+  fs.writeFileSync(path.join(mockInstance, 'mods', 'sodium-neoforge-0.8.13+mc1.21.1.jar'), 'dummy');
+  fs.writeFileSync(path.join(mockInstance, 'logs', 'latest.log'), `
+[main/INFO]: ModLauncher starting...
+Caused by: org.spongepowered.asm.mixin.injection.throwables.InvalidInjectionException: Critical injection failure: @Inject annotation on godwand$atomicProtection could not find any targets matching 'isInvulnerableToBase' in net/minecraft/world/entity/Entity. [godwand.neoforge.mixins.json:EntityMixin from mod godwand]
+  `);
+  fs.writeFileSync(path.join(mockInstance, 'crash-reports', 'crash-2026-11-23_03.txt'), `
+Time: 2026-11-23 09:33:35
+Description: Rendering overlay
+java.lang.RuntimeException: Sodium's config could not be found; the game is in a broken state most likely caused by an earlier error from another mod. Please check the game log (latest.log) for any errors first instead of reporting this as a Sodium-related crash.
+  at net.caffeinemc.mods.sodium.client.config.ConfigManager.registerConfigs(ConfigManager.java:119)
+  `);
+  diag = inspector.analyzeCrash(mockInstance);
+  assert.strictEqual(diag.hasCrash, true);
+  assert.strictEqual(diag.errorType, 'MOD_CONFLICT');
+  assert.strictEqual(diag.culpritMod?.fileName, 'godwand-neoforge-1.21.1-1.5.1.jar', 'Debe detectar godwand y no culpar erróneamente a Sodium');
+  console.log('   ✔ Análisis profundo de logs y detección de fallo Mixin (godwand) validada sin culpar erróneamente a Sodium.');
+
   // 2. SnapshotManager Tests
   console.log('\n▶ [2/5] Probando SnapshotManager (Puntos de Restauración)...');
   const snapMgr = new SnapshotManager();

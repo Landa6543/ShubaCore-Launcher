@@ -428,6 +428,14 @@ class LaunchManager {
         }
       }
 
+      // Detección de incompatibilidad: si el perfil es Vanilla pero contiene mods instalados
+      if (loader === 'vanilla' && fs.existsSync(instanceModsDir)) {
+        const localJars = fs.readdirSync(instanceModsDir).filter((f) => f.toLowerCase().endsWith('.jar'));
+        if (localJars.length > 0) {
+          logger.warn(`[LaunchManager] ⚠️ ¡ATENCIÓN! La instancia "${activeProfile.name}" contiene ${localJars.length} mods en su carpeta /mods, pero su loader es "Vanilla". Minecraft Vanilla ignorará estos mods. Cambia el loader a NeoForge o Fabric para cargarlos.`);
+        }
+      }
+
       // 3. Detectar y resolver Java oficial compatible (según perfil o automático por versión de Minecraft)
       const { JavaManager } = require('../jvm/JavaManager');
       this._emit('launch:status', { state: 'resolving_java', message: `Resolviendo runtime de Java para Minecraft ${mcVersion}...` });

@@ -3172,10 +3172,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     modalCreateProfile.style.setProperty('display', 'flex', 'important');
     if (inputProfileName) inputProfileName.value = '';
     if (inputCreateProfileIcon) inputCreateProfileIcon.value = '';
-    if (createProfileIconPreview) createProfileIconPreview.src = 'assets/block_grass.webp';
+    if (createProfileIconPreview) createProfileIconPreview.src = 'assets/logo.png';
     
-    // Sincronizar radio pills con el loader inicial
-    const currentLoader = selectProfileLoader ? selectProfileLoader.value || 'vanilla' : 'vanilla';
+    // Sincronizar radio pills con el loader inicial (NeoForge por defecto para cargar mods)
+    const currentLoader = selectProfileLoader ? selectProfileLoader.value || 'neoforge' : 'neoforge';
     syncLoaderRadioPills('create-loader-radio-pills', currentLoader);
 
     // Restablecer selección de edición a Java por defecto
@@ -4527,6 +4527,57 @@ document.addEventListener('DOMContentLoaded', async () => {
       const mods = await api.mods.listInstalled(targetInstance);
       currentInstalledModsList = Array.isArray(mods) ? mods : [];
       renderFilteredInstalledMods();
+
+      // Detección proactiva: Si la instancia es Vanilla pero tiene mods instalados
+      const vanillaBanner = document.getElementById('vanilla-mods-warning-banner');
+      if (vanillaBanner) {
+        const isVanilla = (currentActiveProfile?.loader || 'neoforge').toLowerCase() === 'vanilla';
+        if (isVanilla && currentInstalledModsList.length > 0) {
+          const isSnapshotOr26 = String(currentActiveProfile?.mcVersion || '').includes('26.') || String(currentActiveProfile?.mcVersion || '').includes('snapshot');
+          const recommendedLoader = isSnapshotOr26 ? 'Fabric' : 'NeoForge';
+
+          vanillaBanner.style.display = 'block';
+          vanillaBanner.innerHTML = `
+            <div style="background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.4); border-radius: 8px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.25);">
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <span style="font-size: 22px;">⚠️</span>
+                <div>
+                  <div style="font-weight: 700; color: #fbbf24; font-size: 13.5px;">Motor configurado como Vanilla (${currentInstalledModsList.length} mods instalados)</div>
+                  <div style="font-size: 11.5px; color: var(--text-dim); margin-top: 2px;">Minecraft Vanilla no soporta mods. Dentro del juego aparecerá que no tienes ningún mod hasta que actives ${recommendedLoader}.</div>
+                </div>
+              </div>
+              <button id="btn-fix-vanilla-loader" class="btn btn-primary btn-small" style="white-space: nowrap; font-weight: 700;">
+                ⚡ Cambiar a ${recommendedLoader}
+              </button>
+            </div>
+          `;
+
+          const btnFix = document.getElementById('btn-fix-vanilla-loader');
+          if (btnFix) {
+            btnFix.onclick = async () => {
+              btnFix.disabled = true;
+              btnFix.textContent = 'Aplicando...';
+              try {
+                await api.profiles.update(currentActiveProfile.id, {
+                  loader: recommendedLoader,
+                  loaderVersion: isSnapshotOr26 ? '0.20.1' : 'latest'
+                });
+                currentActiveProfile.loader = recommendedLoader;
+                vanillaBanner.style.display = 'none';
+                if (typeof renderProfileCards === 'function') renderProfileCards();
+                loadInstalledMods();
+                appendLog(`[Motor] Instancia "${currentActiveProfile.name}" actualizada con éxito a ${recommendedLoader}. Los mods ahora se cargarán in-game.`, 'success');
+              } catch (err) {
+                alert(`Error al actualizar cargador: ${err.message}`);
+                btnFix.disabled = false;
+              }
+            };
+          }
+        } else {
+          vanillaBanner.style.display = 'none';
+          vanillaBanner.innerHTML = '';
+        }
+      }
 
       // Actualizar contadores de sub-pestañas en segundo plano
       if (targetInstance && window.api?.system?.readDir) {

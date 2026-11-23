@@ -36,6 +36,19 @@ class CrashInspector {
     if (crashReportData) {
       contentToAnalyze = crashReportData.content;
       logSource = crashReportData.filename;
+
+      // Si el reporte de crash indica una falla secundaria en cascada (ej. Sodium config no encontrada por error previo),
+      // o si latest.log contiene un fallo crítico previo de Mixin/Inyección, combinar con latest.log
+      if (latestLogData && (
+        /broken state most likely caused by an earlier error/i.test(crashReportData.content) ||
+        /check the game log \(latest\.log\)/i.test(crashReportData.content) ||
+        /SINYTRA CONNECTOR IS PRESENT/i.test(crashReportData.content) ||
+        /Critical injection failure/i.test(latestLogData.content) ||
+        /InvalidInjectionException/i.test(latestLogData.content)
+      )) {
+        contentToAnalyze = `${latestLogData.content}\n\n--- CRASH REPORT (${crashReportData.filename}) ---\n${crashReportData.content}`;
+        logSource = `${crashReportData.filename} + latest.log`;
+      }
     } else if (hsErrData) {
       contentToAnalyze = hsErrData.content;
       logSource = hsErrData.filename;
@@ -145,7 +158,13 @@ class CrashInspector {
     }
 
     // 5. Detección de mod culpable específico (Suspected Mods, Mixin failures, o Stack Trace matching)
-    const culpritMod = this._identifyCulpritMod(contentToAnalyze, installedMods);
+    let culpritMod = this._identifyCulpritMod(contentToAnalyze, installedMods);
+    if (!culpritMod && latestLogData && contentToAnalyze !== latestLogData.content) {
+      culpritMod = this._identifyCulpritMod(latestLogData.content, installedMods);
+      if (culpritMod) {
+        logSource = 'latest.log';
+      }
+    }
     if (culpritMod) {
       return {
         hasCrash: true,
@@ -357,6 +376,23 @@ class CrashInspector {
   _identifyCulpritMod(content, installedMods) {
     if (!installedMods || installedMods.length === 0) return null;
 
+    // 0. Revisar fallos críticos de inyección Mixin (InvalidInjectionException / Critical injection failure)
+    const critInjectionMatch = content.match(/Critical injection failure:.*?from mod ([\w-]+)/i) ||
+                               content.match(/InvalidInjectionException:.*?from mod ([\w-]+)/i) ||
+                               content.match(/@Inject annotation on (?:[\w$]+) could not find any targets.*?from mod ([\w-]+)/i) ||
+                               content.match(/Injection failure.*?from mod ([\w-]+)/i);
+    if (critInjectionMatch) {
+      const modToken = critInjectionMatch[1].toLowerCase();
+      for (const m of installedMods) {
+        if (m.name.includes(modToken) || modToken.includes(m.name) || m.fileName.toLowerCase().includes(modToken)) {
+          return {
+            ...m,
+            excerpt: critInjectionMatch[0]
+          };
+        }
+      }
+    }
+
     // 1. Revisar bloque "Suspected Mods:" típico de Forge / NeoForge
     const suspectedMatch = content.match(/Suspected Mods:\s*[\r\n]+([^\r\n]+)/i);
     if (suspectedMatch) {
@@ -400,6 +436,10 @@ class CrashInspector {
       const lowerLine = line.toLowerCase();
       for (const m of installedMods) {
         if (m.name.length >= 3 && lowerLine.includes(m.name)) {
+          // Si Sodium falló por un error previo de otro mod ("broken state"), no culpar falsamente a Sodium
+          if (m.name.includes('sodium') && /Sodium's config could not be found/i.test(content)) {
+            continue;
+          }
           return { ...m, excerpt: line.trim() };
         }
       }
