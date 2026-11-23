@@ -2832,7 +2832,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
               </button>
               <button class="btn btn-small btn-secondary btn-icon-square btn-share-instance-code" data-id="${p.id}" title="${window.i18n?.t ? window.i18n.t('card.share', 'Compartir con amigos por código corto') : 'Compartir con amigos por código corto'}">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
               </button>
               ${profiles.length > 1 ? `
                 <button class="btn btn-small btn-danger btn-icon-square btn-delete-profile" data-id="${p.id}" title="${window.i18n?.t ? window.i18n.t('card.delete', 'Eliminar instancia') : 'Eliminar instancia'}">
@@ -13230,6 +13230,570 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (err) {
       bedrockAddonsList.innerHTML = `<div class="empty-state" style="padding: 20px; color: #ef4444;">Error al cargar: ${err.message}</div>`;
     }
+  }
+
+  // ==========================================
+  // SHUBACORE CRASH DOCTOR (DIAGNÓSTICO INTELIGENTE)
+  // ==========================================
+  function initCrashDoctor() {
+    const modalCrashDoctor = document.getElementById('modal-crash-doctor');
+    const btnCloseCrashDoctor = document.getElementById('btn-close-crash-doctor');
+    const btnCloseCrashDoctorFooter = document.getElementById('btn-close-crash-doctor-footer');
+    const btnOpenCrashDoctor = document.getElementById('btn-open-crash-doctor');
+    const crashDoctorTitle = document.getElementById('crash-doctor-title');
+    const crashDoctorHeadline = document.getElementById('crash-doctor-headline');
+    const crashDoctorExplanation = document.getElementById('crash-doctor-explanation');
+    const crashDoctorExcerpt = document.getElementById('crash-doctor-excerpt');
+    const culpritCard = document.getElementById('crash-doctor-culprit-card');
+    const culpritModName = document.getElementById('crash-doctor-mod-name');
+    const culpritModFilename = document.getElementById('crash-doctor-mod-filename');
+    const btnDisableCulprit = document.getElementById('btn-crash-disable-culprit');
+    const oomCard = document.getElementById('crash-doctor-oom-card');
+    const btnIncreaseRam = document.getElementById('btn-crash-increase-ram');
+    const btnCopyReport = document.getElementById('btn-crash-copy-clean-report');
+    const btnOpenLogs = document.getElementById('btn-crash-open-logs');
+
+    let currentDiagnosis = null;
+
+    function openModalWithDiagnosis(diag) {
+      currentDiagnosis = diag;
+      if (!modalCrashDoctor) return;
+
+      if (crashDoctorHeadline) crashDoctorHeadline.textContent = diag.title || 'Error detectado en Minecraft';
+      if (crashDoctorExplanation) crashDoctorExplanation.textContent = diag.explanation || diag.summary || '';
+      if (crashDoctorExcerpt) crashDoctorExcerpt.textContent = diag.stackTraceExcerpt || diag.summary || 'Sin fragmento disponible.';
+
+      if (diag.culpritMod && diag.culpritMod.fileName && culpritCard) {
+        culpritCard.style.display = 'block';
+        if (culpritModName) culpritModName.textContent = diag.culpritMod.displayName || diag.culpritMod.name;
+        if (culpritModFilename) culpritModFilename.textContent = diag.culpritMod.fileName;
+        if (btnDisableCulprit) {
+          btnDisableCulprit.onclick = async () => {
+            btnDisableCulprit.disabled = true;
+            btnDisableCulprit.textContent = 'Desactivando...';
+            const res = await api.crash.disableMod(diag.culpritMod.fileName);
+            btnDisableCulprit.disabled = false;
+            btnDisableCulprit.textContent = '🚫 Desactivar Mod';
+            if (res.success) {
+              showToast(`Mod "${diag.culpritMod.fileName}" desactivado con éxito.`, 'success');
+              modalCrashDoctor.style.display = 'none';
+            } else {
+              showToast(`Error: ${res.error}`, 'error');
+            }
+          };
+        }
+      } else if (culpritCard) {
+        culpritCard.style.display = 'none';
+      }
+
+      if (diag.errorType === 'OUT_OF_MEMORY' && oomCard) {
+        oomCard.style.display = 'block';
+        if (btnIncreaseRam) {
+          btnIncreaseRam.onclick = async () => {
+            try {
+              const cfg = await api.config.get();
+              const currentMem = parseInt(cfg?.memory?.max, 10) || 4096;
+              const newMem = currentMem + 2048;
+              await api.config.set('memory', { ...cfg?.memory, max: newMem });
+              showToast(`Memoria RAM incrementada a ${(newMem / 1024).toFixed(1)} GB.`, 'success');
+              oomCard.style.display = 'none';
+            } catch (err) {
+              showToast(`Error al aumentar RAM: ${err.message}`, 'error');
+            }
+          };
+        }
+      } else if (oomCard) {
+        oomCard.style.display = 'none';
+      }
+
+      modalCrashDoctor.style.display = 'flex';
+    }
+
+    if (btnCloseCrashDoctor) btnCloseCrashDoctor.onclick = () => modalCrashDoctor.style.display = 'none';
+    if (btnCloseCrashDoctorFooter) btnCloseCrashDoctorFooter.onclick = () => modalCrashDoctor.style.display = 'none';
+
+    if (btnCopyReport) {
+      btnCopyReport.onclick = () => {
+        if (!currentDiagnosis) return;
+        const textToCopy = currentDiagnosis.cleanReport || currentDiagnosis.stackTraceExcerpt || '';
+        navigator.clipboard.writeText(textToCopy);
+        showToast('Reporte limpio copiado al portapapeles.', 'success');
+      };
+    }
+
+    if (btnOpenLogs) {
+      btnOpenLogs.onclick = () => {
+        api.launcher.openLatestLog();
+      };
+    }
+
+    if (btnOpenCrashDoctor) {
+      btnOpenCrashDoctor.onclick = async () => {
+        const diag = await api.crash.diagnose();
+        if (diag && diag.hasCrash) {
+          openModalWithDiagnosis(diag);
+        } else {
+          showToast('No se detectaron crashes recientes en esta instancia.', 'info');
+        }
+      };
+    }
+
+    if (api.events && typeof api.events.on === 'function') {
+      api.events.on('launch:crashed', (data) => {
+        if (data && data.diagnosis) {
+          openModalWithDiagnosis(data.diagnosis);
+        }
+      });
+    }
+  }
+
+  // ==========================================
+  // PUNTOS DE RESTAURACIÓN (SNAPSHOTS)
+  // ==========================================
+  function initSnapshots() {
+    const modalSnapshots = document.getElementById('modal-snapshots');
+    const btnOpenSnapshots = document.getElementById('btn-open-snapshots');
+    const btnCloseSnapshots = document.getElementById('btn-close-snapshots');
+    const btnCloseSnapshotsFooter = document.getElementById('btn-close-snapshots-footer');
+    const btnCreateSnapshot = document.getElementById('btn-create-snapshot');
+    const inputSnapshotLabel = document.getElementById('input-snapshot-label');
+    const checkIncludeWorlds = document.getElementById('check-snapshot-include-worlds');
+    const snapshotsList = document.getElementById('snapshots-list-container');
+
+    async function loadSnapshots() {
+      if (!snapshotsList) return;
+      snapshotsList.innerHTML = '<div style="color: var(--text-dim); padding: 12px; text-align: center;">Cargando respaldos...</div>';
+      try {
+        const list = await api.snapshots.list();
+        if (!list || list.length === 0) {
+          snapshotsList.innerHTML = '<div style="color: var(--text-dim); padding: 16px; text-align: center;">No hay puntos de restauración creados aún para esta instancia.</div>';
+          return;
+        }
+
+        snapshotsList.innerHTML = '';
+        list.forEach(snap => {
+          const item = document.createElement('div');
+          item.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 6px; gap: 10px;';
+          const dateStr = new Date(snap.createdAt || snap.timestamp).toLocaleString();
+          item.innerHTML = `
+            <div style="min-width: 0;">
+              <div style="font-weight: 600; font-size: 13px; color: var(--text-primary); text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${escapeHtml(snap.label)}</div>
+              <div style="font-size: 11px; color: var(--text-dim); margin-top: 2px;">
+                <span>📅 ${dateStr}</span> · 
+                <span>📦 ${snap.modsCount || 0} mods</span> · 
+                <span>💾 ${snap.sizeFormatted || '0 B'}</span>
+                ${snap.includeWorlds ? ' · <span style="color: #10b981;">🌍 Mundos incluidos</span>' : ''}
+              </div>
+            </div>
+            <div style="display: flex; gap: 6px; flex-shrink: 0;">
+              <button class="btn btn-secondary btn-small btn-restore-snap" title="Restaurar este punto exacto">🔄 Restaurar</button>
+              <button class="btn btn-danger btn-small btn-delete-snap" title="Eliminar">🗑</button>
+            </div>
+          `;
+
+          item.querySelector('.btn-restore-snap').onclick = async () => {
+            if (confirm(`¿Restaurar el punto "${snap.label}"? Se reemplazarán tus mods actuales por los del respaldo.`)) {
+              const res = await api.snapshots.restore(snap.id);
+              if (res.success) {
+                showToast(`Punto de restauración "${snap.label}" restaurado con éxito.`, 'success');
+                modalSnapshots.style.display = 'none';
+                if (typeof loadInstalledMods === 'function') loadInstalledMods();
+              } else {
+                showToast(`Error al restaurar: ${res.error}`, 'error');
+              }
+            }
+          };
+
+          item.querySelector('.btn-delete-snap').onclick = async () => {
+            if (confirm(`¿Eliminar este respaldo (${snap.label})?`)) {
+              await api.snapshots.delete(snap.id);
+              loadSnapshots();
+              showToast('Respaldo eliminado.', 'info');
+            }
+          };
+
+          snapshotsList.appendChild(item);
+        });
+      } catch (err) {
+        snapshotsList.innerHTML = `<div style="color: #ef4444; padding: 12px;">Error: ${err.message}</div>`;
+      }
+    }
+
+    if (btnOpenSnapshots) {
+      btnOpenSnapshots.onclick = () => {
+        modalSnapshots.style.display = 'flex';
+        loadSnapshots();
+      };
+    }
+    if (btnCloseSnapshots) btnCloseSnapshots.onclick = () => modalSnapshots.style.display = 'none';
+    if (btnCloseSnapshotsFooter) btnCloseSnapshotsFooter.onclick = () => modalSnapshots.style.display = 'none';
+
+    if (btnCreateSnapshot) {
+      btnCreateSnapshot.onclick = async () => {
+        const label = inputSnapshotLabel.value.trim();
+        const includeWorlds = checkIncludeWorlds.checked;
+        btnCreateSnapshot.disabled = true;
+        btnCreateSnapshot.textContent = 'Creando respaldo...';
+        try {
+          const res = await api.snapshots.create({ label, includeWorlds });
+          if (res.success) {
+            showToast(`¡Punto de restauración creado con éxito! (${res.snapshot.sizeFormatted})`, 'success');
+            inputSnapshotLabel.value = '';
+            loadSnapshots();
+          } else {
+            showToast(`Error: ${res.error}`, 'error');
+          }
+        } catch (err) {
+          showToast(`Error: ${err.message}`, 'error');
+        } finally {
+          btnCreateSnapshot.disabled = false;
+          btnCreateSnapshot.textContent = '+ Crear Respaldo';
+        }
+      };
+    }
+  }
+
+  // ==========================================
+  // LIBRETA DE COORDENADAS Y NOTAS
+  // ==========================================
+  function initWorldNotebook() {
+    const modalNotebook = document.getElementById('modal-world-notebook');
+    const btnOpenNotebook = document.getElementById('btn-open-notebook');
+    const btnCloseNotebook = document.getElementById('btn-close-world-notebook');
+    const btnCloseNotebookFooter = document.getElementById('btn-close-world-notebook-footer');
+    const btnAddNote = document.getElementById('btn-add-notebook-entry');
+    const inputTitle = document.getElementById('input-note-title');
+    const selectDim = document.getElementById('select-note-dim');
+    const inputX = document.getElementById('input-note-x');
+    const inputY = document.getElementById('input-note-y');
+    const inputZ = document.getElementById('input-note-z');
+    const inputDesc = document.getElementById('input-note-desc');
+    const notebookList = document.getElementById('notebook-list-container');
+    const filterBtns = document.querySelectorAll('.note-filter-btn');
+
+    let activeFilter = 'all';
+
+    async function loadNotes() {
+      if (!notebookList) return;
+      try {
+        const notes = await api.notebook.getNotes();
+        const filtered = activeFilter === 'all' ? notes : notes.filter(n => n.dimension === activeFilter);
+
+        if (!filtered || filtered.length === 0) {
+          notebookList.innerHTML = '<div style="color: var(--text-dim); padding: 16px; text-align: center;">No hay coordenadas guardadas en esta categoría.</div>';
+          return;
+        }
+
+        notebookList.innerHTML = '';
+        filtered.forEach(note => {
+          const item = document.createElement('div');
+          item.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 6px; gap: 10px;';
+          const dimIcon = note.dimension === 'nether' ? '🔥' : (note.dimension === 'end' ? '🌌' : '🌲');
+          const dimName = note.dimension === 'nether' ? 'Nether' : (note.dimension === 'end' ? 'The End' : 'Overworld');
+
+          item.innerHTML = `
+            <div style="min-width: 0;">
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span>${dimIcon}</span>
+                <span style="font-weight: 600; font-size: 13px; color: var(--text-primary);">${escapeHtml(note.title)}</span>
+                <span style="font-size: 10px; padding: 1px 5px; border-radius: 4px; background: rgba(255,255,255,0.06); color: var(--text-dim);">${dimName}</span>
+              </div>
+              <div style="font-family: monospace; font-size: 11.5px; color: #10b981; margin-top: 3px;">
+                X: <b>${note.x}</b>  Y: <b>${note.y}</b>  Z: <b>${note.z}</b>
+              </div>
+              ${note.description ? `<div style="font-size: 11px; color: var(--text-dim); margin-top: 2px;">${escapeHtml(note.description)}</div>` : ''}
+            </div>
+            <div style="display: flex; gap: 6px; flex-shrink: 0;">
+              <button class="btn btn-secondary btn-small btn-copy-tp" title="Copiar comando /tp al portapapeles">📋 /tp</button>
+              <button class="btn btn-danger btn-small btn-del-note" title="Eliminar">🗑</button>
+            </div>
+          `;
+
+          item.querySelector('.btn-copy-tp').onclick = () => {
+            navigator.clipboard.writeText(note.tpCommand || `/tp @s ${note.x} ${note.y} ${note.z}`);
+            showToast(`Comando copiado: /tp @s ${note.x} ${note.y} ${note.z}`, 'success');
+          };
+
+          item.querySelector('.btn-del-note').onclick = async () => {
+            await api.notebook.deleteNote(note.id);
+            loadNotes();
+          };
+
+          notebookList.appendChild(item);
+        });
+      } catch (err) {
+        notebookList.innerHTML = `<div style="color: #ef4444; padding: 12px;">Error: ${err.message}</div>`;
+      }
+    }
+
+    filterBtns.forEach(btn => {
+      btn.onclick = () => {
+        filterBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeFilter = btn.getAttribute('data-filter') || 'all';
+        loadNotes();
+      };
+    });
+
+    if (btnOpenNotebook) {
+      btnOpenNotebook.onclick = () => {
+        modalNotebook.style.display = 'flex';
+        loadNotes();
+      };
+    }
+    if (btnCloseNotebook) btnCloseNotebook.onclick = () => modalNotebook.style.display = 'none';
+    if (btnCloseNotebookFooter) btnCloseNotebookFooter.onclick = () => modalNotebook.style.display = 'none';
+
+    if (btnAddNote) {
+      btnAddNote.onclick = async () => {
+        const title = inputTitle.value.trim() || 'Lugar de Interés';
+        const dimension = selectDim.value;
+        const x = parseInt(inputX.value, 10) || 0;
+        const y = parseInt(inputY.value, 10) || 64;
+        const z = parseInt(inputZ.value, 10) || 0;
+        const description = inputDesc.value.trim();
+
+        const res = await api.notebook.addNote({ title, dimension, x, y, z, description });
+        if (res.success) {
+          showToast(`Coordenada "${title}" guardada.`, 'success');
+          inputTitle.value = '';
+          inputDesc.value = '';
+          loadNotes();
+        }
+      };
+    }
+  }
+
+  // ==========================================
+  // PRESETS GRÁFICOS (POTATO / BALANCED / ULTRA)
+  // ==========================================
+  function initGraphicPresets() {
+    const modalPresets = document.getElementById('modal-graphic-presets');
+    const btnOpenPresets = document.getElementById('btn-open-graphic-presets');
+    const btnClosePresets = document.getElementById('btn-close-graphic-presets');
+    const btnClosePresetsFooter = document.getElementById('btn-close-graphic-presets-footer');
+    const presetButtons = document.querySelectorAll('.btn-apply-preset');
+
+    async function highlightCurrentPreset() {
+      try {
+        const cur = await api.presets.getCurrent();
+        presetButtons.forEach(btn => {
+          const p = btn.getAttribute('data-preset');
+          if (p === cur.detectedPreset) {
+            btn.classList.remove('btn-secondary');
+            btn.classList.add('btn-primary');
+            btn.textContent = '✓ Activo Actualmente';
+          } else {
+            btn.classList.remove('btn-primary');
+            btn.classList.add('btn-secondary');
+            btn.textContent = p === 'potato' ? 'Aplicar Modo Patata' : (p === 'ultra' ? 'Aplicar Modo Ultra' : 'Aplicar Equilibrado');
+          }
+        });
+      } catch (_) {}
+    }
+
+    if (btnOpenPresets) {
+      btnOpenPresets.onclick = () => {
+        modalPresets.style.display = 'flex';
+        highlightCurrentPreset();
+      };
+    }
+    if (btnClosePresets) btnClosePresets.onclick = () => modalPresets.style.display = 'none';
+    if (btnClosePresetsFooter) btnClosePresetsFooter.onclick = () => modalPresets.style.display = 'none';
+
+    presetButtons.forEach(btn => {
+      btn.onclick = async () => {
+        const key = btn.getAttribute('data-preset');
+        btn.disabled = true;
+        btn.textContent = 'Aplicando...';
+        try {
+          const res = await api.presets.apply(key);
+          if (res.success) {
+            showToast(`¡Preset "${res.presetName}" aplicado correctamente en options.txt!`, 'success');
+            highlightCurrentPreset();
+          } else {
+            showToast(`Error: ${res.error}`, 'error');
+          }
+        } catch (err) {
+          showToast(`Error: ${err.message}`, 'error');
+        } finally {
+          btn.disabled = false;
+        }
+      };
+    });
+  }
+
+  // ==========================================
+  // SHUBA RADIO (MINI REPRODUCTOR LOFI)
+  // ==========================================
+  function initShubaRadio() {
+    const audioElement = document.getElementById('shuba-radio-audio');
+    const btnToggle = document.getElementById('btn-shuba-radio-toggle');
+    const playIcon = document.getElementById('shuba-radio-play-icon');
+    const pauseIcon = document.getElementById('shuba-radio-pause-icon');
+    const statusText = document.getElementById('shuba-radio-status');
+    const selectChannel = document.getElementById('select-shuba-radio-channel');
+
+    if (!audioElement || !btnToggle) return;
+
+    const CHANNELS = {
+      lofi: { name: 'Lofi Chill ☕', url: 'https://streams.ilovemusic.de/iloveradio17.mp3' },
+      calm: { name: 'Minecraft Calm 🌲', url: 'https://stream.zeno.fm/f3wvbbqmdg8uv' },
+      synth: { name: 'Synthwave 🌌', url: 'https://streams.fluxfm.de/chillhop/mp3-320/audio/' }
+    };
+
+    let isPlaying = false;
+    audioElement.volume = 0.45;
+
+    function playRadio() {
+      const channelKey = selectChannel?.value || 'lofi';
+      const channel = CHANNELS[channelKey] || CHANNELS.lofi;
+      audioElement.src = channel.url;
+      audioElement.play().then(() => {
+        isPlaying = true;
+        if (playIcon) playIcon.style.display = 'none';
+        if (pauseIcon) pauseIcon.style.display = 'block';
+        if (statusText) {
+          statusText.textContent = `▶ ${channel.name}`;
+          statusText.style.color = '#10b981';
+        }
+        api.badges.unlock('radio_listener').catch(() => {});
+      }).catch(err => {
+        if (statusText) {
+          statusText.textContent = 'Error al conectar';
+          statusText.style.color = '#ef4444';
+        }
+      });
+    }
+
+    function pauseRadio() {
+      audioElement.pause();
+      isPlaying = false;
+      if (playIcon) playIcon.style.display = 'block';
+      if (pauseIcon) pauseIcon.style.display = 'none';
+      if (statusText) {
+        statusText.textContent = 'Pausada';
+        statusText.style.color = 'var(--text-dim)';
+      }
+    }
+
+    btnToggle.onclick = () => {
+      if (isPlaying) {
+        pauseRadio();
+      } else {
+        playRadio();
+      }
+    };
+
+    if (selectChannel) {
+      selectChannel.onchange = () => {
+        if (isPlaying) {
+          playRadio();
+        } else {
+          const channel = CHANNELS[selectChannel.value] || CHANNELS.lofi;
+          if (statusText) statusText.textContent = channel.name;
+        }
+      };
+    }
+
+    if (api.events && typeof api.events.on === 'function') {
+      api.events.on('launch:started', () => {
+        if (isPlaying) {
+          pauseRadio();
+          if (statusText) statusText.textContent = 'Pausada por juego';
+        }
+      });
+    }
+  }
+
+  // ==========================================
+  // SHUBABADGES (MEDALLAS Y HITOS REALES)
+  // ==========================================
+  function initShubaBadges() {
+    const modalBadges = document.getElementById('modal-shuba-badges');
+    const tabBadges = document.getElementById('tab-view-badges');
+    const btnCloseBadges = document.getElementById('btn-close-shuba-badges');
+    const btnCloseBadgesFooter = document.getElementById('btn-close-shuba-badges-footer');
+    const badgesGrid = document.getElementById('shuba-badges-grid');
+
+    async function loadBadges() {
+      if (!badgesGrid) return;
+      badgesGrid.innerHTML = '<div style="color: var(--text-dim); padding: 16px; text-align: center;">Cargando logros e hitos...</div>';
+      try {
+        const badges = await api.badges.getAll();
+        badgesGrid.innerHTML = '';
+
+        badges.forEach(b => {
+          const card = document.createElement('div');
+          const isUnlocked = b.unlocked;
+          const tierColor = b.tier === 'diamond' ? '#38bdf8' : (b.tier === 'gold' ? '#f59e0b' : (b.tier === 'silver' ? '#cbd5e1' : '#f97316'));
+
+          card.style.cssText = `
+            background: var(--bg-surface);
+            border: 1px solid ${isUnlocked ? tierColor : 'rgba(255,255,255,0.06)'};
+            border-radius: 8px;
+            padding: 12px 14px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            box-shadow: ${isUnlocked ? `0 0 10px ${tierColor}20` : 'none'};
+            opacity: ${isUnlocked ? '1' : '0.75'};
+          `;
+
+          card.innerHTML = `
+            <div>
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                <span style="font-size: 26px;">${b.icon || '🏆'}</span>
+                <span style="font-size: 9.5px; font-weight: 700; text-transform: uppercase; color: ${tierColor}; padding: 2px 6px; border-radius: 4px; background: ${tierColor}15;">
+                  ${isUnlocked ? '✓ DESBLOQUEADO' : 'BLOQUEADO'}
+                </span>
+              </div>
+              <div style="font-weight: 700; font-size: 13.5px; color: ${isUnlocked ? 'var(--text-primary)' : 'var(--text-secondary)'}; margin-bottom: 4px;">
+                ${escapeHtml(b.title)}
+              </div>
+              <div style="font-size: 11px; color: var(--text-dim); line-height: 1.4; margin-bottom: 8px;">
+                ${escapeHtml(b.description)}
+              </div>
+            </div>
+            <div>
+              <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--text-muted); margin-bottom: 3px;">
+                <span>Progreso:</span>
+                <span>${b.progressText || (isUnlocked ? '100%' : '0%')}</span>
+              </div>
+              <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden;">
+                <div style="width: ${b.progressPct || (isUnlocked ? 100 : 0)}%; height: 100%; background: ${isUnlocked ? '#10b981' : tierColor}; border-radius: 3px;"></div>
+              </div>
+            </div>
+          `;
+
+          badgesGrid.appendChild(card);
+        });
+      } catch (err) {
+        badgesGrid.innerHTML = `<div style="color: #ef4444; padding: 12px;">Error: ${err.message}</div>`;
+      }
+    }
+
+    if (tabBadges) {
+      tabBadges.onclick = () => {
+        modalBadges.style.display = 'flex';
+        loadBadges();
+      };
+    }
+    if (btnCloseBadges) btnCloseBadges.onclick = () => modalBadges.style.display = 'none';
+    if (btnCloseBadgesFooter) btnCloseBadgesFooter.onclick = () => modalBadges.style.display = 'none';
+  }
+
+  // Inicializar todas las nuevas herramientas inteligentes
+  try {
+    initCrashDoctor();
+    initSnapshots();
+    initWorldNotebook();
+    initGraphicPresets();
+    initShubaRadio();
+    initShubaBadges();
+  } catch (initFeatErr) {
+    console.warn('[SmartFeatures] Error inicializando características inteligentes:', initFeatErr);
   }
 
 });

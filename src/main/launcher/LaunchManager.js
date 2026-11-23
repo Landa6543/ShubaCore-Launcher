@@ -17,6 +17,7 @@ const { getProfileManager } = require('../profiles/ProfileManager');
 const { getSupabaseManager } = require('../supabase/SupabaseManager');
 const { JVMOptimizer } = require('../jvm/JVMOptimizer');
 const { ModloaderResolver } = require('./ModloaderResolver');
+const CrashInspector = require('./CrashInspector');
 const { defaultLogger: logger } = require('../utils/logger');
 
 // FILTRO ESTRICTO DE LIBRERÍAS INCOMPATIBLES (ARM64, X86, LINUX, OSX, MACOS)
@@ -184,6 +185,7 @@ class LaunchManager {
     this.pendingLogBatch = [];
     this.logFlushTimer = null;
     this.controllerBridgeTimer = null;
+    this.crashInspector = new CrashInspector();
   }
 
   get activeProcess() {
@@ -1151,10 +1153,34 @@ class LaunchManager {
 
       const session = this.runningProcesses.get(sessionId);
       const instancePath = session?.instancePath || this.lastInstancePath;
+      const instanceName = session?.instanceName || 'Minecraft';
+      const instanceId = session?.instanceId;
 
       // REQUISITO 3: Diagnosticar crash nativo (3221225477 / 0xC0000005) inspeccionando hs_err_pid
+      let crashDiagnosis = null;
       if (code === 3221225477 || code === -1073741819 || code !== 0) {
         this._checkAndReportHsErr(instancePath, code);
+
+        try {
+          crashDiagnosis = this.crashInspector.analyzeCrash(instancePath, {
+            code,
+            instanceName,
+            instanceId
+          });
+          if (crashDiagnosis && crashDiagnosis.hasCrash) {
+            logger.warn(`[LaunchManager] Crash Doctor detectó fallo: ${crashDiagnosis.title} (${crashDiagnosis.errorType})`);
+            this._emit('launch:crashed', {
+              sessionId,
+              instanceId,
+              instanceName,
+              instancePath,
+              code,
+              diagnosis: crashDiagnosis
+            });
+          }
+        } catch (diagErr) {
+          logger.warn('[LaunchManager] Error en análisis de crash:', diagErr);
+        }
       }
 
       // Acumular tiempo de juego en el perfil de ShubaCore
@@ -1194,6 +1220,10 @@ class LaunchManager {
         sessionId,
         pid: gameProcess.pid,
         code,
+        instanceId,
+        instanceName,
+        instancePath,
+        crashDiagnosis,
         runningCount: this.runningProcesses.size
       });
       this._emit('game:sessions-changed', {
@@ -1386,6 +1416,30 @@ class LaunchManager {
   }
 
   /**
+   * Ejecuta el diagnóstico del Crash Doctor sobre la instancia
+   */
+  diagnoseCrash(instancePath = null, context = {}) {
+    const targetPath = instancePath || this.lastInstancePath || this.profileManager.getActiveInstancePath();
+    return this.crashInspector.analyzeCrash(targetPath, context);
+  }
+
+  /**
+   * Desactiva un mod conflictivo (.jar -> .jar.disabled)
+   */
+  disableCulpritMod(instancePath = null, fileName = '') {
+    const targetPath = instancePath || this.lastInstancePath || this.profileManager.getActiveInstancePath();
+    return this.crashInspector.disableMod(targetPath, fileName);
+  }
+
+  /**
+   * Reactiva un mod (.jar.disabled -> .jar)
+   */
+  enableCulpritMod(instancePath = null, disabledFileName = '') {
+    const targetPath = instancePath || this.lastInstancePath || this.profileManager.getActiveInstancePath();
+    return this.crashInspector.enableMod(targetPath, disabledFileName);
+  }
+
+  /**
    * REQUISITO 3: Inspecciona y reporta en consola el Problematic Frame
    * del volcado hs_err_pid*.log si ocurre una violación de acceso nativa (código 3221225477 / 0xC0000005)
    */
@@ -1469,6 +1523,30 @@ class LaunchManager {
     }
     this._openPathSafely(logsDir);
     return { success: true, path: logsDir };
+  }
+
+  /**
+   * Ejecuta el diagnóstico del Crash Doctor sobre la instancia
+   */
+  diagnoseCrash(instancePath = null, context = {}) {
+    const targetPath = instancePath || this.lastInstancePath || this.profileManager.getActiveInstancePath();
+    return this.crashInspector.analyzeCrash(targetPath, context);
+  }
+
+  /**
+   * Desactiva un mod conflictivo (.jar -> .jar.disabled)
+   */
+  disableCulpritMod(instancePath = null, fileName = '') {
+    const targetPath = instancePath || this.lastInstancePath || this.profileManager.getActiveInstancePath();
+    return this.crashInspector.disableMod(targetPath, fileName);
+  }
+
+  /**
+   * Reactiva un mod (.jar.disabled -> .jar)
+   */
+  enableCulpritMod(instancePath = null, disabledFileName = '') {
+    const targetPath = instancePath || this.lastInstancePath || this.profileManager.getActiveInstancePath();
+    return this.crashInspector.enableMod(targetPath, disabledFileName);
   }
 
   /**

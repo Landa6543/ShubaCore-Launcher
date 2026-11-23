@@ -55,7 +55,9 @@ const VALID_RECEIVE_CHANNELS = [
   'server:client-mod-crash',
   'notification:clicked',
   'social:realtime-update',
-  'chat:message-received'
+  'chat:message-received',
+  'launch:crashed',
+  'badge:unlocked'
 ];
 
 contextBridge.exposeInMainWorld('shubaCoreAPI', {
@@ -502,6 +504,52 @@ contextBridge.exposeInMainWorld('shubaCoreAPI', {
     openComMojang: () => ipcRenderer.invoke('bedrock:open-com-mojang'),
     openNative: (filePath) => ipcRenderer.invoke('bedrock:open-native', filePath),
     selectAddonDialog: () => ipcRenderer.invoke('bedrock:select-addon-dialog')
+  },
+
+  // ==========================================
+  // CRASH DOCTOR (DIAGNÓSTICO INTELIGENTE)
+  // ==========================================
+  crash: {
+    diagnose: (instancePath, context) => ipcRenderer.invoke('crash:diagnose', instancePath, context),
+    disableMod: (fileName, instancePath) => ipcRenderer.invoke('crash:disable-mod', fileName, instancePath),
+    enableMod: (disabledFileName, instancePath) => ipcRenderer.invoke('crash:enable-mod', disabledFileName, instancePath)
+  },
+
+  // ==========================================
+  // PUNTOS DE RESTAURACIÓN (SNAPSHOTS)
+  // ==========================================
+  snapshots: {
+    list: (instancePath) => ipcRenderer.invoke('snapshots:list', instancePath),
+    create: (options, instancePath) => ipcRenderer.invoke('snapshots:create', options, instancePath),
+    restore: (snapshotId, instancePath) => ipcRenderer.invoke('snapshots:restore', snapshotId, instancePath),
+    delete: (snapshotId, instancePath) => ipcRenderer.invoke('snapshots:delete', snapshotId, instancePath)
+  },
+
+  // ==========================================
+  // LIBRETA DE COORDENADAS Y NOTAS
+  // ==========================================
+  notebook: {
+    getNotes: (instancePath) => ipcRenderer.invoke('notebook:get-notes', instancePath),
+    addNote: (noteData, instancePath) => ipcRenderer.invoke('notebook:add-note', noteData, instancePath),
+    updateNote: (noteId, updates, instancePath) => ipcRenderer.invoke('notebook:update-note', noteId, updates, instancePath),
+    deleteNote: (noteId, instancePath) => ipcRenderer.invoke('notebook:delete-note', noteId, instancePath)
+  },
+
+  // ==========================================
+  // PRESETS GRÁFICOS (POTATO / BALANCED / ULTRA)
+  // ==========================================
+  presets: {
+    getAll: () => ipcRenderer.invoke('presets:get-all'),
+    getCurrent: (instancePath) => ipcRenderer.invoke('presets:get-current', instancePath),
+    apply: (presetKey, instancePath) => ipcRenderer.invoke('presets:apply', presetKey, instancePath)
+  },
+
+  // ==========================================
+  // SHUBABADGES (MEDALLAS Y HITOS)
+  // ==========================================
+  badges: {
+    getAll: (playTimeSeconds, currentModsCount) => ipcRenderer.invoke('badges:get-all', playTimeSeconds, currentModsCount),
+    unlock: (badgeId) => ipcRenderer.invoke('badges:unlock', badgeId)
   },
 
   // ==========================================

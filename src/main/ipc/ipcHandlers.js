@@ -40,6 +40,10 @@ const { getControllerMapManager } = require('../controller/ControllerMapManager'
 const { getControllerBridge } = require('../controller/ControllerBridge');
 const { getDiskCleanerManager } = require('../system/DiskCleanerManager');
 const { getSupabaseManager } = require('../supabase/SupabaseManager');
+const { getSnapshotManager } = require('../snapshots/SnapshotManager');
+const { getNotebookManager } = require('../notebook/NotebookManager');
+const { getGraphicPresetsManager } = require('../presets/GraphicPresetsManager');
+const { getBadgesManager } = require('../badges/BadgesManager');
 const { defaultLogger: logger } = require('../utils/logger');
 
 function registerIpcHandlers(mainWindow) {
@@ -48,6 +52,10 @@ function registerIpcHandlers(mainWindow) {
   const supabaseManager = getSupabaseManager();
   const profileManager = getProfileManager();
   const launchManager = getLaunchManager();
+  const snapshotManager = getSnapshotManager();
+  const notebookManager = getNotebookManager();
+  const graphicPresetsManager = getGraphicPresetsManager();
+  const badgesManager = getBadgesManager();
   const modManager = getModManager();
   const skinManager = getSkinManager();
   const packPorter = getPackPorter();
@@ -2806,6 +2814,172 @@ function registerIpcHandlers(mainWindow) {
     });
     if (result.canceled || !result.filePaths.length) return { canceled: true };
     return { canceled: false, filePath: result.filePaths[0] };
+  });
+
+  // ==========================================
+  // CRASH DOCTOR (DIAGNÓSTICO INTELIGENTE)
+  // ==========================================
+  ipcMain.handle('crash:diagnose', async (event, instancePath, context) => {
+    try {
+      const p = instancePath || profileManager.getActiveInstancePath();
+      return launchManager.diagnoseCrash(p, context || {});
+    } catch (err) {
+      return { hasCrash: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('crash:disable-mod', async (event, fileName, instancePath) => {
+    try {
+      const p = instancePath || profileManager.getActiveInstancePath();
+      const res = launchManager.disableCulpritMod(p, fileName);
+      if (res.success) {
+        badgesManager.unlockBadge('crash_doctor_fix');
+      }
+      return res;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('crash:enable-mod', async (event, disabledFileName, instancePath) => {
+    try {
+      const p = instancePath || profileManager.getActiveInstancePath();
+      return launchManager.enableCulpritMod(p, disabledFileName);
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // ==========================================
+  // PUNTOS DE RESTAURACIÓN (SNAPSHOTS)
+  // ==========================================
+  ipcMain.handle('snapshots:list', async (event, instancePath) => {
+    try {
+      const p = instancePath || profileManager.getActiveInstancePath();
+      return snapshotManager.listSnapshots(p);
+    } catch (err) {
+      return [];
+    }
+  });
+
+  ipcMain.handle('snapshots:create', async (event, options, instancePath) => {
+    try {
+      const p = instancePath || profileManager.getActiveInstancePath();
+      const res = await snapshotManager.createSnapshot(p, options || {});
+      if (res.success) {
+        badgesManager.unlockBadge('snapshot_created');
+      }
+      return res;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('snapshots:restore', async (event, snapshotId, instancePath) => {
+    try {
+      const p = instancePath || profileManager.getActiveInstancePath();
+      return await snapshotManager.restoreSnapshot(p, snapshotId);
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('snapshots:delete', async (event, snapshotId, instancePath) => {
+    try {
+      const p = instancePath || profileManager.getActiveInstancePath();
+      return snapshotManager.deleteSnapshot(p, snapshotId);
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // ==========================================
+  // LIBRETA DE COORDENADAS Y NOTAS DEL MUNDO
+  // ==========================================
+  ipcMain.handle('notebook:get-notes', async (event, instancePath) => {
+    try {
+      const p = instancePath || profileManager.getActiveInstancePath();
+      return notebookManager.getNotes(p);
+    } catch (err) {
+      return [];
+    }
+  });
+
+  ipcMain.handle('notebook:add-note', async (event, noteData, instancePath) => {
+    try {
+      const p = instancePath || profileManager.getActiveInstancePath();
+      return notebookManager.addNote(p, noteData);
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('notebook:update-note', async (event, noteId, updates, instancePath) => {
+    try {
+      const p = instancePath || profileManager.getActiveInstancePath();
+      return notebookManager.updateNote(p, noteId, updates);
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('notebook:delete-note', async (event, noteId, instancePath) => {
+    try {
+      const p = instancePath || profileManager.getActiveInstancePath();
+      return notebookManager.deleteNote(p, noteId);
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // ==========================================
+  // PRESETS GRÁFICOS (POTATO / BALANCED / ULTRA)
+  // ==========================================
+  ipcMain.handle('presets:get-all', async () => {
+    return graphicPresetsManager.getAvailablePresets();
+  });
+
+  ipcMain.handle('presets:get-current', async (event, instancePath) => {
+    const p = instancePath || profileManager.getActiveInstancePath();
+    return graphicPresetsManager.getCurrentPreset(p);
+  });
+
+  ipcMain.handle('presets:apply', async (event, presetKey, instancePath) => {
+    try {
+      const p = instancePath || profileManager.getActiveInstancePath();
+      return graphicPresetsManager.applyPreset(p, presetKey);
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // ==========================================
+  // SHUBABADGES (MEDALLAS Y HITOS REALES)
+  // ==========================================
+  ipcMain.handle('badges:get-all', async (event, playTimeSeconds, currentModsCount) => {
+    try {
+      let sec = playTimeSeconds;
+      if (sec === undefined || sec === null) {
+        const shubaAcc = authManager.getShubaCoreAccount();
+        if (shubaAcc?.id) {
+          const profileRes = await supabaseManager.getProfile(shubaAcc.id);
+          sec = profileRes.profile?.play_time_seconds || 0;
+        } else {
+          sec = 0;
+        }
+      }
+      return badgesManager.getBadgesWithProgress(sec, currentModsCount || 0);
+    } catch (err) {
+      return [];
+    }
+  });
+
+  ipcMain.handle('badges:unlock', async (event, badgeId) => {
+    try {
+      return badgesManager.unlockBadge(badgeId);
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
   });
 
   logger.info('Canales IPC registrados con éxito (incluyendo Perfiles, Bedrock y Versiones de Loaders).');

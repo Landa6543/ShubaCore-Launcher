@@ -129,6 +129,13 @@
           <span id="friends-badge-count" class="badge" style="display: none; margin-left: auto; font-size: 10px; padding: 2px 6px; background: #10b981; color: #fff;">0</span>
         </button>
 
+        <button id="tab-view-badges" class="nav-item" data-view="badges" title="Logros y Medallas de Progreso (5h, 50h, 500h, Mods)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/>
+          </svg>
+          <span>ShubaBadges</span>
+        </button>
+
         <button id="tab-view-screenshots" class="nav-item" data-view="screenshots">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
             <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
@@ -167,6 +174,26 @@
       </nav>
 
       <div class="sidebar-spacer"></div>
+
+      <!-- WIDGET DE SHUBA RADIO EN LA BARRA LATERAL -->
+      <div id="shuba-radio-widget" class="shuba-radio-widget" style="margin: 0 10px 10px 10px; padding: 7px 10px; background: rgba(13, 16, 22, 0.85); border: 1px solid var(--border); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 8px; min-width: 0;">
+          <button id="btn-shuba-radio-toggle" class="btn-radio-play" style="width: 26px; height: 26px; border-radius: 50%; border: none; background: #10b981; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0;" title="Reproducir / Pausar Shuba Radio">
+            <svg id="shuba-radio-play-icon" width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+            <svg id="shuba-radio-pause-icon" width="11" height="11" viewBox="0 0 24 24" fill="currentColor" style="display: none;"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+          </button>
+          <div style="min-width: 0;">
+            <div id="shuba-radio-title" style="font-size: 11px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Shuba Radio</div>
+            <div id="shuba-radio-status" style="font-size: 9.5px; color: var(--text-dim);">Lofi Chill ☕</div>
+          </div>
+        </div>
+        <select id="select-shuba-radio-channel" class="select-input" style="font-size: 9.5px; padding: 2px 4px; height: 22px; max-width: 78px;" title="Cambiar Emisora">
+          <option value="lofi" selected>Lofi ☕</option>
+          <option value="calm">Calm 🌲</option>
+          <option value="synth">Synth 🌌</option>
+        </select>
+        <audio id="shuba-radio-audio" preload="none"></audio>
+      </div>
 
       <!-- Dock Inferior: Perfil Activo y Botón JUGAR -->
       <div class="sidebar-launch-dock">
@@ -514,6 +541,22 @@
                   <button id="btn-open-playit-tunnel-mods" class="dropdown-item-btn" title="Abrir Túnel LAN P2P con PlayIt.gg para invitar amigos a jugar" data-i18n-title="manager.playitTunnelTitle">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
                     <span data-i18n="manager.playitTunnel">Túnel LAN PlayIt</span>
+                  </button>
+                  <button id="btn-open-snapshots" class="dropdown-item-btn" title="Puntos de restauración y copias de seguridad de mods y mundos">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                    <span>Puntos de Restauración (Snapshots)</span>
+                  </button>
+                  <button id="btn-open-notebook" class="dropdown-item-btn" title="Libreta de coordenadas y notas para este mundo">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>
+                    <span>Libreta de Coordenadas</span>
+                  </button>
+                  <button id="btn-open-graphic-presets" class="dropdown-item-btn" title="Presets gráficos de 1 clic (Modo Patata, Equilibrado, Ultra)">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                    <span>Presets Gráficos (Patata/Ultra)</span>
+                  </button>
+                  <button id="btn-open-crash-doctor" class="dropdown-item-btn" title="Diagnóstico inteligente de errores y crashes">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                    <span>Crash Doctor (Diagnóstico)</span>
                   </button>
                   <button id="btn-refresh-installed-mods" class="dropdown-item-btn" title="Refrescar lista de mods en disco">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
@@ -3684,6 +3727,247 @@
       </div>
       <div class="modal-footer" style="display: flex; justify-content: flex-end; padding: 12px 20px; border-top: 1px solid rgba(255, 255, 255, 0.08);">
         <button id="btn-close-bedrock-addons-footer" class="btn btn-secondary" data-i18n="modal.cancel">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CRASH DOCTOR (DIAGNÓSTICO INTELIGENTE) -->
+  <div id="modal-crash-doctor" class="modal-overlay" style="display: none;">
+    <div class="modal-content modal-crash-doctor-content" style="max-width: 620px;">
+      <div class="modal-header" style="border-bottom: 1px solid rgba(239, 68, 68, 0.25); background: linear-gradient(180deg, rgba(239, 68, 68, 0.08) 0%, transparent 100%);">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 36px; height: 36px; border-radius: 8px; background: rgba(239, 68, 68, 0.15); display: flex; align-items: center; justify-content: center; font-size: 20px;">🩺</div>
+          <div>
+            <h3 id="crash-doctor-title" style="font-size: 16px; font-weight: 700; color: #ef4444; margin: 0;">ShubaCore Crash Doctor</h3>
+            <p id="crash-doctor-sub" style="font-size: 12px; color: var(--text-dim); margin: 2px 0 0 0;">Diagnóstico inteligente y solución en 1 clic</p>
+          </div>
+        </div>
+        <button id="btn-close-crash-doctor" class="btn btn-small close-btn">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 20px; overflow-y: auto; max-height: 70vh;">
+        <div id="crash-doctor-banner" class="crash-doctor-banner" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+          <div id="crash-doctor-headline" style="font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;"></div>
+          <div id="crash-doctor-explanation" style="font-size: 12.5px; color: var(--text-secondary); line-height: 1.5;"></div>
+        </div>
+
+        <div id="crash-doctor-culprit-card" style="display: none; background: var(--bg-surface); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+          <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--text-dim); margin-bottom: 6px;">Mod Culpable Detectado</div>
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 10px; min-width: 0;">
+              <span style="font-size: 22px;">📦</span>
+              <div style="min-width: 0;">
+                <div id="crash-doctor-mod-name" style="font-weight: 600; font-size: 13.5px; color: #10b981; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></div>
+                <div id="crash-doctor-mod-filename" style="font-size: 11px; color: var(--text-dim); font-family: monospace;"></div>
+              </div>
+            </div>
+            <button id="btn-crash-disable-culprit" class="btn btn-danger btn-small" style="flex-shrink: 0;">🚫 Desactivar Mod</button>
+          </div>
+        </div>
+
+        <div id="crash-doctor-oom-card" style="display: none; background: var(--bg-surface); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div>
+              <div style="font-weight: 600; font-size: 13.5px; color: #f59e0b;">Memoria RAM Insuficiente</div>
+              <div style="font-size: 11.5px; color: var(--text-dim);">Aumenta la memoria máxima asignada a Java para evitar este cierre.</div>
+            </div>
+            <button id="btn-crash-increase-ram" class="btn btn-primary btn-small">⚡ Aumentar 2 GB RAM</button>
+          </div>
+        </div>
+
+        <div style="margin-top: 10px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+            <span style="font-size: 12px; font-weight: 600; color: var(--text-dim);">Fragmento del Error (Log):</span>
+            <button id="btn-crash-copy-clean-report" class="btn btn-secondary btn-small" style="font-size: 11px; padding: 3px 8px;">📋 Copiar Reporte Limpio</button>
+          </div>
+          <pre id="crash-doctor-excerpt" style="background: #090b0e; border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; padding: 10px; font-size: 11px; font-family: monospace; color: #e2e8f0; max-height: 160px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;"></pre>
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: space-between; padding: 12px 20px; border-top: 1px solid rgba(255,255,255,0.08);">
+        <button id="btn-crash-open-logs" class="btn btn-secondary btn-small">📂 Ver Logs Completos</button>
+        <button id="btn-close-crash-doctor-footer" class="btn btn-secondary btn-small">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: PUNTOS DE RESTAURACIÓN (SNAPSHOTS) -->
+  <div id="modal-snapshots" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 650px;">
+      <div class="modal-header">
+        <div>
+          <h3 style="font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+            <span>📸</span>
+            <span>Puntos de Restauración y Copias de Seguridad</span>
+          </h3>
+          <p style="font-size: 12px; color: var(--text-muted); margin: 0;">Guarda y restaura el estado exacto de tus mods, configuraciones y mundos.</p>
+        </div>
+        <button id="btn-close-snapshots" class="btn btn-small close-btn">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 16px 20px; overflow-y: auto; max-height: 70vh;">
+        <div style="background: var(--bg-surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+          <div style="font-weight: 600; font-size: 13px; margin-bottom: 8px;">Crear Nuevo Punto de Restauración</div>
+          <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+            <input type="text" id="input-snapshot-label" class="text-input" placeholder="Nombre (ej: Antes de actualizar mods)" style="flex: 1;">
+            <button id="btn-create-snapshot" class="btn btn-primary btn-small">+ Crear Respaldo</button>
+          </div>
+          <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); cursor: pointer;">
+            <input type="checkbox" id="check-snapshot-include-worlds">
+            <span>Incluir carpetas de mundos (saves/) en el archivo de respaldo</span>
+          </label>
+        </div>
+
+        <div style="font-size: 12px; font-weight: 600; color: var(--text-dim); margin-bottom: 8px;">Respaldos Guardados en Esta Instancia:</div>
+        <div id="snapshots-list-container" style="display: flex; flex-direction: column; gap: 8px; min-height: 80px;">
+          <!-- Generado dinámicamente -->
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; padding: 12px 20px; border-top: 1px solid var(--border);">
+        <button id="btn-close-snapshots-footer" class="btn btn-secondary btn-small">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: LIBRETA DE COORDENADAS Y NOTAS -->
+  <div id="modal-world-notebook" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 650px;">
+      <div class="modal-header">
+        <div>
+          <h3 style="font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+            <span>🗺️</span>
+            <span>Libreta de Coordenadas del Mundo</span>
+          </h3>
+          <p style="font-size: 12px; color: var(--text-muted); margin: 0;">Anota bases, portales, fortalezas y genera comandos /tp al instante.</p>
+        </div>
+        <button id="btn-close-world-notebook" class="btn btn-small close-btn">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 16px 20px; overflow-y: auto; max-height: 70vh;">
+        <div style="background: var(--bg-surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+          <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 8px; margin-bottom: 8px;">
+            <input type="text" id="input-note-title" class="text-input" placeholder="Nombre (ej: Portal al Techo Nether)">
+            <select id="select-note-dim" class="select-input">
+              <option value="overworld">🌲 Overworld</option>
+              <option value="nether">🔥 Nether</option>
+              <option value="end">🌌 The End</option>
+            </select>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+            <input type="number" id="input-note-x" class="text-input" placeholder="X (ej: 120)">
+            <input type="number" id="input-note-y" class="text-input" placeholder="Y (ej: 64)">
+            <input type="number" id="input-note-z" class="text-input" placeholder="Z (ej: -450)">
+            <button id="btn-add-notebook-entry" class="btn btn-primary btn-small">+ Guardar</button>
+          </div>
+          <input type="text" id="input-note-desc" class="text-input" placeholder="Descripción o notas opcionales (ej: Cofres en la esquina)" style="width: 100%;">
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+          <div style="font-size: 12px; font-weight: 600; color: var(--text-dim);">Coordenadas Guardadas:</div>
+          <div style="display: flex; gap: 4px;">
+            <button type="button" class="btn btn-secondary btn-small note-filter-btn active" data-filter="all" style="font-size: 11px; padding: 2px 7px;">Todas</button>
+            <button type="button" class="btn btn-secondary btn-small note-filter-btn" data-filter="overworld" style="font-size: 11px; padding: 2px 7px;">Overworld</button>
+            <button type="button" class="btn btn-secondary btn-small note-filter-btn" data-filter="nether" style="font-size: 11px; padding: 2px 7px;">Nether</button>
+            <button type="button" class="btn btn-secondary btn-small note-filter-btn" data-filter="end" style="font-size: 11px; padding: 2px 7px;">The End</button>
+          </div>
+        </div>
+
+        <div id="notebook-list-container" style="display: flex; flex-direction: column; gap: 8px; min-height: 80px;">
+          <!-- Generado dinámicamente -->
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; padding: 12px 20px; border-top: 1px solid var(--border);">
+        <button id="btn-close-world-notebook-footer" class="btn btn-secondary btn-small">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: PRESETS GRÁFICOS (POTATO / BALANCED / ULTRA) -->
+  <div id="modal-graphic-presets" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 620px;">
+      <div class="modal-header">
+        <div>
+          <h3 style="font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+            <span>🥔</span>
+            <span>Presets Gráficos de Alto Rendimiento</span>
+          </h3>
+          <p style="font-size: 12px; color: var(--text-muted); margin: 0;">Optimiza options.txt en 1 clic sin riesgo de crashear ni perder tus teclas.</p>
+        </div>
+        <button id="btn-close-graphic-presets" class="btn btn-small close-btn">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 16px 20px; overflow-y: auto;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 12px;">
+          <!-- Potato Card -->
+          <div class="preset-card" style="background: var(--bg-surface); border: 2px solid var(--border); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+              <div style="font-size: 26px; margin-bottom: 6px;">🥔</div>
+              <div style="font-weight: 700; font-size: 14px; color: #f59e0b; margin-bottom: 4px;">Modo Patata</div>
+              <div style="font-size: 11.5px; color: var(--text-dim); margin-bottom: 10px; line-height: 1.4;">Para laptops o PCs de bajos recursos. Render 4 Chunks, Fast, sin sombras ni partículas pesadas.</div>
+              <ul style="font-size: 11px; color: var(--text-muted); padding-left: 16px; margin: 0 0 12px 0;">
+                <li>Visión: 4 Chunks</li>
+                <li>Gráficos: Rápidos (Fast)</li>
+                <li>Iluminación suave: OFF</li>
+                <li>FPS Cap: 75 FPS</li>
+              </ul>
+            </div>
+            <button class="btn btn-secondary btn-small btn-apply-preset" data-preset="potato" style="width: 100%;">Aplicar Modo Patata</button>
+          </div>
+
+          <!-- Balanced Card -->
+          <div class="preset-card" style="background: var(--bg-surface); border: 2px solid var(--border); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+              <div style="font-size: 26px; margin-bottom: 6px;">⚖️</div>
+              <div style="font-weight: 700; font-size: 14px; color: #10b981; margin-bottom: 4px;">Modo Equilibrado</div>
+              <div style="font-size: 11.5px; color: var(--text-dim); margin-bottom: 10px; line-height: 1.4;">El balance ideal entre nitidez visual atractiva y excelente rendimiento (10 Chunks).</div>
+              <ul style="font-size: 11px; color: var(--text-muted); padding-left: 16px; margin: 0 0 12px 0;">
+                <li>Visión: 10 Chunks</li>
+                <li>Gráficos: Detallados (Fancy)</li>
+                <li>Iluminación suave: ON</li>
+                <li>FPS Cap: 144 FPS</li>
+              </ul>
+            </div>
+            <button class="btn btn-secondary btn-small btn-apply-preset" data-preset="balanced" style="width: 100%;">Aplicar Equilibrado</button>
+          </div>
+
+          <!-- Ultra Card -->
+          <div class="preset-card" style="background: var(--bg-surface); border: 2px solid var(--border); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+              <div style="font-size: 26px; margin-bottom: 6px;">✨</div>
+              <div style="font-weight: 700; font-size: 14px; color: #8b5cf6; margin-bottom: 4px;">Modo Ultra</div>
+              <div style="font-size: 11.5px; color: var(--text-dim); margin-bottom: 10px; line-height: 1.4;">Distancia panorámica (18 Chunks), gráficos Fabulosos y shaders listos para lucir.</div>
+              <ul style="font-size: 11px; color: var(--text-muted); padding-left: 16px; margin: 0 0 12px 0;">
+                <li>Visión: 18 Chunks</li>
+                <li>Gráficos: Fabulosos</li>
+                <li>Iluminación suave: Máxima</li>
+                <li>FPS Cap: 260 FPS</li>
+              </ul>
+            </div>
+            <button class="btn btn-secondary btn-small btn-apply-preset" data-preset="ultra" style="width: 100%;">Aplicar Modo Ultra</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; padding: 12px 20px; border-top: 1px solid var(--border);">
+        <button id="btn-close-graphic-presets-footer" class="btn btn-secondary btn-small">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: SHUBABADGES (MEDALLAS Y HITOS REALES) -->
+  <div id="modal-shuba-badges" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 680px;">
+      <div class="modal-header">
+        <div>
+          <h3 style="font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+            <span>🏆</span>
+            <span>ShubaBadges · Logros y Medallas de Progreso</span>
+          </h3>
+          <p style="font-size: 12px; color: var(--text-muted); margin: 0;">Recompensas reales por horas jugadas (5h, 50h, 500h), modpacks titánicos y cooperación.</p>
+        </div>
+        <button id="btn-close-shuba-badges" class="btn btn-small close-btn">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 16px 20px; overflow-y: auto; max-height: 70vh;">
+        <div id="shuba-badges-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px;">
+          <!-- Generado dinámicamente -->
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; padding: 12px 20px; border-top: 1px solid var(--border);">
+        <button id="btn-close-shuba-badges-footer" class="btn btn-secondary btn-small">Cerrar</button>
       </div>
     </div>
   </div>
