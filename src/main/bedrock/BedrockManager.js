@@ -246,6 +246,16 @@ class BedrockManager {
       protocolUrl = `minecraft://?addExternalServer=${encodeURIComponent(serverName)}|${options.serverAddress}`;
     }
 
+    if (options.dryRun || process.env.NODE_ENV === 'test') {
+      logger.info(`[BedrockManager] [DryRun/Test] Simulación de lanzamiento Bedrock exitosa: ${protocolUrl}`);
+      return {
+        success: true,
+        isBedrock: true,
+        method: 'dry-run',
+        url: protocolUrl
+      };
+    }
+
     logger.info(`[BedrockManager] Lanzando Minecraft Bedrock mediante: ${protocolUrl}`);
 
     try {
@@ -277,6 +287,22 @@ class BedrockManager {
         });
       });
     }
+  }
+
+  /**
+   * Cierra de manera limpia cualquier proceso huérfano de Minecraft Bedrock (Minecraft.Windows.exe)
+   */
+  killBedrockProcess() {
+    if (process.platform === 'win32') {
+      try {
+        const { execSync } = require('child_process');
+        execSync('taskkill /FI "IMAGENAME eq Minecraft.Windows.exe" /F', { stdio: 'ignore' });
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
+    return false;
   }
 
   /**

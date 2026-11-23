@@ -10178,13 +10178,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       const badges = await api.badges.getAll();
       const equippedIds = (await api.badges.getEquipped()) || [];
 
-      if (countBadge) {
-        countBadge.textContent = `${equippedIds.length} / 5 Equipadas`;
-      }
-
       // 1. Renderizar Vista Previa de Equipadas
       previewContainer.innerHTML = '';
       const equippedBadgesList = badges.filter(b => equippedIds.includes(b.id));
+
+      if (countBadge) {
+        countBadge.textContent = `${equippedBadgesList.length} / 5 Equipadas`;
+      }
 
       if (equippedBadgesList.length === 0) {
         previewContainer.innerHTML = '<span style="font-size: 11px; color: var(--text-dim); font-style: italic;">No tienes insignias equipadas. Haz clic en las medallas abajo para colocártelas.</span>';

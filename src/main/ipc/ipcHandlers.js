@@ -2981,18 +2981,18 @@ function registerIpcHandlers(mainWindow) {
         u.includes('landeralo') || u.includes('landaalo') || u.includes('shubacore') || u.includes('chubacorp') || u.includes('shubacorp')
       );
 
-      const allProfiles = profileManager ? profileManager.getAll() : [];
-      const distinctModpacks = allProfiles.length;
+      const allProfiles = profileManager ? (profileManager.getAllProfiles ? profileManager.getAllProfiles() : (profileManager.getAll()?.profiles || [])) : [];
+      const distinctModpacks = Array.isArray(allProfiles) ? allProfiles.length : 1;
 
       if (!sec) {
         if (shubaAcc?.id) {
           try {
-            const profileRes = await supabaseManager.getProfile(shubaAcc.id);
-            sec = profileRes?.profile?.play_time_seconds || 0;
-            createdAt = profileRes?.profile?.created_at || null;
+            const profileRes = await (supabaseManager.getUserProfile ? supabaseManager.getUserProfile(shubaAcc.id) : null);
+            sec = profileRes?.play_time_seconds || profileRes?.profile?.play_time_seconds || 0;
+            createdAt = profileRes?.created_at || profileRes?.profile?.created_at || null;
           } catch (_) {}
         }
-        if (!sec && allProfiles.length > 0) {
+        if (!sec && Array.isArray(allProfiles) && allProfiles.length > 0) {
           sec = allProfiles.reduce((acc, p) => acc + (p.playTimeSeconds || p.playTime || 0), 0);
         }
       }

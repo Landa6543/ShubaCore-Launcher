@@ -143,13 +143,13 @@ worldZip.writeZip(worldFilePath);
   assert.ok(fs.existsSync(path.join(testDir, 'instances', bedrockProfile.id, 'worlds')));
   console.log(`   ✔ Perfil Bedrock "${bedrockProfile.name}" creado con carpetas aisladas.`);
 
-  // 5. Verificar LaunchManager ante perfil Bedrock
+  // 5. Verificar LaunchManager ante perfil Bedrock (usando dryRun para no abrir Minecraft.Windows.exe en segundo plano)
   console.log('\n▶ [5/5] Verificando despacho de lanzamiento en LaunchManager...');
   const { LaunchManager } = require('../src/main/launcher/LaunchManager');
   const lm = new LaunchManager(pm.configManager, null, pm, null);
 
   // Si Bedrock no está instalado en la máquina de pruebas, debe devolver notInstalled: true elegantemente
-  const launchRes = await lm.launch({ edition: 'bedrock' });
+  const launchRes = await lm.launch({ edition: 'bedrock', dryRun: true });
   if (info.installed) {
     assert.strictEqual(launchRes.success, true);
     assert.strictEqual(launchRes.isBedrock, true);

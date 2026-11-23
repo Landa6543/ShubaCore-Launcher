@@ -531,7 +531,7 @@ class BadgesManager {
   getEquippedBadges() {
     try {
       const allCfg = this.configManager.getAll();
-      if (Array.isArray(allCfg.equippedBadges) && allCfg.equippedBadges.length > 0) {
+      if (Array.isArray(allCfg.equippedBadges)) {
         return allCfg.equippedBadges;
       }
       return ['badge_owner_creator', 'badge_evolution_tree', 'badge_evolution_playtime', 'badge_evolution_modpacks', 'early_pioneer'];

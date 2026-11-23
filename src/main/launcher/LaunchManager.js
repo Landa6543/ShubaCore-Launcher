@@ -318,7 +318,8 @@ class LaunchManager {
         this._emit('launch:status', { state: 'launching', message: 'Iniciando Minecraft Bedrock en Windows...' });
         const launchResult = await bedrockManager.launch({
           serverAddress: overrideOptions.serverAddress,
-          serverName: overrideOptions.serverName || activeProfile.name
+          serverName: overrideOptions.serverName || activeProfile.name,
+          dryRun: Boolean(overrideOptions.dryRun || process.env.NODE_ENV === 'test')
         });
 
         this.isLaunching = false;

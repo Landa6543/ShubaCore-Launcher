@@ -145,6 +145,20 @@ function createMainWindow() {
     });
   } catch (_) {}
 
+  // Limpieza preventiva de procesos huérfanos de Minecraft Bedrock (Minecraft.Windows.exe)
+  if (process.platform === 'win32') {
+    try {
+      const { exec } = require('child_process');
+      exec('taskkill /FI "IMAGENAME eq Minecraft.Windows.exe" /F', () => {});
+    } catch (_) {}
+    app.on('will-quit', () => {
+      try {
+        const { execSync } = require('child_process');
+        execSync('taskkill /FI "IMAGENAME eq Minecraft.Windows.exe" /F', { stdio: 'ignore' });
+      } catch (_) {}
+    });
+  }
+
   // Inicializar Icono en la Bandeja del Sistema de Windows (System Tray)
   setupSystemTray();
 
