@@ -1596,7 +1596,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       accUuid = session?.offlineAccount?.uuid || account.uuid || '-';
     }
 
-    if (playerName) playerName.textContent = accName;
+    if (playerName) {
+      playerName.textContent = accName;
+      playerName.title = accName;
+    }
     if (playerUuid) playerUuid.textContent = `UUID: ${accUuid}`;
     if (skinModalUsername) skinModalUsername.textContent = accName;
 

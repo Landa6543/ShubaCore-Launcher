@@ -255,14 +255,20 @@ class JavaManager {
     }
 
     // 2. Inferencia inteligente si no está descargado el JSON:
-    // Versiones 25+, 26+, snapshots 25w... o clasfile 69.0 requieren Java 25
-    if (/^(?:2[5-9]|[3-9]\d)/.test(cleanVer) || cleanVer.toLowerCase().startsWith('25w')) {
-      return 25;
+    // ShubaClient y versiones 26.x están basadas en 1.21.1 (Java 21).
+    // NOTA CRÍTICA: Java 25 rompe LWJGL InputConstants al entrar a mundos "Un jugador" (IndexOutOfBoundsException).
+    if (cleanVer.startsWith('26.') || cleanVer === '26.3') {
+      return 21;
     }
 
-    // Minecraft 1.20.5 a 1.21.x requieren Java 21
+    // Minecraft 1.20.5 a 1.21.x requieren Java 21 Oficial estable
     if (cleanVer.startsWith('1.21') || cleanVer === '1.20.5' || cleanVer === '1.20.6') {
       return 21;
+    }
+
+    // Snapshots experimentales futuras 25w...
+    if (cleanVer.toLowerCase().startsWith('25w')) {
+      return 25;
     }
 
     // Minecraft 1.17 a 1.20.4 requieren Java 17
