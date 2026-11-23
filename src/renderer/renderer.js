@@ -10202,12 +10202,22 @@ document.addEventListener('DOMContentLoaded', async () => {
             border: 1px solid ${tierColor}40;
             font-size: 12px;
             box-shadow: 0 0 8px ${tierColor}20;
+            cursor: ${b.isEvolving ? 'pointer' : 'default'};
           `;
+          pill.title = b.isEvolving ? `${b.title} (Haz clic para ver etapas evolutivas estilo Discord)` : b.description;
           pill.innerHTML = `
             <span style="font-size: 15px;">${b.icon || '🏆'}</span>
             <span style="font-weight: 700; color: ${tierColor};">${escapeHtml(b.title)}</span>
+            ${b.isEvolving ? '<span style="font-size: 10px; opacity: 0.8;" title="Insignia Evolutiva">📈</span>' : ''}
             <button type="button" class="btn-unequip-badge" title="Desequipar" style="background: none; border: none; color: var(--text-dim); cursor: pointer; padding: 0 0 0 4px; font-size: 11px; font-weight: bold;">✕</button>
           `;
+
+          if (b.isEvolving) {
+            pill.onclick = (e) => {
+              if (e.target.classList.contains('btn-unequip-badge')) return;
+              if (typeof openBadgeEvolutionModal === 'function') openBadgeEvolutionModal(b);
+            };
+          }
 
           pill.querySelector('.btn-unequip-badge').onclick = async (e) => {
             e.stopPropagation();
@@ -10228,8 +10238,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       } else {
         unlockedBadges.forEach(b => {
           const isEquipped = equippedIds.includes(b.id);
-          const btn = document.createElement('button');
-          btn.type = 'button';
+          const btn = document.createElement('div');
           const tierColor = b.tier === 'diamond' ? '#38bdf8' : (b.tier === 'gold' ? '#f59e0b' : (b.tier === 'evolution' ? '#a78bfa' : '#10b981'));
 
           btn.style.cssText = `
@@ -10251,12 +10260,18 @@ document.addEventListener('DOMContentLoaded', async () => {
           btn.innerHTML = `
             <span style="font-size: 14px;">${b.icon || '🏆'}</span>
             <span>${escapeHtml(b.title)}</span>
-            <span style="font-size: 10px; padding: 1px 4px; border-radius: 4px; background: ${isEquipped ? tierColor : 'rgba(255,255,255,0.06)'}; color: ${isEquipped ? '#000' : 'var(--text-dim)'}; font-weight: 700;">
+            ${b.isEvolving ? '<span class="btn-inspect-evolution" style="font-size: 11px; padding: 1px 4px; border-radius: 4px; background: rgba(167, 139, 250, 0.25); color: #c4b5fd; margin-left: 2px;" title="Ver etapas evolutivas estilo Discord">📈</span>' : ''}
+            <span class="badge-equip-action-tag" style="font-size: 10px; padding: 1px 4px; border-radius: 4px; background: ${isEquipped ? tierColor : 'rgba(255,255,255,0.06)'}; color: ${isEquipped ? '#000' : 'var(--text-dim)'}; font-weight: 700;">
               ${isEquipped ? '✓ EQUIPADA' : '+ EQUIPAR'}
             </span>
           `;
 
-          btn.onclick = async () => {
+          btn.onclick = async (e) => {
+            if (e.target.classList.contains('btn-inspect-evolution')) {
+              e.stopPropagation();
+              if (typeof openBadgeEvolutionModal === 'function') openBadgeEvolutionModal(b);
+              return;
+            }
             const res = await api.badges.toggleEquip(b.id);
             if (res && res.error) {
               alert(res.error);
@@ -13933,9 +13948,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       // Extraer tiempo de juego de los badges de tiempo
+      const playEvolution = badges.find(b => b.id === 'badge_evolution_playtime');
       const play500 = badges.find(b => b.id === 'play_500h');
       if (playtimeCounter) {
-        if (play500 && play500.progressText) {
+        if (playEvolution && playEvolution.progressText) {
+          playtimeCounter.textContent = playEvolution.progressText;
+        } else if (play500 && play500.progressText) {
           const match = play500.progressText.match(/([\d\.]+)\s*\/\s*500/);
           if (match) {
             playtimeCounter.textContent = `${match[1]} hrs`;
@@ -13966,6 +13984,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             box-shadow: ${isUnlocked ? `0 0 14px ${tierColor}25` : 'none'};
             opacity: ${isUnlocked ? '1' : '0.7'};
             transition: transform 0.15s ease, box-shadow 0.15s ease;
+            cursor: ${b.isEvolving ? 'pointer' : 'default'};
           `;
 
           card.addEventListener('mouseenter', () => {
@@ -13976,6 +13995,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             card.style.transform = 'translateY(0)';
             card.style.boxShadow = isUnlocked ? `0 0 14px ${tierColor}25` : 'none';
           });
+
+          if (b.isEvolving) {
+            card.title = 'Haz clic para ver las 10 etapas de evolución estilo Discord';
+            card.addEventListener('click', () => {
+              openBadgeEvolutionModal(b);
+            });
+          }
 
           card.innerHTML = `
             <div>
@@ -14000,6 +14026,11 @@ document.addEventListener('DOMContentLoaded', async () => {
               <div style="width: 100%; height: 7px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden;">
                 <div style="width: ${b.progressPct || (isUnlocked ? 100 : 0)}%; height: 100%; background: ${isUnlocked ? '#10b981' : tierColor}; border-radius: 4px; transition: width 0.3s ease;"></div>
               </div>
+              ${b.isEvolving ? `
+                <div style="font-size: 11px; color: #a78bfa; font-weight: 600; margin-top: 8px; display: flex; align-items: center; gap: 5px;">
+                  <span>📈</span> <span>Ver etapas y progreso estilo Discord &rarr;</span>
+                </div>
+              ` : ''}
             </div>
           `;
 
@@ -14016,11 +14047,113 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  function openBadgeEvolutionModal(b) {
+    const modal = document.getElementById('modal-badge-evolution');
+    if (!modal || !b) return;
+
+    const leftIcon = document.getElementById('evolution-modal-left-icon');
+    const rightIcon = document.getElementById('evolution-modal-right-icon');
+    const missingText = document.getElementById('evolution-modal-missing-text');
+    const progressBar = document.getElementById('evolution-modal-progress-bar');
+    const descText = document.getElementById('evolution-modal-description');
+    const grid = document.getElementById('evolution-modal-stages-grid');
+    const titleEl = document.getElementById('evolution-modal-title');
+
+    if (titleEl) titleEl.textContent = 'Tu progreso';
+    if (leftIcon) leftIcon.textContent = b.currentStage?.icon || b.icon || '🌱';
+    if (rightIcon) rightIcon.textContent = b.nextStage?.icon || '👑';
+    if (missingText) missingText.textContent = b.missingText || (b.unlocked ? '¡Nivel Máximo Alcanzado!' : 'En progreso');
+    if (progressBar) progressBar.style.width = `${Math.min(100, Math.max(5, b.progressPct || 0))}%`;
+    if (descText) descText.textContent = b.description || '';
+
+    if (grid) {
+      grid.innerHTML = '';
+      const stages = Array.isArray(b.stages) ? b.stages : [];
+      const stageColors = [
+        '#94a3b8', // 1: Gris / Casual
+        '#a3e635', // 2: Verde claro / Recreativo
+        '#22c55e', // 3: Verde esmeralda / Dedicado
+        '#06b6d4', // 4: Cyan / Comprometido
+        '#3b82f6', // 5: Azul cielo / Serio
+        '#6366f1', // 6: Azul índigo / Entregado
+        '#a855f7', // 7: Morado / Experimentado
+        '#d946ef', // 8: Fucsia / Férreo
+        '#f43f5e', // 9: Rubí / Inquebrantable
+        '#eab308'  // 10: Dorado brillante / Eterno
+      ];
+
+      stages.forEach((s, idx) => {
+        const item = document.createElement('div');
+        const color = stageColors[idx % stageColors.length];
+        const isCurrent = Boolean(s.isCurrent);
+        const isUnlocked = Boolean(s.unlocked);
+
+        item.style.cssText = `
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+          gap: 4px;
+          padding: 8px 4px;
+          border-radius: 8px;
+          transition: transform 0.15s ease;
+          opacity: ${isUnlocked ? '1' : '0.4'};
+          ${isCurrent ? `background: ${color}15; border: 1px solid ${color}60; box-shadow: 0 0 12px ${color}30;` : 'border: 1px solid transparent;'}
+          ${idx === 8 ? 'grid-column: 2 / 3;' : ''}
+          ${idx === 9 ? 'grid-column: 3 / 4;' : ''}
+        `;
+
+        const iconWrapper = document.createElement('div');
+        iconWrapper.style.cssText = `
+          font-size: 26px;
+          line-height: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          filter: ${isUnlocked ? 'none' : 'grayscale(0.7)'};
+        `;
+        iconWrapper.innerHTML = s.icon || '⭐';
+
+        const nameLabel = document.createElement('div');
+        nameLabel.style.cssText = `
+          font-size: 12px;
+          font-weight: 700;
+          color: ${isUnlocked ? '#f2f3f5' : '#949ba4'};
+          margin-top: 2px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          max-width: 95px;
+        `;
+        nameLabel.textContent = s.name;
+
+        const reqLabel = document.createElement('div');
+        reqLabel.style.cssText = `
+          font-size: 11px;
+          color: ${isUnlocked ? '#dbdee1' : '#80848e'};
+          display: flex;
+          align-items: center;
+          gap: 3px;
+        `;
+        reqLabel.innerHTML = isUnlocked ? (isCurrent ? `<span style="color: ${color}; font-weight: 600;">${escapeHtml(s.reqLabel)}</span>` : `${escapeHtml(s.reqLabel)}`) : `<span>🔒</span> <span>${escapeHtml(s.reqLabel)}</span>`;
+
+        item.appendChild(iconWrapper);
+        item.appendChild(nameLabel);
+        item.appendChild(reqLabel);
+        grid.appendChild(item);
+      });
+    }
+
+    modal.style.display = 'flex';
+  }
+
   function initShubaBadges() {
     const modalBadges = document.getElementById('modal-shuba-badges');
     const btnCloseBadges = document.getElementById('btn-close-shuba-badges');
     const btnCloseBadgesFooter = document.getElementById('btn-close-shuba-badges-footer');
     const btnRefreshBadges = document.getElementById('btn-refresh-badges');
+    const modalEvol = document.getElementById('modal-badge-evolution');
+    const btnCloseEvol = document.getElementById('btn-close-badge-evolution');
 
     if (btnRefreshBadges) {
       btnRefreshBadges.addEventListener('click', () => {
@@ -14028,8 +14161,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
     }
 
-    if (btnCloseBadges) btnCloseBadges.onclick = () => modalBadges.style.display = 'none';
-    if (btnCloseBadgesFooter) btnCloseBadgesFooter.onclick = () => modalBadges.style.display = 'none';
+    if (btnCloseBadges && modalBadges) btnCloseBadges.onclick = () => modalBadges.style.display = 'none';
+    if (btnCloseBadgesFooter && modalBadges) btnCloseBadgesFooter.onclick = () => modalBadges.style.display = 'none';
+
+    if (btnCloseEvol && modalEvol) {
+      btnCloseEvol.onclick = () => { modalEvol.style.display = 'none'; };
+    }
+    if (modalEvol) {
+      modalEvol.onclick = (e) => {
+        if (e.target === modalEvol) modalEvol.style.display = 'none';
+      };
+    }
   }
 
   // Inicializar todas las nuevas herramientas inteligentes

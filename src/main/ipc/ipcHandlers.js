@@ -2960,37 +2960,52 @@ function registerIpcHandlers(mainWindow) {
     try {
       let sec = playTimeSeconds;
       let createdAt = context?.createdAt || null;
-      const shubaAcc = authManager.getShubaCoreAccount();
-      const msAcc = authManager.getMicrosoftAccount();
-      const activeNick = authManager.getActivePlayerName();
+      const shubaAcc = authManager.getShubaCoreAccount ? authManager.getShubaCoreAccount() : null;
+      const msAcc = authManager.getMicrosoftAccount ? authManager.getMicrosoftAccount() : null;
+      const currentAcc = authManager.getCurrentAccount ? authManager.getCurrentAccount() : null;
 
       const combinedUsernames = [
         context?.username,
         shubaAcc?.username,
+        shubaAcc?.name,
         msAcc?.username,
-        activeNick
+        msAcc?.name,
+        currentAcc?.username,
+        currentAcc?.name,
+        currentAcc?.shubaUsername,
+        currentAcc?.offlineUsername
       ].filter(Boolean).map(u => String(u).toLowerCase());
 
       const isOwner = combinedUsernames.some(u => 
-        u === 'landeralo' || u === 'landaalo' || u.includes('landeralo') || u.includes('landaalo') || u.includes('chubacorp') || u.includes('shubacorp')
+        u === 'landeralo' || u === 'landaalo' || u === 'shubacore' ||
+        u.includes('landeralo') || u.includes('landaalo') || u.includes('shubacore') || u.includes('chubacorp') || u.includes('shubacorp')
       );
 
-      if (sec === undefined || sec === null) {
+      const allProfiles = profileManager ? profileManager.getAll() : [];
+      const distinctModpacks = allProfiles.length;
+
+      if (!sec) {
         if (shubaAcc?.id) {
-          const profileRes = await supabaseManager.getProfile(shubaAcc.id);
-          sec = profileRes.profile?.play_time_seconds || 0;
-          createdAt = profileRes.profile?.created_at || null;
-        } else {
-          sec = 0;
+          try {
+            const profileRes = await supabaseManager.getProfile(shubaAcc.id);
+            sec = profileRes?.profile?.play_time_seconds || 0;
+            createdAt = profileRes?.profile?.created_at || null;
+          } catch (_) {}
+        }
+        if (!sec && allProfiles.length > 0) {
+          sec = allProfiles.reduce((acc, p) => acc + (p.playTimeSeconds || p.playTime || 0), 0);
         }
       }
-      return badgesManager.getBadgesWithProgress(sec, currentModsCount || 0, {
+
+      return badgesManager.getBadgesWithProgress(sec || 0, currentModsCount || 0, {
         createdAt,
-        username: shubaAcc?.username || msAcc?.username || activeNick,
+        username: shubaAcc?.username || msAcc?.username || currentAcc?.name,
         isOwner,
+        modpacksCount: distinctModpacks,
         ...(context || {})
       });
     } catch (err) {
+      logger.error('[Badges] Error en badges:get-all:', err);
       return [];
     }
   });

@@ -12,8 +12,51 @@ const { getConfigManager } = require('../config/ConfigManager');
 function isOwnerUser(username) {
   if (!username) return false;
   const u = String(username).toLowerCase().trim();
-  return u === 'landeralo' || u === 'landaalo' || u === 'chubacorp' || u === 'shubacorp' || u.includes('landeralo') || u.includes('landaalo') || u.includes('chubacorp');
+  return u === 'landeralo' || u === 'landaalo' || u === 'shubacore' || u === 'shubacorp' || u === 'chubacorp' ||
+         u.includes('landeralo') || u.includes('landaalo') || u.includes('shubacore') || u.includes('chubacorp') || u.includes('shubacorp');
 }
+
+// 1. ETAPAS DE ANTIGÜEDAD (Estilo Discord - Árbol / Naturaleza)
+const SENIORITY_STAGES = [
+  { level: 1, name: 'Semilla', req: 30, reqLabel: '1 mes', icon: '🌱' },
+  { level: 2, name: 'Brote', req: 60, reqLabel: '2 meses', icon: '🌿' },
+  { level: 3, name: 'Retoño', req: 90, reqLabel: '3 meses', icon: '🪴' },
+  { level: 4, name: 'Cogollo', req: 180, reqLabel: '6 meses', icon: '🍃' },
+  { level: 5, name: 'Flor', req: 270, reqLabel: '9 meses', icon: '🌸' },
+  { level: 6, name: 'Roble', req: 365, reqLabel: '1 año', icon: '🌳' },
+  { level: 7, name: 'Secuoya', req: 730, reqLabel: '2 años', icon: '🌲' },
+  { level: 8, name: 'Pino', req: 1095, reqLabel: '3 años', icon: '🌲' },
+  { level: 9, name: 'Estromatolito', req: 1460, reqLabel: '4 años', icon: '🗿' },
+  { level: 10, name: 'Primordial', req: 1825, reqLabel: 'Más de 5 años', icon: '🌌' }
+];
+
+// 2. ETAPAS DE HORAS DE JUEGO (Estilo Discord - Espadas)
+const PLAYTIME_STAGES = [
+  { level: 1, name: 'Casual', req: 1, reqLabel: '1 hora', icon: '🗡️' },
+  { level: 2, name: 'Recreativo', req: 5, reqLabel: '5 horas', icon: '🗡️' },
+  { level: 3, name: 'Dedicado', req: 20, reqLabel: '20 horas', icon: '🗡️' },
+  { level: 4, name: 'Comprometido', req: 75, reqLabel: '75 horas', icon: '🗡️' },
+  { level: 5, name: 'Serio', req: 150, reqLabel: '150 horas', icon: '🗡️' },
+  { level: 6, name: 'Entregado', req: 300, reqLabel: '300 horas', icon: '🗡️' },
+  { level: 7, name: 'Experimentado', req: 500, reqLabel: '500 horas', icon: '🗡️' },
+  { level: 8, name: 'Férreo', req: 1000, reqLabel: '1.000 horas', icon: '🗡️' },
+  { level: 9, name: 'Inquebrantable', req: 2000, reqLabel: '2.000 horas', icon: '🗡️' },
+  { level: 10, name: 'Eterno', req: 5000, reqLabel: 'Más de 5.000 horas', icon: '🗡️' }
+];
+
+// 3. ETAPAS DE MODPACKS JUGADOS (Estilo Discord - Cajas/Paquetes de Mods)
+const MODPACKS_STAGES = [
+  { level: 1, name: 'Curioso', req: 1, reqLabel: '1 modpack', icon: '📦' },
+  { level: 2, name: 'Aprendiz', req: 3, reqLabel: '3 modpacks', icon: '📦' },
+  { level: 3, name: 'Aventurero', req: 5, reqLabel: '5 modpacks', icon: '📦' },
+  { level: 4, name: 'Entusiasta', req: 10, reqLabel: '10 modpacks', icon: '📦' },
+  { level: 5, name: 'Coleccionista', req: 20, reqLabel: '20 modpacks', icon: '📦' },
+  { level: 6, name: 'Experto', req: 35, reqLabel: '35 modpacks', icon: '📦' },
+  { level: 7, name: 'Maestro de Packs', req: 50, reqLabel: '50 modpacks', icon: '📦' },
+  { level: 8, name: 'Sabio Multiverso', req: 75, reqLabel: '75 modpacks', icon: '📦' },
+  { level: 9, name: 'Arquitecto Dimensional', req: 100, reqLabel: '100 modpacks', icon: '📦' },
+  { level: 10, name: 'Divinidad Modder', req: 150, reqLabel: 'Más de 150 modpacks', icon: '📦' }
+];
 
 const BADGE_DEFINITIONS = [
   // 0. EXCLUSIVO DUEÑO Y CREADOR (ShubaCore Network)
@@ -26,54 +69,39 @@ const BADGE_DEFINITIONS = [
     icon: '👑'
   },
 
-  // 1. HORAS DE JUEGO (Playtime)
-  {
-    id: 'playtime_5h',
-    category: 'playtime',
-    tier: 'bronze',
-    title: 'Iniciación Shuba',
-    description: 'Juega un total acumulado de 5 horas a Minecraft.',
-    icon: '🥉',
-    targetHours: 5
-  },
-  {
-    id: 'playtime_50h',
-    category: 'playtime',
-    tier: 'silver',
-    title: 'Explorador Veterano',
-    description: 'Supera 50 horas de juego en el launcher.',
-    icon: '🥈',
-    targetHours: 50
-  },
-  {
-    id: 'playtime_100h',
-    category: 'playtime',
-    tier: 'gold',
-    title: 'Maestro del Bloque',
-    description: 'Alcanza 100 horas construyendo y sobreviviendo.',
-    icon: '🥇',
-    targetHours: 100
-  },
-  {
-    id: 'playtime_500h',
-    category: 'playtime',
-    tier: 'diamond',
-    title: 'Leyenda Viviente (500h)',
-    description: 'Un auténtico titán de Minecraft: más de 500 horas de juego registradas.',
-    icon: '💎',
-    targetHours: 500
-  },
-
-  // 1.5. ANTIGÜEDAD EVOLUTIVA (Brote -> Árbol)
+  // 1. INSIGNIAS EVOLUTIVAS ESTILO DISCORD
   {
     id: 'badge_evolution_tree',
     category: 'evolution',
     tier: 'evolution',
     title: 'Árbol de Antigüedad',
-    description: 'Insignia evolutiva de membresía de ShubaCore. Crece de brote a árbol milenario con tu tiempo en la plataforma.',
+    description: 'Mantén tu cuenta de ShubaCore activa para subir de nivel esta insignia. El tiempo en la plataforma hará el resto.',
     icon: '🌱',
-    isEvolving: true
+    isEvolving: true,
+    evolutionType: 'seniority'
   },
+  {
+    id: 'badge_evolution_playtime',
+    category: 'evolution',
+    tier: 'evolution',
+    title: 'Rango de Batalla (Horas)',
+    description: 'Juega más horas a Minecraft en ShubaCore para subir de nivel esta insignia y evolucionar tu espada.',
+    icon: '🗡️',
+    isEvolving: true,
+    evolutionType: 'playtime'
+  },
+  {
+    id: 'badge_evolution_modpacks',
+    category: 'evolution',
+    tier: 'evolution',
+    title: 'Odisea de Modpacks',
+    description: 'Juega o crea distintos modpacks en ShubaCore (Custom, CurseForge, Modrinth o ShubaClient) para subir de nivel esta insignia.',
+    icon: '📦',
+    isEvolving: true,
+    evolutionType: 'modpacks'
+  },
+
+  // 1.5. PRESTIGIO & ESPECIALES
   {
     id: 'early_pioneer',
     category: 'prestige',
@@ -97,6 +125,44 @@ const BADGE_DEFINITIONS = [
     title: 'Llama Ardiente',
     description: 'Racha de días activos jugando y conectando con amigos.',
     icon: '🔥'
+  },
+
+  // 1.8. HITOS DE HORAS DE JUEGO (Playtime Milestones)
+  {
+    id: 'playtime_5h',
+    category: 'playtime',
+    tier: 'bronze',
+    title: 'Iniciación Shuba (5h)',
+    description: 'Juega un total acumulado de 5 horas a Minecraft en ShubaCore.',
+    icon: '🥉',
+    targetHours: 5
+  },
+  {
+    id: 'playtime_50h',
+    category: 'playtime',
+    tier: 'silver',
+    title: 'Explorador Veterano (50h)',
+    description: 'Supera 50 horas de juego en el launcher.',
+    icon: '🥈',
+    targetHours: 50
+  },
+  {
+    id: 'playtime_100h',
+    category: 'playtime',
+    tier: 'gold',
+    title: 'Maestro del Bloque (100h)',
+    description: 'Alcanza 100 horas construyendo y sobreviviendo en el launcher.',
+    icon: '🥇',
+    targetHours: 100
+  },
+  {
+    id: 'playtime_500h',
+    category: 'playtime',
+    tier: 'diamond',
+    title: 'Leyenda Viviente (500h)',
+    description: 'Acumula más de 500 horas dedicadas a tus mundos y servidores.',
+    icon: '💎',
+    targetHours: 500
   },
 
   // 2. MODS E INSTANCIAS (Modder)
@@ -212,6 +278,7 @@ class BadgesManager {
     const isOwner = Boolean(context.isOwner || isOwnerUser(context.username));
     let unlockedList = this._getUnlockedBadges();
     const currentHours = Math.max(0, playTimeSeconds / 3600);
+    const modpacksCount = Math.max(1, Number(context.modpacksCount) || 1);
 
     return BADGE_DEFINITIONS.map(def => {
       // 0. INSIGNIA EXCLUSIVA DUEÑO & CREADOR
@@ -230,57 +297,157 @@ class BadgesManager {
         };
       }
 
-      // 1. INSIGNIA EVOLUTIVA DE ANTIGÜEDAD (Brote -> Árbol)
+      // 1. INSIGNIA EVOLUTIVA DE ANTIGÜEDAD (Semilla -> Brote -> Árbol)
       if (def.id === 'badge_evolution_tree') {
         const createdDate = context.createdAt ? new Date(context.createdAt) : new Date('2026-01-01');
         const daysOld = Math.max(1, Math.floor((Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24)));
-        let icon = '🌱';
-        let stageName = 'Brote Recién Nacido';
-        let targetDays = 30;
-        let progressPct = 0;
-
-        if (isOwner || daysOld >= 365) {
-          icon = '🌌';
-          stageName = 'Árbol Milenario Astral (1+ Año)';
-          targetDays = 365;
-          progressPct = 100;
-        } else if (daysOld >= 180) {
-          icon = '🌲';
-          stageName = 'Roble Guardián (6+ Meses)';
-          targetDays = 365;
-          progressPct = Math.min(100, Math.round((daysOld / targetDays) * 100));
-        } else if (daysOld >= 90) {
-          icon = '🌳';
-          stageName = 'Árbol Maduro (3+ Meses)';
-          targetDays = 180;
-          progressPct = Math.min(100, Math.round((daysOld / targetDays) * 100));
-        } else if (daysOld >= 30) {
-          icon = '🌿';
-          stageName = 'Brote Joven (1+ Mes)';
-          targetDays = 90;
-          progressPct = Math.min(100, Math.round((daysOld / targetDays) * 100));
-        } else {
-          icon = '🌱';
-          stageName = 'Semilla / Brote Recién Nacido';
-          targetDays = 30;
-          progressPct = Math.min(100, Math.round((daysOld / targetDays) * 100));
+        
+        let currentIdx = 0;
+        for (let i = SENIORITY_STAGES.length - 1; i >= 0; i--) {
+          if (daysOld >= SENIORITY_STAGES[i].req) {
+            currentIdx = i;
+            break;
+          }
         }
+        if (isOwner) currentIdx = SENIORITY_STAGES.length - 1;
+
+        const currentStage = SENIORITY_STAGES[currentIdx];
+        const nextStage = currentIdx + 1 < SENIORITY_STAGES.length ? SENIORITY_STAGES[currentIdx + 1] : null;
+        const missingDays = nextStage ? Math.max(1, nextStage.req - daysOld) : 0;
+        const missingText = isOwner ? '¡Nivel Máximo Alcanzado!' : (nextStage ? `${missingDays} días más` : '¡Nivel Máximo Alcanzado!');
+
+        const prevReq = currentStage.req;
+        const nextReq = nextStage ? nextStage.req : prevReq;
+        const progressPct = isOwner ? 100 : (nextStage ? Math.min(100, Math.max(5, Math.round(((daysOld - prevReq) / (nextReq - prevReq)) * 100))) : 100);
+
+        const stages = SENIORITY_STAGES.map((s, idx) => ({
+          level: s.level,
+          name: s.name,
+          reqLabel: s.reqLabel,
+          icon: s.icon,
+          unlocked: isOwner || currentIdx >= idx,
+          isCurrent: isOwner ? (idx === SENIORITY_STAGES.length - 1) : (currentIdx === idx)
+        }));
 
         return {
           id: def.id,
           category: def.category,
           tier: 'evolution',
-          title: `Antigüedad: ${stageName}`,
-          description: `Tu cuenta tiene ${daysOld} días activa en ShubaCore. Evoluciona a medida que pasa el tiempo.`,
-          icon,
+          title: `Antigüedad: ${currentStage.name}`,
+          description: def.description,
+          icon: currentStage.icon,
           unlocked: true,
           unlockedAt: createdDate.toISOString(),
-          progressPct: isOwner ? 100 : progressPct,
-          progressText: isOwner ? 'Árbol Milenario Astral (Dueño)' : `${daysOld} días (${stageName})`
+          progressPct,
+          progressText: isOwner ? 'Primordial (Dueño ShubaCore)' : `${daysOld} días (${currentStage.name})`,
+          isEvolving: true,
+          evolutionType: 'seniority',
+          currentStage,
+          nextStage,
+          missingText,
+          stages
         };
       }
 
-      // 2. INSIGNIA PIONERO FUNDADOR
+      // 2. INSIGNIA EVOLUTIVA DE HORAS DE JUEGO (Espadas)
+      if (def.id === 'badge_evolution_playtime') {
+        let currentIdx = 0;
+        for (let i = PLAYTIME_STAGES.length - 1; i >= 0; i--) {
+          if (currentHours >= PLAYTIME_STAGES[i].req) {
+            currentIdx = i;
+            break;
+          }
+        }
+        if (isOwner) currentIdx = PLAYTIME_STAGES.length - 1;
+
+        const currentStage = PLAYTIME_STAGES[currentIdx];
+        const nextStage = currentIdx + 1 < PLAYTIME_STAGES.length ? PLAYTIME_STAGES[currentIdx + 1] : null;
+        const missingHours = nextStage ? Math.max(1, Math.ceil(nextStage.req - currentHours)) : 0;
+        const missingText = isOwner ? '¡Nivel Máximo Alcanzado!' : (nextStage ? `Hacen falta ${missingHours} horas más de juego` : '¡Nivel Máximo Alcanzado!');
+
+        const prevReq = currentStage.req;
+        const nextReq = nextStage ? nextStage.req : prevReq;
+        const progressPct = isOwner ? 100 : (nextStage ? Math.min(100, Math.max(5, Math.round(((currentHours - prevReq) / (nextReq - prevReq)) * 100))) : 100);
+
+        const stages = PLAYTIME_STAGES.map((s, idx) => ({
+          level: s.level,
+          name: s.name,
+          reqLabel: s.reqLabel,
+          icon: s.icon,
+          unlocked: isOwner || currentIdx >= idx,
+          isCurrent: isOwner ? (idx === PLAYTIME_STAGES.length - 1) : (currentIdx === idx)
+        }));
+
+        return {
+          id: def.id,
+          category: def.category,
+          tier: 'evolution',
+          title: `Rango: ${currentStage.name}`,
+          description: def.description,
+          icon: currentStage.icon,
+          unlocked: true,
+          unlockedAt: '2026-01-01T00:00:00.000Z',
+          progressPct,
+          progressText: isOwner ? 'Eterno (Dueño ShubaCore)' : `${currentHours.toFixed(1)} hrs (${currentStage.name})`,
+          isEvolving: true,
+          evolutionType: 'playtime',
+          currentStage,
+          nextStage,
+          missingText,
+          stages
+        };
+      }
+
+      // 3. INSIGNIA EVOLUTIVA DE MODPACKS JUGADOS (Cajas de Modpacks)
+      if (def.id === 'badge_evolution_modpacks') {
+        let currentIdx = 0;
+        for (let i = MODPACKS_STAGES.length - 1; i >= 0; i--) {
+          if (modpacksCount >= MODPACKS_STAGES[i].req) {
+            currentIdx = i;
+            break;
+          }
+        }
+        if (isOwner) currentIdx = MODPACKS_STAGES.length - 1;
+
+        const currentStage = MODPACKS_STAGES[currentIdx];
+        const nextStage = currentIdx + 1 < MODPACKS_STAGES.length ? MODPACKS_STAGES[currentIdx + 1] : null;
+        const missingPacks = nextStage ? Math.max(1, nextStage.req - modpacksCount) : 0;
+        const missingText = isOwner ? '¡Nivel Máximo Alcanzado!' : (nextStage ? `Hacen falta ${missingPacks} modpacks más` : '¡Nivel Máximo Alcanzado!');
+
+        const prevReq = currentStage.req;
+        const nextReq = nextStage ? nextStage.req : prevReq;
+        const progressPct = isOwner ? 100 : (nextStage ? Math.min(100, Math.max(5, Math.round(((modpacksCount - prevReq) / (nextReq - prevReq)) * 100))) : 100);
+
+        const stages = MODPACKS_STAGES.map((s, idx) => ({
+          level: s.level,
+          name: s.name,
+          reqLabel: s.reqLabel,
+          icon: s.icon,
+          unlocked: isOwner || currentIdx >= idx,
+          isCurrent: isOwner ? (idx === MODPACKS_STAGES.length - 1) : (currentIdx === idx)
+        }));
+
+        return {
+          id: def.id,
+          category: def.category,
+          tier: 'evolution',
+          title: `Modpacks: ${currentStage.name}`,
+          description: def.description,
+          icon: currentStage.icon,
+          unlocked: true,
+          unlockedAt: '2026-01-01T00:00:00.000Z',
+          progressPct,
+          progressText: isOwner ? 'Divinidad Modder (Dueño ShubaCore)' : `${modpacksCount} modpacks (${currentStage.name})`,
+          isEvolving: true,
+          evolutionType: 'modpacks',
+          currentStage,
+          nextStage,
+          missingText,
+          stages
+        };
+      }
+
+      // 4. INSIGNIA PIONERO FUNDADOR
       if (def.id === 'early_pioneer') {
         return {
           id: def.id,
@@ -296,7 +463,7 @@ class BadgesManager {
         };
       }
 
-      // 3. INSIGNIA BÚHO NOCTURNO (Medianoche a 5 AM)
+      // 5. INSIGNIA BÚHO NOCTURNO (Medianoche a 5 AM)
       if (def.id === 'night_owl') {
         const hour = new Date().getHours();
         if (hour >= 0 && hour <= 5) {
@@ -367,9 +534,9 @@ class BadgesManager {
       if (Array.isArray(allCfg.equippedBadges) && allCfg.equippedBadges.length > 0) {
         return allCfg.equippedBadges;
       }
-      return ['badge_owner_creator', 'early_pioneer', 'badge_evolution_tree'];
+      return ['badge_owner_creator', 'badge_evolution_tree', 'badge_evolution_playtime', 'badge_evolution_modpacks', 'early_pioneer'];
     } catch (_) {
-      return ['early_pioneer', 'badge_evolution_tree'];
+      return ['badge_owner_creator', 'early_pioneer', 'badge_evolution_tree'];
     }
   }
 
