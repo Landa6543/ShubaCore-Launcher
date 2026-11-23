@@ -18,16 +18,16 @@ function isOwnerUser(username) {
 
 // 1. ETAPAS DE ANTIGÜEDAD (Estilo Discord - Árbol / Naturaleza)
 const SENIORITY_STAGES = [
-  { level: 1, name: 'Semilla', req: 30, reqLabel: '1 mes', icon: '🌱' },
-  { level: 2, name: 'Brote', req: 60, reqLabel: '2 meses', icon: '🌿' },
-  { level: 3, name: 'Retoño', req: 90, reqLabel: '3 meses', icon: '🪴' },
-  { level: 4, name: 'Cogollo', req: 180, reqLabel: '6 meses', icon: '🍃' },
-  { level: 5, name: 'Flor', req: 270, reqLabel: '9 meses', icon: '🌸' },
-  { level: 6, name: 'Roble', req: 365, reqLabel: '1 año', icon: '🌳' },
-  { level: 7, name: 'Secuoya', req: 730, reqLabel: '2 años', icon: '🌲' },
-  { level: 8, name: 'Pino', req: 1095, reqLabel: '3 años', icon: '🌲' },
-  { level: 9, name: 'Estromatolito', req: 1460, reqLabel: '4 años', icon: '🗿' },
-  { level: 10, name: 'Primordial', req: 1825, reqLabel: 'Más de 5 años', icon: '🌌' }
+  { level: 1, name: 'Semilla', req: 1, reqLabel: '1 año', icon: '1' },
+  { level: 2, name: 'Brote', req: 30, reqLabel: '2 años', icon: '2' },
+  { level: 3, name: 'Retoño', req: 60, reqLabel: '3 años', icon: '3' },
+  { level: 4, name: 'Cogollo', req: 90, reqLabel: '4 años', icon: '4' },
+  { level: 5, name: 'Flor', req: 180, reqLabel: '5 años', icon: '5' },
+  { level: 6, name: 'Roble', req: 365, reqLabel: '6 años', icon: '6' },
+  { level: 7, name: 'Secuoya', req: 730, reqLabel: '7 años', icon: '7' },
+  { level: 8, name: 'Pino', req: 1095, reqLabel: '8 años', icon: '8' },
+  { level: 9, name: 'Estromatolito', req: 1460, reqLabel: '9 años', icon: '9' },
+  { level: 10, name: 'Primordial', req: 1825, reqLabel: 'Más de 10 años', icon: '⭐' }
 ];
 
 // 2. ETAPAS DE HORAS DE JUEGO (Estilo Discord - Espadas)
@@ -299,7 +299,11 @@ class BadgesManager {
 
       // 1. INSIGNIA EVOLUTIVA DE ANTIGÜEDAD (Semilla -> Brote -> Árbol)
       if (def.id === 'badge_evolution_tree') {
-        const createdDate = context.createdAt ? new Date(context.createdAt) : new Date('2026-01-01');
+        let createdDate = new Date('2026-01-01');
+        if (context.createdAt) {
+          const parsed = new Date(context.createdAt);
+          if (!isNaN(parsed.getTime())) createdDate = parsed;
+        }
         const daysOld = Math.max(1, Math.floor((Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24)));
         
         let currentIdx = 0;
@@ -329,6 +333,8 @@ class BadgesManager {
           isCurrent: isOwner ? (idx === SENIORITY_STAGES.length - 1) : (currentIdx === idx)
         }));
 
+        const safeIso = !isNaN(createdDate.getTime()) ? createdDate.toISOString() : '2026-01-01T00:00:00.000Z';
+
         return {
           id: def.id,
           category: def.category,
@@ -337,7 +343,7 @@ class BadgesManager {
           description: def.description,
           icon: currentStage.icon,
           unlocked: true,
-          unlockedAt: createdDate.toISOString(),
+          unlockedAt: safeIso,
           progressPct,
           progressText: isOwner ? 'Primordial (Dueño ShubaCore)' : `${daysOld} días (${currentStage.name})`,
           isEvolving: true,
@@ -531,12 +537,12 @@ class BadgesManager {
   getEquippedBadges() {
     try {
       const allCfg = this.configManager.getAll();
-      if (Array.isArray(allCfg.equippedBadges)) {
+      if (Array.isArray(allCfg.equippedBadges) && allCfg.equippedBadges.length > 0) {
         return allCfg.equippedBadges;
       }
       return ['badge_owner_creator', 'badge_evolution_tree', 'badge_evolution_playtime', 'badge_evolution_modpacks', 'early_pioneer'];
     } catch (_) {
-      return ['badge_owner_creator', 'early_pioneer', 'badge_evolution_tree'];
+      return ['badge_owner_creator', 'badge_evolution_tree', 'badge_evolution_playtime'];
     }
   }
 

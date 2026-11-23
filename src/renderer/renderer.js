@@ -879,7 +879,61 @@ document.addEventListener('DOMContentLoaded', async () => {
     allNavBtns.forEach((btn) => btn.classList.remove('active'));
 
     // 2. Identificar el contenedor destino en el DOM. Si no existe, advertir y restaurar vista principal
-    const destContainer = document.getElementById(targetId);
+    let destContainer = document.getElementById(targetId);
+    if (!destContainer && targetId === 'view-badges') {
+      const mainArea = document.querySelector('.main-content');
+      if (mainArea) {
+        const sec = document.createElement('section');
+        sec.id = 'view-badges';
+        sec.className = 'view-panel view-container hidden';
+        sec.style.setProperty('display', 'none', 'important');
+        sec.innerHTML = `
+          <div class="view-toolbar">
+            <div>
+              <h2 class="view-title" style="display: flex; align-items: center; gap: 8px;">
+                <span>🏆</span>
+                <span>ShubaBadges · Logros y Medallas de Progreso</span>
+              </h2>
+              <p class="view-subtitle">Hitos reales por horas jugadas (5h, 50h, 500h), modpacks titánicos, cooperación comunitaria y antigüedad en ShubaCore Network.</p>
+            </div>
+            <div class="toolbar-actions" style="display: flex; align-items: center; gap: 8px;">
+              <button id="btn-refresh-badges" class="btn btn-secondary btn-small" title="Actualizar progreso y medallas">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+                <span>Refrescar</span>
+              </button>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 20px;">
+            <div style="background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; display: flex; align-items: center; gap: 14px;">
+              <div style="font-size: 26px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: rgba(245, 158, 11, 0.12); border-radius: 10px; border: 1px solid rgba(245, 158, 11, 0.3);">🏆</div>
+              <div>
+                <div style="font-size: 11px; color: var(--text-dim); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Logros Desbloqueados</div>
+                <div id="badges-unlocked-count" style="font-size: 20px; font-weight: 800; color: #f59e0b;">0 / 0</div>
+              </div>
+            </div>
+            <div style="background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; display: flex; align-items: center; gap: 14px;">
+              <div style="font-size: 26px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: rgba(16, 185, 129, 0.12); border-radius: 10px; border: 1px solid rgba(16, 185, 129, 0.3);">⏱️</div>
+              <div>
+                <div style="font-size: 11px; color: var(--text-dim); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Tiempo Total Jugado</div>
+                <div id="badges-total-playtime" style="font-size: 20px; font-weight: 800; color: #10b981;">0 hrs</div>
+              </div>
+            </div>
+            <div style="background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; display: flex; align-items: center; gap: 14px;">
+              <div id="badges-seniority-icon" style="font-size: 26px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: rgba(139, 92, 246, 0.12); border-radius: 10px; border: 1px solid rgba(139, 92, 246, 0.3);">🌱</div>
+              <div>
+                <div style="font-size: 11px; color: var(--text-dim); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Antigüedad ShubaCore</div>
+                <div id="badges-seniority-title" style="font-size: 13.5px; font-weight: 700; color: #a78bfa;">Brote Recién Nacido</div>
+              </div>
+            </div>
+          </div>
+          <div style="flex: 1; overflow-y: auto; padding-right: 4px;">
+            <div id="shuba-badges-view-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 12px; padding-bottom: 24px;"></div>
+          </div>
+        `;
+        mainArea.appendChild(sec);
+        destContainer = sec;
+      }
+    }
     if (!destContainer) {
       console.warn(`[switchTab] El contenedor destino "#${targetId}" no existe en el DOM. Restaurando vista principal.`);
       const fallback = document.getElementById('view-profiles');
@@ -3172,11 +3226,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     modalCreateProfile.style.setProperty('display', 'flex', 'important');
     if (inputProfileName) inputProfileName.value = '';
     if (inputCreateProfileIcon) inputCreateProfileIcon.value = '';
-    if (createProfileIconPreview) createProfileIconPreview.src = 'assets/logo.png';
+    if (createProfileIconPreview) createProfileIconPreview.src = 'assets/block_grass.webp';
     
-    // Sincronizar radio pills con el loader inicial (NeoForge por defecto para cargar mods)
-    const currentLoader = selectProfileLoader ? selectProfileLoader.value || 'neoforge' : 'neoforge';
-    syncLoaderRadioPills('create-loader-radio-pills', currentLoader);
+    // Vanilla por defecto al crear nuevas instancias según preferencia del usuario
+    if (selectProfileLoader) selectProfileLoader.value = 'vanilla';
+    syncLoaderRadioPills('create-loader-radio-pills', 'vanilla');
+    if (typeof updateLoaderVersionsInModal === 'function') updateLoaderVersionsInModal();
 
     // Restablecer selección de edición a Java por defecto
     const editionPills = document.querySelectorAll('#create-edition-radio-pills .loader-radio-pill');
@@ -10226,12 +10281,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!previewContainer || !availableContainer) return;
 
     try {
-      const badges = await api.badges.getAll();
+      let badges = await api.badges.getAll();
+      if (!Array.isArray(badges) || badges.length === 0) {
+        badges = await api.badges.getAll(0, 0, { isOwner: true, username: 'LanderAlo' });
+      }
       const equippedIds = (await api.badges.getEquipped()) || [];
 
       // 1. Renderizar Vista Previa de Equipadas
       previewContainer.innerHTML = '';
-      const equippedBadgesList = badges.filter(b => equippedIds.includes(b.id));
+      const equippedBadgesList = (badges || []).filter(b => equippedIds.includes(b.id));
 
       if (countBadge) {
         countBadge.textContent = `${equippedBadgesList.length} / 5 Equipadas`;
@@ -13984,8 +14042,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     try {
-      const badges = await api.badges.getAll();
-      const unlockedCount = badges.filter(b => b.unlocked).length;
+      let badges = await api.badges.getAll();
+      if (!Array.isArray(badges) || badges.length === 0) {
+        badges = await api.badges.getAll(0, 0, { isOwner: true, username: 'LanderAlo' });
+      }
+      const unlockedCount = (badges || []).filter(b => b.unlocked).length;
 
       if (unlockedCounter) {
         unlockedCounter.textContent = `${unlockedCount} / ${badges.length}`;
@@ -14098,6 +14159,40 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  function getDiscordStageIconHtml(type, stage, color, isUnlocked, size = 30) {
+    const opacity = isUnlocked ? '1' : '0.35';
+    const filter = isUnlocked ? `drop-shadow(0 0 6px ${color}80)` : 'grayscale(0.85)';
+    if (type === 'playtime') {
+      return `
+        <svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" style="opacity: ${opacity}; filter: ${filter};">
+          <path d="M14.5 17.5L3 6V3h3l11.5 11.5M13 19l2 2 4-4-2-2M19 5l-2-2M15 9l4 4" stroke="${color}" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M18.5 2.5l3 3-12 12-3-3 12-12z" fill="${color}" fill-opacity="${isUnlocked ? '0.28' : '0.08'}"/>
+        </svg>
+      `;
+    } else if (type === 'seniority') {
+      if (stage.level === 10) {
+        return `
+          <svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="${color}" style="opacity: ${opacity}; filter: ${filter};">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+          </svg>
+        `;
+      }
+      return `
+        <div style="width: ${size}px; height: ${size}px; border-radius: 50%; background: ${isUnlocked ? color : '#3f4147'}; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: ${Math.round(size * 0.52)}px; color: ${isUnlocked ? '#fff' : '#80848e'}; box-shadow: ${isUnlocked ? `0 0 10px ${color}70` : 'none'}; opacity: ${opacity};">
+          ${stage.level}
+        </div>
+      `;
+    } else {
+      // Modpacks Box / Chest
+      return `
+        <svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" style="opacity: ${opacity}; filter: ${filter};">
+          <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" fill="${color}" fill-opacity="${isUnlocked ? '0.22' : '0.06'}" stroke="${color}" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="m3.3 7 8.7 5 8.7-5M12 22V12" stroke="${color}" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      `;
+    }
+  }
+
   function openBadgeEvolutionModal(b) {
     const modal = document.getElementById('modal-badge-evolution');
     if (!modal || !b) return;
@@ -14110,28 +14205,43 @@ document.addEventListener('DOMContentLoaded', async () => {
     const grid = document.getElementById('evolution-modal-stages-grid');
     const titleEl = document.getElementById('evolution-modal-title');
 
+    const stageColors = [
+      '#94a3b8', // 1: Gris / Casual
+      '#a3e635', // 2: Verde claro / Recreativo
+      '#22c55e', // 3: Verde esmeralda / Dedicado
+      '#06b6d4', // 4: Cyan / Comprometido
+      '#3b82f6', // 5: Azul cielo / Serio
+      '#6366f1', // 6: Azul índigo / Entregado
+      '#a855f7', // 7: Morado / Experimentado
+      '#d946ef', // 8: Fucsia / Férreo
+      '#f43f5e', // 9: Rubí / Inquebrantable
+      '#eab308'  // 10: Dorado brillante / Eterno
+    ];
+
+    const currentLvl = b.currentStage?.level || 1;
+    const nextLvl = b.nextStage?.level || Math.min(10, currentLvl + 1);
+
     if (titleEl) titleEl.textContent = 'Tu progreso';
-    if (leftIcon) leftIcon.textContent = b.currentStage?.icon || b.icon || '🌱';
-    if (rightIcon) rightIcon.textContent = b.nextStage?.icon || '👑';
+    if (leftIcon) leftIcon.innerHTML = getDiscordStageIconHtml(b.evolutionType, b.currentStage || { level: currentLvl }, stageColors[currentLvl - 1] || '#00b0f4', true, 36);
+    if (rightIcon) rightIcon.innerHTML = getDiscordStageIconHtml(b.evolutionType, b.nextStage || { level: nextLvl }, stageColors[nextLvl - 1] || '#00d26a', Boolean(b.nextStage), 36);
     if (missingText) missingText.textContent = b.missingText || (b.unlocked ? '¡Nivel Máximo Alcanzado!' : 'En progreso');
     if (progressBar) progressBar.style.width = `${Math.min(100, Math.max(5, b.progressPct || 0))}%`;
-    if (descText) descText.textContent = b.description || '';
+
+    if (descText) {
+      if (b.evolutionType === 'seniority') {
+        descText.textContent = 'Mantén tu cuenta de ShubaCore activa para subir de nivel esta insignia. El tiempo en la plataforma hará el resto.';
+      } else if (b.evolutionType === 'playtime') {
+        descText.textContent = 'Juega más horas a Minecraft en ShubaCore para subir de nivel esta insignia y evolucionar tu espada.';
+      } else if (b.evolutionType === 'modpacks') {
+        descText.textContent = 'Juega o crea distintos modpacks en ShubaCore (Custom, CurseForge, Modrinth o ShubaClient) para subir de nivel esta insignia.';
+      } else {
+        descText.textContent = b.description || '';
+      }
+    }
 
     if (grid) {
       grid.innerHTML = '';
       const stages = Array.isArray(b.stages) ? b.stages : [];
-      const stageColors = [
-        '#94a3b8', // 1: Gris / Casual
-        '#a3e635', // 2: Verde claro / Recreativo
-        '#22c55e', // 3: Verde esmeralda / Dedicado
-        '#06b6d4', // 4: Cyan / Comprometido
-        '#3b82f6', // 5: Azul cielo / Serio
-        '#6366f1', // 6: Azul índigo / Entregado
-        '#a855f7', // 7: Morado / Experimentado
-        '#d946ef', // 8: Fucsia / Férreo
-        '#f43f5e', // 9: Rubí / Inquebrantable
-        '#eab308'  // 10: Dorado brillante / Eterno
-      ];
 
       stages.forEach((s, idx) => {
         const item = document.createElement('div');
@@ -14156,14 +14266,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const iconWrapper = document.createElement('div');
         iconWrapper.style.cssText = `
-          font-size: 26px;
-          line-height: 1;
+          width: 32px;
+          height: 32px;
           display: flex;
           align-items: center;
           justify-content: center;
-          filter: ${isUnlocked ? 'none' : 'grayscale(0.7)'};
         `;
-        iconWrapper.innerHTML = s.icon || '⭐';
+        iconWrapper.innerHTML = getDiscordStageIconHtml(b.evolutionType, s, color, isUnlocked, 28);
 
         const nameLabel = document.createElement('div');
         nameLabel.style.cssText = `
