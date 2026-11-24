@@ -1471,7 +1471,10 @@ class ModManager {
         const nameMatch = modBlock.match(/(?:displayName|name)\s*=\s*["']([^"']+)["']/i) || content.match(/(?:displayName|name)\s*=\s*["']([^"']+)["']/i);
         const modIdMatch = modBlock.match(/modId\s*=\s*["']([^"']+)["']/i) || content.match(/modId\s*=\s*["']([^"']+)["']/i);
         const verMatch = modBlock.match(/version\s*=\s*["']([^"']+)["']/i);
-        const authorMatch = modBlock.match(/(?:authors|author|credits)\s*=\s*["']([^"']+)["']/i) || content.match(/(?:authors|author|credits)\s*=\s*["']([^"']+)["']/i);
+        const authorMatch = modBlock.match(/(?:authors|author)\s*=\s*["']([^"']+)["']/i) ||
+                            content.match(/(?:authors|author)\s*=\s*["']([^"']+)["']/i) ||
+                            modBlock.match(/credits\s*=\s*["']([^"']+)["']/i) ||
+                            content.match(/credits\s*=\s*["']([^"']+)["']/i);
         const logoMatch = modBlock.match(/logoFile\s*=\s*["']([^"']+)["']/i) || content.match(/logoFile\s*=\s*["']([^"']+)["']/i);
         const descMatch = modBlock.match(/description\s*=\s*(?:'''|""")([\s\S]*?)(?:'''|""")|description\s*=\s*["']([^"']+)["']/i) || content.match(/description\s*=\s*(?:'''|""")([\s\S]*?)(?:'''|""")|description\s*=\s*["']([^"']+)["']/i);
         const sideMatch = modBlock.match(/side\s*=\s*["']([^"']+)["']/i);
@@ -1479,7 +1482,15 @@ class ModManager {
         if (nameMatch) meta.name = nameMatch[1];
         if (modIdMatch) meta.modId = modIdMatch[1];
         if (verMatch && verMatch[1] !== '${file.jarVersion}') meta.version = verMatch[1];
-        if (authorMatch) meta.author = authorMatch[1];
+        if (authorMatch) {
+          let a = authorMatch[1].replace(/^Created by\s+/i, '').trim();
+          if (a.includes(';') || a.includes(',')) {
+            const first = a.split(/[,;]/)[0].trim();
+            if (first.length >= 2 && first.length <= 30) a = first;
+          }
+          if (a.length > 35) a = a.substring(0, 32).trim() + '...';
+          meta.author = a;
+        }
         if (logoMatch) logoFileName = logoMatch[1];
         if (descMatch) meta.description = (descMatch[1] || descMatch[2] || '').trim();
         if (sideMatch) meta.environment = sideMatch[1].toLowerCase();
@@ -1708,6 +1719,20 @@ class ModManager {
         if (!modEntry.source || modEntry.source === 'undefined' || modEntry.source.trim() === '') {
           modEntry.source = 'custom';
           lockModified = true;
+        }
+
+        // Sanitizar autores excesivamente largos o que contengan créditos en lockfile existente
+        if (modEntry.author) {
+          let a = modEntry.author.replace(/^Created by\s+/i, '').trim();
+          if (a.includes(';') || a.includes(',')) {
+            const first = a.split(/[,;]/)[0].trim();
+            if (first.length >= 2 && first.length <= 30) a = first;
+          }
+          if (a.length > 35) a = a.substring(0, 32).trim() + '...';
+          if (a !== modEntry.author) {
+            modEntry.author = a;
+            lockModified = true;
+          }
         }
 
         // Si le falta icono o autor y NO se ha verificado aún en caché, consultar sin repetir

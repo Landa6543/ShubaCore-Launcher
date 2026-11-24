@@ -4303,7 +4303,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             const mod = filtered[i];
             const rawFileName = mod.fileName ?? 'mod.jar';
             const modTitle = resolveModTitle(mod, rawFileName);
-            const authorText = mod.author || '—';
+            const rawAuthor = (mod.author || '—').trim();
+            let authorText = rawAuthor;
+            if (authorText && authorText !== '—') {
+              authorText = authorText.replace(/^Created by\s+/i, '').trim();
+              if (authorText.length > 28) {
+                authorText = authorText.substring(0, 26).trim() + '...';
+              }
+            }
             const isChecked = mod.enabled !== false;
             const modEnv = resolveModEnvironment(mod);
             const modUpdate = activeAvailableUpdates.find((u) => u.currentFileName === rawFileName || (u.projectId && String(u.projectId) === String(mod.projectId)));
@@ -4347,7 +4354,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 </div>
               </td>
               <td class="col-mod-action">${actionHtml}</td>
-              <td class="col-mod-author"><span class="mod-cell-author-text" title="${escapeHtml(authorText)}">${escapeHtml(authorText)}</span></td>
+              <td class="col-mod-author"><span class="mod-cell-author-text" title="${escapeHtml(rawAuthor)}">${escapeHtml(authorText)}</span></td>
               <td class="col-mod-env">${envBadgeHtml}</td>
               <td class="col-mod-toggle">
                 <div class="mod-cell-controls">
@@ -8980,7 +8987,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         const modTitle = mod.displayName || mod.name || mod.fileName;
         const modSize = mod.sizeFormatted || mod.formattedSize || '';
         const modVer = mod.versionNumber || mod.version || '';
-        const modDesc = mod.summary || mod.description || '';
+        let modDesc = (mod.summary || mod.description || '').replace(/\r?\n/g, ' ').trim();
+        if (modDesc.length > 85) modDesc = modDesc.substring(0, 82) + '...';
 
         card.innerHTML = `
           <div class="pack-card-left">
