@@ -8942,15 +8942,25 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     try {
       const server = localServersCache.find((s) => s.id === id);
-      if (!server) return;
+      if (!server || !server.serverDir) return;
 
-      const modsDir = `${server.serverDir}/mods`;
-      // Listar mediante InstancePacks
-      const mods = await api.instancePacks.list({ instancePath: server.serverDir, type: 'mods' }).catch(() => []);
+      // Listar mods instalados mediante la API oficial de mods de ShubaCore
+      const mods = await api.mods.listInstalled(server.serverDir).catch(() => []);
       const list = Array.isArray(mods) ? mods : [];
 
+      server.modsCount = list.length;
       if (serverInstalledModsBadge) serverInstalledModsBadge.textContent = `${list.length} mods`;
       if (serverDetailModsCount) serverDetailModsCount.textContent = list.length;
+
+      // Actualizar también el contador en la tarjeta de la barra lateral si existe
+      const serverSidebarCard = document.querySelector(`.server-item-card[data-server-id="${id}"] .server-item-meta`);
+      if (serverSidebarCard) {
+        const parts = serverSidebarCard.textContent.split('·').map(p => p.trim());
+        if (parts.length >= 2) {
+          parts[parts.length - 1] = `${list.length} mods`;
+          serverSidebarCard.textContent = parts.join(' · ');
+        }
+      }
 
       if (list.length === 0) {
         serverModsListContainer.innerHTML = `
@@ -8966,15 +8976,24 @@ document.addEventListener('DOMContentLoaded', async () => {
       list.forEach((mod) => {
         const card = document.createElement('div');
         card.className = 'pack-card';
+        const iconSrc = mod.iconUrl || 'assets/logo.png';
+        const modTitle = mod.displayName || mod.name || mod.fileName;
+        const modSize = mod.sizeFormatted || mod.formattedSize || '';
+        const modVer = mod.versionNumber || mod.version || '';
+        const modDesc = mod.summary || mod.description || '';
+
         card.innerHTML = `
           <div class="pack-card-left">
-            <img src="assets/logo.png" class="pack-card-icon" alt="Mod">
+            <img src="${escapeHtml(iconSrc)}" class="pack-card-icon" alt="Mod" onerror="this.src='assets/logo.png'">
             <div class="pack-card-info">
-              <span class="pack-card-title">${escapeHtml(mod.name || mod.fileName)}</span>
+              <div class="pack-card-title-row">
+                <span class="pack-card-title">${escapeHtml(modTitle)}</span>
+                ${modVer ? `<span class="badge badge-secondary" style="font-size: 10.5px; padding: 1px 6px;">v${escapeHtml(modVer)}</span>` : ''}
+              </div>
+              ${modDesc ? `<div class="pack-card-desc" title="${escapeHtml(modDesc)}">${escapeHtml(modDesc)}</div>` : ''}
               <div class="pack-card-meta">
                 <span>📁 ${escapeHtml(mod.fileName)}</span>
-                <span>·</span>
-                <span>📦 ${escapeHtml(mod.formattedSize || '')}</span>
+                ${modSize ? `<span>·</span><span>📦 ${escapeHtml(modSize)}</span>` : ''}
               </div>
             </div>
           </div>
@@ -8988,10 +9007,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         card.querySelector('.btn-del-server-mod').addEventListener('click', async (e) => {
           e.stopPropagation();
           const fn = e.currentTarget.getAttribute('data-filename');
-          if (confirm(`¿Eliminar el mod "${fn}" del servidor?`)) {
-            await api.instancePacks.delete({ instancePath: server.serverDir, type: 'mods', fileName: fn });
+          const confirmed = (typeof showConfirmDialog === 'function')
+            ? await showConfirmDialog(`¿Eliminar el mod "${fn}" del servidor?`, 'Eliminar Mod')
+            : confirm(`¿Eliminar el mod "${fn}" del servidor?`);
+          if (confirmed) {
+            await api.mods.delete(fn, server.serverDir);
             appendLog(`[Servers] Mod "${fn}" eliminado del servidor.`, 'info');
             await loadServerMods(id);
+            if (typeof loadDedicatedServers === 'function') await loadDedicatedServers();
           }
         });
 
@@ -9004,7 +9027,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (btnOpenServerModsDir) {
     btnOpenServerModsDir.addEventListener('click', async () => {
-      if (currentSelectedServerId) await api.servers.openFolder(currentSelectedServerId);
+      if (currentSelectedServerId) {
+        const s = localServersCache.find((x) => x.id === currentSelectedServerId);
+        if (s && s.serverDir) {
+          if (api.mods?.openFolder) {
+            await api.mods.openFolder(s.serverDir);
+          } else {
+            await api.servers.openFolder(currentSelectedServerId);
+          }
+        } else {
+          await api.servers.openFolder(currentSelectedServerId);
+        }
+      }
     });
   }
 

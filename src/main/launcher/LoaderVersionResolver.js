@@ -17,7 +17,7 @@ class LoaderVersionResolver {
   static getRecommendedLoaderVersion(mcVersion, loader) {
     const norm = (loader || 'vanilla').toLowerCase().trim();
     if (norm === 'neoforge') {
-      if (mcVersion === '1.21.1') return '21.1.65';
+      if (mcVersion === '1.21.1') return '21.1.265';
       if (mcVersion === '1.20.4') return '20.4.80';
       if (mcVersion === '1.20.1') return '20.1.0';
       return 'latest';

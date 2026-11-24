@@ -113,7 +113,7 @@ console.log(`  Versión recomendada Forge 1.20.1:    ${forge1201}`);
 console.log(`  Versión recomendada NeoForge 1.21.1: ${neoforge1211}`);
 
 assert.strictEqual(forge1201, '47.3.0', 'Forge 1.20.1 debe ser 47.3.0');
-assert.strictEqual(neoforge1211, '21.1.65', 'NeoForge 1.21.1 debe ser 21.1.65');
+assert.strictEqual(neoforge1211, '21.1.265', 'NeoForge 1.21.1 debe ser 21.1.265');
 
 // Verificar creación de launcher_profiles.json dummy obligatorio
 const tempMcRoot = path.join(__dirname, '.test-data', 'mc-dummy-root');

@@ -226,13 +226,23 @@ class ServerInstaller {
    * Instala NeoForge Server ejecutando su instalador oficial con --installServer
    */
   static async _installNeoForgeServer({ serverDir, mcVersion, loaderVersion, javaPath, onProgress }) {
-    const cleanLoader = String(loaderVersion).split(' ')[0].trim();
+    let cleanLoader = String(loaderVersion || '').split(' ')[0].trim();
+    if (!cleanLoader || cleanLoader === 'latest' || cleanLoader === 'recommended') {
+      cleanLoader = LoaderVersionResolver.getRecommendedLoaderVersion(mcVersion, 'neoforge');
+    }
     const runBat = path.join(serverDir, 'run.bat');
     const userJvmArgs = path.join(serverDir, 'user_jvm_args.txt');
 
     if (fs.existsSync(runBat) && fs.existsSync(userJvmArgs)) {
-      logger.info(`[NeoForge Server] Servidor ya instalado en ${serverDir}`);
-      return { serverDir, launchType: 'script', mainFile: 'run.bat' };
+      try {
+        const batContent = fs.readFileSync(runBat, 'utf8');
+        if (batContent.includes(cleanLoader)) {
+          logger.info(`[NeoForge Server] Servidor ya instalado con versión ${cleanLoader} en ${serverDir}`);
+          return { serverDir, launchType: 'script', mainFile: 'run.bat' };
+        } else {
+          logger.info(`[NeoForge Server] Versión en run.bat difiere de la solicitada (${cleanLoader}). Actualizando componentes del servidor...`);
+        }
+      } catch (_) {}
     }
 
     const installerName = `neoforge-${cleanLoader}-installer.jar`;
