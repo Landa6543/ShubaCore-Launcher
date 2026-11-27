@@ -12695,13 +12695,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  function openNewsDetailModal(item) {
+  function localizeNewsItem(item) {
+    if (!item) return item;
+    const isEn = window.i18n?.getLanguage?.() === 'en';
+    if (!isEn) return item;
+    return {
+      ...item,
+      tag: item.tag_en || item.tag,
+      title: item.title_en || item.title,
+      date: item.date_en || item.date,
+      summary: item.summary_en || item.summary,
+      content: item.content_en || item.content,
+      changelog: Array.isArray(item.changelog_en) ? item.changelog_en : item.changelog
+    };
+  }
+
+  function openNewsDetailModal(rawItem) {
+    const item = localizeNewsItem(rawItem);
     if (!item || !modalNewsDetail) return;
+    const isEn = window.i18n?.getLanguage?.() === 'en';
     activeNewsDetailLink = item.link || item.url || null;
 
-    if (newsDetailTitle) newsDetailTitle.textContent = item.title || 'Anuncio';
+    if (newsDetailTitle) newsDetailTitle.textContent = item.title || (isEn ? 'Announcement' : 'Anuncio');
     if (newsDetailBadge) {
-      newsDetailBadge.textContent = item.tag || 'NOVEDAD';
+      newsDetailBadge.textContent = item.tag || (isEn ? 'NEWS' : 'NOVEDAD');
       newsDetailBadge.className = `badge ${item.badgeClass || 'badge-primary'}`;
     }
     if (newsDetailDate) newsDetailDate.textContent = item.date || '';
@@ -12716,9 +12733,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (btnOpenNewsExternalText) {
           try {
             const parsed = new URL(activeNewsDetailLink);
-            btnOpenNewsExternalText.textContent = `Ver en ${parsed.hostname.replace(/^www\./i, '')}`;
+            const host = parsed.hostname.replace(/^www\./i, '');
+            btnOpenNewsExternalText.textContent = isEn ? `View on ${host}` : `Ver en ${host}`;
           } catch (_) {
-            btnOpenNewsExternalText.textContent = 'Abrir en el Navegador';
+            btnOpenNewsExternalText.textContent = isEn ? 'Open in Browser' : 'Abrir en el Navegador';
           }
         }
       } else {
@@ -12785,7 +12803,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       newsFeedList.innerHTML = '';
       applyNewsCollapseState();
 
-      items.forEach((item, index) => {
+      items.forEach((rawItem, index) => {
+        const item = localizeNewsItem(rawItem);
         const card = document.createElement('div');
         card.className = 'news-card';
         card.style.cssText = 'padding: 10px 12px; border-radius: var(--radius-md); background: var(--bg-surface); border: 1px solid var(--border-subtle); display: flex; flex-direction: column; gap: 4px; transition: all 0.2s ease; cursor: pointer;';
@@ -12807,13 +12826,13 @@ document.addEventListener('DOMContentLoaded', async () => {
           btnDetail.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            openNewsDetailModal(item);
+            openNewsDetailModal(rawItem);
           });
         }
 
         card.addEventListener('click', (e) => {
           if (e.target.closest('button') || e.target.closest('a')) return;
-          openNewsDetailModal(item);
+          openNewsDetailModal(rawItem);
         });
 
         newsFeedList.appendChild(card);
