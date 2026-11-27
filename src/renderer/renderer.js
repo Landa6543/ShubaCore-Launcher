@@ -5743,14 +5743,30 @@ document.addEventListener('DOMContentLoaded', async () => {
       btnUpdateAllMods.innerHTML = '<span>Actualizando todos...</span>';
       appendLog(`[Mods] Iniciando actualización en lote de ${activeAvailableUpdates.length} mods...`, 'info');
 
-      // Checkbox preventivo: Crear backup rápido de mundos antes de actualizar mods
+      // Checkbox preventivo: Crear backup completo de mods, configs y mundos antes de actualizar
       const checkBackup = document.getElementById('check-backup-before-update');
-      if (checkBackup && checkBackup.checked && api.worlds) {
-        appendLog(`[Backups] Creando copia de seguridad preventiva de los mundos antes de actualizar...`, 'info');
+      if (checkBackup && checkBackup.checked) {
+        appendLog(`[Backups] Creando punto de restauración preventivo (mods, configs y mundos) antes de actualizar...`, 'info');
         try {
-          const bRes = await api.worlds.backupAll(targetInstance);
-          if (bRes.success && bRes.backedUpCount > 0) {
-            appendLog(`[Backups] ¡${bRes.backedUpCount} mundo(s) respaldados preventivamente en backups/!`, 'success');
+          if (api.snapshots && typeof api.snapshots.create === 'function') {
+            const snapRes = await api.snapshots.create({
+              label: `Auto-Backup antes de actualizar (${activeAvailableUpdates.length} mods)`,
+              includeWorlds: true,
+              isAuto: true
+            }, targetInstance);
+            if (snapRes && snapRes.success) {
+              appendLog(`[Backups] ¡Punto de restauración de seguridad creado con éxito! (${snapRes.snapshot?.sizeFormatted || 'completo'})`, 'success');
+            } else if (api.worlds) {
+              const bRes = await api.worlds.backupAll(targetInstance);
+              if (bRes.success && bRes.backedUpCount > 0) {
+                appendLog(`[Backups] ¡${bRes.backedUpCount} mundo(s) respaldados en backups/!`, 'success');
+              }
+            }
+          } else if (api.worlds) {
+            const bRes = await api.worlds.backupAll(targetInstance);
+            if (bRes.success && bRes.backedUpCount > 0) {
+              appendLog(`[Backups] ¡${bRes.backedUpCount} mundo(s) respaldados en backups/!`, 'success');
+            }
           }
         } catch (bErr) {
           appendLog(`[Backups Aviso] No se pudo completar el backup preventivo: ${bErr.message}`, 'warn');
@@ -13715,6 +13731,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   function initSnapshots() {
     const modalSnapshots = document.getElementById('modal-snapshots');
     const btnOpenSnapshots = document.getElementById('btn-open-snapshots');
+    const btnOpenInstanceBackup = document.getElementById('btn-open-instance-backup');
+    const btnInstanceHeaderBackup = document.getElementById('btn-instance-header-backup');
+    const btnOpenInstanceBackupWorlds = document.getElementById('btn-open-instance-backup-worlds');
     const btnCloseSnapshots = document.getElementById('btn-close-snapshots');
     const btnCloseSnapshotsFooter = document.getElementById('btn-close-snapshots-footer');
     const btnCreateSnapshot = document.getElementById('btn-create-snapshot');
@@ -13722,11 +13741,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     const checkIncludeWorlds = document.getElementById('check-snapshot-include-worlds');
     const snapshotsList = document.getElementById('snapshots-list-container');
 
+    const openSnapshotsModal = () => {
+      if (modalSnapshots) {
+        modalSnapshots.style.display = 'flex';
+        loadSnapshots();
+      }
+    };
+
+    if (btnOpenSnapshots) btnOpenSnapshots.onclick = openSnapshotsModal;
+    if (btnOpenInstanceBackup) btnOpenInstanceBackup.onclick = openSnapshotsModal;
+    if (btnInstanceHeaderBackup) btnInstanceHeaderBackup.onclick = openSnapshotsModal;
+    if (btnOpenInstanceBackupWorlds) btnOpenInstanceBackupWorlds.onclick = openSnapshotsModal;
+
     async function loadSnapshots() {
       if (!snapshotsList) return;
       snapshotsList.innerHTML = '<div style="color: var(--text-dim); padding: 12px; text-align: center;">Cargando respaldos...</div>';
       try {
-        const list = await api.snapshots.list();
+        const targetInst = currentActiveProfile?.instancePath || null;
+        const list = await api.snapshots.list(targetInst);
         if (!list || list.length === 0) {
           snapshotsList.innerHTML = '<div style="color: var(--text-dim); padding: 16px; text-align: center;">No hay puntos de restauración creados aún para esta instancia.</div>';
           return;
@@ -13755,7 +13787,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
           item.querySelector('.btn-restore-snap').onclick = async () => {
             if (confirm(`¿Restaurar el punto "${snap.label}"? Se reemplazarán tus mods actuales por los del respaldo.`)) {
-              const res = await api.snapshots.restore(snap.id);
+              const targetInst = currentActiveProfile?.instancePath || null;
+              const res = await api.snapshots.restore(snap.id, targetInst);
               if (res.success) {
                 showToast(`Punto de restauración "${snap.label}" restaurado con éxito.`, 'success');
                 modalSnapshots.style.display = 'none';
@@ -13768,7 +13801,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
           item.querySelector('.btn-delete-snap').onclick = async () => {
             if (confirm(`¿Eliminar este respaldo (${snap.label})?`)) {
-              await api.snapshots.delete(snap.id);
+              const targetInst = currentActiveProfile?.instancePath || null;
+              await api.snapshots.delete(snap.id, targetInst);
               loadSnapshots();
               showToast('Respaldo eliminado.', 'info');
             }
@@ -13781,12 +13815,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     }
 
-    if (btnOpenSnapshots) {
-      btnOpenSnapshots.onclick = () => {
-        modalSnapshots.style.display = 'flex';
-        loadSnapshots();
-      };
-    }
     if (btnCloseSnapshots) btnCloseSnapshots.onclick = () => modalSnapshots.style.display = 'none';
     if (btnCloseSnapshotsFooter) btnCloseSnapshotsFooter.onclick = () => modalSnapshots.style.display = 'none';
 
@@ -13797,7 +13825,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         btnCreateSnapshot.disabled = true;
         btnCreateSnapshot.textContent = 'Creando respaldo...';
         try {
-          const res = await api.snapshots.create({ label, includeWorlds });
+          const targetInst = currentActiveProfile?.instancePath || null;
+          const res = await api.snapshots.create({ label, includeWorlds }, targetInst);
           if (res.success) {
             showToast(`¡Punto de restauración creado con éxito! (${res.snapshot.sizeFormatted})`, 'success');
             inputSnapshotLabel.value = '';

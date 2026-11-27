@@ -516,6 +516,10 @@
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>
                 <span data-i18n="header.play">JUGAR</span>
               </button>
+              <button id="btn-instance-header-backup" class="btn btn-secondary" title="Puntos de restauración y copias de seguridad de mods, configs y mundos" data-i18n-title="manager.backupHeaderTitle">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                <span data-i18n="manager.backupBtn">💾 Copia de Seguridad</span>
+              </button>
               <div class="instance-options-dropdown-container">
                 <button id="btn-instance-options-dropdown" class="btn btn-secondary" title="Más opciones de la instancia" data-i18n-title="manager.moreOptions">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
@@ -692,13 +696,20 @@
               <span><span data-i18n="manager.updateAll">Actualizar Todos</span> (<span id="updates-available-count">0</span>)</span>
             </button>
 
+            <label class="check-backup-before-update-label" title="Crear automáticamente un punto de restauración antes de actualizar mods" data-i18n-title="manager.backupBeforeUpdateTitle">
+              <input type="checkbox" id="check-backup-before-update" checked>
+              <span data-i18n="manager.backupBeforeUpdate">Auto-backup al actualizar</span>
+            </label>
+
+            <button id="btn-open-instance-backup" class="btn btn-secondary btn-small" title="Crear o restaurar una copia de seguridad (backup) de mods, configs y mundos" data-i18n-title="manager.backupInstanceTitle">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              <span data-i18n="manager.backupBtn">💾 Backup</span>
+            </button>
+
             <button id="btn-add-more-mods" class="btn btn-emerald btn-small" title="Explorar y añadir contenido a esta instancia" data-i18n-title="manager.addMoreModsTitle">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               <span data-i18n="manager.addContent">+ Añadir contenido</span>
             </button>
-
-            <!-- Hidden compatibility hooks -->
-            <input type="checkbox" id="check-backup-before-update" checked style="display: none;">
 
             <div class="view-mode-toggle" role="group" aria-label="Modo de visualización">
               <button id="btn-view-mode-list" class="view-mode-btn active" title="Vista Lista">
@@ -832,6 +843,10 @@
               <button id="btn-backup-all-worlds-top" class="btn btn-secondary btn-small" title="Crea un backup .zip de todas las partidas de esta instancia" data-i18n-title="manager.backupAllWorlds">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                 <span data-i18n="manager.backupAllWorlds">💾 Backup de Todos los Mundos</span>
+              </button>
+              <button id="btn-open-instance-backup-worlds" class="btn btn-secondary btn-small" title="Puntos de restauración y copias de seguridad de toda la instancia (mods, configs y mundos)" data-i18n-title="manager.backupHeaderTitle">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                <span>📸 Backups de Toda la Instancia</span>
               </button>
               <button id="btn-open-worlds-folder" class="btn btn-secondary btn-small" title="Abrir carpeta saves en el explorador" data-i18n-title="manager.openSavesFolder">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>

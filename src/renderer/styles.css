@@ -3813,6 +3813,36 @@ input:checked + .switch-slider:before {
   border-color: var(--border-hover);
 }
 
+.check-backup-before-update-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  color: var(--text-secondary, #94a3b8);
+  cursor: pointer;
+  padding: 5px 10px;
+  border-radius: var(--radius-md, 6px);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  user-select: none;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.check-backup-before-update-label:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: var(--text-primary, #ffffff);
+}
+
+.check-backup-before-update-label input[type="checkbox"] {
+  cursor: pointer;
+  accent-color: var(--accent-emerald, #10b981);
+  width: 13px;
+  height: 13px;
+  margin: 0;
+}
+
 /* ==========================================================================
    VISTA: MIS SERVIDORES DEDICADOS (HOST LOCAL)
    ========================================================================== */
