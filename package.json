@@ -15,6 +15,10 @@
   "build": {
     "appId": "com.shubatech.shubacore",
     "productName": "ShubaCore",
+    "publish": {
+      "provider": "github",
+      "releaseType": "release"
+    },
     "win": {
       "target": [
         "nsis"
